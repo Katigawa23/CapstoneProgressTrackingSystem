@@ -61,7 +61,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Kanban (responsive size) */}
+      {/* Kanban Board*/}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => (
           <Card key={column.id} className="flex min-w-0 flex-col">
