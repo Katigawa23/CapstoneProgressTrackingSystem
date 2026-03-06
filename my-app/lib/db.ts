@@ -27,7 +27,7 @@ function createPool() {
 
   if (!connectionString) {
     throw new Error(
-      "DATABASE_URL is not set. Add your Neon connection string to .env.local and Vercel project settings."
+      "DATABASE_URL is not set. Add your database connection string to .env.local and Vercel project settings."
     )
   }
 
