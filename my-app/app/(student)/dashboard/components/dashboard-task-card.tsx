@@ -1,0 +1,101 @@
+import {
+  CalendarDays,
+  CheckSquare,
+  Link2,
+  MessageSquareMore,
+  MoreHorizontal,
+} from "lucide-react"
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
+import { cardStatusStyles } from "../constants"
+import type { TodoItem } from "../types"
+import { formatDeadline, getInitials } from "../utils"
+
+type Person = {
+  name: string
+  src: string
+}
+
+type DashboardTaskCardProps = {
+  todo: TodoItem
+  people: Person[]
+}
+
+export function DashboardTaskCard({
+  todo,
+  people,
+}: DashboardTaskCardProps) {
+  const statusStyle = cardStatusStyles[todo.status]
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
+      <div className="mb-2 flex items-start justify-between">
+        <span
+          className={`inline-flex items-center rounded-md px-1.5 py-[2px] text-[10px] font-medium ${statusStyle.className}`}
+        >
+          <span className="mr-1 h-1.5 w-1.5 rounded-full bg-current opacity-90" />
+          {statusStyle.label}
+        </span>
+
+        <button className="text-slate-400 hover:text-slate-600" type="button">
+          <MoreHorizontal className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="space-y-1">
+        <h3 className="line-clamp-2 text-xs font-semibold leading-snug text-slate-900">
+          {todo.title}
+        </h3>
+
+        <p className="line-clamp-2 text-[11px] text-slate-500">
+          {todo.description}
+        </p>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <p className="text-[11px] font-medium text-slate-700">Assignees :</p>
+
+        <div className="flex items-center">
+          {people.slice(0, 2).map((person, index) => (
+            <Avatar
+              key={person.name}
+              className={`h-4 w-4 border border-white ${
+                index === 0 ? "" : "-ml-1"
+              }`}
+            >
+              <AvatarImage src={person.src} alt={person.name} />
+              <AvatarFallback className="bg-slate-100 text-[7px] text-slate-600">
+                {getInitials(person.name)}
+              </AvatarFallback>
+            </Avatar>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-2 flex items-center gap-1 text-[11px] text-slate-500">
+        <CalendarDays className="h-3 w-3" />
+        <span>{formatDeadline(todo.deadline)}</span>
+      </div>
+
+      <div className="my-2 h-px bg-slate-200" />
+
+      <div className="flex items-center gap-2 text-[11px] text-slate-500">
+        <div className="flex items-center gap-1">
+          <MessageSquareMore className="h-3 w-3" />
+          <span>{todo.comments}</span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Link2 className="h-3 w-3" />
+          <span>{todo.links}</span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <CheckSquare className="h-3 w-3" />
+          <span>{todo.checklist}</span>
+        </div>
+      </div>
+    </div>
+  )
+}

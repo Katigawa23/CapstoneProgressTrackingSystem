@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       title?: string
       description?: string
       dueDate?: string | null
+      assigneeId?: string | null
       file?: { name?: string; size?: string; type?: string } | null
     }
 
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
       dueDate: body.dueDate ?? null,
       status: "todo",
       checked: false,
+      assigneeId: body.assigneeId ?? null,
       file:
         body.file?.name && body.file.size && body.file.type
           ? {

@@ -1,4 +1,4 @@
-import { ChevronDown, MoreHorizontal, Plus, User } from "lucide-react"
+import { ChevronDown, Plus } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 
 import { type StatusOption, type WorkItem } from "../types"
+import { AssigneeCombobox } from "./assignee-combobox"
+import { ItemActionsMenu } from "./item-actions-menu"
 import { StatusCombobox } from "./status-combobox"
 
 type BacklogBoardProps = {
@@ -14,6 +16,9 @@ type BacklogBoardProps = {
   statusCounts: Array<StatusOption & { count: number }>
   onToggleCheckbox: (id: string, checked: boolean) => void
   onUpdateStatus: (id: string, nextStatus: string) => void
+  onUpdateAssignee: (id: string, assigneeId: string | null) => void
+  onEditItem: (item: WorkItem) => void
+  onDeleteItem: (id: string) => void
   onOpenCreate: () => void
 }
 
@@ -22,6 +27,9 @@ export function BacklogBoard({
   statusCounts,
   onToggleCheckbox,
   onUpdateStatus,
+  onUpdateAssignee,
+  onEditItem,
+  onDeleteItem,
   onOpenCreate,
 }: BacklogBoardProps) {
   return (
@@ -65,7 +73,9 @@ export function BacklogBoard({
               <div className="flex min-w-0 items-center gap-2">
                 <Checkbox
                   checked={item.checked}
-                  onCheckedChange={(checked) => onToggleCheckbox(item.id, !!checked)}
+                  onCheckedChange={(checked) =>
+                    onToggleCheckbox(item.id, !!checked)
+                  }
                   className="h-4 w-4"
                 />
 
@@ -80,16 +90,17 @@ export function BacklogBoard({
                   onChange={(nextStatus) => onUpdateStatus(item.id, nextStatus)}
                 />
 
-                <div className="flex h-7 w-7 items-center justify-center rounded-full border border-black/15">
-                  <User className="h-3.5 w-3.5 text-black/50" />
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-black/60 hover:bg-muted"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
+                <AssigneeCombobox
+                  value={item.assigneeId}
+                  onChange={(assigneeId) =>
+                    onUpdateAssignee(item.id, assigneeId)
+                  }
+                />
+
+                <ItemActionsMenu
+                  onEdit={() => onEditItem(item)}
+                  onDelete={() => onDeleteItem(item.id)}
+                />
               </div>
             </div>
           ))}

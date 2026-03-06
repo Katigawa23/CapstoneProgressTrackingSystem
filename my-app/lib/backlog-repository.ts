@@ -9,6 +9,7 @@ export type BacklogRow = {
   dueDate: string | null
   status: string
   checked: boolean
+  assigneeId: string | null
   file: {
     name: string
     size: string
@@ -23,6 +24,7 @@ type CreateBacklogItemInput = {
   dueDate: string | null
   status: string
   checked: boolean
+  assigneeId: string | null
   file: {
     name: string
     size: string
@@ -37,6 +39,7 @@ type BacklogRecord = {
   due_date: string | null
   status: string
   checked: boolean
+  assignee_id: string | null
   file_name: string | null
   file_size: string | null
   file_type: string | null
@@ -51,6 +54,7 @@ function mapRecord(record: BacklogRecord): BacklogRow {
     dueDate: record.due_date,
     status: record.status,
     checked: record.checked,
+    assigneeId: record.assignee_id,
     file:
       record.file_name && record.file_size && record.file_type
         ? {
@@ -78,6 +82,7 @@ async function ensureBacklogSchema() {
             status in ('todo', 'inprogress', 'inreview', 'revision', 'completed')
           ),
           checked boolean not null default false,
+          assignee_id text,
           file_name text,
           file_size text,
           file_type text,
@@ -85,6 +90,12 @@ async function ensureBacklogSchema() {
           updated_at timestamptz not null default now()
         );
       `)
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists assignee_id text;
+        `)
+      )
       .then(() => undefined)
       .catch((error) => {
         schemaReady = null
@@ -106,6 +117,7 @@ export async function listBacklogItems() {
       due_date,
       status,
       checked,
+      assignee_id,
       file_name,
       file_size,
       file_type,
@@ -128,10 +140,11 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
       due_date,
       status,
       checked,
+      assignee_id,
       file_name,
       file_size,
       file_type
-    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     returning
       id,
       title,
@@ -139,6 +152,7 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
       due_date,
       status,
       checked,
+      assignee_id,
       file_name,
       file_size,
       file_type,
@@ -150,6 +164,7 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
       input.dueDate,
       input.status,
       input.checked,
+      input.assigneeId,
       input.file?.name ?? null,
       input.file?.size ?? null,
       input.file?.type ?? null,
@@ -161,12 +176,28 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
 
 export async function updateBacklogItem(
   id: string,
-  input: { status?: string; checked?: boolean }
+  input: {
+    title?: string
+    description?: string
+    status?: string
+    checked?: boolean
+    assigneeId?: string | null
+  }
 ) {
   await ensureBacklogSchema()
 
   const fields: string[] = []
-  const values: Array<string | boolean> = []
+  const values: Array<string | boolean | null> = []
+
+  if (typeof input.title === "string") {
+    fields.push(`title = $${fields.length + 1}`)
+    values.push(input.title)
+  }
+
+  if (typeof input.description === "string") {
+    fields.push(`description = $${fields.length + 1}`)
+    values.push(input.description)
+  }
 
   if (typeof input.status === "string") {
     fields.push(`status = $${fields.length + 1}`)
@@ -176,6 +207,11 @@ export async function updateBacklogItem(
   if (typeof input.checked === "boolean") {
     fields.push(`checked = $${fields.length + 1}`)
     values.push(input.checked)
+  }
+
+  if ("assigneeId" in input) {
+    fields.push(`assignee_id = $${fields.length + 1}`)
+    values.push(input.assigneeId ?? null)
   }
 
   if (fields.length === 0) {
@@ -196,6 +232,7 @@ export async function updateBacklogItem(
       due_date,
       status,
       checked,
+      assignee_id,
       file_name,
       file_size,
       file_type,
@@ -204,4 +241,17 @@ export async function updateBacklogItem(
   )
 
   return result.rows[0] ? mapRecord(result.rows[0]) : null
+}
+
+export async function deleteBacklogItem(id: string) {
+  await ensureBacklogSchema()
+
+  const result = await getDb().query<{ id: string }>(
+    `delete from backlog_items
+    where id = $1
+    returning id`,
+    [id]
+  )
+
+  return result.rowCount > 0
 }

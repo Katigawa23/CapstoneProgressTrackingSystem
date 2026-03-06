@@ -4,6 +4,7 @@ import * as React from "react"
 import { BacklogBoard } from "./components/backlog-board"
 import { BacklogToolbar } from "./components/backlog-toolbar"
 import { CreateWorkItemDialog } from "./components/create-work-item-dialog"
+import { EditWorkItemDialog } from "./components/edit-work-item-dialog"
 import { statusOptions, type UploadItem, type WorkItem } from "./types"
 
 type BacklogApiItem = {
@@ -14,6 +15,7 @@ type BacklogApiItem = {
   status: string
   checked: boolean
   file: UploadItem | null
+  assigneeId?: string | null
 }
 
 function mapApiItem(item: BacklogApiItem): WorkItem {
@@ -25,6 +27,7 @@ function mapApiItem(item: BacklogApiItem): WorkItem {
     status: item.status,
     checked: item.checked,
     file: item.file,
+    assigneeId: item.assigneeId ?? null,
   }
 }
 
@@ -33,11 +36,14 @@ export default function BacklogPage() {
   const [title, setTitle] = React.useState("")
   const [dueDate, setDueDate] = React.useState<Date | undefined>()
   const [description, setDescription] = React.useState("")
-  const [uploadedFile, setUploadedFile] = React.useState<UploadItem | null>(
-    null
-  )
+  const [uploadedFile, setUploadedFile] = React.useState<UploadItem | null>(null)
 
   const [items, setItems] = React.useState<WorkItem[]>([])
+
+  const [editOpen, setEditOpen] = React.useState(false)
+  const [editingItemId, setEditingItemId] = React.useState<string | null>(null)
+  const [editTitle, setEditTitle] = React.useState("")
+  const [editDescription, setEditDescription] = React.useState("")
 
   React.useEffect(() => {
     let cancelled = false
@@ -109,6 +115,7 @@ export default function BacklogPage() {
           description: description.trim(),
           dueDate: dueDate ? dueDate.toISOString().slice(0, 10) : null,
           file: uploadedFile,
+          assigneeId: null,
         }),
       })
 
@@ -149,7 +156,9 @@ export default function BacklogPage() {
   }
 
   const toggleCheckbox = async (id: string, checked: boolean) => {
-    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, checked } : item)))
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, checked } : item))
+    )
 
     try {
       const response = await fetch(`/api/backlog-items/${id}`, {
@@ -168,6 +177,93 @@ export default function BacklogPage() {
     }
   }
 
+  const updateItemAssignee = async (id: string, assigneeId: string | null) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, assigneeId } : item))
+    )
+
+    try {
+      const response = await fetch(`/api/backlog-items/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ assigneeId }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update backlog item assignee")
+      }
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const handleOpenEdit = (item: WorkItem) => {
+    setEditingItemId(item.id)
+    setEditTitle(item.title)
+    setEditDescription(item.description)
+    setEditOpen(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingItemId || !editTitle.trim()) return
+
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === editingItemId
+          ? {
+              ...item,
+              title: editTitle.trim(),
+              description: editDescription.trim(),
+            }
+          : item
+      )
+    )
+
+    try {
+      const response = await fetch(`/api/backlog-items/${editingItemId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update backlog item")
+      }
+
+      setEditOpen(false)
+      setEditingItemId(null)
+      setEditTitle("")
+      setEditDescription("")
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const handleDeleteItem = async (id: string) => {
+    const previousItems = items
+    setItems((prev) => prev.filter((item) => item.id !== id))
+
+    try {
+      const response = await fetch(`/api/backlog-items/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete backlog item")
+      }
+    } catch (error) {
+      console.error(error)
+      setItems(previousItems)
+    }
+  }
+
   const statusCounts = statusOptions.map((status) => ({
     ...status,
     count: items.filter((item) => item.status === status.value).length,
@@ -182,6 +278,9 @@ export default function BacklogPage() {
         statusCounts={statusCounts}
         onToggleCheckbox={toggleCheckbox}
         onUpdateStatus={updateItemStatus}
+        onUpdateAssignee={updateItemAssignee}
+        onEditItem={handleOpenEdit}
+        onDeleteItem={handleDeleteItem}
         onOpenCreate={() => setOpen(true)}
       />
 
@@ -198,6 +297,16 @@ export default function BacklogPage() {
         onFileChange={handleFileChange}
         onRemoveFile={removeFile}
         onAddItem={handleAddItem}
+      />
+
+      <EditWorkItemDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title={editTitle}
+        description={editDescription}
+        onTitleChange={setEditTitle}
+        onDescriptionChange={setEditDescription}
+        onSave={handleSaveEdit}
       />
     </div>
   )

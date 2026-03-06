@@ -10,6 +10,13 @@ export type StatusOption = {
   color: string
 }
 
+export type AssigneeOption = {
+  id: string
+  name: string
+  email?: string
+  initials?: string
+}
+
 export type WorkItem = {
   id: string
   title: string
@@ -18,6 +25,7 @@ export type WorkItem = {
   status: string
   checked: boolean
   file: UploadItem | null
+  assigneeId?: string | null
 }
 
 export const statusOptions: StatusOption[] = [
@@ -48,6 +56,20 @@ export const statusOptions: StatusOption[] = [
   },
 ]
 
+export const assigneeOptions: AssigneeOption[] = [
+  {
+    id: "kerby",
+    name: "Kerby Bryan Morte (Assign to me)",
+    email: "kerbybryanm@gmail.com",
+    initials: "KM",
+  },
+]
+
 export function getStatusOption(value: string) {
   return statusOptions.find((option) => option.value === value) ?? statusOptions[0]
+}
+
+export function getAssigneeOption(value?: string | null) {
+  if (!value) return null
+  return assigneeOptions.find((option) => option.id === value) ?? null
 }
