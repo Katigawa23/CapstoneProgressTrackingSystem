@@ -7,18 +7,20 @@ declare global {
 function createPool() {
   const connectionString = process.env.DATABASE_URL
 
-  return new Pool({
-    connectionString,
-  })
-}
-
-export function getDb() {
-  const connectionString = process.env.DATABASE_URL
-
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set")
   }
 
+  return new Pool({
+    connectionString,
+    ssl:
+      process.env.NODE_ENV === "production"
+        ? { rejectUnauthorized: false }
+        : false,
+  })
+}
+
+export function getDb() {
   const pool = global.__backlogPool ?? createPool()
 
   if (process.env.NODE_ENV !== "production") {
