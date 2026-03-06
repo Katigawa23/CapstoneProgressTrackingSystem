@@ -1,9 +1,11 @@
 "use client"
 
+import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search } from "lucide-react"
+import { getTodos, subscribeTodos, type TodoItem } from "@/lib/todo-store"
 
 type ColumnId = "todo" | "inprogress" | "revision" | "completed"
 
@@ -22,6 +24,16 @@ const people = [
 ]
 
 export default function DashboardPage() {
+  const [todos, setTodos] = React.useState<TodoItem[]>([])
+
+  React.useEffect(() => {
+    setTodos(getTodos())
+
+    return subscribeTodos(() => {
+      setTodos(getTodos())
+    })
+  }, [])
+
   return (
     <div className="w-full min-w-0 space-y-6">
       {/* Header */}
@@ -75,13 +87,33 @@ export default function DashboardPage() {
             <CardContent className="p-3 pt-0">
               <div
                 className="
-                  rounded-md border border-dashed bg-muted/10
+                  rounded-md border border-dashed bg-muted/10 p-3
                   min-h-[220px]
                   sm:min-h-[320px]
                   lg:min-h-[420px]
                   xl:min-h-[520px]
                 "
-              />
+              >
+                <div className="space-y-3">
+                  {todos
+                    .filter((todo) => todo.status === column.id)
+                    .map((todo) => (
+                      <div key={todo.id} className="rounded-md border bg-card p-3">
+                        <p className="text-sm font-medium">{todo.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {todo.assignee ? `Assigned: ${todo.assignee}` : "Unassigned"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {todo.deadline ? `Due: ${todo.deadline}` : "No deadline"}
+                        </p>
+                      </div>
+                    ))}
+
+                  {todos.filter((todo) => todo.status === column.id).length === 0 && (
+                    <p className="text-xs text-muted-foreground">No tasks in this column.</p>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         ))}

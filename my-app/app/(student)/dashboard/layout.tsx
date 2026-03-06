@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Bell } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
@@ -18,6 +19,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { RoleProvider } from "@/lib/role-context"
+import { canAccessPath, isUserRole, roleLabels, type UserRole } from "@/lib/rbac"
+
+const ROLE_STORAGE_KEY = "dashboard-role"
 
 function ProfileMenu() {
   return (
@@ -31,7 +36,7 @@ function ProfileMenu() {
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
@@ -53,47 +58,64 @@ function ProfileMenu() {
   )
 }
 
+function AccessDenied({ role }: { role: UserRole }) {
+  return (
+    <div className="rounded-lg border bg-card p-6">
+      <h2 className="text-lg font-semibold">Access denied</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        The {roleLabels[role]} role cannot open this page. Go back to the landing page and choose the
+        correct role, or update permissions in{" "}
+        <code className="rounded bg-muted px-1 py-0.5">lib/rbac.ts</code>.
+      </p>
+    </div>
+  )
+}
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+  const [role, setRole] = React.useState<UserRole>("student")
+
+  React.useEffect(() => {
+    const savedRole = window.localStorage.getItem(ROLE_STORAGE_KEY)
+
+    if (isUserRole(savedRole)) {
+      setRole(savedRole)
+    }
+  }, [])
+
+  const hasAccess = canAccessPath(role, pathname)
+
   return (
-    <SidebarProvider>
+    <RoleProvider role={role}>
+      <SidebarProvider>
+        <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center border-b bg-background px-4">
+          <SidebarTrigger />
 
-      {/* Top nav */}
-      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center border-b bg-background px-4">
+          <div className="ml-2 text-sm text-muted-foreground">Progress Tracking</div>
 
-        <SidebarTrigger />
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden rounded-full border px-2 py-1 text-xs font-medium text-muted-foreground sm:block">
+              Role: {roleLabels[role]}
+            </div>
 
-        <div className="ml-2 text-sm text-muted-foreground">
-          Progress Tracking
-        </div>
+            <Button variant="ghost" size="icon" aria-label="Notifications">
+              <Bell className="h-5 w-5" />
+            </Button>
 
-        {/* Right side */}
-        <div className="ml-auto flex items-center gap-2">
+            <ProfileMenu />
+          </div>
+        </header>
 
-          {/* Notification */}
-          <Button variant="ghost" size="icon" aria-label="Notifications">
-            <Bell className="h-5 w-5" />
-          </Button>
+        <AppSidebar role={role} />
 
-          {/* Profile */}
-          <ProfileMenu />
-
-        </div>
-      </header>
-
-      {/* Sidebar */}
-      <AppSidebar />
-
-      {/* Content */}
-      <SidebarInset className="pt-14">
-        <main className="min-w-0 p-4 sm:p-6">
-          {children}
-        </main>
-      </SidebarInset>
-
-    </SidebarProvider>
+        <SidebarInset className="pt-14">
+          <main className="min-w-0 p-4 sm:p-6">{hasAccess ? children : <AccessDenied role={role} />}</main>
+        </SidebarInset>
+      </SidebarProvider>
+    </RoleProvider>
   )
 }

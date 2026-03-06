@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { History, Milestone, Notebook, Map, FolderSync, FilePen} from "lucide-react"
+import { History, Milestone, Map, FolderSync, FilePen, Rows3 } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -25,31 +25,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
-import {
-  ChevronsUpDown,
-  LayoutDashboard,
-  BookOpen,
-  Star,
-  Settings,
-  Users,
-  Home,
-  Folder,
-} from "lucide-react"
-import clsx from "clsx"
+import { ChevronsUpDown, LayoutDashboard, BookOpen, Users, Folder } from "lucide-react"
+import { canAccessPath, type UserRole } from "@/lib/rbac"
 
 type NavItem = { title: string; href: string; icon?: React.ElementType }
 
 const projectItems: NavItem[] = [
   { title: "Board", href: "/dashboard", icon: LayoutDashboard },
   { title: "Roadmap", href: "/dashboard/roadmap", icon: Map },
-  { title: "To-do", href: "/dashboard/todo", icon: Notebook },
+  { title: "Backlog", href: "/dashboard/backlog", icon: Rows3},
   { title: "Revisions", href: "/dashboard/revisions", icon: FilePen },
 ]
 
 const documentationItems: NavItem[] = [
   { title: "Weekly Journal", href: "/dashboard/journal", icon: BookOpen },
   { title: "Milestones", href: "/dashboard/milestones", icon: Milestone },
-  { title: "Backlog", href: "/dashboard/backlog", icon: FolderSync },
   { title: "History", href: "/dashboard/history", icon: History },
 ]
 
@@ -72,20 +62,15 @@ function TeamSwitcher() {
             group-data-[collapsible=icon]:px-0
           "
         >
-          {/* Logo */}
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl  bg-[#2972b6] shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2972b6] shadow-sm">
             <Folder className="h-5 w-5 text-white" />
           </div>
 
-          {/* Text (hidden when collapsed) */}
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <div className="truncate text-sm font-semibold">{team}</div>
-            <div className="truncate text-xs text-muted-foreground">
-              Enterprise
-            </div>
+            <div className="truncate text-xs text-muted-foreground">Enterprise</div>
           </div>
 
-          {/* Caret (hidden when collapsed) */}
           <ChevronsUpDown className="h-4 w-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
         </button>
       </DropdownMenuTrigger>
@@ -123,12 +108,17 @@ function NavList({ items }: { items: NavItem[] }) {
   )
 }
 
-export function AppSidebar() {
+function filterItemsByRole(items: NavItem[], role: UserRole) {
+  return items.filter((item) => canAccessPath(role, item.href))
+}
+
+export function AppSidebar({ role }: { role: UserRole }) {
+  const visibleProjectItems = filterItemsByRole(projectItems, role)
+  const visibleDocumentationItems = filterItemsByRole(documentationItems, role)
+  const visibleGroupItems = filterItemsByRole(groupItems, role)
+
   return (
-    <Sidebar
-      collapsible="icon"
-      className="top-14 h-[calc(100vh-56px)]" // ✅ push down under navbar
-    >
+    <Sidebar collapsible="icon" className="top-14 h-[calc(100vh-56px)]">
       <SidebarHeader className="px-2 pt-2">
         <TeamSwitcher />
       </SidebarHeader>
@@ -137,7 +127,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Project</SidebarGroupLabel>
           <SidebarGroupContent>
-            <NavList items={projectItems} />
+            <NavList items={visibleProjectItems} />
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -146,7 +136,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Documentation</SidebarGroupLabel>
           <SidebarGroupContent>
-            <NavList items={documentationItems} />
+            <NavList items={visibleDocumentationItems} />
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -155,7 +145,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Groups</SidebarGroupLabel>
           <SidebarGroupContent>
-            <NavList items={groupItems} />
+            <NavList items={visibleGroupItems} />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
