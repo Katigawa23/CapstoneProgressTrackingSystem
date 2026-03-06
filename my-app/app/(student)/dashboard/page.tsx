@@ -5,9 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search } from "lucide-react"
-import { getTodos, subscribeTodos, type TodoItem } from "@/lib/todo-store"
 
 type ColumnId = "todo" | "inprogress" | "revision" | "completed"
+
+type TodoItem = {
+  id: string
+  title: string
+  assignee: string
+  deadline: string
+  status: ColumnId
+}
+
+type BacklogApiItem = {
+  id: string
+  title: string
+  dueDate: string | null
+  status: string
+}
 
 const columns: { id: ColumnId; title: string; color: string }[] = [
   { id: "todo", title: "To-do", color: "bg-blue-500" },
@@ -27,11 +41,47 @@ export default function DashboardPage() {
   const [todos, setTodos] = React.useState<TodoItem[]>([])
 
   React.useEffect(() => {
-    setTodos(getTodos())
+    let cancelled = false
 
-    return subscribeTodos(() => {
-      setTodos(getTodos())
-    })
+    async function loadTodos() {
+      try {
+        const response = await fetch("/api/backlog-items", { cache: "no-store" })
+
+        if (!response.ok) {
+          throw new Error("Failed to load backlog items")
+        }
+
+        const data = (await response.json()) as { items: BacklogApiItem[] }
+
+        if (!cancelled) {
+          setTodos(
+            data.items
+              .filter(
+                (item): item is BacklogApiItem & { status: ColumnId } =>
+                  item.status === "todo" ||
+                  item.status === "inprogress" ||
+                  item.status === "revision" ||
+                  item.status === "completed"
+              )
+              .map((item) => ({
+                id: item.id,
+                title: item.title,
+                assignee: "",
+                deadline: item.dueDate ?? "",
+                status: item.status,
+              }))
+          )
+        }
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    void loadTodos()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return (

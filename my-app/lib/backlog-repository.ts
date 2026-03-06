@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto"
 
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 
 export type BacklogRow = {
   id: string
@@ -63,8 +63,42 @@ function mapRecord(record: BacklogRecord): BacklogRow {
   }
 }
 
+let schemaReady: Promise<void> | null = null
+
+async function ensureBacklogSchema() {
+  if (!schemaReady) {
+    schemaReady = getDb()
+      .query(`
+        create table if not exists backlog_items (
+          id uuid primary key,
+          title text not null,
+          description text not null default '',
+          due_date date,
+          status text not null check (
+            status in ('todo', 'inprogress', 'inreview', 'revision', 'completed')
+          ),
+          checked boolean not null default false,
+          file_name text,
+          file_size text,
+          file_type text,
+          created_at timestamptz not null default now(),
+          updated_at timestamptz not null default now()
+        );
+      `)
+      .then(() => undefined)
+      .catch((error) => {
+        schemaReady = null
+        throw error
+      })
+  }
+
+  await schemaReady
+}
+
 export async function listBacklogItems() {
-  const result = await db.query<BacklogRecord>(
+  await ensureBacklogSchema()
+
+  const result = await getDb().query<BacklogRecord>(
     `select
       id,
       title,
@@ -84,7 +118,9 @@ export async function listBacklogItems() {
 }
 
 export async function createBacklogItem(input: CreateBacklogItemInput) {
-  const result = await db.query<BacklogRecord>(
+  await ensureBacklogSchema()
+
+  const result = await getDb().query<BacklogRecord>(
     `insert into backlog_items (
       id,
       title,
@@ -127,6 +163,8 @@ export async function updateBacklogItem(
   id: string,
   input: { status?: string; checked?: boolean }
 ) {
+  await ensureBacklogSchema()
+
   const fields: string[] = []
   const values: Array<string | boolean> = []
 
@@ -147,7 +185,7 @@ export async function updateBacklogItem(
   fields.push(`updated_at = now()`)
   values.push(id)
 
-  const result = await db.query<BacklogRecord>(
+  const result = await getDb().query<BacklogRecord>(
     `update backlog_items
     set ${fields.join(", ")}
     where id = $${values.length}
