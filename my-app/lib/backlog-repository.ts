@@ -253,5 +253,5 @@ export async function deleteBacklogItem(id: string) {
     [id]
   )
 
-  return result.rowCount > 0
+  return (result.rowCount ?? 0) > 0
 }
