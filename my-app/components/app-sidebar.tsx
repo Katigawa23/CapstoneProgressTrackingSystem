@@ -68,7 +68,7 @@ function TeamSwitcher() {
 
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <div className="truncate text-sm font-semibold">{team}</div>
-            <div className="truncate text-xs text-muted-foreground">Enterprise</div>
+            <div className="truncate text-xs text-muted-foreground">Project</div>
           </div>
 
           <ChevronsUpDown className="h-4 w-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />

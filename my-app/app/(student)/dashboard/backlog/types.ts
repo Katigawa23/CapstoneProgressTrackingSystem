@@ -40,11 +40,6 @@ export const statusOptions: StatusOption[] = [
     color: "border-yellow-200 bg-yellow-100 text-yellow-700",
   },
   {
-    value: "inreview",
-    label: "In Review",
-    color: "border-purple-200 bg-purple-100 text-purple-700",
-  },
-  {
     value: "revision",
     label: "Revision",
     color: "border-orange-200 bg-orange-100 text-orange-700",

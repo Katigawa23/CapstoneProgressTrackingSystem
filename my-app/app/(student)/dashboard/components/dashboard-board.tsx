@@ -24,7 +24,7 @@ export function DashboardBoard({ todos, people }: DashboardBoardProps) {
           <Card key={column.id} className="flex min-w-0 flex-col rounded-xl">
             <CardHeader className="px-3 pb-2 pt-3">
               <CardTitle className="flex items-center gap-1.5 text-[11px] font-semibold">
-                <span className={`h-2.5 w-2.5 rounded-full ${column.color}`} />
+                <span className={`h-2 w-2 rounded-full ${column.color}`} />
                 <span className="truncate">{column.title}</span>
               </CardTitle>
             </CardHeader>

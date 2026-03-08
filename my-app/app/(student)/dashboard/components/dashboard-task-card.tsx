@@ -47,10 +47,6 @@ export function DashboardTaskCard({
         <h3 className="line-clamp-2 text-xs font-semibold leading-snug text-slate-900">
           {todo.title}
         </h3>
-
-        <p className="line-clamp-2 text-[11px] text-slate-500">
-          {todo.description}
-        </p>
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-3">
@@ -81,20 +77,15 @@ export function DashboardTaskCard({
       <div className="my-2 h-px bg-slate-200" />
 
       <div className="flex items-center gap-2 text-[11px] text-slate-500">
-        <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-sm transition hover:text-slate-700"
+          aria-label={`Open comments for ${todo.title}`}
+        >
           <MessageSquareMore className="h-3 w-3" />
           <span>{todo.comments}</span>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Link2 className="h-3 w-3" />
-          <span>{todo.links}</span>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <CheckSquare className="h-3 w-3" />
-          <span>{todo.checklist}</span>
-        </div>
+        </button>
+        
       </div>
     </div>
   )
