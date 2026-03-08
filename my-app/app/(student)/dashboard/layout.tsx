@@ -93,9 +93,8 @@ export default function DashboardLayout({
     <RoleProvider role={role}>
       <SidebarProvider>
         <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center border-b bg-background px-4">
-          <SidebarTrigger />
-
-          <div className="ml-2 text-sm text-muted-foreground">Progress Tracking</div>
+          <SidebarTrigger className="mr-2 md:hidden" />
+          <div className="text-sm text-muted-foreground">Progress Tracking</div>
 
           <div className="ml-auto flex items-center gap-2">
             <div className="hidden rounded-full border px-2 py-1 text-xs font-medium text-muted-foreground sm:block">
@@ -112,8 +111,10 @@ export default function DashboardLayout({
 
         <AppSidebar role={role} />
 
-        <SidebarInset className="pt-14">
-          <main className="min-w-0 p-4 sm:p-6">{hasAccess ? children : <AccessDenied role={role} />}</main>
+        <SidebarInset className="h-svh overflow-hidden pt-14">
+          <main className="flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-6">
+            {hasAccess ? children : <AccessDenied role={role} />}
+          </main>
         </SidebarInset>
       </SidebarProvider>
     </RoleProvider>

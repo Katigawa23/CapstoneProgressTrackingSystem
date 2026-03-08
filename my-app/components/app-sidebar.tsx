@@ -7,6 +7,7 @@ import { History, Milestone, Map, FolderSync, FilePen, Rows3 } from "lucide-reac
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -15,6 +16,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarTrigger,
 } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
@@ -52,35 +54,38 @@ function TeamSwitcher() {
   const [team] = React.useState("MyApp")
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className="
-            group flex w-full items-center gap-3 rounded-lg px-2 py-2
-            text-left hover:bg-muted/60
-            group-data-[collapsible=icon]:justify-center
-            group-data-[collapsible=icon]:px-0
-          "
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2972b6] shadow-sm">
-            <Folder className="h-5 w-5 text-white" />
-          </div>
+    <div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="
+              group flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2
+              text-left hover:bg-muted/60
+              group-data-[collapsible=icon]:size-10 group-data-[collapsible=icon]:flex-none
+              group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-xl
+              group-data-[collapsible=icon]:px-0
+            "
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2972b6] shadow-sm">
+              <Folder className="h-5 w-5 text-white" />
+            </div>
 
-          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-            <div className="truncate text-sm font-semibold">{team}</div>
-            <div className="truncate text-xs text-muted-foreground">Project</div>
-          </div>
+            <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+              <div className="truncate text-sm font-semibold">{team}</div>
+              <div className="truncate text-xs text-muted-foreground">Project</div>
+            </div>
 
-          <ChevronsUpDown className="h-4 w-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
-        </button>
-      </DropdownMenuTrigger>
+            <ChevronsUpDown className="h-4 w-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+          </button>
+        </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel>Project</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem>Manuscript</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuLabel>Project</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>Manuscript</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }
 
@@ -119,7 +124,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
 
   return (
     <Sidebar collapsible="icon" className="top-14 h-[calc(100vh-56px)]">
-      <SidebarHeader className="px-2 pt-2">
+      <SidebarHeader className="px-1 pt-2">
         <TeamSwitcher />
       </SidebarHeader>
 
@@ -149,6 +154,10 @@ export function AppSidebar({ role }: { role: UserRole }) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="hidden px-2 pb-2 pt-0 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5">
+        <SidebarTrigger className="h-9 w-full justify-start px-2 text-muted-foreground hover:bg-muted hover:text-foreground group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>

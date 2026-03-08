@@ -11,6 +11,17 @@ import { mapBacklogItemsToTodos } from "./utils"
 export default function DashboardPage() {
   const [todos, setTodos] = React.useState<TodoItem[]>([])
 
+  const handleStatusChange = React.useCallback(
+    (todoId: string, nextStatus: TodoItem["status"]) => {
+      setTodos((currentTodos) =>
+        currentTodos.map((todo) =>
+          todo.id === todoId ? { ...todo, status: nextStatus } : todo
+        )
+      )
+    },
+    []
+  )
+
   React.useEffect(() => {
     let cancelled = false
 
@@ -40,9 +51,13 @@ export default function DashboardPage() {
   }, [])
 
   return (
-    <div className="w-full min-w-0 space-y-4">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
       <DashboardHeader people={people} />
-      <DashboardBoard todos={todos} people={people} />
+      <DashboardBoard
+        todos={todos}
+        people={people}
+        onStatusChange={handleStatusChange}
+      />
     </div>
   )
 }
