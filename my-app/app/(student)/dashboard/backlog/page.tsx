@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { buildApiUrl } from "@/lib/api"
 import { BacklogBoard } from "./components/backlog-board"
 import { BacklogToolbar } from "./components/backlog-toolbar"
 import { CreateWorkItemDialog } from "./components/create-work-item-dialog"
@@ -50,7 +51,9 @@ export default function BacklogPage() {
 
     async function loadItems() {
       try {
-        const response = await fetch("/api/backlog-items", { cache: "no-store" })
+        const response = await fetch(buildApiUrl("/api/backlog-items"), {
+          cache: "no-store",
+        })
 
         if (!response.ok) {
           throw new Error("Failed to load backlog items")
@@ -105,7 +108,7 @@ export default function BacklogPage() {
     if (!title.trim()) return
 
     try {
-      const response = await fetch("/api/backlog-items", {
+      const response = await fetch(buildApiUrl("/api/backlog-items"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,7 +142,7 @@ export default function BacklogPage() {
     )
 
     try {
-      const response = await fetch(`/api/backlog-items/${id}`, {
+      const response = await fetch(buildApiUrl(`/api/backlog-items/${id}`), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -161,7 +164,7 @@ export default function BacklogPage() {
     )
 
     try {
-      const response = await fetch(`/api/backlog-items/${id}`, {
+      const response = await fetch(buildApiUrl(`/api/backlog-items/${id}`), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -183,7 +186,7 @@ export default function BacklogPage() {
     )
 
     try {
-      const response = await fetch(`/api/backlog-items/${id}`, {
+      const response = await fetch(buildApiUrl(`/api/backlog-items/${id}`), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -222,16 +225,19 @@ export default function BacklogPage() {
     )
 
     try {
-      const response = await fetch(`/api/backlog-items/${editingItemId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: editTitle.trim(),
-          description: editDescription.trim(),
-        }),
-      })
+      const response = await fetch(
+        buildApiUrl(`/api/backlog-items/${editingItemId}`),
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: editTitle.trim(),
+            description: editDescription.trim(),
+          }),
+        }
+      )
 
       if (!response.ok) {
         throw new Error("Failed to update backlog item")
@@ -251,7 +257,7 @@ export default function BacklogPage() {
     setItems((prev) => prev.filter((item) => item.id !== id))
 
     try {
-      const response = await fetch(`/api/backlog-items/${id}`, {
+      const response = await fetch(buildApiUrl(`/api/backlog-items/${id}`), {
         method: "DELETE",
       })
 

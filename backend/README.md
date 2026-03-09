@@ -1,14 +1,25 @@
 # Backend
 
-This folder is a separate Node.js backend for the project.
+Separate Node.js backend for the capstone system.
 
-## Start the backend
+## Structure
+
+- `src/config`: environment and database configuration
+- `src/repositories`: data access layer
+- `src/routes`: HTTP route handlers
+- `src/server.js`: backend entry point
+
+## Setup
+
+1. Install dependencies:
 
 ```bash
-npm start
+npm install
 ```
 
-## Run in development mode
+2. Create `backend/.env` from `backend/.env.example`
+
+3. Start the backend:
 
 ```bash
 npm run dev
@@ -16,12 +27,15 @@ npm run dev
 
 The backend runs on `http://localhost:4000` by default.
 
-## Test routes
+## API
 
-- `GET /`
 - `GET /api/health`
+- `GET /api/backlog-items`
+- `POST /api/backlog-items`
+- `PATCH /api/backlog-items/:id`
+- `DELETE /api/backlog-items/:id`
 
-## Project structure
+## Notes
 
-- `server.js`: backend entry point
-- `package.json`: backend scripts
+- In development, the repository falls back to `.data/backlog-items.json` if PostgreSQL is unavailable.
+- Set `FRONTEND_ORIGIN` to your Next.js frontend URL for CORS.
