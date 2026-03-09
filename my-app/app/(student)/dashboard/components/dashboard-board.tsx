@@ -1,4 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { columns } from "../constants"
@@ -16,60 +23,121 @@ type DashboardBoardProps = {
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
 }
 
+function DashboardColumn({
+  column,
+  todos,
+  people,
+  onStatusChange,
+  className = "",
+  scrollAreaClassName,
+}: {
+  column: (typeof columns)[number]
+  todos: TodoItem[]
+  people: Person[]
+  onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
+  className?: string
+  scrollAreaClassName?: string
+}) {
+  const hasTodos = todos.length > 0
+
+  return (
+    <Card className={`flex min-h-0 min-w-0 flex-col rounded-xl ${className}`}>
+      <CardHeader className="px-3 pb-2 pt-3">
+        <CardTitle className="flex items-center gap-1.5 text-[11px] font-semibold">
+          <span className={`h-2 w-2 rounded-full ${column.color}`} />
+          <span className="truncate">{column.title}</span>
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="flex min-h-0 flex-1 p-2 pt-0">
+        <ScrollArea
+          className={
+            scrollAreaClassName ??
+            (hasTodos
+              ? `
+                  w-full max-h-[180px]
+                  sm:max-h-[260px]
+                  lg:max-h-[340px]
+                  xl:max-h-[420px]
+                `
+              : "min-h-[170px] max-h-[170px] w-full")
+          }
+        >
+          <div className="space-y-2 p-0.5 pr-2">
+            {todos.map((todo) => (
+              <DashboardTaskCard
+                key={todo.id}
+                todo={todo}
+                people={people}
+                onStatusChange={onStatusChange}
+              />
+            ))}
+
+            {todos.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No tasks in this column.
+              </p>
+            )}
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function DashboardBoard({
   todos,
   people,
   onStatusChange,
 }: DashboardBoardProps) {
   return (
-    <div className="grid min-h-0 flex-1 items-start grid-cols-1 gap-3 overflow-hidden sm:grid-cols-2 xl:grid-cols-4">
-      {columns.map((column) => {
-        const columnTodos = todos.filter((todo) => todo.status === column.id)
-        const hasTodos = columnTodos.length > 0
+    <>
+      <Carousel
+        opts={{ align: "start" }}
+        className="w-full px-6 md:hidden"
+      >
+        <CarouselContent>
+          {columns.map((column) => {
+            const columnTodos = todos.filter((todo) => todo.status === column.id)
+            const hasTodos = columnTodos.length > 0
 
-        return (
-          <Card key={column.id} className="flex min-h-0 min-w-0 flex-col rounded-xl">
-            <CardHeader className="px-3 pb-2 pt-3">
-              <CardTitle className="flex items-center gap-1.5 text-[11px] font-semibold">
-                <span className={`h-2 w-2 rounded-full ${column.color}`} />
-                <span className="truncate">{column.title}</span>
-              </CardTitle>
-            </CardHeader>
+            return (
+              <CarouselItem key={column.id}>
+                <DashboardColumn
+                  column={column}
+                  todos={columnTodos}
+                  people={people}
+                  onStatusChange={onStatusChange}
+                  className="h-full"
+                  scrollAreaClassName={
+                    hasTodos
+                      ? "w-full max-h-[min(58vh,420px)]"
+                      : "min-h-[240px] max-h-[240px] w-full"
+                  }
+                />
+              </CarouselItem>
+            )
+          })}
+        </CarouselContent>
+        <CarouselPrevious className="left-0 top-1/2 size-6 border-border bg-background/95" />
+        <CarouselNext className="right-0 top-1/2 size-6 border-border bg-background/95" />
+      </Carousel>
 
-            <CardContent className="flex min-h-0 flex-1 p-2 pt-0">
-              <ScrollArea
-                className={
-                  hasTodos
-                    ? `
-                        min-h-[180px] flex-1
-                        sm:min-h-[260px]
-                        lg:min-h-[340px]
-                        xl:min-h-[420px]
-                      `
-                    : "min-h-[170px] max-h-[170px]"
-                }
-              >
-                <div className="space-y-2 p-0.5 pr-2">
-                  {columnTodos.map((todo) => (
-                    <DashboardTaskCard
-                      key={todo.id}
-                      todo={todo}
-                      people={people}
-                      onStatusChange={onStatusChange}
-                    />
-                  ))}
+      <div className="hidden min-h-0 flex-1 items-start gap-3 overflow-hidden md:grid md:grid-cols-2 xl:grid-cols-4">
+        {columns.map((column) => {
+          const columnTodos = todos.filter((todo) => todo.status === column.id)
 
-                  {columnTodos.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      No tasks in this column.
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
+          return (
+            <DashboardColumn
+              key={column.id}
+              column={column}
+              todos={columnTodos}
+              people={people}
+              onStatusChange={onStatusChange}
+            />
+          )
+        })}
+      </div>
+    </>
   )
 }
