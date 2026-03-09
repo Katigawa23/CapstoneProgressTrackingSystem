@@ -1,17 +1,70 @@
-const { randomUUID } = require("crypto");
-const { mkdir, readFile, writeFile } = require("fs/promises");
-const path = require("path");
+import { randomUUID } from "crypto"
+import { mkdir, readFile, writeFile } from "fs/promises"
+import path from "path"
 
-const { env } = require("../config/env");
-const { getDb } = require("../config/db");
+import { getDb } from "@/lib/db"
 
-const backlogFilePath = path.join(process.cwd(), ".data", "backlog-items.json");
+export type BacklogRow = {
+  id: string
+  title: string
+  description: string
+  dueDate: string | null
+  status: string
+  checked: boolean
+  assigneeId: string | null
+  file: {
+    name: string
+    size: string
+    type: string
+  } | null
+  createdAt: string
+}
 
-let schemaReady = null;
-let storageModePromise = null;
-let fallbackWarningShown = false;
+type CreateBacklogItemInput = {
+  title: string
+  description: string
+  dueDate: string | null
+  status: string
+  checked: boolean
+  assigneeId: string | null
+  file: {
+    name: string
+    size: string
+    type: string
+  } | null
+}
 
-function mapRecord(record) {
+type UpdateBacklogItemInput = {
+  title?: string
+  description?: string
+  status?: string
+  checked?: boolean
+  assigneeId?: string | null
+}
+
+type BacklogRecord = {
+  id: string
+  title: string
+  description: string
+  due_date: string | null
+  status: string
+  checked: boolean
+  assignee_id: string | null
+  file_name: string | null
+  file_size: string | null
+  file_type: string | null
+  created_at: string
+}
+
+type BacklogStorageMode = "database" | "file"
+
+const backlogFilePath = path.join(process.cwd(), ".data", "backlog-items.json")
+
+let schemaReady: Promise<void> | null = null
+let storageModePromise: Promise<BacklogStorageMode> | null = null
+let fallbackWarningShown = false
+
+function mapRecord(record: BacklogRecord): BacklogRow {
   return {
     id: record.id,
     title: record.title,
@@ -29,10 +82,10 @@ function mapRecord(record) {
           }
         : null,
     createdAt: record.created_at,
-  };
+  }
 }
 
-function toRecord(input) {
+function toRecord(input: BacklogRow): BacklogRecord {
   return {
     id: input.id,
     title: input.title,
@@ -41,23 +94,23 @@ function toRecord(input) {
     status: input.status,
     checked: input.checked,
     assignee_id: input.assigneeId,
-    file_name: input.file ? input.file.name : null,
-    file_size: input.file ? input.file.size : null,
-    file_type: input.file ? input.file.type : null,
+    file_name: input.file?.name ?? null,
+    file_size: input.file?.size ?? null,
+    file_type: input.file?.type ?? null,
     created_at: input.createdAt,
-  };
+  }
 }
 
 function canUseFileFallback() {
-  return env.nodeEnv !== "production";
+  return process.env.NODE_ENV !== "production"
 }
 
-function shouldUseFileFallback(error) {
+function shouldUseFileFallback(error: unknown) {
   if (!canUseFileFallback()) {
-    return false;
+    return false
   }
 
-  const message = error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error)
 
   return [
     "DATABASE_URL is not set",
@@ -68,21 +121,21 @@ function shouldUseFileFallback(error) {
     "ETIMEDOUT",
     "timeout expired",
     "server closed the connection unexpectedly",
-  ].some((fragment) => message.includes(fragment));
+  ].some((fragment) => message.includes(fragment))
 }
 
-function showFallbackWarning(error) {
+function showFallbackWarning(error: unknown) {
   if (fallbackWarningShown) {
-    return;
+    return
   }
 
-  fallbackWarningShown = true;
+  fallbackWarningShown = true
 
-  const message = error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error)
 
   console.warn(
     `Backlog storage is falling back to local file data because PostgreSQL is unavailable: ${message}`
-  );
+  )
 }
 
 async function ensureBacklogSchema() {
@@ -114,92 +167,95 @@ async function ensureBacklogSchema() {
       )
       .then(() => undefined)
       .catch((error) => {
-        schemaReady = null;
-        throw error;
-      });
+        schemaReady = null
+        throw error
+      })
   }
 
-  await schemaReady;
+  await schemaReady
 }
 
-async function getStorageMode() {
+async function getStorageMode(): Promise<BacklogStorageMode> {
   if (!storageModePromise) {
     storageModePromise = (async () => {
-      if (!env.databaseUrl) {
+      if (!process.env.DATABASE_URL) {
         if (!canUseFileFallback()) {
           throw new Error(
-            "DATABASE_URL is not set. Add your database connection string to backend/.env."
-          );
+            "DATABASE_URL is not set. Add your database connection string to .env.local and Vercel project settings."
+          )
         }
 
-        showFallbackWarning("DATABASE_URL is not set");
-        return "file";
+        showFallbackWarning("DATABASE_URL is not set")
+        return "file"
       }
 
       try {
-        await ensureBacklogSchema();
-        return "database";
+        await ensureBacklogSchema()
+        return "database"
       } catch (error) {
         if (!shouldUseFileFallback(error)) {
-          throw error;
+          throw error
         }
 
-        showFallbackWarning(error);
-        return "file";
+        showFallbackWarning(error)
+        return "file"
       }
-    })();
+    })()
   }
 
-  return storageModePromise;
+  return storageModePromise
 }
 
-async function withBacklogStore(databaseAction, fileAction) {
-  const storageMode = await getStorageMode();
+async function withBacklogStore<T>(
+  databaseAction: () => Promise<T>,
+  fileAction: () => Promise<T>
+) {
+  const storageMode = await getStorageMode()
 
   if (storageMode === "file") {
-    return fileAction();
+    return fileAction()
   }
 
   try {
-    return await databaseAction();
+    return await databaseAction()
   } catch (error) {
     if (!shouldUseFileFallback(error)) {
-      throw error;
+      throw error
     }
 
-    showFallbackWarning(error);
-    storageModePromise = Promise.resolve("file");
-    return fileAction();
+    showFallbackWarning(error)
+    storageModePromise = Promise.resolve("file")
+    return fileAction()
   }
 }
 
 async function readFileRecords() {
   try {
-    const raw = await readFile(backlogFilePath, "utf8");
-    return JSON.parse(raw);
+    const raw = await readFile(backlogFilePath, "utf8")
+    return JSON.parse(raw) as BacklogRecord[]
   } catch (error) {
     const code =
       typeof error === "object" && error && "code" in error
         ? String(error.code)
-        : null;
+        : null
 
     if (code === "ENOENT") {
-      return [];
+      return []
     }
 
-    throw error;
+    throw error
   }
 }
 
-async function writeFileRecords(records) {
-  await mkdir(path.dirname(backlogFilePath), { recursive: true });
-  await writeFile(backlogFilePath, JSON.stringify(records, null, 2), "utf8");
+async function writeFileRecords(records: BacklogRecord[]) {
+  await mkdir(path.dirname(backlogFilePath), { recursive: true })
+  await writeFile(backlogFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
-async function listBacklogItems() {
+export async function listBacklogItems() {
   return withBacklogStore(
     async () => {
-      const result = await getDb().query(
+      const result = await getDb().query<BacklogRecord>(
         `select
           id,
           title,
@@ -214,21 +270,21 @@ async function listBacklogItems() {
           created_at
         from backlog_items
         order by created_at desc`
-      );
+      )
 
-      return result.rows.map(mapRecord);
+      return result.rows.map(mapRecord)
     },
     async () => {
-      const records = await readFileRecords();
-      return records.map(mapRecord);
+      const records = await readFileRecords()
+      return records.map(mapRecord)
     }
-  );
+  )
 }
 
-async function createBacklogItem(input) {
+export async function createBacklogItem(input: CreateBacklogItemInput) {
   return withBacklogStore(
     async () => {
-      const result = await getDb().query(
+      const result = await getDb().query<BacklogRecord>(
         `insert into backlog_items (
           id,
           title,
@@ -261,16 +317,16 @@ async function createBacklogItem(input) {
           input.status,
           input.checked,
           input.assigneeId,
-          input.file ? input.file.name : null,
-          input.file ? input.file.size : null,
-          input.file ? input.file.type : null,
+          input.file?.name ?? null,
+          input.file?.size ?? null,
+          input.file?.type ?? null,
         ]
-      );
+      )
 
-      return mapRecord(result.rows[0]);
+      return mapRecord(result.rows[0])
     },
     async () => {
-      const item = {
+      const item: BacklogRow = {
         id: randomUUID(),
         title: input.title,
         description: input.description,
@@ -280,56 +336,56 @@ async function createBacklogItem(input) {
         assigneeId: input.assigneeId,
         file: input.file,
         createdAt: new Date().toISOString(),
-      };
+      }
 
-      const records = await readFileRecords();
-      records.unshift(toRecord(item));
-      await writeFileRecords(records);
+      const records = await readFileRecords()
+      records.unshift(toRecord(item))
+      await writeFileRecords(records)
 
-      return item;
+      return item
     }
-  );
+  )
 }
 
-async function updateBacklogItem(id, input) {
+export async function updateBacklogItem(id: string, input: UpdateBacklogItemInput) {
   return withBacklogStore(
     async () => {
-      const fields = [];
-      const values = [];
+      const fields: string[] = []
+      const values: Array<string | boolean | null> = []
 
       if (typeof input.title === "string") {
-        fields.push(`title = $${fields.length + 1}`);
-        values.push(input.title);
+        fields.push(`title = $${fields.length + 1}`)
+        values.push(input.title)
       }
 
       if (typeof input.description === "string") {
-        fields.push(`description = $${fields.length + 1}`);
-        values.push(input.description);
+        fields.push(`description = $${fields.length + 1}`)
+        values.push(input.description)
       }
 
       if (typeof input.status === "string") {
-        fields.push(`status = $${fields.length + 1}`);
-        values.push(input.status);
+        fields.push(`status = $${fields.length + 1}`)
+        values.push(input.status)
       }
 
       if (typeof input.checked === "boolean") {
-        fields.push(`checked = $${fields.length + 1}`);
-        values.push(input.checked);
+        fields.push(`checked = $${fields.length + 1}`)
+        values.push(input.checked)
       }
 
-      if (Object.prototype.hasOwnProperty.call(input, "assigneeId")) {
-        fields.push(`assignee_id = $${fields.length + 1}`);
-        values.push(input.assigneeId == null ? null : input.assigneeId);
+      if ("assigneeId" in input) {
+        fields.push(`assignee_id = $${fields.length + 1}`)
+        values.push(input.assigneeId ?? null)
       }
 
       if (fields.length === 0) {
-        return null;
+        return null
       }
 
-      fields.push("updated_at = now()");
-      values.push(id);
+      fields.push(`updated_at = now()`)
+      values.push(id)
 
-      const result = await getDb().query(
+      const result = await getDb().query<BacklogRecord>(
         `update backlog_items
         set ${fields.join(", ")}
         where id = $${values.length}
@@ -346,24 +402,24 @@ async function updateBacklogItem(id, input) {
           file_type,
           created_at`,
         values
-      );
+      )
 
-      return result.rows[0] ? mapRecord(result.rows[0]) : null;
+      return result.rows[0] ? mapRecord(result.rows[0]) : null
     },
     async () => {
-      const records = await readFileRecords();
-      const index = records.findIndex((record) => record.id === id);
+      const records = await readFileRecords()
+      const index = records.findIndex((record) => record.id === id)
 
       if (index === -1) {
-        return null;
+        return null
       }
 
       if (Object.keys(input).length === 0) {
-        return mapRecord(records[index]);
+        return mapRecord(records[index])
       }
 
-      const current = mapRecord(records[index]);
-      const next = {
+      const current = mapRecord(records[index])
+      const next: BacklogRow = {
         ...current,
         title: typeof input.title === "string" ? input.title : current.title,
         description:
@@ -373,50 +429,40 @@ async function updateBacklogItem(id, input) {
         status: typeof input.status === "string" ? input.status : current.status,
         checked:
           typeof input.checked === "boolean" ? input.checked : current.checked,
-        assigneeId: Object.prototype.hasOwnProperty.call(input, "assigneeId")
-          ? input.assigneeId == null
-            ? null
-            : input.assigneeId
-          : current.assigneeId,
-      };
+        assigneeId:
+          "assigneeId" in input ? input.assigneeId ?? null : current.assigneeId,
+      }
 
-      records[index] = toRecord(next);
-      await writeFileRecords(records);
+      records[index] = toRecord(next)
+      await writeFileRecords(records)
 
-      return next;
+      return next
     }
-  );
+  )
 }
 
-async function deleteBacklogItem(id) {
+export async function deleteBacklogItem(id: string) {
   return withBacklogStore(
     async () => {
-      const result = await getDb().query(
+      const result = await getDb().query<{ id: string }>(
         `delete from backlog_items
         where id = $1
         returning id`,
         [id]
-      );
+      )
 
-      return (result.rowCount || 0) > 0;
+      return (result.rowCount ?? 0) > 0
     },
     async () => {
-      const records = await readFileRecords();
-      const nextRecords = records.filter((record) => record.id !== id);
+      const records = await readFileRecords()
+      const nextRecords = records.filter((record) => record.id !== id)
 
       if (nextRecords.length === records.length) {
-        return false;
+        return false
       }
 
-      await writeFileRecords(nextRecords);
-      return true;
+      await writeFileRecords(nextRecords)
+      return true
     }
-  );
+  )
 }
-
-module.exports = {
-  listBacklogItems,
-  createBacklogItem,
-  updateBacklogItem,
-  deleteBacklogItem,
-};

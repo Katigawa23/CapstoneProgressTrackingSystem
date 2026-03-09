@@ -1,26 +1,32 @@
 # Capstone Progress Tracking System
 
-This folder is the Next.js frontend. The backlog API and database layer now live in the separate `backend` service.
+This Next.js app stores backlog data in PostgreSQL through `DATABASE_URL`.
 
-## Frontend Environment
+## Neon Setup
 
-In `my-app/.env.local`, set:
+Use one Neon database so both environments read and write the same data:
+
+1. Create a Neon project and copy the pooled connection string.
+2. In `my-app/.env.local`, set:
 
 ```bash
-NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+DATABASE_URL=postgresql://USER:PASSWORD@ep-xxxx-xxxx-pooler.region.aws.neon.tech/DATABASE?sslmode=require
 ```
+
+3. In Vercel, open your project settings and add the same `DATABASE_URL` value for:
+   - `Production`
+   - `Preview`
+   - `Development` (optional but useful for Vercel local workflows)
+
+After that:
+
+- `npm run dev` on your computer uses Neon.
+- Your Vercel deployment uses the same Neon database.
+- Changes made locally appear in the deployed site because both environments share one database.
 
 ## Local Development
 
-Start the backend first:
-
-```bash
-cd ../backend
-npm install
-npm run dev
-```
-
-Then start the frontend:
+Install dependencies and start the app:
 
 ```bash
 npm install
@@ -31,6 +37,6 @@ Open `http://localhost:3000`.
 
 ## Notes
 
-- The frontend now calls the standalone backend through `NEXT_PUBLIC_BACKEND_URL`.
-- Backend database configuration lives in `backend/.env`.
-- The backend creates the backlog table automatically on first use.
+- `lib/db.ts` automatically enables SSL for Neon and other remote Postgres hosts.
+- The backlog table is created automatically on first API use.
+- If you want separate databases later, use a different `DATABASE_URL` locally than the one stored in Vercel.

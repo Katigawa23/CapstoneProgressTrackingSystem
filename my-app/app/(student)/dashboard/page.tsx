@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { buildApiUrl } from "@/lib/api"
 
 import { people } from "./constants"
 import { DashboardBoard } from "./components/dashboard-board"
@@ -28,9 +27,7 @@ export default function DashboardPage() {
 
     async function loadTodos() {
       try {
-        const response = await fetch(buildApiUrl("/api/backlog-items"), {
-          cache: "no-store",
-        })
+        const response = await fetch("/api/backlog-items", { cache: "no-store" })
 
         if (!response.ok) {
           throw new Error("Failed to load backlog items")
