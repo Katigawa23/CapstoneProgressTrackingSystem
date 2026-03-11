@@ -20,3 +20,12 @@ export type BacklogApiItem = {
   dueDate: string | null
   status: string
 }
+
+export type DashboardComment = {
+  id: string
+  backlogItemId: string
+  author: string
+  body: string
+  attachments: string[]
+  createdAt: string
+}

@@ -29,17 +29,30 @@ type DashboardTaskCardProps = {
   todo: TodoItem
   people: Person[]
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
+  onOpen: (todo: TodoItem, target?: "default" | "comments") => void
 }
 
 export function DashboardTaskCard({
   todo,
   people,
   onStatusChange,
+  onOpen,
 }: DashboardTaskCardProps) {
   const statusStyle = cardStatusStyles[todo.status]
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
+    <div
+      role="button"
+      tabIndex={0}
+      className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
+      onClick={() => onOpen(todo)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          onOpen(todo)
+        }
+      }}
+    >
       <div className="mb-2 flex items-start justify-between">
         <span
           className={`inline-flex items-center rounded-md px-1.5 py-[2px] text-[10px] font-medium ${statusStyle.className}`}
@@ -54,6 +67,7 @@ export function DashboardTaskCard({
               className="rounded-sm p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
               type="button"
               aria-label={`Open actions for ${todo.title}`}
+              onClick={(event) => event.stopPropagation()}
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
@@ -61,6 +75,7 @@ export function DashboardTaskCard({
           <DropdownMenuContent
             align="end"
             className="w-48 border-slate-200 bg-white text-slate-700"
+            onClick={(event) => event.stopPropagation()}
           >
             <DropdownMenuItem>Submit</DropdownMenuItem>
             <DropdownMenuSub>
@@ -82,7 +97,13 @@ export function DashboardTaskCard({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Assignee</DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Assignee</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700">
+                <DropdownMenuItem>unassign</DropdownMenuItem>
+                <DropdownMenuItem>kerby@gmail.com</DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuItem>Add Comment</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>Archive</DropdownMenuItem>
@@ -131,11 +152,15 @@ export function DashboardTaskCard({
           type="button"
           className="flex items-center gap-1 rounded-sm transition hover:text-slate-700"
           aria-label={`Open comments for ${todo.title}`}
+          onClick={(event) => {
+            event.stopPropagation()
+            onOpen(todo, "comments")
+          }}
         >
           <MessageSquareMore className="h-3 w-3" />
           <span>{todo.comments}</span>
         </button>
-        
+
       </div>
     </div>
   )

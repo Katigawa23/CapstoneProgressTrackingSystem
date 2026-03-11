@@ -22,6 +22,17 @@ export default function DashboardPage() {
     []
   )
 
+  const handleTodoUpdate = React.useCallback(
+    (todoId: string, updates: Partial<TodoItem>) => {
+      setTodos((currentTodos) =>
+        currentTodos.map((todo) =>
+          todo.id === todoId ? { ...todo, ...updates } : todo
+        )
+      )
+    },
+    []
+  )
+
   React.useEffect(() => {
     let cancelled = false
 
@@ -57,6 +68,7 @@ export default function DashboardPage() {
         todos={todos}
         people={people}
         onStatusChange={handleStatusChange}
+        onTodoUpdate={handleTodoUpdate}
       />
     </div>
   )
