@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db"
 
 export type BacklogRow = {
   id: string
+  projectId: string
   title: string
   description: string
   dueDate: string | null
@@ -21,6 +22,7 @@ export type BacklogRow = {
 }
 
 type CreateBacklogItemInput = {
+  projectId: string
   title: string
   description: string
   dueDate: string | null
@@ -44,6 +46,7 @@ type UpdateBacklogItemInput = {
 
 type BacklogRecord = {
   id: string
+  project_id: string
   title: string
   description: string
   due_date: string | null
@@ -67,6 +70,7 @@ let fallbackWarningShown = false
 function mapRecord(record: BacklogRecord): BacklogRow {
   return {
     id: record.id,
+    projectId: record.project_id,
     title: record.title,
     description: record.description,
     dueDate: record.due_date,
@@ -88,6 +92,7 @@ function mapRecord(record: BacklogRecord): BacklogRow {
 function toRecord(input: BacklogRow): BacklogRecord {
   return {
     id: input.id,
+    project_id: input.projectId,
     title: input.title,
     description: input.description,
     due_date: input.dueDate,
@@ -144,6 +149,7 @@ async function ensureBacklogSchema() {
       .query(`
         create table if not exists backlog_items (
           id uuid primary key,
+          project_id uuid references projects(id) on delete cascade,
           title text not null,
           description text not null default '',
           due_date date,
@@ -163,6 +169,12 @@ async function ensureBacklogSchema() {
         getDb().query(`
           alter table backlog_items
           add column if not exists assignee_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists project_id uuid references projects(id) on delete cascade;
         `)
       )
       .then(() => undefined)
@@ -252,12 +264,13 @@ async function writeFileRecords(records: BacklogRecord[]) {
   await writeFile(backlogFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
-export async function listBacklogItems() {
+export async function listBacklogItems(projectId: string) {
   return withBacklogStore(
     async () => {
       const result = await getDb().query<BacklogRecord>(
         `select
           id,
+          project_id,
           title,
           description,
           due_date,
@@ -269,14 +282,16 @@ export async function listBacklogItems() {
           file_type,
           created_at
         from backlog_items
-        order by created_at desc`
+        where project_id = $1
+        order by created_at desc`,
+        [projectId]
       )
 
       return result.rows.map(mapRecord)
     },
     async () => {
       const records = await readFileRecords()
-      return records.map(mapRecord)
+      return records.filter((record) => record.project_id === projectId).map(mapRecord)
     }
   )
 }
@@ -287,6 +302,7 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
       const result = await getDb().query<BacklogRecord>(
         `insert into backlog_items (
           id,
+          project_id,
           title,
           description,
           due_date,
@@ -296,9 +312,10 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
           file_name,
           file_size,
           file_type
-        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         returning
           id,
+          project_id,
           title,
           description,
           due_date,
@@ -311,6 +328,7 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
           created_at`,
         [
           randomUUID(),
+          input.projectId,
           input.title,
           input.description,
           input.dueDate,
@@ -328,6 +346,7 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
     async () => {
       const item: BacklogRow = {
         id: randomUUID(),
+        projectId: input.projectId,
         title: input.title,
         description: input.description,
         dueDate: input.dueDate,
@@ -391,6 +410,7 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
         where id = $${values.length}
         returning
           id,
+          project_id,
           title,
           description,
           due_date,

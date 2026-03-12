@@ -5,7 +5,13 @@ import { BacklogBoard } from "./components/backlog-board"
 import { BacklogToolbar } from "./components/backlog-toolbar"
 import { CreateWorkItemDialog } from "./components/create-work-item-dialog"
 import { EditWorkItemDialog } from "./components/edit-work-item-dialog"
+import { useRouter } from "next/navigation"
 import { statusOptions, type UploadItem, type WorkItem } from "./types"
+import {
+  findDashboardProject,
+  getSelectedDashboardProjectId,
+  PROJECT_CHANGE_EVENT,
+} from "@/lib/projects"
 
 type BacklogApiItem = {
   id: string
@@ -32,6 +38,7 @@ function mapApiItem(item: BacklogApiItem): WorkItem {
 }
 
 export default function BacklogPage() {
+  const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [title, setTitle] = React.useState("")
   const [dueDate, setDueDate] = React.useState<Date | undefined>()
@@ -49,8 +56,17 @@ export default function BacklogPage() {
     let cancelled = false
 
     async function loadItems() {
+      const selectedProjectId = getSelectedDashboardProjectId()
+
+      if (!selectedProjectId || !findDashboardProject(selectedProjectId)) {
+        router.replace("/dashboard")
+        return
+      }
+
       try {
-        const response = await fetch("/api/backlog-items", { cache: "no-store" })
+        const response = await fetch(`/api/backlog-items?projectId=${selectedProjectId}`, {
+          cache: "no-store",
+        })
 
         if (!response.ok) {
           throw new Error("Failed to load backlog items")
@@ -67,11 +83,13 @@ export default function BacklogPage() {
     }
 
     void loadItems()
+    window.addEventListener(PROJECT_CHANGE_EVENT, loadItems)
 
     return () => {
       cancelled = true
+      window.removeEventListener(PROJECT_CHANGE_EVENT, loadItems)
     }
-  }, [])
+  }, [router])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -104,6 +122,13 @@ export default function BacklogPage() {
   const handleAddItem = async () => {
     if (!title.trim()) return
 
+    const selectedProjectId = getSelectedDashboardProjectId()
+
+    if (!selectedProjectId) {
+      router.replace("/dashboard")
+      return
+    }
+
     try {
       const response = await fetch("/api/backlog-items", {
         method: "POST",
@@ -111,6 +136,7 @@ export default function BacklogPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          projectId: selectedProjectId,
           title: title.trim(),
           description: description.trim(),
           dueDate: dueDate ? dueDate.toISOString().slice(0, 10) : null,

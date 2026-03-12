@@ -1,9 +1,17 @@
 "use client"
 
-import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { History, Milestone, Map, FolderSync, FilePen, Rows3 } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import {
+  BookOpen,
+  FilePen,
+  History,
+  LayoutDashboard,
+  Map,
+  Milestone,
+  Rows3,
+  Users,
+} from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -18,22 +26,18 @@ import {
   SidebarGroupContent,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
-import { ChevronsUpDown, LayoutDashboard, BookOpen, Users, Folder } from "lucide-react"
+import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
+import { ProjectPickerContent } from "@/components/projects/project-picker-content"
+import { ProjectSwitcher } from "@/components/projects/project-switcher"
+import { getDashboardProjectCollections } from "@/lib/projects"
+import { useDashboardProjects } from "@/hooks/use-dashboard-projects"
 import { canAccessPath, type UserRole } from "@/lib/rbac"
 
 type NavItem = { title: string; href: string; icon?: React.ElementType }
 
 const projectItems: NavItem[] = [
-  { title: "Board", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Board", href: "/dashboard/board", icon: LayoutDashboard },
   { title: "Roadmap", href: "/dashboard/roadmap", icon: Map },
   { title: "Backlog", href: "/dashboard/backlog", icon: Rows3},
   { title: "Revisions", href: "/dashboard/revisions", icon: FilePen },
@@ -49,45 +53,6 @@ const groupItems: NavItem[] = [
   { title: "Members", href: "/dashboard/members", icon: Users },
   { title: "Advisers", href: "/dashboard/adviser", icon: Users },
 ]
-
-function TeamSwitcher() {
-  const [team] = React.useState("MyApp")
-
-  return (
-    <div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            className="
-              group flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2
-              text-left hover:bg-muted/60
-              group-data-[collapsible=icon]:size-10 group-data-[collapsible=icon]:flex-none
-              group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-xl
-              group-data-[collapsible=icon]:px-0
-            "
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2972b6] shadow-sm">
-              <Folder className="h-5 w-5 text-white" />
-            </div>
-
-            <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-              <div className="truncate text-sm font-semibold">{team}</div>
-              <div className="truncate text-xs text-muted-foreground">Project</div>
-            </div>
-
-            <ChevronsUpDown className="h-4 w-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
-          </button>
-        </DropdownMenuTrigger>
-
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel>Project</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Manuscript</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  )
-}
 
 function NavList({ items }: { items: NavItem[] }) {
   const pathname = usePathname()
@@ -118,48 +83,109 @@ function filterItemsByRole(items: NavItem[], role: UserRole) {
 }
 
 export function AppSidebar({ role }: { role: UserRole }) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const {
+    createProject,
+    createProjectOpen,
+    memberSearch,
+    projectDescription,
+    projectTitle,
+    projects,
+    resetCreateProjectForm,
+    selectProject,
+    setCreateProjectOpen,
+    setMemberSearch,
+    setProjectDescription,
+    setProjectTitle,
+    team,
+  } = useDashboardProjects()
+  const projectCollections = getDashboardProjectCollections(projects)
   const visibleProjectItems = filterItemsByRole(projectItems, role)
   const visibleDocumentationItems = filterItemsByRole(documentationItems, role)
   const visibleGroupItems = filterItemsByRole(groupItems, role)
+  const isProjectPickerPage = pathname === "/dashboard"
 
   return (
-    <Sidebar collapsible="icon" className="top-14 h-[calc(100vh-56px)]">
-      <SidebarHeader className="px-1 pt-2">
-        <TeamSwitcher />
-      </SidebarHeader>
+    <>
+      <CreateProjectDialog
+        open={createProjectOpen}
+        onOpenChange={(open) => {
+          setCreateProjectOpen(open)
+          if (!open) {
+            resetCreateProjectForm()
+          }
+        }}
+        memberSearch={memberSearch}
+        onCreateProject={createProject}
+        onMemberSearchChange={setMemberSearch}
+        onProjectDescriptionChange={setProjectDescription}
+        onProjectTitleChange={setProjectTitle}
+        projectDescription={projectDescription}
+        projectTitle={projectTitle}
+      />
 
-      <SidebarContent className="gap-2">
-        <SidebarGroup>
-          <SidebarGroupLabel>Project</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <NavList items={visibleProjectItems} />
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <Sidebar collapsible="icon" className="top-14 h-[calc(100vh-56px)]">
+        <SidebarHeader className="px-1 pt-2">
+          <ProjectSwitcher
+            displayName={isProjectPickerPage ? "Create project" : undefined}
+            onCreateProject={() => setCreateProjectOpen(true)}
+            onSelectProject={(projectId) => {
+              selectProject(projectId)
+              router.push("/dashboard/board")
+            }}
+            projects={projects}
+            team={team}
+          />
+        </SidebarHeader>
 
-        <Separator />
+        <SidebarContent className="gap-2">
+          {isProjectPickerPage ? (
+            <ProjectPickerContent
+              collections={projectCollections}
+              onSelectProject={(projectId) => {
+                selectProject(projectId)
+                router.push("/dashboard/board")
+              }}
+              projects={projects}
+              team={team}
+            />
+          ) : (
+            <>
+              <SidebarGroup>
+                <SidebarGroupLabel>Project</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <NavList items={visibleProjectItems} />
+                </SidebarGroupContent>
+              </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Documentation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <NavList items={visibleDocumentationItems} />
-          </SidebarGroupContent>
-        </SidebarGroup>
+              <Separator />
 
-        <Separator />
+              <SidebarGroup>
+                <SidebarGroupLabel>Documentation</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <NavList items={visibleDocumentationItems} />
+                </SidebarGroupContent>
+              </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Groups</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <NavList items={visibleGroupItems} />
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+              <Separator />
 
-      <SidebarFooter className="hidden px-2 pb-2 pt-0 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5">
-        <SidebarTrigger className="h-9 w-full justify-start px-2 text-muted-foreground hover:bg-muted hover:text-foreground group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />
-      </SidebarFooter>
+              <SidebarGroup>
+                <SidebarGroupLabel>Groups</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <NavList items={visibleGroupItems} />
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </>
+          )}
+        </SidebarContent>
 
-      <SidebarRail />
-    </Sidebar>
+        <SidebarFooter className="hidden px-2 pb-2 pt-0 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5">
+          <SidebarTrigger className="h-9 w-full justify-start px-2 text-muted-foreground hover:bg-muted hover:text-foreground group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />
+        </SidebarFooter>
+
+        <SidebarRail />
+      </Sidebar>
+    </>
   )
 }

@@ -2,9 +2,16 @@ import { NextResponse } from "next/server"
 
 import { createBacklogItem, listBacklogItems } from "@/lib/backlog-repository"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const items = await listBacklogItems()
+    const { searchParams } = new URL(request.url)
+    const projectId = searchParams.get("projectId")?.trim()
+
+    if (!projectId) {
+      return NextResponse.json({ error: "projectId is required" }, { status: 400 })
+    }
+
+    const items = await listBacklogItems(projectId)
     return NextResponse.json({ items })
   } catch (error) {
     console.error("Failed to load backlog items", error)
@@ -18,6 +25,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
+      projectId?: string
       title?: string
       description?: string
       dueDate?: string | null
@@ -26,12 +34,18 @@ export async function POST(request: Request) {
     }
 
     const title = body.title?.trim()
+    const projectId = body.projectId?.trim()
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
     }
 
+    if (!projectId) {
+      return NextResponse.json({ error: "projectId is required" }, { status: 400 })
+    }
+
     const item = await createBacklogItem({
+      projectId,
       title,
       description: body.description?.trim() ?? "",
       dueDate: body.dueDate ?? null,
