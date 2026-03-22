@@ -89,7 +89,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
     createProject,
     createProjectOpen,
     memberSearch,
-    projectDescription,
+    projectDescription, 
     projectTitle,
     projects,
     resetCreateProjectForm,
