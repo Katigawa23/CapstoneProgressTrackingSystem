@@ -338,7 +338,14 @@ export function DashboardBoard({
     }
 
     void saveComment()
-  }, [commentAssets, commentDraft, editingCommentId, onTodoUpdate, selectedTodo])
+  }, [
+    commentAssets,
+    commentDraft,
+    commentThreads,
+    editingCommentId,
+    onTodoUpdate,
+    selectedTodo,
+  ])
 
   const handleReplyToComment = React.useCallback((author: string) => {
     setCommentDraft(`@${author} `)
