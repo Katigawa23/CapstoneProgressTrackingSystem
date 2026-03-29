@@ -16,38 +16,47 @@ export default function LandingPage() {
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-gray-800">
       <Navbar />
 
-      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-2">
-        <div className="text-left">
-          <h1 className="font-display text-4xl leading-tight font-extrabold tracking-tight md:text-6xl">
+      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-10 px-4 py-12 sm:px-6 md:grid-cols-2 md:gap-12 md:py-16">
+        <div className="text-center md:text-left">
+          <h1 className="font-display text-4xl leading-tight font-extrabold tracking-tight sm:text-5xl md:text-6xl">
             <span className="text-slate-950">Track</span>
             <span className="text-sky-600">Sphere</span>
-            <span className="block text-2xl text-slate-600 md:text-3xl">Capstone Progress System</span>
+            <span className="block text-xl text-slate-600 sm:text-2xl md:text-3xl">
+              Capstone Progress System
+            </span>
           </h1>
 
-          <p className="mt-6 max-w-md text-lg text-gray-600">
+          <p className="mx-auto mt-6 max-w-md text-base text-gray-600 sm:text-lg md:mx-0">
             A smarter way to manage your research and capstone projects with real-time
             tracking, collaboration, and structured workflows.
           </p>
 
-          <div className="mt-8 flex gap-4">
-            <Button className="rounded-2xl px-6 py-5 text-base" onClick={openLoginDialog}>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center md:justify-start">
+            <Button
+              className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
+              onClick={openLoginDialog}
+            >
               Get Started
             </Button>
-            <Button asChild variant="outline" className="rounded-2xl px-6 py-5 text-base">
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
+            >
               <Link href="/#features">Learn More</Link>
             </Button>
           </div>
         </div>
 
-        <div className="hidden items-center justify-center md:flex">
-          <div className="flex h-80 w-full items-center justify-center rounded-2xl bg-white text-gray-400 shadow-sm">
+        <div className="flex items-center justify-center">
+          <div className="flex h-64 w-full items-center justify-center rounded-2xl bg-white text-center text-gray-400 shadow-sm sm:h-72 md:h-80">
             Dashboard Preview
           </div>
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-20">
-        <h2 className="mb-12 text-center text-3xl font-bold">Features</h2>
+      <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-16 sm:px-6 md:py-20">
+        <h2 className="mb-10 text-center text-2xl font-bold sm:text-3xl md:mb-12">Features</h2>
 
         <div className="grid gap-6 md:grid-cols-3">
           <Card className="rounded-2xl shadow-sm transition hover:shadow-md">
@@ -80,8 +89,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="scroll-mt-24 bg-white px-6 py-20">
-        <h2 className="mb-12 text-center text-3xl font-bold">How It Works</h2>
+      <section id="how-it-works" className="scroll-mt-24 bg-white px-4 py-16 sm:px-6 md:py-20">
+        <h2 className="mb-10 text-center text-2xl font-bold sm:text-3xl md:mb-12">How It Works</h2>
 
         <div className="mx-auto grid max-w-6xl gap-8 text-center md:grid-cols-3">
           <div>
@@ -110,8 +119,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="about" className="mx-auto max-w-4xl scroll-mt-24 px-6 py-20 text-center">
-        <h2 className="mb-6 text-3xl font-bold">About</h2>
+      <section id="about" className="mx-auto max-w-4xl scroll-mt-24 px-4 py-16 text-center sm:px-6 md:py-20">
+        <h2 className="mb-6 text-2xl font-bold sm:text-3xl">About</h2>
         <p className="mx-auto max-w-2xl text-gray-600">
           TrackSphere helps students and advisers keep projects organized, visible, and moving
           with a clearer and more structured workflow.
@@ -127,7 +136,7 @@ export default function LandingPage() {
         id="site-footer"
         className="mt-10 border-t border-blue-100 bg-white/75 text-slate-700 backdrop-blur"
       >
-        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-7 md:grid-cols-[1.2fr_0.8fr]">
+        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-7 sm:px-6 md:grid-cols-[1.2fr_0.8fr]">
           <div>
             <h2 className="font-display text-lg font-semibold tracking-tight">
               <span className="text-slate-950">Track</span>
@@ -160,7 +169,7 @@ export default function LandingPage() {
         </div>
 
         <div className="border-t border-blue-100">
-          <div className="mx-auto flex max-w-6xl flex-col gap-1 px-6 py-3 text-xs text-slate-500 md:flex-row md:items-center md:justify-between">
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 text-center text-xs text-slate-500 sm:px-6 md:flex-row md:items-center md:justify-between md:text-left">
             <p>
               {"(c)"} {new Date().getFullYear()} TrackSphere
             </p>

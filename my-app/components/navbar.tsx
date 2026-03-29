@@ -4,6 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
+import { Menu } from "lucide-react"
 import clsx from "clsx"
 
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 const navLinks = [
   { name: "Home", href: "/", sectionId: null },
@@ -28,6 +37,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const [activeHref, setActiveHref] = useState("/")
   const [isLoginOpen, setIsLoginOpen] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   useEffect(() => {
     if (pathname !== "/") {
@@ -95,14 +105,60 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 shadow-sm backdrop-blur-md">
-      <div className="container mx-auto flex h-16 items-center justify-between px-6">
-        <Link href="/" className="font-display text-2xl font-bold tracking-tight">
-          <span className="text-slate-950">Track</span>
-          <span className="text-sky-600">Sphere</span>
-        </Link>
+      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="lg:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </SheetTrigger>
 
-        <div className="flex items-center gap-8">
-          <nav className="hidden items-center gap-3 text-base font-medium md:flex">
+            <SheetContent side="left" className="w-[85vw] max-w-sm p-0">
+              <SheetHeader className="border-b px-5 py-5 text-left">
+                <SheetTitle className="font-display text-xl">
+                  <span className="text-slate-950">Track</span>
+                  <span className="text-sky-600">Sphere</span>
+                </SheetTitle>
+                <SheetDescription>Browse the landing page sections.</SheetDescription>
+              </SheetHeader>
+
+              <div className="flex flex-col gap-2 px-4 py-4">
+                {navLinks.map((link) => {
+                  const isActive = pathname === "/" && activeHref === link.href
+
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => {
+                        setActiveHref(link.href)
+                        setIsMenuOpen(false)
+                      }}
+                      className={clsx(
+                        "rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
+                        "hover:bg-primary/10 hover:text-primary",
+                        isActive && "bg-primary/15 text-primary"
+                      )}
+                    >
+                      {link.name}
+                    </Link>
+                  )
+                })}
+              </div>
+
+            </SheetContent>
+          </Sheet>
+
+          <Link href="/" className="font-display text-xl font-bold tracking-tight sm:text-2xl">
+            <span className="text-slate-950">Track</span>
+            <span className="text-sky-600">Sphere</span>
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3 lg:gap-8">
+          <nav className="hidden items-center gap-2 text-sm font-medium lg:flex xl:gap-3 xl:text-base">
             {navLinks.map((link) => {
               const isActive = pathname === "/" && activeHref === link.href
 
@@ -112,7 +168,7 @@ export default function Navbar() {
                   href={link.href}
                   onClick={() => setActiveHref(link.href)}
                   className={clsx(
-                    "rounded-lg px-4 py-2 transition-all duration-200",
+                    "rounded-lg px-3 py-2 transition-all duration-200 xl:px-4",
                     "hover:bg-primary/10 hover:text-primary",
                     isActive && "bg-primary/15 text-primary"
                   )}
@@ -125,7 +181,7 @@ export default function Navbar() {
 
           <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
             <DialogTrigger asChild>
-              <Button className="font-semibold transition-all duration-200 hover:scale-105 hover:shadow-md">
+              <Button className="px-4 text-sm font-semibold transition-all duration-200 hover:scale-105 hover:shadow-md sm:px-5 sm:text-base">
                 Login
               </Button>
             </DialogTrigger>
