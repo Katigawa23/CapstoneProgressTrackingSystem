@@ -35,6 +35,20 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+### Windows PowerShell note
+
+If PowerShell blocks `npm` with an execution policy error, use one of these instead:
+
+```bash
+npm.cmd run dev
+```
+
+Or from the repository root:
+
+```bash
+start-frontend.cmd
+```
+
 ## Notes
 
 - `lib/db.ts` automatically enables SSL for Neon and other remote Postgres hosts.
