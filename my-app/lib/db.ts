@@ -24,6 +24,11 @@ function shouldUseSsl(connectionString: string) {
 
 function createPool() {
   const connectionString = process.env.DATABASE_URL
+  const connectionTimeoutMillis = Number.parseInt(
+    process.env.DB_CONNECTION_TIMEOUT_MS ??
+      (process.env.NODE_ENV === "production" ? "10000" : "2000"),
+    10
+  )
 
   if (!connectionString) {
     throw new Error(
@@ -38,7 +43,9 @@ function createPool() {
       : false,
     max: 10,
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 10_000,
+    connectionTimeoutMillis: Number.isNaN(connectionTimeoutMillis)
+      ? 2_000
+      : connectionTimeoutMillis,
     allowExitOnIdle: process.env.NODE_ENV !== "production",
   })
 }

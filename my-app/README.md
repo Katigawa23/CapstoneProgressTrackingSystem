@@ -2,6 +2,8 @@
 
 This Next.js app stores backlog data in PostgreSQL through `DATABASE_URL`.
 
+For local development, the app now uses file storage by default so `localhost` stays fast even when your remote database is slow or offline.
+
 ## Neon Setup
 
 Use one Neon database so both environments read and write the same data:
@@ -35,6 +37,14 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+Local data is saved in `my-app/.data/*.json` while developing.
+
+If you want to use PostgreSQL locally instead of file storage, set this in `my-app/.env.local`:
+
+```bash
+LOCAL_STORAGE_MODE=database
+```
+
 ### Windows PowerShell note
 
 If PowerShell blocks `npm` with an execution policy error, use one of these instead:
@@ -47,6 +57,12 @@ Or from the repository root:
 
 ```bash
 start-frontend.cmd
+```
+
+To stop the local frontend on port `3000` from the repository root:
+
+```bash
+stop-frontend.cmd
 ```
 
 ## Notes

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "fs/promises"
 import path from "path"
 
 import { getDb } from "@/lib/db"
+import { getPreferredStorageMode } from "@/lib/storage-mode"
 
 export type BacklogCommentRow = {
   id: string
@@ -75,7 +76,7 @@ function showFallbackWarning(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
 
   console.warn(
-    `Comment storage is falling back to local file data because PostgreSQL is unavailable: ${message}`
+    `Comment storage is using local file data: ${message}`
   )
 }
 
@@ -133,6 +134,13 @@ async function ensureCommentSchema() {
 async function getStorageMode(): Promise<CommentStorageMode> {
   if (!storageModePromise) {
     storageModePromise = (async () => {
+      if (getPreferredStorageMode() === "file") {
+        showFallbackWarning(
+          "LOCAL_STORAGE_MODE is set to file, or development mode is using file storage by default."
+        )
+        return "file"
+      }
+
       if (!process.env.DATABASE_URL) {
         if (!canUseFileFallback()) {
           throw new Error(

@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "fs/promises"
 import path from "path"
 
 import { getDb } from "@/lib/db"
+import { getPreferredStorageMode } from "@/lib/storage-mode"
 import {
   dashboardProjects,
   PROJECT_DESCRIPTION_MAX_LENGTH,
@@ -65,7 +66,7 @@ function showFallbackWarning(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
 
   console.warn(
-    `Project storage is falling back to local file data because PostgreSQL is unavailable: ${message}`
+    `Project storage is using local file data: ${message}`
   )
 }
 
@@ -148,6 +149,13 @@ async function ensureProjectsSchema() {
 async function getStorageMode(): Promise<ProjectStorageMode> {
   if (!storageModePromise) {
     storageModePromise = (async () => {
+      if (getPreferredStorageMode() === "file") {
+        showFallbackWarning(
+          "LOCAL_STORAGE_MODE is set to file, or development mode is using file storage by default."
+        )
+        return "file"
+      }
+
       if (!process.env.DATABASE_URL) {
         if (!canUseFileFallback()) {
           throw new Error(
