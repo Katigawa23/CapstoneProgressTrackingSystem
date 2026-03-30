@@ -47,7 +47,7 @@ export function getMicrosoftClientId() {
   return value
 }
 
-function getMicrosoftClientSecret() {
+export function getMicrosoftClientSecret() {
   const value = readEnv("MICROSOFT_CLIENT_SECRET", "client_secret", "microsoft_client_secret")
 
   if (!value) {
@@ -55,10 +55,6 @@ function getMicrosoftClientSecret() {
   }
 
   return value
-}
-
-function getMicrosoftAuthorityBase() {
-  return `https://login.microsoftonline.com/${getMicrosoftTenantId()}/oauth2/v2.0`
 }
 
 function getMicrosoftScopes() {
@@ -101,7 +97,8 @@ export function createOauthState() {
 }
 
 export function createMicrosoftAuthorizeUrl(request: Request, state: string) {
-  const url = new URL(`${getMicrosoftAuthorityBase()}/authorize`)
+  const tenantId = getMicrosoftTenantId()
+  const url = new URL(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`)
 
   url.searchParams.set("client_id", getMicrosoftClientId())
   url.searchParams.set("response_type", "code")
@@ -141,7 +138,8 @@ function getUserFromIdToken(idToken: string): MicrosoftUser {
 }
 
 export async function redeemMicrosoftCode(request: Request, code: string) {
-  const response = await fetch(`${getMicrosoftAuthorityBase()}/token`, {
+  const tenantId = getMicrosoftTenantId()
+  const response = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { AUTH_SESSION_COOKIE, getAuthCookieOptions } from "@/backend/auth/session"
 
 export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   const response = NextResponse.redirect(new URL("/", request.url))
