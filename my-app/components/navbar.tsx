@@ -191,17 +191,21 @@ export default function Navbar() {
               </DialogHeader>
 
               <div className="mt-4 flex flex-col gap-4">
-                <Button asChild className="flex w-full items-center justify-center gap-2 font-semibold">
-                  <Link href="/api/auth/microsoft">
-                    <Image
-                      src="/microsoft-logo.png"
-                      alt="Microsoft Logo"
-                      width={20}
-                      height={20}
-                      className="mr-2"
-                    />
-                    Login with Microsoft 365
-                  </Link>
+                <Button
+                  type="button"
+                  className="flex w-full items-center justify-center gap-2 font-semibold"
+                  onClick={() => {
+                    window.location.assign("/api/auth/microsoft")
+                  }}
+                >
+                  <Image
+                    src="/microsoft-logo.png"
+                    alt="Microsoft Logo"
+                    width={20}
+                    height={20}
+                    className="mr-2"
+                  />
+                  Login with Microsoft 365
                 </Button>
 
                 <div className="flex items-center gap-3">
