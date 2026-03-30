@@ -31,6 +31,16 @@ export default function LandingPage() {
     window.dispatchEvent(new Event("open-login-dialog"))
   }
 
+  const scrollToSection = (sectionId: string) => {
+    const section = document.getElementById(sectionId)
+    if (!section) {
+      return
+    }
+
+    section.scrollIntoView({ behavior: "smooth", block: "start" })
+    window.history.replaceState(null, "", `/#${sectionId}`)
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-gray-800">
       <Navbar />
@@ -87,11 +97,11 @@ export default function LandingPage() {
               scale={0.92}
             >
               <Button
-                asChild
                 variant="outline"
                 className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
+                onClick={() => scrollToSection("features")}
               >
-                <Link href="/#features">Learn More</Link>
+                Learn More
               </Button>
             </AnimatedContent>
           </div>
