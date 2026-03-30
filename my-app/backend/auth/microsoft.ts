@@ -33,6 +33,25 @@ function readEnv(...names: string[]) {
   return ""
 }
 
+function readFirstHeaderValue(request: Request, name: string) {
+  const value = request.headers.get(name)?.trim()
+
+  if (!value) {
+    return ""
+  }
+
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .find(Boolean) ?? ""
+}
+
+function normalizeBaseUrl(value: string) {
+  const withProtocol = value.startsWith("http") ? value : `https://${value}`
+
+  return withProtocol.replace(/\/+$/, "")
+}
+
 export function getMicrosoftTenantId() {
   return readEnv("MICROSOFT_TENANT_ID", "microsoft_tenant_id") || "common"
 }
@@ -62,27 +81,36 @@ function getMicrosoftScopes() {
 }
 
 function getAppBaseUrl(request: Request) {
-  const configuredUrl = readEnv("APP_URL", "app_url")
+  const configuredUrl = readEnv(
+    "APP_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+    "app_url"
+  )
 
   if (configuredUrl) {
-    const normalizedUrl = configuredUrl.startsWith("http")
-      ? configuredUrl
-      : `https://${configuredUrl}`
-
-    return normalizedUrl.replace(/\/+$/, "")
+    return normalizeBaseUrl(configuredUrl)
   }
 
-  const forwardedHost = request.headers.get("x-forwarded-host")
-  const forwardedProto = request.headers.get("x-forwarded-proto")
+  const forwardedHost = readFirstHeaderValue(request, "x-forwarded-host")
+  const forwardedProto = readFirstHeaderValue(request, "x-forwarded-proto")
 
   if (forwardedHost) {
     return `${forwardedProto || "https"}://${forwardedHost}`
   }
 
+  const host = readFirstHeaderValue(request, "host")
+
+  if (host) {
+    const requestUrl = new URL(request.url)
+
+    return `${requestUrl.protocol}//${host}`
+  }
+
   const vercelUrl = process.env.VERCEL_URL?.trim()
 
   if (vercelUrl) {
-    return `https://${vercelUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`
+    return normalizeBaseUrl(vercelUrl)
   }
 
   return new URL(request.url).origin
