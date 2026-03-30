@@ -21,26 +21,40 @@ type MicrosoftIdTokenClaims = {
   preferred_username?: string
 }
 
-function requireEnv(name: string) {
-  const value = process.env[name]?.trim()
+function readEnv(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim()
+
+    if (value) {
+      return value
+    }
+  }
+
+  return ""
+}
+
+export function getMicrosoftTenantId() {
+  return readEnv("MICROSOFT_TENANT_ID", "microsoft_tenant_id") || "common"
+}
+
+export function getMicrosoftClientId() {
+  const value = readEnv("MICROSOFT_CLIENT_ID", "client_id", "microsoft_client_id")
 
   if (!value) {
-    throw new Error(`${name} is not set`)
+    throw new Error("MICROSOFT_CLIENT_ID is not set")
   }
 
   return value
 }
 
-export function getMicrosoftTenantId() {
-  return process.env.MICROSOFT_TENANT_ID?.trim() || "common"
-}
-
-export function getMicrosoftClientId() {
-  return requireEnv("MICROSOFT_CLIENT_ID")
-}
-
 function getMicrosoftClientSecret() {
-  return requireEnv("MICROSOFT_CLIENT_SECRET")
+  const value = readEnv("MICROSOFT_CLIENT_SECRET", "client_secret", "microsoft_client_secret")
+
+  if (!value) {
+    throw new Error("MICROSOFT_CLIENT_SECRET is not set")
+  }
+
+  return value
 }
 
 function getMicrosoftAuthorityBase() {
@@ -52,10 +66,14 @@ function getMicrosoftScopes() {
 }
 
 function getAppBaseUrl(request: Request) {
-  const configuredUrl = process.env.APP_URL?.trim()
+  const configuredUrl = readEnv("APP_URL", "app_url")
 
   if (configuredUrl) {
-    return configuredUrl.replace(/\/+$/, "")
+    const normalizedUrl = configuredUrl.startsWith("http")
+      ? configuredUrl
+      : `https://${configuredUrl}`
+
+    return normalizedUrl.replace(/\/+$/, "")
   }
 
   const forwardedHost = request.headers.get("x-forwarded-host")
