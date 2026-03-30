@@ -52,6 +52,10 @@ function normalizeBaseUrl(value: string) {
   return withProtocol.replace(/\/+$/, "")
 }
 
+function hasEnvValue(...names: string[]) {
+  return Boolean(readEnv(...names))
+}
+
 export function getMicrosoftTenantId() {
   return readEnv("MICROSOFT_TENANT_ID", "microsoft_tenant_id") || "common"
 }
@@ -120,6 +124,29 @@ export function getMicrosoftCallbackUrl(request: Request) {
   return new URL("/api/auth/microsoft/callback", getAppBaseUrl(request)).toString()
 }
 
+export function getMicrosoftAuthDebugInfo(request: Request) {
+  return {
+    requestUrl: request.url,
+    appUrlConfigured: hasEnvValue("APP_URL", "NEXT_PUBLIC_APP_URL", "VERCEL_PROJECT_PRODUCTION_URL", "app_url"),
+    clientIdConfigured: hasEnvValue("MICROSOFT_CLIENT_ID", "client_id", "microsoft_client_id"),
+    clientSecretConfigured: hasEnvValue(
+      "MICROSOFT_CLIENT_SECRET",
+      "client_secret",
+      "microsoft_client_secret"
+    ),
+    authSecretConfigured: hasEnvValue("AUTH_SECRET", "auth_secret", "NEXTAUTH_SECRET"),
+    tenantId: getMicrosoftTenantId(),
+    resolvedBaseUrl: getAppBaseUrl(request),
+    resolvedCallbackUrl: getMicrosoftCallbackUrl(request),
+    forwardedHost: readFirstHeaderValue(request, "x-forwarded-host"),
+    forwardedProto: readFirstHeaderValue(request, "x-forwarded-proto"),
+    host: readFirstHeaderValue(request, "host"),
+    vercelUrl: process.env.VERCEL_URL?.trim() || "",
+    vercelProjectProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || "",
+    nodeEnv: process.env.NODE_ENV?.trim() || "",
+  }
+}
+
 export function createOauthState() {
   return randomBytes(24).toString("hex")
 }
@@ -185,7 +212,16 @@ export async function redeemMicrosoftCode(request: Request, code: string) {
   const data = (await response.json()) as MicrosoftTokenResponse
 
   if (!response.ok || data.error) {
-    throw new Error(data.error_description || data.error || "Microsoft token exchange failed")
+    throw new Error(
+      JSON.stringify({
+        message: "Microsoft token exchange failed",
+        status: response.status,
+        statusText: response.statusText,
+        error: data.error || null,
+        errorDescription: data.error_description || null,
+        callbackUrl: getMicrosoftCallbackUrl(request),
+      })
+    )
   }
 
   if (!data.id_token) {

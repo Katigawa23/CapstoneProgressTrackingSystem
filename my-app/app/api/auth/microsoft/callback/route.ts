@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { redeemMicrosoftCode } from "@/backend/auth/microsoft"
+import { getMicrosoftAuthDebugInfo, redeemMicrosoftCode } from "@/backend/auth/microsoft"
 import {
   AUTH_SESSION_COOKIE,
   AUTH_STATE_COOKIE,
@@ -39,7 +39,12 @@ export async function GET(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error("Failed to complete Microsoft login", error)
+    console.error("Failed to complete Microsoft login", {
+      error,
+      codePresent: Boolean(code),
+      statePresent: Boolean(state),
+      debug: getMicrosoftAuthDebugInfo(request),
+    })
     const response = NextResponse.redirect(new URL("/?authError=callback", request.url))
 
     response.cookies.set(AUTH_STATE_COOKIE, "", {

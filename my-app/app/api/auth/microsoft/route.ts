@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import {
   createMicrosoftAuthorizeUrl,
   createOauthState,
+  getMicrosoftAuthDebugInfo,
 } from "@/backend/auth/microsoft"
 import {
   AUTH_STATE_COOKIE,
@@ -26,7 +27,10 @@ export async function GET(request: Request) {
 
     return response
   } catch (error) {
-    console.error("Failed to start Microsoft login", error)
+    console.error("Failed to start Microsoft login", {
+      error,
+      debug: getMicrosoftAuthDebugInfo(request),
+    })
     return NextResponse.redirect(new URL("/?authError=setup", request.url))
   }
 }
