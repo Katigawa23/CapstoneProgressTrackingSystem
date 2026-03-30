@@ -4,6 +4,7 @@ import Link from "next/link"
 import { BarChart3, CheckCircle2, FolderPlus, MessagesSquare, Users } from "lucide-react"
 import { useLayoutEffect } from "react"
 
+import AnimatedContent from "@/components/animated-content"
 import Navbar from "@/components/navbar"
 import ScrollReveal from "@/components/scroll-reveal"
 import SplitText from "@/components/split-text"
@@ -57,24 +58,43 @@ export default function LandingPage() {
             </p>
           </ScrollReveal>
 
-          <ScrollReveal
-            className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center md:justify-start"
-            delay={240}
-          >
-            <Button
-              className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
-              onClick={openLoginDialog}
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center md:justify-start">
+            <AnimatedContent
+              className="sm:min-w-40"
+              delay={0.2}
+              direction="horizontal"
+              duration={1.5}
+              distance={56}
+              initialOpacity={0}
+              reverse
+              scale={0.92}
             >
-              Get Started
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
+              <Button
+                className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
+                onClick={openLoginDialog}
+              >
+                Get Started
+              </Button>
+            </AnimatedContent>
+
+            <AnimatedContent
+              className="sm:min-w-40"
+              delay={0.32}
+              direction="horizontal"
+              duration={1.5}
+              distance={56}
+              initialOpacity={0}
+              scale={0.92}
             >
-              <Link href="/#features">Learn More</Link>
-            </Button>
-          </ScrollReveal>
+              <Button
+                asChild
+                variant="outline"
+                className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
+              >
+                <Link href="/#features">Learn More</Link>
+              </Button>
+            </AnimatedContent>
+          </div>
         </div>
 
         <ScrollReveal className="flex items-center justify-center" delay={360}>
