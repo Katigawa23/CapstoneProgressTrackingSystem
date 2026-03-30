@@ -4,6 +4,7 @@ import {
   createMicrosoftAuthorizeUrl,
   createOauthState,
 } from "@/backend/auth/microsoft"
+
 import {
   AUTH_STATE_COOKIE,
   createStateCookieValue,
@@ -15,14 +16,30 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
   try {
-    const state = createOauthState()
-    const response = NextResponse.redirect(createMicrosoftAuthorizeUrl(request, state))
+    const { searchParams } = new URL(request.url)
 
+    // ✅ fallback redirect (default = dashboard)
+    const redirect = searchParams.get("redirect") || "/dashboard"
+
+    const state = createOauthState()
+    const authUrl = createMicrosoftAuthorizeUrl(request, state)
+
+    const response = NextResponse.redirect(authUrl)
+
+    // ✅ existing state cookie (KEEP THIS)
     response.cookies.set(
       AUTH_STATE_COOKIE,
       createStateCookieValue(state),
       getAuthCookieOptions(new Date(Date.now() + 10 * 60 * 1000))
     )
+
+    // ✅ NEW: store redirect destination
+    response.cookies.set("redirect_after_login", redirect, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+    })
 
     return response
   } catch (error) {
