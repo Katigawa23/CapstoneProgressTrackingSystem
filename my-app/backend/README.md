@@ -22,9 +22,9 @@ For local development and Vercel deployment, configure these environment variabl
 Examples:
 
 - Local `APP_URL`: `http://localhost:3000`
-- Vercel `APP_URL`: `https://your-domain.vercel.app`
+- Vercel `APP_URL`: `https://progress-tracking-gamma.vercel.app`
 
 Microsoft Entra redirect URIs must include:
 
 - `http://localhost:3000/api/auth/microsoft/callback`
-- `https://your-domain.vercel.app/api/auth/microsoft/callback`
+- `https://progress-tracking-gamma.vercel.app/api/auth/microsoft/callback`
