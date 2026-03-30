@@ -47,38 +47,6 @@ function readEnv(...names: string[]) {
   return ""
 }
 
-function readFirstHeaderValue(request: Request, name: string) {
-  const value = request.headers.get(name)?.trim()
-
-  if (!value) {
-    return ""
-  }
-
-  return (
-    value
-      .split(",")
-      .map((part) => part.trim())
-      .find(Boolean) ?? ""
-  )
-}
-
-function normalizeBaseUrl(value: string) {
-  const withProtocol = value.startsWith("http") ? value : `https://${value}`
-
-  return withProtocol.replace(/\/+$/, "")
-}
-
-function isLocalHost(value: string) {
-  const normalizedValue = value.toLowerCase()
-
-  return (
-    normalizedValue.startsWith("localhost") ||
-    normalizedValue.startsWith("127.0.0.1") ||
-    normalizedValue.startsWith("[::1]") ||
-    normalizedValue.endsWith(".local")
-  )
-}
-
 export function getMicrosoftTenantId() {
   return (
     readEnv(
@@ -130,60 +98,48 @@ function getMicrosoftScopes() {
   return "openid profile email offline_access User.Read"
 }
 
+//
+// 🔥 FIXED FUNCTION (THIS IS THE IMPORTANT PART)
+//
 function getAppBaseUrl(request: Request) {
-  const configuredUrl = readEnv(
-    "APP_URL",
-    "NEXT_PUBLIC_APP_URL",
-    "NEXTAUTH_URL",
-    "SITE_URL",
-    "VERCEL_PROJECT_PRODUCTION_URL",
-    "app_url"
-  )
+  const appUrl = process.env.APP_URL
 
-  if (configuredUrl) {
-    return normalizeBaseUrl(configuredUrl)
+  // ✅ Always use APP_URL if set
+  if (appUrl && appUrl.trim() !== "") {
+    return appUrl.replace(/\/+$/, "")
   }
 
-  const forwardedHost = readFirstHeaderValue(request, "x-forwarded-host")
-  const forwardedProto = readFirstHeaderValue(request, "x-forwarded-proto")
-
-  if (forwardedHost) {
-    return `${forwardedProto || "https"}://${forwardedHost}`
-  }
-
-  const host = readFirstHeaderValue(request, "host")
-
-  if (host) {
-    const requestUrl = new URL(request.url)
-    const protocol = forwardedProto || (isLocalHost(host) ? requestUrl.protocol : "https:")
-
-    return `${protocol.replace(/:$/, "")}://${host}`
-  }
-
-  const vercelUrl = sanitizeEnvValue(process.env.VERCEL_URL)
-
-  if (vercelUrl) {
-    return normalizeBaseUrl(vercelUrl)
-  }
-
+  // fallback (only if env missing)
   return new URL(request.url).origin
 }
 
 export function getMicrosoftCallbackUrl(request: Request) {
-  return new URL("/api/auth/microsoft/callback", getAppBaseUrl(request)).toString()
+  return new URL(
+    "/api/auth/microsoft/callback",
+    getAppBaseUrl(request)
+  ).toString()
 }
 
 export function createOauthState() {
   return randomBytes(24).toString("hex")
 }
 
-export function createMicrosoftAuthorizeUrl(request: Request, state: string) {
+export function createMicrosoftAuthorizeUrl(
+  request: Request,
+  state: string
+) {
   const tenantId = getMicrosoftTenantId()
-  const url = new URL(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`)
+
+  const url = new URL(
+    `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`
+  )
 
   url.searchParams.set("client_id", getMicrosoftClientId())
   url.searchParams.set("response_type", "code")
-  url.searchParams.set("redirect_uri", getMicrosoftCallbackUrl(request))
+  url.searchParams.set(
+    "redirect_uri",
+    getMicrosoftCallbackUrl(request)
+  )
   url.searchParams.set("response_mode", "query")
   url.searchParams.set("scope", getMicrosoftScopes())
   url.searchParams.set("state", state)
@@ -199,11 +155,14 @@ function parseJwtPayload<T>(token: string) {
     throw new Error("Invalid token payload")
   }
 
-  return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as T
+  return JSON.parse(
+    Buffer.from(payload, "base64url").toString("utf8")
+  ) as T
 }
 
 function getUserFromIdToken(idToken: string): MicrosoftUser {
   const claims = parseJwtPayload<MicrosoftIdTokenClaims>(idToken)
+
   const email = claims.email ?? claims.preferred_username ?? ""
   const id = claims.oid ?? claims.sub ?? email
 
@@ -218,27 +177,38 @@ function getUserFromIdToken(idToken: string): MicrosoftUser {
   }
 }
 
-export async function redeemMicrosoftCode(request: Request, code: string) {
+export async function redeemMicrosoftCode(
+  request: Request,
+  code: string
+) {
   const tenantId = getMicrosoftTenantId()
-  const response = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: getMicrosoftClientId(),
-      client_secret: getMicrosoftClientSecret(),
-      code,
-      redirect_uri: getMicrosoftCallbackUrl(request),
-      grant_type: "authorization_code",
-      scope: getMicrosoftScopes(),
-    }),
-  })
+
+  const response = await fetch(
+    `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: getMicrosoftClientId(),
+        client_secret: getMicrosoftClientSecret(),
+        code,
+        redirect_uri: getMicrosoftCallbackUrl(request),
+        grant_type: "authorization_code",
+        scope: getMicrosoftScopes(),
+      }),
+    }
+  )
 
   const data = (await response.json()) as MicrosoftTokenResponse
 
   if (!response.ok || data.error) {
-    throw new Error(data.error_description || data.error || "Microsoft token exchange failed")
+    throw new Error(
+      data.error_description ||
+        data.error ||
+        "Microsoft token exchange failed"
+    )
   }
 
   if (!data.id_token) {
