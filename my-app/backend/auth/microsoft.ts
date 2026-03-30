@@ -81,6 +81,7 @@ export function getMicrosoftTenantId() {
   return (
     readEnv(
       "MICROSOFT_TENANT_ID",
+      "TENANT_ID",
       "AZURE_TENANT_ID",
       "AZURE_AD_TENANT_ID",
       "microsoft_tenant_id"
@@ -91,6 +92,7 @@ export function getMicrosoftTenantId() {
 export function getMicrosoftClientId() {
   const value = readEnv(
     "MICROSOFT_CLIENT_ID",
+    "CLIENT_ID",
     "NEXT_PUBLIC_MICROSOFT_CLIENT_ID",
     "AZURE_CLIENT_ID",
     "AZURE_AD_CLIENT_ID",
@@ -108,6 +110,7 @@ export function getMicrosoftClientId() {
 export function getMicrosoftClientSecret() {
   const value = readEnv(
     "MICROSOFT_CLIENT_SECRET",
+    "CLIENT_SECRET",
     "AZURE_CLIENT_SECRET",
     "AZURE_AD_CLIENT_SECRET",
     "client_secret",
