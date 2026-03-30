@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { BarChart3, CheckCircle2, FolderPlus, MessagesSquare, Users } from "lucide-react"
+import { useLayoutEffect } from "react"
 
 import Navbar from "@/components/navbar"
 import ScrollReveal from "@/components/scroll-reveal"
@@ -10,6 +11,21 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
 export default function LandingPage() {
+  useLayoutEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration
+    window.history.scrollRestoration = "manual"
+
+    if (window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search)
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration
+    }
+  }, [])
+
   const openLoginDialog = () => {
     window.dispatchEvent(new Event("open-login-dialog"))
   }
