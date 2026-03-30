@@ -21,9 +21,23 @@ type MicrosoftIdTokenClaims = {
   preferred_username?: string
 }
 
+function sanitizeEnvValue(value: string | undefined) {
+  const trimmedValue = value?.trim()
+
+  if (!trimmedValue) {
+    return ""
+  }
+
+  const hasMatchingQuotes =
+    (trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) ||
+    (trimmedValue.startsWith("'") && trimmedValue.endsWith("'"))
+
+  return hasMatchingQuotes ? trimmedValue.slice(1, -1).trim() : trimmedValue
+}
+
 function readEnv(...names: string[]) {
   for (const name of names) {
-    const value = process.env[name]?.trim()
+    const value = sanitizeEnvValue(process.env[name])
 
     if (value) {
       return value
@@ -52,12 +66,37 @@ function normalizeBaseUrl(value: string) {
   return withProtocol.replace(/\/+$/, "")
 }
 
+function isLocalHost(value: string) {
+  const normalizedValue = value.toLowerCase()
+
+  return (
+    normalizedValue.startsWith("localhost") ||
+    normalizedValue.startsWith("127.0.0.1") ||
+    normalizedValue.startsWith("[::1]") ||
+    normalizedValue.endsWith(".local")
+  )
+}
+
 export function getMicrosoftTenantId() {
-  return readEnv("MICROSOFT_TENANT_ID", "microsoft_tenant_id") || "common"
+  return (
+    readEnv(
+      "MICROSOFT_TENANT_ID",
+      "AZURE_TENANT_ID",
+      "AZURE_AD_TENANT_ID",
+      "microsoft_tenant_id"
+    ) || "common"
+  )
 }
 
 export function getMicrosoftClientId() {
-  const value = readEnv("MICROSOFT_CLIENT_ID", "client_id", "microsoft_client_id")
+  const value = readEnv(
+    "MICROSOFT_CLIENT_ID",
+    "NEXT_PUBLIC_MICROSOFT_CLIENT_ID",
+    "AZURE_CLIENT_ID",
+    "AZURE_AD_CLIENT_ID",
+    "client_id",
+    "microsoft_client_id"
+  )
 
   if (!value) {
     throw new Error("MICROSOFT_CLIENT_ID is not set")
@@ -67,7 +106,13 @@ export function getMicrosoftClientId() {
 }
 
 export function getMicrosoftClientSecret() {
-  const value = readEnv("MICROSOFT_CLIENT_SECRET", "client_secret", "microsoft_client_secret")
+  const value = readEnv(
+    "MICROSOFT_CLIENT_SECRET",
+    "AZURE_CLIENT_SECRET",
+    "AZURE_AD_CLIENT_SECRET",
+    "client_secret",
+    "microsoft_client_secret"
+  )
 
   if (!value) {
     throw new Error("MICROSOFT_CLIENT_SECRET is not set")
@@ -84,6 +129,8 @@ function getAppBaseUrl(request: Request) {
   const configuredUrl = readEnv(
     "APP_URL",
     "NEXT_PUBLIC_APP_URL",
+    "NEXTAUTH_URL",
+    "SITE_URL",
     "VERCEL_PROJECT_PRODUCTION_URL",
     "app_url"
   )
@@ -103,11 +150,12 @@ function getAppBaseUrl(request: Request) {
 
   if (host) {
     const requestUrl = new URL(request.url)
+    const protocol = forwardedProto || (isLocalHost(host) ? requestUrl.protocol : "https:")
 
-    return `${requestUrl.protocol}//${host}`
+    return `${protocol.replace(/:$/, "")}://${host}`
   }
 
-  const vercelUrl = process.env.VERCEL_URL?.trim()
+  const vercelUrl = sanitizeEnvValue(process.env.VERCEL_URL)
 
   if (vercelUrl) {
     return normalizeBaseUrl(vercelUrl)

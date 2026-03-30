@@ -45,7 +45,7 @@ export default function LandingPage() {
             />
             <ScrollReveal className="block" delay={340} yOffset={16}>
               <span className="block text-xl text-slate-600 sm:text-2xl md:text-3xl">
-                Research & Capstone Progress System
+                Research & Capstone Progress Tracking
               </span>
             </ScrollReveal>
           </h1>
