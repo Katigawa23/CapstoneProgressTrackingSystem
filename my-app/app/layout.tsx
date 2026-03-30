@@ -1,16 +1,5 @@
 import type { Metadata } from "next"
-import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google"
 import "./globals.css"
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-plus-jakarta-sans",
-})
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
-})
 
 export const metadata: Metadata = {
   title: "TrackSphere",
@@ -24,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${plusJakartaSans.variable} ${spaceGrotesk.variable} antialiased`}>
+      <body className="antialiased">
         {children}
       </body>
     </html>

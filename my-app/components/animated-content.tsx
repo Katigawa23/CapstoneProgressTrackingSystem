@@ -86,7 +86,7 @@ export default function AnimatedContent({
       root = document.getElementById("snap-main-container")
     }
 
-    let delayTimer: ReturnType<typeof window.setTimeout> | null = null
+    let delayTimer: number | null = null
     let frameOne: number | null = null
     let frameTwo: number | null = null
 
@@ -173,8 +173,8 @@ export default function AnimatedContent({
       onComplete?.()
     }, duration * 1000)
 
-    let disappearTimer: ReturnType<typeof window.setTimeout> | null = null
-    let disappearDoneTimer: ReturnType<typeof window.setTimeout> | null = null
+    let disappearTimer: number | null = null
+    let disappearDoneTimer: number | null = null
 
     if (disappearAfter > 0) {
       disappearTimer = window.setTimeout(() => {
