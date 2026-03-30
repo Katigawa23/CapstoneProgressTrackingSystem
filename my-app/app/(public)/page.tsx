@@ -90,9 +90,9 @@ export default function LandingPage() {
         </ScrollReveal>
 
         <div className="grid gap-6 md:grid-cols-3">
-          <ScrollReveal delay={40}>
-            <Card className="rounded-2xl shadow-sm transition hover:shadow-md">
-              <CardContent className="p-6">
+          <ScrollReveal className="h-full" delay={40}>
+            <Card className="h-full rounded-2xl shadow-sm transition hover:shadow-md">
+              <CardContent className="flex h-full flex-col p-6">
                 <BarChart3 className="mb-4 h-8 w-8 text-blue-600" />
                 <h3 className="mb-2 text-lg font-semibold">Progress Tracking</h3>
                 <p className="text-sm text-gray-600">Track milestones and deadlines easily.</p>
@@ -100,9 +100,9 @@ export default function LandingPage() {
             </Card>
           </ScrollReveal>
 
-          <ScrollReveal delay={120}>
-            <Card className="rounded-2xl shadow-sm transition hover:shadow-md">
-              <CardContent className="p-6">
+          <ScrollReveal className="h-full" delay={120}>
+            <Card className="h-full rounded-2xl shadow-sm transition hover:shadow-md">
+              <CardContent className="flex h-full flex-col p-6">
                 <Users className="mb-4 h-8 w-8 text-blue-600" />
                 <h3 className="mb-2 text-lg font-semibold">Collaboration</h3>
                 <p className="text-sm text-gray-600">
@@ -112,9 +112,9 @@ export default function LandingPage() {
             </Card>
           </ScrollReveal>
 
-          <ScrollReveal delay={200}>
-            <Card className="rounded-2xl shadow-sm transition hover:shadow-md">
-              <CardContent className="p-6">
+          <ScrollReveal className="h-full" delay={200}>
+            <Card className="h-full rounded-2xl shadow-sm transition hover:shadow-md">
+              <CardContent className="flex h-full flex-col p-6">
                 <CheckCircle2 className="mb-4 h-8 w-8 text-blue-600" />
                 <h3 className="mb-2 text-lg font-semibold">Task Management</h3>
                 <p className="text-sm text-gray-600">

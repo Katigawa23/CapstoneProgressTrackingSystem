@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -189,9 +188,6 @@ export default function Navbar() {
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="text-2xl">Login</DialogTitle>
-                <DialogDescription>
-                  Sign in to manage your capstone workspace.
-                </DialogDescription>
               </DialogHeader>
 
               <div className="mt-4 flex flex-col gap-4">

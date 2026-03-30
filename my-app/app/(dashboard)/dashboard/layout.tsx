@@ -92,16 +92,29 @@ export default function DashboardLayout({
   return (
     <RoleProvider role={role}>
       <SidebarProvider>
-        <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center border-b bg-background px-4">
-          <SidebarTrigger className="mr-2 md:hidden" />
-          <div className="text-sm text-muted-foreground">Progress Tracking</div>
+        <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center border-b bg-background/80 px-4 shadow-sm backdrop-blur-md sm:px-6">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger className="md:hidden" />
+            <Link href="/" className="font-display text-xl font-bold tracking-tight sm:text-2xl">
+              <span className="text-slate-950">Track</span>
+              <span className="text-sky-600">Sphere</span>
+            </Link>
+            <div className="hidden rounded-full border border-blue-100 bg-blue-50/80 px-3 py-1 text-xs font-medium text-blue-700 lg:block">
+              Dashboard Workspace
+            </div>
+          </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <div className="hidden rounded-full border px-2 py-1 text-xs font-medium text-muted-foreground sm:block">
+            <div className="hidden rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 sm:block">
               Role: {roleLabels[role]}
             </div>
 
-            <Button variant="ghost" size="icon" aria-label="Notifications">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Notifications"
+              className="rounded-full text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+            >
               <Bell className="h-5 w-5" />
             </Button>
 
@@ -111,7 +124,7 @@ export default function DashboardLayout({
 
         <AppSidebar role={role} />
 
-        <SidebarInset className="h-svh overflow-hidden pt-14">
+        <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50/60 pt-16">
           <main className="flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-6">
             {hasAccess ? children : <AccessDenied role={role} />}
           </main>
