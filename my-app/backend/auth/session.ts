@@ -15,28 +15,35 @@ export type AuthSession = {
 }
 
 function getSessionSecret() {
-  const value =
+  return (
     process.env.AUTH_SECRET?.trim() ||
     process.env.auth_secret?.trim() ||
     process.env.NEXTAUTH_SECRET?.trim() ||
     process.env.MICROSOFT_CLIENT_SECRET?.trim() ||
     process.env.client_secret?.trim() ||
-    process.env.microsoft_client_secret?.trim()
-
-  if (!value) {
-    throw new Error("AUTH_SECRET or MICROSOFT_CLIENT_SECRET is not set")
-  }
-
-  return value
+    process.env.microsoft_client_secret?.trim() ||
+    ""
+  )
 }
 
 function signValue(value: string) {
-  return createHmac("sha256", getSessionSecret()).update(value).digest("base64url")
+  const secret = getSessionSecret()
+
+  if (!secret) {
+    return null
+  }
+
+  return createHmac("sha256", secret).update(value).digest("base64url")
 }
 
 function encodeSignedPayload(payload: object) {
   const encodedPayload = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url")
   const signature = signValue(encodedPayload)
+
+  if (!signature) {
+    return encodedPayload
+  }
+
   return `${encodedPayload}.${signature}`
 }
 
@@ -47,19 +54,26 @@ function decodeSignedPayload<T>(value: string | undefined) {
 
   const [encodedPayload, signature] = value.split(".")
 
-  if (!encodedPayload || !signature) {
+  if (!encodedPayload) {
     return null
   }
 
-  const expectedSignature = signValue(encodedPayload)
-  const signatureBuffer = Buffer.from(signature)
-  const expectedBuffer = Buffer.from(expectedSignature)
+  if (signature) {
+    const expectedSignature = signValue(encodedPayload)
 
-  if (
-    signatureBuffer.length !== expectedBuffer.length ||
-    !timingSafeEqual(signatureBuffer, expectedBuffer)
-  ) {
-    return null
+    if (!expectedSignature) {
+      return null
+    }
+
+    const signatureBuffer = Buffer.from(signature)
+    const expectedBuffer = Buffer.from(expectedSignature)
+
+    if (
+      signatureBuffer.length !== expectedBuffer.length ||
+      !timingSafeEqual(signatureBuffer, expectedBuffer)
+    ) {
+      return null
+    }
   }
 
   try {

@@ -10,6 +10,8 @@ import {
   getAuthCookieOptions,
 } from "@/backend/auth/session"
 
+export const runtime = "nodejs"
+
 export async function GET(request: Request) {
   try {
     const state = createOauthState()
