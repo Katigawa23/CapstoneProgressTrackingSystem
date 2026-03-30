@@ -192,7 +192,7 @@ export default function Navbar() {
 
               <div className="mt-4 flex flex-col gap-4">
                 <Button asChild className="flex w-full items-center justify-center gap-2 font-semibold">
-                  <Link href="/dashboard">
+                  <Link href="/api/auth/microsoft">
                     <Image
                       src="/microsoft-logo.png"
                       alt="Microsoft Logo"

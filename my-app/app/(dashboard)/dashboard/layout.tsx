@@ -24,20 +24,36 @@ import { canAccessPath, isUserRole, roleLabels, type UserRole } from "@/lib/rbac
 
 const ROLE_STORAGE_KEY = "dashboard-role"
 
-function ProfileMenu() {
+type AuthSession = {
+  user: {
+    id: string
+    name: string
+    email: string
+  }
+  expiresAt: string
+}
+
+function ProfileMenu({ session }: { session: AuthSession | null }) {
+  const fallback = session?.user.name?.trim().charAt(0).toUpperCase() || "N"
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-9 w-9 rounded-full p-0">
           <Avatar className="h-9 w-9">
             <AvatarImage src="/avatar.png" alt="Profile" />
-            <AvatarFallback>N</AvatarFallback>
+            <AvatarFallback>{fallback}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          <div className="font-medium">{session?.user.name ?? "My Account"}</div>
+          {session?.user.email ? (
+            <div className="text-xs font-normal text-muted-foreground">{session.user.email}</div>
+          ) : null}
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         <DropdownMenuItem asChild>
@@ -50,7 +66,7 @@ function ProfileMenu() {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onClick={() => (window.location.href = "/")}>
+        <DropdownMenuItem onClick={() => (window.location.href = "/api/auth/logout")}>
           Logout
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -78,12 +94,58 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname()
   const [role, setRole] = React.useState<UserRole>("student")
+  const [session, setSession] = React.useState<AuthSession | null>(null)
+  const [authLoading, setAuthLoading] = React.useState(true)
 
   React.useEffect(() => {
     const savedRole = window.localStorage.getItem(ROLE_STORAGE_KEY)
 
     if (isUserRole(savedRole)) {
       setRole(savedRole)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    const loadSession = async () => {
+      try {
+        const response = await fetch("/api/auth/session", {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!response.ok) {
+          window.location.href = "/"
+          return
+        }
+
+        const data = (await response.json()) as {
+          authenticated: boolean
+          session?: AuthSession
+        }
+
+        if (!data.authenticated || !data.session) {
+          window.location.href = "/"
+          return
+        }
+
+        if (isMounted) {
+          setSession(data.session)
+          setAuthLoading(false)
+        }
+      } catch {
+        window.location.href = "/"
+      }
+    }
+
+    void loadSession()
+
+    return () => {
+      isMounted = false
     }
   }, [])
 
@@ -99,9 +161,6 @@ export default function DashboardLayout({
               <span className="text-slate-950">Track</span>
               <span className="text-sky-600">Sphere</span>
             </Link>
-            <div className="hidden rounded-full border border-blue-100 bg-blue-50/80 px-3 py-1 text-xs font-medium text-blue-700 lg:block">
-              Dashboard Workspace
-            </div>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -118,7 +177,7 @@ export default function DashboardLayout({
               <Bell className="h-5 w-5" />
             </Button>
 
-            <ProfileMenu />
+            <ProfileMenu session={session} />
           </div>
         </header>
 
@@ -126,7 +185,7 @@ export default function DashboardLayout({
 
         <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50/60 pt-16">
           <main className="flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-6">
-            {hasAccess ? children : <AccessDenied role={role} />}
+            {authLoading ? null : hasAccess ? children : <AccessDenied role={role} />}
           </main>
         </SidebarInset>
       </SidebarProvider>

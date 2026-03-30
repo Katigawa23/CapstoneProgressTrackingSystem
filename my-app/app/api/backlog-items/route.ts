@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { createBacklogItem, listBacklogItems } from "@/lib/backlog-repository"
+import { createBacklogItem, listBacklogItems } from "@/backend/repositories/backlog-repository"
 
 export async function GET(request: Request) {
   try {

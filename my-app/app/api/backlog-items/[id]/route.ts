@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import {
   deleteBacklogItem,
   updateBacklogItem,
-} from "@/lib/backlog-repository"
+} from "@/backend/repositories/backlog-repository"
 
 export async function PATCH(
   request: Request,

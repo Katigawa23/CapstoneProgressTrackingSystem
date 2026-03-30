@@ -2,8 +2,8 @@ import { randomUUID } from "crypto"
 import { mkdir, readFile, writeFile } from "fs/promises"
 import path from "path"
 
-import { getDb } from "@/lib/db"
-import { getPreferredStorageMode } from "@/lib/storage-mode"
+import { getPreferredStorageMode } from "@/backend/config/storage-mode"
+import { getDb } from "@/backend/db/connection"
 
 export type BacklogRow = {
   id: string

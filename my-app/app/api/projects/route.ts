@@ -4,7 +4,7 @@ import {
   PROJECT_DESCRIPTION_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
 } from "@/lib/projects"
-import { createProject, listProjects } from "@/lib/project-repository"
+import { createProject, listProjects } from "@/backend/repositories/project-repository"
 
 export async function GET() {
   try {
