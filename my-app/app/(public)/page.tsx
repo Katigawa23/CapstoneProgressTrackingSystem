@@ -45,7 +45,7 @@ export default function LandingPage() {
             />
             <ScrollReveal className="block" delay={340} yOffset={16}>
               <span className="block text-xl text-slate-600 sm:text-2xl md:text-3xl">
-                Capstone Progress System
+                Research & Capstone Progress System
               </span>
             </ScrollReveal>
           </h1>
@@ -106,7 +106,7 @@ export default function LandingPage() {
                 <Users className="mb-4 h-8 w-8 text-blue-600" />
                 <h3 className="mb-2 text-lg font-semibold">Collaboration</h3>
                 <p className="text-sm text-gray-600">
-                  Work with advisers and team members seamlessly.
+                  Work with advisers and group members seamlessly.
                 </p>
               </CardContent>
             </Card>
@@ -137,7 +137,7 @@ export default function LandingPage() {
               <FolderPlus className="mx-auto mb-4 text-blue-600" />
               <h3 className="font-semibold">1. Create Project</h3>
               <p className="mt-2 text-sm text-gray-600">
-                Start your capstone and define your goals.
+                Start your research or capstone and define your goals.
               </p>
             </div>
           </ScrollReveal>
