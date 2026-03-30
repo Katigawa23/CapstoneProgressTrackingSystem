@@ -15,10 +15,13 @@ export type AuthSession = {
 }
 
 function getSessionSecret() {
-  const value = process.env.AUTH_SECRET?.trim()
+  const value =
+    process.env.AUTH_SECRET?.trim() ||
+    process.env.NEXTAUTH_SECRET?.trim() ||
+    process.env.MICROSOFT_CLIENT_SECRET?.trim()
 
   if (!value) {
-    throw new Error("AUTH_SECRET is not set")
+    throw new Error("AUTH_SECRET or MICROSOFT_CLIENT_SECRET is not set")
   }
 
   return value

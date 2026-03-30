@@ -26,5 +26,5 @@ Examples:
 
 Microsoft Entra redirect URIs must include:
 
-- `http://localhost:3000/api/auth/microsoft/callback`
-- `https://progress-tracking-gamma.vercel.app/api/auth/microsoft/callback`
+- `http://localhost:3000/dashboard/api/auth/microsoft/callback`
+- `https://progress-tracking-gamma.vercel.app/dashboard/api/auth/microsoft/callback`

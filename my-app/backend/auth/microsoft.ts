@@ -55,7 +55,20 @@ function getAppBaseUrl(request: Request) {
   const configuredUrl = process.env.APP_URL?.trim()
 
   if (configuredUrl) {
-    return configuredUrl
+    return configuredUrl.replace(/\/+$/, "")
+  }
+
+  const forwardedHost = request.headers.get("x-forwarded-host")
+  const forwardedProto = request.headers.get("x-forwarded-proto")
+
+  if (forwardedHost) {
+    return `${forwardedProto || "https"}://${forwardedHost}`
+  }
+
+  const vercelUrl = process.env.VERCEL_URL?.trim()
+
+  if (vercelUrl) {
+    return `https://${vercelUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`
   }
 
   return new URL(request.url).origin
