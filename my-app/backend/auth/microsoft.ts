@@ -54,10 +54,12 @@ function readFirstHeaderValue(request: Request, name: string) {
     return ""
   }
 
-  return value
-    .split(",")
-    .map((part) => part.trim())
-    .find(Boolean) ?? ""
+  return (
+    value
+      .split(",")
+      .map((part) => part.trim())
+      .find(Boolean) ?? ""
+  )
 }
 
 function normalizeBaseUrl(value: string) {

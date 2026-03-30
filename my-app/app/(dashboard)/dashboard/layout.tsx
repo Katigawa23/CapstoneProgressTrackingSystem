@@ -19,19 +19,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  clearClientAuthSession,
+  createMicrosoftLogoutUrl,
+  readClientAuthSession,
+  subscribeToAuthChange,
+  type AuthSession,
+} from "@/lib/auth-client"
 import { RoleProvider } from "@/lib/role-context"
 import { canAccessPath, isUserRole, roleLabels, type UserRole } from "@/lib/rbac"
 
 const ROLE_STORAGE_KEY = "dashboard-role"
-
-type AuthSession = {
-  user: {
-    id: string
-    name: string
-    email: string
-  }
-  expiresAt: string
-}
 
 function ProfileMenu({ session }: { session: AuthSession | null }) {
   const fallback = session?.user.name?.trim().charAt(0).toUpperCase() || "N"
@@ -66,7 +64,13 @@ function ProfileMenu({ session }: { session: AuthSession | null }) {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onClick={() => (window.location.href = "/api/auth/logout")}>
+        <DropdownMenuItem
+          onClick={() => {
+            const tenantId = session?.tenantId ?? "common"
+            clearClientAuthSession()
+            window.location.href = createMicrosoftLogoutUrl(tenantId)
+          }}
+        >
           Logout
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -106,46 +110,23 @@ export default function DashboardLayout({
   }, [])
 
   React.useEffect(() => {
-    let isMounted = true
+    const syncSession = () => {
+      const nextSession = readClientAuthSession()
 
-    const loadSession = async () => {
-      try {
-        const response = await fetch("/api/auth/session", {
-          method: "GET",
-          cache: "no-store",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-
-        if (!response.ok) {
-          window.location.href = "/"
-          return
-        }
-
-        const data = (await response.json()) as {
-          authenticated: boolean
-          session?: AuthSession
-        }
-
-        if (!data.authenticated || !data.session) {
-          window.location.href = "/"
-          return
-        }
-
-        if (isMounted) {
-          setSession(data.session)
-          setAuthLoading(false)
-        }
-      } catch {
+      if (!nextSession) {
         window.location.href = "/"
+        return
       }
+
+      setSession(nextSession)
+      setAuthLoading(false)
     }
 
-    void loadSession()
+    syncSession()
+    const unsubscribe = subscribeToAuthChange(syncSession)
 
     return () => {
-      isMounted = false
+      unsubscribe()
     }
   }, [])
 

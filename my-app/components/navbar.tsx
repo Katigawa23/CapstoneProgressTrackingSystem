@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -24,6 +23,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import MicrosoftLoginButton from "@/components/microsoft-login-button"
 
 const navLinks = [
   { name: "Home", href: "/", sectionId: null },
@@ -191,22 +191,7 @@ export default function Navbar() {
               </DialogHeader>
 
               <div className="mt-4 flex flex-col gap-4">
-                <Button
-                  type="button"
-                  className="flex w-full items-center justify-center gap-2 font-semibold"
-                  onClick={() => {
-                    window.location.assign("/api/auth/microsoft")
-                  }}
-                >
-                  <Image
-                    src="/microsoft-logo.png"
-                    alt="Microsoft Logo"
-                    width={20}
-                    height={20}
-                    className="mr-2"
-                  />
-                  Login with Microsoft 365
-                </Button>
+                <MicrosoftLoginButton onSuccess={() => setIsLoginOpen(false)} />
 
                 <div className="flex items-center gap-3">
                   <Separator className="flex-1" />
