@@ -4,12 +4,45 @@ export const PROJECTS_STORAGE_KEY = "dashboard-projects"
 export const PROJECTS_CHANGE_EVENT = "dashboard-projects-change"
 export const PROJECT_TITLE_MAX_LENGTH = 40
 export const PROJECT_DESCRIPTION_MAX_LENGTH = 120
+export const PROJECT_METADATA_MAX_LENGTH = 60
+export const OTHER_PROJECT_OPTION = "__other__"
+
+export const PROJECT_PROGRAM_OPTIONS = [
+  "BS Information Technology",
+  "BS Computer Science",
+  "BS Information Systems",
+  "Other",
+] as const
+
+export const PROJECT_YEAR_LEVEL_OPTIONS = [
+  "1st Year",
+  "2nd Year",
+  "3rd Year",
+  "4th Year",
+] as const
+
+export const PROJECT_SY_TERM_OPTIONS = [
+  "1st term",
+  "2nd term",
+] as const
+
+export const PROJECT_TYPE_OPTIONS = [
+  "Capstone",
+  "Thesis",
+  "Research",
+  "System Development",
+  "Other",
+] as const
 
 export type DashboardProject = {
   id: string
   name: string
   description: string
   members: string[]
+  program: string
+  yearLevel: string
+  syTerm: string
+  projectType: string
 }
 
 export type DashboardProjectCollection = {
@@ -21,9 +54,45 @@ export type CreateDashboardProjectInput = {
   name: string
   description: string
   members: string[]
+  program: string
+  yearLevel: string
+  syTerm: string
+  projectType: string
 }
 
 export const dashboardProjects: DashboardProject[] = []
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
+}
+
+function normalizeStoredProject(project: unknown): DashboardProject | null {
+  if (!project || typeof project !== "object") {
+    return null
+  }
+
+  const candidate = project as Record<string, unknown>
+
+  if (
+    typeof candidate.id !== "string" ||
+    typeof candidate.name !== "string" ||
+    typeof candidate.description !== "string" ||
+    !isStringArray(candidate.members)
+  ) {
+    return null
+  }
+
+  return {
+    id: candidate.id,
+    name: candidate.name,
+    description: candidate.description,
+    members: candidate.members,
+    program: typeof candidate.program === "string" ? candidate.program : "",
+    yearLevel: typeof candidate.yearLevel === "string" ? candidate.yearLevel : "",
+    syTerm: typeof candidate.syTerm === "string" ? candidate.syTerm : "",
+    projectType: typeof candidate.projectType === "string" ? candidate.projectType : "",
+  }
+}
 
 function readStoredProjects() {
   if (typeof window === "undefined") {
@@ -37,8 +106,15 @@ function readStoredProjects() {
   }
 
   try {
-    const parsedProjects = JSON.parse(storedProjects) as DashboardProject[]
-    return Array.isArray(parsedProjects) ? parsedProjects : dashboardProjects
+    const parsedProjects = JSON.parse(storedProjects) as unknown
+
+    if (!Array.isArray(parsedProjects)) {
+      return dashboardProjects
+    }
+
+    return parsedProjects
+      .map(normalizeStoredProject)
+      .filter((project): project is DashboardProject => project !== null)
   } catch {
     return dashboardProjects
   }
@@ -121,6 +197,10 @@ export function createDashboardProject({
   name,
   description,
   members,
+  program,
+  yearLevel,
+  syTerm,
+  projectType,
 }: CreateDashboardProjectInput): Promise<DashboardProject> {
   return fetch("/api/projects", {
     method: "POST",
@@ -131,6 +211,10 @@ export function createDashboardProject({
       name: name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
       description: description.trim().slice(0, PROJECT_DESCRIPTION_MAX_LENGTH),
       members,
+      program: program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
+      yearLevel: yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
+      syTerm: syTerm.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
+      projectType: projectType.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
     }),
   }).then(async (response) => {
     if (!response.ok) {

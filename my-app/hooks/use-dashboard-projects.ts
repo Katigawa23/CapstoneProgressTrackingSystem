@@ -7,6 +7,7 @@ import {
   createDashboardProject,
   getDashboardProjects,
   getDashboardProject,
+  OTHER_PROJECT_OPTION,
   PROJECT_CHANGE_EVENT,
   PROJECTS_CHANGE_EVENT,
   PROJECT_STORAGE_KEY,
@@ -31,6 +32,13 @@ export function useDashboardProjects() {
   const [createProjectOpen, setCreateProjectOpen] = React.useState(false)
   const [projectTitle, setProjectTitle] = React.useState("")
   const [projectDescription, setProjectDescription] = React.useState("")
+  const [projectProgram, setProjectProgram] = React.useState("")
+  const [projectProgramOther, setProjectProgramOther] = React.useState("")
+  const [projectYearLevel, setProjectYearLevel] = React.useState("")
+  const [projectYearLevelOther, setProjectYearLevelOther] = React.useState("")
+  const [projectSyTerm, setProjectSyTerm] = React.useState("")
+  const [projectType, setProjectType] = React.useState("")
+  const [projectTypeOther, setProjectTypeOther] = React.useState("")
   const [memberSearch, setMemberSearch] = React.useState("")
 
   const syncProjectState = React.useCallback(() => {
@@ -80,6 +88,13 @@ export function useDashboardProjects() {
   const resetCreateProjectForm = React.useCallback(() => {
     setProjectTitle("")
     setProjectDescription("")
+    setProjectProgram("")
+    setProjectProgramOther("")
+    setProjectYearLevel("")
+    setProjectYearLevelOther("")
+    setProjectSyTerm("")
+    setProjectType("")
+    setProjectTypeOther("")
     setMemberSearch("")
   }, [])
 
@@ -96,9 +111,15 @@ export function useDashboardProjects() {
   const createProject = React.useCallback(async () => {
     const title = projectTitle.trim()
     const description = projectDescription.trim()
+    const program =
+      (projectProgram === OTHER_PROJECT_OPTION ? projectProgramOther : projectProgram).trim()
+    const yearLevel = projectYearLevel.trim()
+    const syTerm = projectSyTerm.trim()
+    const resolvedProjectType =
+      (projectType === OTHER_PROJECT_OPTION ? projectTypeOther : projectType).trim()
     const memberName = memberSearch.trim()
 
-    if (!title || !description || !memberName) {
+    if (!title || !description || !program || !yearLevel || !syTerm || !resolvedProjectType || !memberName) {
       return null
     }
 
@@ -106,6 +127,10 @@ export function useDashboardProjects() {
       name: title,
       description,
       members: [getInitials(memberName)],
+      program,
+      yearLevel,
+      syTerm,
+      projectType: resolvedProjectType,
     })
 
     setDashboardProject(nextProject.id)
@@ -121,21 +146,46 @@ export function useDashboardProjects() {
     resetCreateProjectForm()
 
     return nextProject
-  }, [memberSearch, projectDescription, projectTitle, resetCreateProjectForm])
+  }, [
+    memberSearch,
+    projectDescription,
+    projectProgram,
+    projectProgramOther,
+    projectSyTerm,
+    projectTitle,
+    projectType,
+    projectTypeOther,
+    projectYearLevel,
+    resetCreateProjectForm,
+  ])
 
   return {
     createProject,
     createProjectOpen,
     memberSearch,
     projectDescription,
+    projectProgram,
+    projectProgramOther,
+    projectSyTerm,
     projectTitle,
+    projectType,
+    projectTypeOther,
+    projectYearLevel,
+    projectYearLevelOther,
     projects,
     resetCreateProjectForm,
     selectProject,
     setCreateProjectOpen,
     setMemberSearch,
     setProjectDescription,
+    setProjectProgram,
+    setProjectProgramOther,
+    setProjectSyTerm,
     setProjectTitle,
+    setProjectType,
+    setProjectTypeOther,
+    setProjectYearLevel,
+    setProjectYearLevelOther,
     team,
   }
 }

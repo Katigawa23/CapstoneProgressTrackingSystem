@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import {
   PROJECT_DESCRIPTION_MAX_LENGTH,
+  PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
 } from "@/lib/projects"
 import { createProject, listProjects } from "@/backend/repositories/project-repository"
@@ -22,10 +23,18 @@ export async function POST(request: Request) {
       name?: string
       description?: string
       members?: string[]
+      program?: string
+      yearLevel?: string
+      syTerm?: string
+      projectType?: string
     }
 
     const name = body.name?.trim()
     const description = body.description?.trim()
+    const program = body.program?.trim()
+    const yearLevel = body.yearLevel?.trim()
+    const syTerm = body.syTerm?.trim()
+    const projectType = body.projectType?.trim()
     const members = Array.isArray(body.members)
       ? body.members.filter((member) => typeof member === "string" && member.trim())
       : []
@@ -42,10 +51,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Member is required" }, { status: 400 })
     }
 
+    if (!program) {
+      return NextResponse.json({ error: "Program is required" }, { status: 400 })
+    }
+
+    if (!yearLevel) {
+      return NextResponse.json({ error: "Year level is required" }, { status: 400 })
+    }
+
+    if (!projectType) {
+      return NextResponse.json({ error: "Project type is required" }, { status: 400 })
+    }
+
+    if (!syTerm) {
+      return NextResponse.json({ error: "SY term is required" }, { status: 400 })
+    }
+
     const project = await createProject({
       name: name.slice(0, PROJECT_TITLE_MAX_LENGTH),
       description: description.slice(0, PROJECT_DESCRIPTION_MAX_LENGTH),
       members,
+      program: program.slice(0, PROJECT_METADATA_MAX_LENGTH),
+      yearLevel: yearLevel.slice(0, PROJECT_METADATA_MAX_LENGTH),
+      syTerm: syTerm.slice(0, PROJECT_METADATA_MAX_LENGTH),
+      projectType: projectType.slice(0, PROJECT_METADATA_MAX_LENGTH),
     })
 
     return NextResponse.json({ project }, { status: 201 })

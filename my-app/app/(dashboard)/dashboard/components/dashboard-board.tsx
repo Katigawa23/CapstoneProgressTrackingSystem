@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Ellipsis, File, ImageIcon, Paperclip, Reply, ThumbsUp } from "lucide-react"
+import { Ellipsis, File, ImageIcon, Paperclip, Plus, Reply, ThumbsUp } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -39,6 +39,7 @@ type DashboardBoardProps = {
   people: Person[]
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onTodoUpdate: (todoId: string, updates: Partial<TodoItem>) => void
+  onCreate: () => void
 }
 
 function DashboardColumn({
@@ -47,6 +48,7 @@ function DashboardColumn({
   people,
   onStatusChange,
   onOpenTask,
+  onCreate,
   className = "",
   scrollAreaClassName,
 }: {
@@ -55,6 +57,7 @@ function DashboardColumn({
   people: Person[]
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onOpenTask: (todo: TodoItem, target?: "default" | "comments") => void
+  onCreate: () => void
   className?: string
   scrollAreaClassName?: string
 }) {
@@ -104,6 +107,19 @@ function DashboardColumn({
           </div>
         </ScrollArea>
       </CardContent>
+
+      <div className="border-t border-slate-200 p-1 ">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCreate}
+          className="w-full justify-start gap-1 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <Plus className="h-3 w-3" />
+          Create
+        </Button>
+      </div>
+
     </Card>
   )
 }
@@ -113,6 +129,7 @@ export function DashboardBoard({
   people,
   onStatusChange,
   onTodoUpdate,
+  onCreate,
 }: DashboardBoardProps) {
   const [selectedTodo, setSelectedTodo] = React.useState<TodoItem | null>(null)
   const [openTarget, setOpenTarget] = React.useState<"default" | "comments">(
@@ -409,6 +426,7 @@ export function DashboardBoard({
                   people={people}
                   onStatusChange={onStatusChange}
                   onOpenTask={handleOpenTask}
+                  onCreate={onCreate}
                   className="h-full"
                   scrollAreaClassName={
                     hasTodos
@@ -436,6 +454,7 @@ export function DashboardBoard({
               people={people}
               onStatusChange={onStatusChange}
               onOpenTask={handleOpenTask}
+              onCreate={onCreate}
             />
           )
         })}

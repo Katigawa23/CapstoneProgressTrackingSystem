@@ -1,6 +1,6 @@
 "use client"
 
-import { FolderOpen } from "lucide-react"
+import { Check, FolderOpen } from "lucide-react"
 
 import {
   SidebarGroup,
@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import type { DashboardProject, DashboardProjectCollection } from "@/lib/projects"
+import { cn } from "@/lib/utils"
 
 type ProjectPickerContentProps = {
   collections: DashboardProjectCollection[]
@@ -29,7 +30,7 @@ export function ProjectPickerContent({
     return (
       <SidebarGroup>
         <SidebarGroupContent>
-          <div className="rounded-xl border border-dashed border-sidebar-border px-3 py-4 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-sky-200 bg-white/80 px-3 py-3 text-xs text-slate-500 sm:px-4 sm:py-4 sm:text-sm">
             No projects yet. Create your first project from the project menu above.
           </div>
         </SidebarGroupContent>
@@ -46,9 +47,11 @@ export function ProjectPickerContent({
 
         return (
           <SidebarGroup key={collection.label}>
-            <SidebarGroupLabel>{collection.label}</SidebarGroupLabel>
+            <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              {collection.label}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="gap-1">
                 {collection.items.map((project) => {
                   const active = team?.id === project.id
 
@@ -57,16 +60,35 @@ export function ProjectPickerContent({
                       <SidebarMenuButton
                         isActive={active}
                         tooltip={project.name}
-                        className="h-auto items-start py-2"
+                        className={cn(
+                          "h-auto items-start gap-2 rounded-lg border border-transparent px-2 py-2 text-slate-700 hover:border-sky-100 hover:bg-white/90 hover:text-slate-900 data-[active=true]:border-sky-200 data-[active=true]:bg-white data-[active=true]:text-slate-950 data-[active=true]:shadow-[0_1px_2px_rgba(15,23,42,0.08)]",
+                          "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2!"
+                        )}
                         onClick={() => onSelectProject(project.id)}
                       >
-                        <FolderOpen className="mt-0.5 h-4 w-4 shrink-0" />
-                        <div className="min-w-0">
-                          <span className="block truncate text-sm font-medium">
-                            {project.name}
-                          </span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {project.description}
+                        <div
+                          className={cn(
+                            "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border",
+                            active
+                              ? "border-sky-200 bg-sky-50 text-sky-700"
+                              : "border-slate-200 bg-slate-50 text-slate-500"
+                          )}
+                        >
+                          <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="block truncate text-[12px] font-semibold sm:text-[13px]">
+                              {project.name}
+                            </span>
+                            {active ? (
+                              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-sky-600 text-white">
+                                <Check className="h-2.5 w-2.5" />
+                              </span>
+                            ) : null}
+                          </div>
+                          <span className="hidden truncate text-[10px] text-slate-500 sm:block">
+                            {project.description || "No description added yet."}
                           </span>
                         </div>
                       </SidebarMenuButton>

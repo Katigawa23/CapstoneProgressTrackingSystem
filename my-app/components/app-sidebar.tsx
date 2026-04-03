@@ -69,11 +69,11 @@ function NavList({ items }: { items: NavItem[] }) {
               asChild
               isActive={active}
               tooltip={item.title}
-              className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm"
+              className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
             >
               <Link href={item.href} className="flex items-center gap-2">
                 {Icon && <Icon className="h-4 w-4" />}
-                <span>{item.title}</span>
+                <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -95,14 +95,28 @@ export function AppSidebar({ role }: { role: UserRole }) {
     createProjectOpen,
     memberSearch,
     projectDescription, 
+    projectProgram,
+    projectProgramOther,
+    projectSyTerm,
     projectTitle,
+    projectType,
+    projectTypeOther,
+    projectYearLevel,
+    projectYearLevelOther,
     projects,
     resetCreateProjectForm,
     selectProject,
     setCreateProjectOpen,
     setMemberSearch,
     setProjectDescription,
+    setProjectProgram,
+    setProjectProgramOther,
+    setProjectSyTerm,
     setProjectTitle,
+    setProjectType,
+    setProjectTypeOther,
+    setProjectYearLevel,
+    setProjectYearLevelOther,
     team,
   } = useDashboardProjects()
   const projectCollections = getDashboardProjectCollections(projects)
@@ -125,17 +139,31 @@ export function AppSidebar({ role }: { role: UserRole }) {
         onCreateProject={createProject}
         onMemberSearchChange={setMemberSearch}
         onProjectDescriptionChange={setProjectDescription}
+        onProjectProgramChange={setProjectProgram}
+        onProjectProgramOtherChange={setProjectProgramOther}
+        onProjectSyTermChange={setProjectSyTerm}
         onProjectTitleChange={setProjectTitle}
+        onProjectTypeChange={setProjectType}
+        onProjectTypeOtherChange={setProjectTypeOther}
+        onProjectYearLevelChange={setProjectYearLevel}
+        onProjectYearLevelOtherChange={setProjectYearLevelOther}
         projectDescription={projectDescription}
+        projectProgram={projectProgram}
+        projectProgramOther={projectProgramOther}
+        projectSyTerm={projectSyTerm}
         projectTitle={projectTitle}
+        projectType={projectType}
+        projectTypeOther={projectTypeOther}
+        projectYearLevel={projectYearLevel}
+        projectYearLevelOther={projectYearLevelOther}
       />
 
       <Sidebar
         collapsible="icon"
-        className="top-16 h-[calc(100vh-64px)] border-r border-blue-100/70 [--sidebar:#f7fbff] [--sidebar-border:#dbeafe] [--sidebar-accent:#e8f1ff] [--sidebar-accent-foreground:#2563eb] [--sidebar-foreground:#334155]"
+        className="relative top-16 h-[calc(100vh-64px)] border-r border-blue-100/70 shadow-[10px_0_26px_-20px_rgba(15,23,42,0.28)] after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-blue-200/85 [--sidebar:#f7fbff] [--sidebar-border:#dbeafe] [--sidebar-accent:#e8f1ff] [--sidebar-accent-foreground:#2563eb] [--sidebar-foreground:#334155]"
       >
-        <SidebarHeader className="gap-4 px-3 pt-4">
-          <div className="rounded-2xl border border-blue-100 bg-white/80 p-1 shadow-sm">
+        <SidebarHeader className="gap-4 px-3 pt-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1">
+          <div className="rounded-xl bg-transparent">
             <ProjectSwitcher
               displayName={isProjectPickerPage ? "Create project" : undefined}
               onCreateProject={() => setCreateProjectOpen(true)}

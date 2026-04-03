@@ -24,6 +24,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import MicrosoftLoginButton from "@/components/microsoft-login-button"
+import { saveClientAuthSession } from "@/lib/auth-client"
 
 const navLinks = [
   { name: "Home", href: "/", sectionId: null },
@@ -101,6 +102,20 @@ export default function Navbar() {
       window.removeEventListener("open-login-dialog", openLoginDialog)
     }
   }, [])
+
+  const continueToDashboard = () => {
+    window.localStorage.setItem("dashboard-role", "student")
+    saveClientAuthSession(
+      {
+        id: "local-dashboard-access",
+        name: "Local Dashboard Access",
+        email: "local@tracksphere.dev",
+      },
+      "common"
+    )
+    setIsLoginOpen(false)
+    window.location.assign("/dashboard")
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 shadow-sm backdrop-blur-md">
@@ -193,6 +208,15 @@ export default function Navbar() {
               <div className="mt-4 flex flex-col gap-4">
                 <MicrosoftLoginButton onSuccess={() => setIsLoginOpen(false)} />
 
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full font-semibold"
+                  onClick={continueToDashboard}
+                >
+                  Continue to Dashboard
+                </Button>
+
                 <div className="flex items-center gap-3">
                   <Separator className="flex-1" />
                   <span className="text-xs font-medium text-muted-foreground">OR</span>
@@ -202,6 +226,10 @@ export default function Navbar() {
                 <Button variant="outline" className="w-full font-semibold">
                   Admin Login
                 </Button>
+
+                <p className="text-center text-xs text-muted-foreground">
+                  Temporary local access while Microsoft login is unavailable.
+                </p>
               </div>
             </DialogContent>
           </Dialog>

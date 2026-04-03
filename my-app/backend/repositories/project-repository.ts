@@ -7,6 +7,7 @@ import { getDb } from "@/backend/db/connection"
 import {
   dashboardProjects,
   PROJECT_DESCRIPTION_MAX_LENGTH,
+  PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
   type DashboardProject,
 } from "@/lib/projects"
@@ -16,6 +17,10 @@ type ProjectRecord = {
   project_name: string
   project_description: string
   project_member: string[]
+  program: string
+  year_level: string
+  sy_term: string
+  project_type: string
   created_at: string
 }
 
@@ -23,6 +28,10 @@ type CreateProjectInput = {
   name: string
   description: string
   members: string[]
+  program: string
+  yearLevel: string
+  syTerm: string
+  projectType: string
 }
 
 type ProjectStorageMode = "database" | "file"
@@ -79,6 +88,10 @@ async function ensureProjectsSchema() {
           project_name text not null,
           project_description text not null default '',
           project_member text[] not null default '{}',
+          program text not null default '',
+          year_level text not null default '',
+          sy_term text not null default '',
+          project_type text not null default '',
           created_at timestamptz not null default now()
         );
       `)
@@ -134,6 +147,30 @@ async function ensureProjectsSchema() {
               alter table projects rename column members to project_member;
             end if;
           end $$;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists program text not null default '';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists year_level text not null default '';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists sy_term text not null default '';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists project_type text not null default '';
         `)
       )
       .then(() => undefined)
@@ -236,6 +273,10 @@ function mapRecord(record: ProjectRecord): DashboardProject {
     name: record.project_name,
     description: record.project_description,
     members: record.project_member,
+    program: typeof record.program === "string" ? record.program : "",
+    yearLevel: typeof record.year_level === "string" ? record.year_level : "",
+    syTerm: typeof record.sy_term === "string" ? record.sy_term : "",
+    projectType: typeof record.project_type === "string" ? record.project_type : "",
   }
 }
 
@@ -245,6 +286,10 @@ function toRecord(project: DashboardProject): ProjectRecord {
     project_name: project.name,
     project_description: project.description,
     project_member: project.members,
+    program: project.program,
+    year_level: project.yearLevel,
+    sy_term: project.syTerm,
+    project_type: project.projectType,
     created_at: new Date().toISOString(),
   }
 }
@@ -255,6 +300,10 @@ function normalizeProject(input: CreateProjectInput): DashboardProject {
     name: input.name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
     description: input.description.trim().slice(0, PROJECT_DESCRIPTION_MAX_LENGTH),
     members: input.members,
+    program: input.program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
+    yearLevel: input.yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
+    syTerm: input.syTerm.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
+    projectType: input.projectType.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
   }
 }
 
@@ -262,7 +311,16 @@ export async function listProjects() {
   return withProjectStore(
     async () => {
       const result = await getDb().query<ProjectRecord>(
-        `select id, project_name, project_description, project_member, created_at
+        `select
+           id,
+           project_name,
+           project_description,
+           project_member,
+           program,
+           year_level,
+           sy_term,
+           project_type,
+           created_at
          from projects
          order by created_at desc`
       )
@@ -282,10 +340,37 @@ export async function createProject(input: CreateProjectInput) {
       const project = normalizeProject(input)
 
       const result = await getDb().query<ProjectRecord>(
-        `insert into projects (id, project_name, project_description, project_member)
-         values ($1, $2, $3, $4)
-         returning id, project_name, project_description, project_member, created_at`,
-        [project.id, project.name, project.description, project.members]
+        `insert into projects (
+           id,
+           project_name,
+           project_description,
+           project_member,
+           program,
+           year_level,
+           sy_term,
+           project_type
+         )
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         returning
+           id,
+           project_name,
+           project_description,
+           project_member,
+           program,
+           year_level,
+           sy_term,
+           project_type,
+           created_at`,
+        [
+          project.id,
+          project.name,
+          project.description,
+          project.members,
+          project.program,
+          project.yearLevel,
+          project.syTerm,
+          project.projectType,
+        ]
       )
 
       return mapRecord(result.rows[0])
