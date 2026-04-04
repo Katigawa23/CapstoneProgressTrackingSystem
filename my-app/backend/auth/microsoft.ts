@@ -98,9 +98,7 @@ function getMicrosoftScopes() {
   return "openid profile email offline_access User.Read"
 }
 
-//
-// 🔥 FIXED FUNCTION (THIS IS THE IMPORTANT PART)
-//
+
 function getAppBaseUrl(request: Request) {
   const appUrl = process.env.APP_URL
 
