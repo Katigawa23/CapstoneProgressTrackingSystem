@@ -223,10 +223,6 @@ export default function Navbar() {
                 <Button variant="outline" className="w-full font-semibold">
                   Admin Login
                 </Button>
-
-                <p className="text-center text-xs text-muted-foreground">
-                  Temporary local access while Microsoft login is unavailable.
-                </p>
               </div>
             </DialogContent>
           </Dialog>
