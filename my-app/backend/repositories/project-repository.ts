@@ -14,7 +14,6 @@ import {
 type ProjectRecord = {
   id: string
   project_name: string
-  project_description: string
   project_member: string[]
   program: string
   year_level: string
@@ -84,7 +83,6 @@ async function ensureProjectsSchema() {
         create table if not exists projects (
           id uuid primary key,
           project_name text not null,
-          project_description text not null default '',
           project_member text[] not null default '{}',
           program text not null default '',
           year_level text not null default '',
@@ -119,12 +117,8 @@ async function ensureProjectsSchema() {
               select 1
               from information_schema.columns
               where table_name = 'projects' and column_name = 'description'
-            ) and not exists (
-              select 1
-              from information_schema.columns
-              where table_name = 'projects' and column_name = 'project_description'
             ) then
-              alter table projects rename column description to project_description;
+              alter table projects drop column description;
             end if;
           end $$;
         `)
@@ -281,7 +275,6 @@ function toRecord(project: DashboardProject): ProjectRecord {
   return {
     id: project.id,
     project_name: project.name,
-    project_description: '',
     project_member: project.members,
     program: project.program,
     year_level: project.yearLevel,
@@ -310,7 +303,6 @@ export async function listProjects() {
         `select
            id,
            project_name,
-           project_description,
            project_member,
            program,
            year_level,
@@ -349,7 +341,6 @@ export async function createProject(input: CreateProjectInput) {
          returning
            id,
            project_name,
-           project_description,
            project_member,
            program,
            year_level,

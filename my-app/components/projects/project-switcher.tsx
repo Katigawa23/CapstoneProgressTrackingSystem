@@ -33,10 +33,9 @@ export function ProjectSwitcher({
   const teamName = displayName ?? team?.name ?? "Create project"
   const activeProjectId = team?.id
   const projectSummary =
-    team?.description?.trim() ||
-    (projects.length === 0
+    projects.length === 0
       ? "Set up your first capstone project workspace."
-      : `${projects.length} project${projects.length === 1 ? "" : "s"} available`)
+      : `${projects.length} project${projects.length === 1 ? "" : "s"} available`
 
   return (
     <DropdownMenu>
