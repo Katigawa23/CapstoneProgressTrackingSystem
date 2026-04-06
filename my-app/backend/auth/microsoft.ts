@@ -4,6 +4,7 @@ export type MicrosoftUser = {
   id: string
   name: string
   email: string
+  role?: string
 }
 
 type MicrosoftTokenResponse = {

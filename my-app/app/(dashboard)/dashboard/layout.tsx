@@ -68,7 +68,7 @@ function ProfileMenu({ session }: { session: AuthSession | null }) {
           onClick={() => {
             const tenantId = session?.tenantId ?? "common"
             clearClientAuthSession()
-            window.location.href = createMicrosoftLogoutUrl(tenantId)
+            window.location.href = createMicrosoftLogoutUrl(tenantId, "/")
           }}
         >
           Logout
@@ -138,7 +138,7 @@ export default function DashboardLayout({
         <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center border-b bg-background/80 px-4 shadow-sm backdrop-blur-md sm:px-6">
           <div className="flex items-center gap-3">
             <SidebarTrigger className="md:hidden" />
-            <Link href="/" className="font-display text-xl font-bold tracking-tight sm:text-2xl">
+            <Link href="/dashboard/board" className="font-display text-xl font-bold tracking-tight sm:text-2xl">
               <span className="text-slate-950">Track</span>
               <span className="text-sky-600">Sphere</span>
             </Link>

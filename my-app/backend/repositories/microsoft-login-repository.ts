@@ -7,6 +7,7 @@ type MicrosoftLoginRecord = {
   microsoft_user_id: string
   email: string
   name: string
+  role: string
   tenant_id: string
   login_at: string
 }
@@ -15,28 +16,42 @@ let schemaReady: Promise<void> | null = null
 
 async function ensureMicrosoftLoginSchema() {
   if (!schemaReady) {
-    schemaReady = getDb()
-      .query(`
-        create table if not exists microsoft_account_logins (
-          id bigserial primary key,
-          microsoft_user_id text not null,
-          email text not null,
-          name text not null,
-          tenant_id text not null,
-          login_at timestamptz not null default now()
-        );
-      `)
-      .then(() =>
-        getDb().query(`
+    schemaReady = (async () => {
+      try {
+        // Create table
+        await getDb().query(`
+          create table if not exists microsoft_account_logins (
+            id bigserial primary key,
+            microsoft_user_id text not null,
+            email text not null,
+            name text not null,
+            role text not null,
+            tenant_id text not null,
+            login_at timestamptz not null default now()
+          );
+        `)
+
+        // Try to create unique index (will fail silently if duplicates exist)
+        try {
+          await getDb().query(`
+            create unique index if not exists microsoft_account_logins_unique_user_idx
+            on microsoft_account_logins(microsoft_user_id);
+          `)
+        } catch (err) {
+          // Index creation can fail if duplicates exist - that's okay
+          console.warn("Could not create unique index (might have duplicate data):", err instanceof Error ? err.message : err)
+        }
+
+        // Create lookup index
+        await getDb().query(`
           create index if not exists microsoft_account_logins_lookup_idx
           on microsoft_account_logins(microsoft_user_id, login_at desc);
         `)
-      )
-      .then(() => undefined)
-      .catch((error) => {
+      } catch (error) {
         schemaReady = null
         throw error
-      })
+      }
+    })()
   }
 
   await schemaReady
@@ -53,16 +68,24 @@ export async function saveMicrosoftAccountLogin(
       microsoft_user_id,
       email,
       name,
+      role,
       tenant_id
-    ) values ($1, $2, $3, $4)
+    ) values ($1, $2, $3, $4, $5)
+    on conflict (microsoft_user_id) do update set
+      email = $2,
+      name = $3,
+      role = $4,
+      tenant_id = $5,
+      login_at = now()
     returning
       id,
       microsoft_user_id,
       email,
       name,
+      role,
       tenant_id,
       login_at`,
-    [user.id, user.email, user.name, tenantId]
+    [user.id, user.email, user.name, user.role || 'student', tenantId]
   )
 
   return result.rows[0]

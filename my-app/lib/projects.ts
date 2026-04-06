@@ -3,7 +3,6 @@ export const PROJECT_CHANGE_EVENT = "dashboard-project-change"
 export const PROJECTS_STORAGE_KEY = "dashboard-projects"
 export const PROJECTS_CHANGE_EVENT = "dashboard-projects-change"
 export const PROJECT_TITLE_MAX_LENGTH = 40
-export const PROJECT_DESCRIPTION_MAX_LENGTH = 120
 export const PROJECT_METADATA_MAX_LENGTH = 60
 export const OTHER_PROJECT_OPTION = "__other__"
 
@@ -19,11 +18,13 @@ export const PROJECT_YEAR_LEVEL_OPTIONS = [
   "2nd Year",
   "3rd Year",
   "4th Year",
+  "Other",
 ] as const
 
 export const PROJECT_SY_TERM_OPTIONS = [
   "1st term",
   "2nd term",
+  "Other",
 ] as const
 
 export const PROJECT_TYPE_OPTIONS = [
@@ -37,7 +38,6 @@ export const PROJECT_TYPE_OPTIONS = [
 export type DashboardProject = {
   id: string
   name: string
-  description: string
   members: string[]
   program: string
   yearLevel: string
@@ -52,7 +52,6 @@ export type DashboardProjectCollection = {
 
 export type CreateDashboardProjectInput = {
   name: string
-  description: string
   members: string[]
   program: string
   yearLevel: string
@@ -76,7 +75,6 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
   if (
     typeof candidate.id !== "string" ||
     typeof candidate.name !== "string" ||
-    typeof candidate.description !== "string" ||
     !isStringArray(candidate.members)
   ) {
     return null
@@ -85,7 +83,6 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
   return {
     id: candidate.id,
     name: candidate.name,
-    description: candidate.description,
     members: candidate.members,
     program: typeof candidate.program === "string" ? candidate.program : "",
     yearLevel: typeof candidate.yearLevel === "string" ? candidate.yearLevel : "",
@@ -195,7 +192,6 @@ export function getDashboardProjectCollections(
 
 export function createDashboardProject({
   name,
-  description,
   members,
   program,
   yearLevel,
@@ -209,7 +205,6 @@ export function createDashboardProject({
     },
     body: JSON.stringify({
       name: name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
-      description: description.trim().slice(0, PROJECT_DESCRIPTION_MAX_LENGTH),
       members,
       program: program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),

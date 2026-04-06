@@ -6,7 +6,6 @@ import { getPreferredStorageMode } from "@/backend/config/storage-mode"
 import { getDb } from "@/backend/db/connection"
 import {
   dashboardProjects,
-  PROJECT_DESCRIPTION_MAX_LENGTH,
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
   type DashboardProject,
@@ -26,7 +25,6 @@ type ProjectRecord = {
 
 type CreateProjectInput = {
   name: string
-  description: string
   members: string[]
   program: string
   yearLevel: string
@@ -284,7 +282,7 @@ function toRecord(project: DashboardProject): ProjectRecord {
   return {
     id: project.id,
     project_name: project.name,
-    project_description: project.description,
+    project_description: '',
     project_member: project.members,
     program: project.program,
     year_level: project.yearLevel,
@@ -298,7 +296,6 @@ function normalizeProject(input: CreateProjectInput): DashboardProject {
   return {
     id: randomUUID(),
     name: input.name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
-    description: input.description.trim().slice(0, PROJECT_DESCRIPTION_MAX_LENGTH),
     members: input.members,
     program: input.program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
     yearLevel: input.yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
@@ -343,14 +340,13 @@ export async function createProject(input: CreateProjectInput) {
         `insert into projects (
            id,
            project_name,
-           project_description,
            project_member,
            program,
            year_level,
            sy_term,
            project_type
          )
-         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         values ($1, $2, $3, $4, $5, $6, $7)
          returning
            id,
            project_name,
@@ -364,7 +360,6 @@ export async function createProject(input: CreateProjectInput) {
         [
           project.id,
           project.name,
-          project.description,
           project.members,
           project.program,
           project.yearLevel,

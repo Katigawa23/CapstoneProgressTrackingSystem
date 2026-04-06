@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Menu } from "lucide-react"
 import clsx from "clsx"
@@ -24,7 +24,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import MicrosoftLoginButton from "@/components/microsoft-login-button"
-import { saveClientAuthSession } from "@/lib/auth-client"
+import { readClientAuthSession } from "@/lib/auth-client"
 
 const navLinks = [
   { name: "Home", href: "/", sectionId: null },
@@ -35,9 +35,11 @@ const navLinks = [
 
 export default function Navbar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [activeHref, setActiveHref] = useState("/")
   const [isLoginOpen, setIsLoginOpen] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
     if (pathname !== "/") {
@@ -92,6 +94,18 @@ export default function Navbar() {
   }, [pathname])
 
   useEffect(() => {
+    const session = readClientAuthSession()
+    setIsAuthenticated(!!session)
+  }, [])
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    if (isAuthenticated) {
+      e.preventDefault()
+      router.push("/dashboard/board")
+    }
+  }
+
+  useEffect(() => {
     const openLoginDialog = () => {
       setIsLoginOpen(true)
     }
@@ -103,19 +117,7 @@ export default function Navbar() {
     }
   }, [])
 
-  const continueToDashboard = () => {
-    window.localStorage.setItem("dashboard-role", "student")
-    saveClientAuthSession(
-      {
-        id: "local-dashboard-access",
-        name: "Local Dashboard Access",
-        email: "local@tracksphere.dev",
-      },
-      "common"
-    )
-    setIsLoginOpen(false)
-    window.location.assign("/dashboard")
-  }
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 shadow-sm backdrop-blur-md">
@@ -165,7 +167,11 @@ export default function Navbar() {
             </SheetContent>
           </Sheet>
 
-          <Link href="/" className="font-display text-xl font-bold tracking-tight sm:text-2xl">
+          <Link
+            href="/"
+            onClick={handleLogoClick}
+            className="font-display text-xl font-bold tracking-tight sm:text-2xl"
+          >
             <span className="text-slate-950">Track</span>
             <span className="text-sky-600">Sphere</span>
           </Link>
@@ -207,15 +213,6 @@ export default function Navbar() {
 
               <div className="mt-4 flex flex-col gap-4">
                 <MicrosoftLoginButton onSuccess={() => setIsLoginOpen(false)} />
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full font-semibold"
-                  onClick={continueToDashboard}
-                >
-                  Continue to Dashboard
-                </Button>
 
                 <div className="flex items-center gap-3">
                   <Separator className="flex-1" />

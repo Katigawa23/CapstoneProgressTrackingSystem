@@ -60,10 +60,10 @@ export async function GET(request: NextRequest) {
     // ✅ exchange code → user
     const user = await redeemMicrosoftCode(request, code)
 
-    // ✅ SAVE TO DATABASE (THIS WAS MISSING)
+    // ✅ SAVE TO DATABASE
     await saveMicrosoftAccountLogin(user, getMicrosoftTenantId())
 
-    // ✅ redirect
+    // ✅ redirect to completion page
     const response = NextResponse.redirect(
       createCompletionUrl(request, user)
     )
@@ -80,7 +80,11 @@ export async function GET(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error("Failed to complete Microsoft login", error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error("Failed to complete Microsoft login:", {
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    })
 
     const response = NextResponse.redirect(
       new URL("/?authError=callback", request.url)

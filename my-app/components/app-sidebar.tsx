@@ -94,10 +94,10 @@ export function AppSidebar({ role }: { role: UserRole }) {
     createProject,
     createProjectOpen,
     memberSearch,
-    projectDescription, 
     projectProgram,
     projectProgramOther,
     projectSyTerm,
+    projectSyTermOther,
     projectTitle,
     projectType,
     projectTypeOther,
@@ -108,10 +108,10 @@ export function AppSidebar({ role }: { role: UserRole }) {
     selectProject,
     setCreateProjectOpen,
     setMemberSearch,
-    setProjectDescription,
     setProjectProgram,
     setProjectProgramOther,
     setProjectSyTerm,
+    setProjectSyTermOther,
     setProjectTitle,
     setProjectType,
     setProjectTypeOther,
@@ -138,19 +138,19 @@ export function AppSidebar({ role }: { role: UserRole }) {
         memberSearch={memberSearch}
         onCreateProject={createProject}
         onMemberSearchChange={setMemberSearch}
-        onProjectDescriptionChange={setProjectDescription}
         onProjectProgramChange={setProjectProgram}
         onProjectProgramOtherChange={setProjectProgramOther}
         onProjectSyTermChange={setProjectSyTerm}
+        onProjectSyTermOtherChange={setProjectSyTermOther}
         onProjectTitleChange={setProjectTitle}
         onProjectTypeChange={setProjectType}
         onProjectTypeOtherChange={setProjectTypeOther}
         onProjectYearLevelChange={setProjectYearLevel}
         onProjectYearLevelOtherChange={setProjectYearLevelOther}
-        projectDescription={projectDescription}
         projectProgram={projectProgram}
         projectProgramOther={projectProgramOther}
         projectSyTerm={projectSyTerm}
+        projectSyTermOther={projectSyTermOther}
         projectTitle={projectTitle}
         projectType={projectType}
         projectTypeOther={projectTypeOther}

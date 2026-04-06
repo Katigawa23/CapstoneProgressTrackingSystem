@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 
 import {
-  PROJECT_DESCRIPTION_MAX_LENGTH,
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
 } from "@/lib/projects"
@@ -21,7 +20,6 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       name?: string
-      description?: string
       members?: string[]
       program?: string
       yearLevel?: string
@@ -30,7 +28,6 @@ export async function POST(request: Request) {
     }
 
     const name = body.name?.trim()
-    const description = body.description?.trim()
     const program = body.program?.trim()
     const yearLevel = body.yearLevel?.trim()
     const syTerm = body.syTerm?.trim()
@@ -41,10 +38,6 @@ export async function POST(request: Request) {
 
     if (!name) {
       return NextResponse.json({ error: "Project title is required" }, { status: 400 })
-    }
-
-    if (!description) {
-      return NextResponse.json({ error: "Short description is required" }, { status: 400 })
     }
 
     if (members.length === 0) {
@@ -69,7 +62,6 @@ export async function POST(request: Request) {
 
     const project = await createProject({
       name: name.slice(0, PROJECT_TITLE_MAX_LENGTH),
-      description: description.slice(0, PROJECT_DESCRIPTION_MAX_LENGTH),
       members,
       program: program.slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.slice(0, PROJECT_METADATA_MAX_LENGTH),

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 import { saveClientAuthSession, type AuthenticatedUser } from "@/lib/auth-client"
 
@@ -35,13 +35,11 @@ function readCompletionPayload() {
 
 export default function MicrosoftAuthCompletePage() {
   const router = useRouter()
-  const [message, setMessage] = useState("Completing Microsoft sign-in...")
 
   useEffect(() => {
     const payload = readCompletionPayload()
 
     if (!payload?.user?.id || !payload.user.email) {
-      setMessage("Microsoft sign-in could not be completed.")
       router.replace("/?authError=callback")
       return
     }
@@ -51,9 +49,5 @@ export default function MicrosoftAuthCompletePage() {
     router.refresh()
   }, [router])
 
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
-      <p className="text-sm font-medium text-slate-600">{message}</p>
-    </main>
-  )
+  return null
 }

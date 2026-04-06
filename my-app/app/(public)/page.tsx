@@ -56,7 +56,7 @@ export default function LandingPage() {
             />
             <ScrollReveal className="block" delay={340} yOffset={16}>
               <span className="block text-xl text-slate-600 sm:text-2xl md:text-3xl">
-                Research & Capstone Progress Tracking
+                Capstone & Thesis Progress Tracking
               </span>
             </ScrollReveal>
           </h1>
@@ -106,12 +106,6 @@ export default function LandingPage() {
             </AnimatedContent>
           </div>
         </div>
-
-        <ScrollReveal className="flex items-center justify-center" delay={360}>
-          <div className="flex h-64 w-full items-center justify-center rounded-2xl bg-white text-center text-gray-400 shadow-sm sm:h-72 md:h-80">
-            Dashboard Preview
-          </div>
-        </ScrollReveal>
       </section>
 
       <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-16 sm:px-6 md:py-20">
@@ -167,7 +161,7 @@ export default function LandingPage() {
               <FolderPlus className="mx-auto mb-4 text-blue-600" />
               <h3 className="font-semibold">1. Create Project</h3>
               <p className="mt-2 text-sm text-gray-600">
-                Start your research or capstone and define your goals.
+                Start your capstone or thesis and define your goals.
               </p>
             </div>
           </ScrollReveal>

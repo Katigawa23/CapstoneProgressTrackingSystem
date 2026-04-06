@@ -31,12 +31,12 @@ export function useDashboardProjects() {
   const [team, setTeam] = React.useState<DashboardProject | null>(null)
   const [createProjectOpen, setCreateProjectOpen] = React.useState(false)
   const [projectTitle, setProjectTitle] = React.useState("")
-  const [projectDescription, setProjectDescription] = React.useState("")
   const [projectProgram, setProjectProgram] = React.useState("")
   const [projectProgramOther, setProjectProgramOther] = React.useState("")
   const [projectYearLevel, setProjectYearLevel] = React.useState("")
   const [projectYearLevelOther, setProjectYearLevelOther] = React.useState("")
   const [projectSyTerm, setProjectSyTerm] = React.useState("")
+  const [projectSyTermOther, setProjectSyTermOther] = React.useState("")
   const [projectType, setProjectType] = React.useState("")
   const [projectTypeOther, setProjectTypeOther] = React.useState("")
   const [memberSearch, setMemberSearch] = React.useState("")
@@ -87,12 +87,12 @@ export function useDashboardProjects() {
 
   const resetCreateProjectForm = React.useCallback(() => {
     setProjectTitle("")
-    setProjectDescription("")
     setProjectProgram("")
     setProjectProgramOther("")
     setProjectYearLevel("")
     setProjectYearLevelOther("")
     setProjectSyTerm("")
+    setProjectSyTermOther("")
     setProjectType("")
     setProjectTypeOther("")
     setMemberSearch("")
@@ -110,22 +110,22 @@ export function useDashboardProjects() {
 
   const createProject = React.useCallback(async () => {
     const title = projectTitle.trim()
-    const description = projectDescription.trim()
     const program =
       (projectProgram === OTHER_PROJECT_OPTION ? projectProgramOther : projectProgram).trim()
-    const yearLevel = projectYearLevel.trim()
-    const syTerm = projectSyTerm.trim()
+    const yearLevel =
+      (projectYearLevel === OTHER_PROJECT_OPTION ? projectYearLevelOther : projectYearLevel).trim()
+    const syTerm =
+      (projectSyTerm === OTHER_PROJECT_OPTION ? projectSyTermOther : projectSyTerm).trim()
     const resolvedProjectType =
       (projectType === OTHER_PROJECT_OPTION ? projectTypeOther : projectType).trim()
     const memberName = memberSearch.trim()
 
-    if (!title || !description || !program || !yearLevel || !syTerm || !resolvedProjectType || !memberName) {
+    if (!title || !program || !yearLevel || !syTerm || !resolvedProjectType || !memberName) {
       return null
     }
 
     const nextProject = await createDashboardProject({
       name: title,
-      description,
       members: [getInitials(memberName)],
       program,
       yearLevel,
@@ -148,14 +148,15 @@ export function useDashboardProjects() {
     return nextProject
   }, [
     memberSearch,
-    projectDescription,
     projectProgram,
     projectProgramOther,
     projectSyTerm,
+    projectSyTermOther,
     projectTitle,
     projectType,
     projectTypeOther,
     projectYearLevel,
+    projectYearLevelOther,
     resetCreateProjectForm,
   ])
 
@@ -163,10 +164,10 @@ export function useDashboardProjects() {
     createProject,
     createProjectOpen,
     memberSearch,
-    projectDescription,
     projectProgram,
     projectProgramOther,
     projectSyTerm,
+    projectSyTermOther,
     projectTitle,
     projectType,
     projectTypeOther,
@@ -177,10 +178,10 @@ export function useDashboardProjects() {
     selectProject,
     setCreateProjectOpen,
     setMemberSearch,
-    setProjectDescription,
     setProjectProgram,
     setProjectProgramOther,
     setProjectSyTerm,
+    setProjectSyTermOther,
     setProjectTitle,
     setProjectType,
     setProjectTypeOther,
