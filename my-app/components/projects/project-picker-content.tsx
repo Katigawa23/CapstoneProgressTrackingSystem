@@ -87,9 +87,6 @@ export function ProjectPickerContent({
                               </span>
                             ) : null}
                           </div>
-                          <span className="hidden truncate text-[10px] text-slate-500 sm:block">
-                            {project.description || "No description added yet."}
-                          </span>
                         </div>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

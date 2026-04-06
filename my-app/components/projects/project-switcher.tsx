@@ -128,9 +128,6 @@ export function ProjectSwitcher({
                       <div className="truncate text-[12px] font-medium text-slate-900 sm:text-[13px]">
                         {project.name}
                       </div>
-                      <div className="hidden truncate text-[10px] text-slate-500 sm:block">
-                        {project.description || "No description added yet."}
-                      </div>
                     </div>
 
                     {active ? (
