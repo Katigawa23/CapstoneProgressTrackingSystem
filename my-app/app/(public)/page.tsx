@@ -63,8 +63,7 @@ export default function LandingPage() {
 
           <ScrollReveal className="mx-auto mt-6 max-w-md md:mx-0" delay={120}>
             <p className="text-base text-gray-600 sm:text-lg">
-              A smarter way to manage your research and capstone projects with real-time
-              tracking, collaboration, and structured workflows.
+             Manage your research and capstone projects with ease through real-time tracking, smooth collaboration, and clear workflows.
             </p>
           </ScrollReveal>
 

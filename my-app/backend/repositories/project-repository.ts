@@ -269,7 +269,6 @@ function mapRecord(record: ProjectRecord): DashboardProject {
   return {
     id: record.id,
     name: record.project_name,
-    description: record.project_description,
     members: record.project_member,
     program: typeof record.program === "string" ? record.program : "",
     yearLevel: typeof record.year_level === "string" ? record.year_level : "",
