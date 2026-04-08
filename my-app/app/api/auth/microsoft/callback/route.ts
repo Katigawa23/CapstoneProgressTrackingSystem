@@ -11,14 +11,14 @@ import {
   readStateCookieValue,
 } from "@/backend/auth/session"
 
-import { saveMicrosoftAccountLogin } from "@/backend/repositories/microsoft-login-repository"
+import { saveMicrosoftAccountLogin, getStoredUserRole } from "@/backend/repositories/microsoft-login-repository"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 function createCompletionUrl(
   request: NextRequest,
-  user: { id: string; name: string; email: string }
+  user: { id: string; name: string; email: string; role: "student" | "adviser" }
 ) {
   const payload = Buffer.from(
     JSON.stringify({
@@ -59,6 +59,12 @@ export async function GET(request: NextRequest) {
 
     // ✅ exchange code → user
     const user = await redeemMicrosoftCode(request, code)
+
+    // ✅ Check database for stored role (for testing: if admin edited role in DB, use it)
+    const storedRole = await getStoredUserRole(user.id)
+    if (storedRole && (storedRole === "student" || storedRole === "adviser")) {
+      user.role = storedRole as "student" | "adviser"
+    }
 
     // ✅ SAVE TO DATABASE
     await saveMicrosoftAccountLogin(user, getMicrosoftTenantId())

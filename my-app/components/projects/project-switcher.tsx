@@ -30,6 +30,7 @@ export function ProjectSwitcher({
   projects,
   team,
 }: ProjectSwitcherProps) {
+  const visibleProjects = projects.slice(0, 3)
   const teamName = displayName ?? team?.name ?? "Create project"
   const activeProjectId = team?.id
   const projectSummary =
@@ -96,11 +97,19 @@ export function ProjectSwitcher({
 
         {projects.length > 0 ? (
           <>
-            <div className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Switch project
+            <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-1">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Switch project
+              </div>
+              <Link
+                href="/dashboard"
+                className="text-[10px] font-medium text-sky-600 transition hover:text-sky-700"
+              >
+                View all
+              </Link>
             </div>
             <DropdownMenuGroup>
-              {projects.map((project) => {
+              {visibleProjects.map((project) => {
                 const active = activeProjectId === project.id
 
                 return (

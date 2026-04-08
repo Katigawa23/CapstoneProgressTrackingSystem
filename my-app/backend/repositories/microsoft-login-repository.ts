@@ -90,3 +90,25 @@ export async function saveMicrosoftAccountLogin(
 
   return result.rows[0]
 }
+
+export async function getStoredUserRole(userId: string): Promise<string | null> {
+  await ensureMicrosoftLoginSchema()
+
+  const result = await getDb().query<MicrosoftLoginRecord>(
+    `select role from microsoft_account_logins where microsoft_user_id = $1 order by login_at desc limit 1`,
+    [userId]
+  )
+
+  return result.rows[0]?.role ?? null
+}
+
+export async function updateUserRole(userId: string, newRole: "student" | "adviser"): Promise<boolean> {
+  await ensureMicrosoftLoginSchema()
+
+  const result = await getDb().query(
+    `update microsoft_account_logins set role = $1 where microsoft_user_id = $2`,
+    [newRole, userId]
+  )
+
+  return (result.rowCount ?? 0) > 0
+}

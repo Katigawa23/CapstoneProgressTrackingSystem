@@ -22,6 +22,10 @@ type ProjectRecord = {
   created_at: string
 }
 
+type RawProjectRecord = Partial<ProjectRecord> & {
+  project_description?: string
+}
+
 type CreateProjectInput = {
   name: string
   members: string[]
@@ -38,6 +42,25 @@ const projectsFilePath = path.join(process.cwd(), ".data", "projects.json")
 let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<ProjectStorageMode> | null = null
 let fallbackWarningShown = false
+
+function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
+  return {
+    id: typeof record.id === "string" ? record.id : randomUUID(),
+    project_name:
+      typeof record.project_name === "string" ? record.project_name : "",
+    project_member: Array.isArray(record.project_member)
+      ? record.project_member.filter((member): member is string => typeof member === "string")
+      : [],
+    program: typeof record.program === "string" ? record.program : "",
+    year_level: typeof record.year_level === "string" ? record.year_level : "",
+    sy_term: typeof record.sy_term === "string" ? record.sy_term : "",
+    project_type: typeof record.project_type === "string" ? record.project_type : "",
+    created_at:
+      typeof record.created_at === "string"
+        ? record.created_at
+        : new Date().toISOString(),
+  }
+}
 
 function canUseFileFallback() {
   return process.env.NODE_ENV !== "production"
@@ -239,7 +262,8 @@ async function withProjectStore<T>(
 async function readFileRecords() {
   try {
     const raw = await readFile(projectsFilePath, "utf8")
-    return JSON.parse(raw) as ProjectRecord[]
+    const parsed = JSON.parse(raw) as RawProjectRecord[]
+    return parsed.map(normalizeRawProjectRecord)
   } catch (error) {
     const code =
       typeof error === "object" && error && "code" in error
@@ -282,6 +306,33 @@ function toRecord(project: DashboardProject): ProjectRecord {
     project_type: project.projectType,
     created_at: new Date().toISOString(),
   }
+}
+
+async function insertProjectRecord(record: ProjectRecord) {
+  await getDb().query(
+    `insert into projects (
+       id,
+       project_name,
+       project_member,
+       program,
+       year_level,
+       sy_term,
+       project_type,
+       created_at
+     )
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
+     on conflict (id) do nothing`,
+    [
+      record.id,
+      record.project_name,
+      record.project_member,
+      record.program,
+      record.year_level,
+      record.sy_term,
+      record.project_type,
+      record.created_at,
+    ]
+  )
 }
 
 function normalizeProject(input: CreateProjectInput): DashboardProject {
@@ -367,5 +418,30 @@ export async function createProject(input: CreateProjectInput) {
       await writeFileRecords(records)
       return project
     }
+  )
+}
+
+export async function ensureProjectExists(projectId: string) {
+  return withProjectStore(
+    async () => {
+      const existingProject = await getDb().query<{ id: string }>(
+        `select id from projects where id = $1 limit 1`,
+        [projectId]
+      )
+
+      if ((existingProject.rowCount ?? 0) > 0) {
+        return
+      }
+
+      const fileRecords = await readFileRecords()
+      const matchingRecord = fileRecords.find((record) => record.id === projectId)
+
+      if (!matchingRecord) {
+        return
+      }
+
+      await insertProjectRecord(matchingRecord)
+    },
+    async () => undefined
   )
 }

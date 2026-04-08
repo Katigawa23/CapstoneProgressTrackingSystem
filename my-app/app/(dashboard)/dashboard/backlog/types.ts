@@ -1,9 +1,3 @@
-export type UploadItem = {
-  name: string
-  size: string
-  type: string
-}
-
 export type StatusOption = {
   value: string
   label: string
@@ -20,11 +14,11 @@ export type AssigneeOption = {
 export type WorkItem = {
   id: string
   title: string
+  startDate?: Date
   dueDate?: Date
   description: string
   status: string
   checked: boolean
-  file: UploadItem | null
   assigneeId?: string | null
 }
 

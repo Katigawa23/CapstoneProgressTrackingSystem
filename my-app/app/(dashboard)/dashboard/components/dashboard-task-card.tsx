@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { cardStatusStyles, columns } from "../constants"
+import { columns } from "../constants"
 import type { TodoItem } from "../types"
 import { formatDeadline, getInitials } from "../utils"
 
@@ -38,8 +38,6 @@ export function DashboardTaskCard({
   onStatusChange,
   onOpen,
 }: DashboardTaskCardProps) {
-  const statusStyle = cardStatusStyles[todo.status]
-
   return (
     <div
       role="button"
@@ -53,18 +51,15 @@ export function DashboardTaskCard({
         }
       }}
     >
-      <div className="mb-2 flex items-start justify-between">
-        <span
-          className={`inline-flex items-center rounded-md px-1.5 py-[2px] text-[10px] font-medium ${statusStyle.className}`}
-        >
-          <span className="mr-1 h-1.5 w-1.5 rounded-full bg-current opacity-90" />
-          {statusStyle.label}
-        </span>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <h3 className="line-clamp-2 flex-1 text-xs font-semibold leading-snug text-slate-900">
+          {todo.title}
+        </h3>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="rounded-sm p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
+              className="shrink-0 rounded-sm p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none"
               type="button"
               aria-label={`Open actions for ${todo.title}`}
               onClick={(event) => event.stopPropagation()}
@@ -112,12 +107,6 @@ export function DashboardTaskCard({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-
-      <div className="space-y-1">
-        <h3 className="line-clamp-2 text-xs font-semibold leading-snug text-slate-900">
-          {todo.title}
-        </h3>
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-3">

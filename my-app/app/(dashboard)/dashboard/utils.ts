@@ -40,16 +40,16 @@ export function mapBacklogItemsToTodos(items: BacklogApiItem[]): TodoItem[] {
     .filter((item): item is BacklogApiItem & { status: ColumnId } =>
       isDashboardColumn(item.status)
     )
-    .map((item, index) => ({
+    .map((item) => ({
       id: item.id,
       title: item.title,
       description: item.description || fallbackDescription,
       assignee: "",
       deadline: item.dueDate ?? "",
       status: item.status,
-      comments: index % 2 === 0 ? 5 : 2,
-      links: index % 2 === 0 ? 2 : 1,
-      checklist: index % 2 === 0 ? "3/3" : "1/2",
+      comments: 0,
+      links: 0,
+      checklist: "0/0",
       priority:
         item.status === "revision"
           ? "High"

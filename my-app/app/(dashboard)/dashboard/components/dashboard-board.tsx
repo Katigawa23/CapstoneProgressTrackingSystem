@@ -26,7 +26,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 
 import { columns } from "../constants"
-import type { DashboardComment, TodoItem } from "../types"
+import type { ColumnId, DashboardComment, TodoItem } from "../types"
 import { DashboardTaskCard } from "./dashboard-task-card"
 
 type Person = {
@@ -39,7 +39,7 @@ type DashboardBoardProps = {
   people: Person[]
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onTodoUpdate: (todoId: string, updates: Partial<TodoItem>) => void
-  onCreate: () => void
+  onCreate: (status: ColumnId) => void
 }
 
 function DashboardColumn({
@@ -57,7 +57,7 @@ function DashboardColumn({
   people: Person[]
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onOpenTask: (todo: TodoItem, target?: "default" | "comments") => void
-  onCreate: () => void
+  onCreate: (status: ColumnId) => void
   className?: string
   scrollAreaClassName?: string
 }) {
@@ -112,7 +112,7 @@ function DashboardColumn({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onCreate}
+          onClick={() => onCreate(column.id)}
           className="w-full justify-start gap-1 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
         >
           <Plus className="h-3 w-3" />

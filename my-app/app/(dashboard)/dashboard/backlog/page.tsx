@@ -1,38 +1,29 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
+
+import type { BacklogApiItem } from "../types"
 import { BacklogBoard } from "./components/backlog-board"
 import { BacklogToolbar } from "./components/backlog-toolbar"
 import { CreateWorkItemDialog } from "./components/create-work-item-dialog"
 import { EditWorkItemDialog } from "./components/edit-work-item-dialog"
-import { useRouter } from "next/navigation"
-import { statusOptions, type UploadItem, type WorkItem } from "./types"
+import { statusOptions, type WorkItem } from "./types"
 import {
   findDashboardProject,
   getSelectedDashboardProjectId,
   PROJECT_CHANGE_EVENT,
 } from "@/lib/projects"
 
-type BacklogApiItem = {
-  id: string
-  title: string
-  description: string
-  dueDate: string | null
-  status: string
-  checked: boolean
-  file: UploadItem | null
-  assigneeId?: string | null
-}
-
 function mapApiItem(item: BacklogApiItem): WorkItem {
   return {
     id: item.id,
     title: item.title,
     description: item.description,
+    startDate: item.startDate ? new Date(item.startDate) : undefined,
     dueDate: item.dueDate ? new Date(item.dueDate) : undefined,
     status: item.status,
     checked: item.checked,
-    file: item.file,
     assigneeId: item.assigneeId ?? null,
   }
 }
@@ -41,9 +32,9 @@ export default function BacklogPage() {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [title, setTitle] = React.useState("")
+  const [startDate, setStartDate] = React.useState<Date | undefined>()
   const [dueDate, setDueDate] = React.useState<Date | undefined>()
   const [description, setDescription] = React.useState("")
-  const [uploadedFile, setUploadedFile] = React.useState<UploadItem | null>(null)
 
   const [items, setItems] = React.useState<WorkItem[]>([])
 
@@ -51,6 +42,8 @@ export default function BacklogPage() {
   const [editingItemId, setEditingItemId] = React.useState<string | null>(null)
   const [editTitle, setEditTitle] = React.useState("")
   const [editDescription, setEditDescription] = React.useState("")
+  const [editStartDate, setEditStartDate] = React.useState<Date | undefined>()
+  const [editDueDate, setEditDueDate] = React.useState<Date | undefined>()
 
   React.useEffect(() => {
     let cancelled = false
@@ -91,32 +84,11 @@ export default function BacklogPage() {
     }
   }, [router])
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const sizeInKb = file.size / 1024
-    const formattedSize =
-      sizeInKb < 1024
-        ? `${sizeInKb.toFixed(1)} KB`
-        : `${(sizeInKb / 1024).toFixed(1)} MB`
-
-    setUploadedFile({
-      name: file.name,
-      size: formattedSize,
-      type: file.type || "File",
-    })
-  }
-
-  const removeFile = () => {
-    setUploadedFile(null)
-  }
-
   const resetForm = () => {
     setTitle("")
+    setStartDate(undefined)
     setDueDate(undefined)
     setDescription("")
-    setUploadedFile(null)
   }
 
   const handleAddItem = async () => {
@@ -139,8 +111,8 @@ export default function BacklogPage() {
           projectId: selectedProjectId,
           title: title.trim(),
           description: description.trim(),
+          startDate: startDate ? startDate.toISOString().slice(0, 10) : null,
           dueDate: dueDate ? dueDate.toISOString().slice(0, 10) : null,
-          file: uploadedFile,
           assigneeId: null,
         }),
       })
@@ -229,6 +201,8 @@ export default function BacklogPage() {
     setEditingItemId(item.id)
     setEditTitle(item.title)
     setEditDescription(item.description)
+    setEditStartDate(item.startDate)
+    setEditDueDate(item.dueDate)
     setEditOpen(true)
   }
 
@@ -242,6 +216,8 @@ export default function BacklogPage() {
               ...item,
               title: editTitle.trim(),
               description: editDescription.trim(),
+              startDate: editStartDate,
+              dueDate: editDueDate,
             }
           : item
       )
@@ -256,6 +232,8 @@ export default function BacklogPage() {
         body: JSON.stringify({
           title: editTitle.trim(),
           description: editDescription.trim(),
+          startDate: editStartDate ? editStartDate.toISOString().slice(0, 10) : null,
+          dueDate: editDueDate ? editDueDate.toISOString().slice(0, 10) : null,
         }),
       })
 
@@ -267,6 +245,8 @@ export default function BacklogPage() {
       setEditingItemId(null)
       setEditTitle("")
       setEditDescription("")
+      setEditStartDate(undefined)
+      setEditDueDate(undefined)
     } catch (error) {
       console.error(error)
     }
@@ -314,14 +294,13 @@ export default function BacklogPage() {
         open={open}
         onOpenChange={setOpen}
         title={title}
+        startDate={startDate}
         dueDate={dueDate}
         description={description}
-        uploadedFile={uploadedFile}
         onTitleChange={setTitle}
+        onStartDateChange={setStartDate}
         onDueDateChange={setDueDate}
         onDescriptionChange={setDescription}
-        onFileChange={handleFileChange}
-        onRemoveFile={removeFile}
         onAddItem={handleAddItem}
       />
 
@@ -330,8 +309,12 @@ export default function BacklogPage() {
         onOpenChange={setEditOpen}
         title={editTitle}
         description={editDescription}
+        startDate={editStartDate}
+        dueDate={editDueDate}
         onTitleChange={setEditTitle}
         onDescriptionChange={setEditDescription}
+        onStartDateChange={setEditStartDate}
+        onDueDateChange={setEditDueDate}
         onSave={handleSaveEdit}
       />
     </div>

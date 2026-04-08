@@ -27,9 +27,7 @@ import {
   type AuthSession,
 } from "@/lib/auth-client"
 import { RoleProvider } from "@/lib/role-context"
-import { canAccessPath, isUserRole, roleLabels, type UserRole } from "@/lib/rbac"
-
-const ROLE_STORAGE_KEY = "dashboard-role"
+import { canAccessPath, roleLabels, type UserRole } from "@/lib/rbac"
 
 function ProfileMenu({ session }: { session: AuthSession | null }) {
   const fallback = session?.user.name?.trim().charAt(0).toUpperCase() || "N"
@@ -97,17 +95,8 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const [role, setRole] = React.useState<UserRole>("student")
   const [session, setSession] = React.useState<AuthSession | null>(null)
   const [authLoading, setAuthLoading] = React.useState(true)
-
-  React.useEffect(() => {
-    const savedRole = window.localStorage.getItem(ROLE_STORAGE_KEY)
-
-    if (isUserRole(savedRole)) {
-      setRole(savedRole)
-    }
-  }, [])
 
   React.useEffect(() => {
     const syncSession = () => {
@@ -130,6 +119,7 @@ export default function DashboardLayout({
     }
   }, [])
 
+  const role: UserRole = session?.user.role === "adviser" ? "adviser" : "student"
   const hasAccess = canAccessPath(role, pathname)
 
   return (

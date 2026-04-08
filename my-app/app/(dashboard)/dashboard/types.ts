@@ -16,9 +16,13 @@ export type TodoItem = {
 export type BacklogApiItem = {
   id: string
   title: string
-  description?: string
+  description: string
+  startDate: string | null
   dueDate: string | null
   status: string
+  checked: boolean
+  assigneeId?: string | null
+  createdAt?: string
 }
 
 export type DashboardComment = {

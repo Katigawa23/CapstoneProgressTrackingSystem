@@ -4,7 +4,7 @@ export type MicrosoftUser = {
   id: string
   name: string
   email: string
-  role?: string
+  role: "student" | "adviser"
 }
 
 type MicrosoftTokenResponse = {
@@ -20,6 +20,7 @@ type MicrosoftIdTokenClaims = {
   name?: string
   email?: string
   preferred_username?: string
+  groups?: string[]
 }
 
 function sanitizeEnvValue(value: string | undefined) {
@@ -159,6 +160,18 @@ function parseJwtPayload<T>(token: string) {
   ) as T
 }
 
+function determineRoleFromEmail(email: string): "student" | "adviser" {
+  const lowerEmail = email.toLowerCase()
+  
+  // If email contains 'faculty' or 'adviser' or 'professor', assign faculty role
+  if (lowerEmail.includes("faculty") || lowerEmail.includes("adviser") || lowerEmail.includes("professor") || lowerEmail.includes("prof")) {
+    return "adviser"
+  }
+  
+  // Default to student role
+  return "student"
+}
+
 function getUserFromIdToken(idToken: string): MicrosoftUser {
   const claims = parseJwtPayload<MicrosoftIdTokenClaims>(idToken)
 
@@ -173,6 +186,7 @@ function getUserFromIdToken(idToken: string): MicrosoftUser {
     id,
     email,
     name: claims.name ?? email,
+    role: determineRoleFromEmail(email),
   }
 }
 

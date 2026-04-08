@@ -12,29 +12,56 @@ import { people } from "../constants"
 import { DashboardBoard } from "../components/dashboard-board"
 import { DashboardHeader } from "../components/dashboard-header"
 import { CreateWorkItemDialog } from "../backlog/components/create-work-item-dialog"
-import type { BacklogApiItem, TodoItem } from "../types"
+import type { BacklogApiItem, ColumnId, TodoItem } from "../types"
 import { mapBacklogItemsToTodos } from "../utils"
-import type { UploadItem } from "../backlog/types"
 
 export default function DashboardBoardPage() {
   const router = useRouter()
   const [todos, setTodos] = React.useState<TodoItem[]>([])
 
   const [createOpen, setCreateOpen] = React.useState(false)
+  const [createStatus, setCreateStatus] = React.useState<ColumnId>("todo")
   const [createTitle, setCreateTitle] = React.useState("")
+  const [createStartDate, setCreateStartDate] = React.useState<Date | undefined>()
   const [createDueDate, setCreateDueDate] = React.useState<Date | undefined>()
   const [createDescription, setCreateDescription] = React.useState("")
-  const [createUploadedFile, setCreateUploadedFile] = React.useState<UploadItem | null>(null)
 
   const handleStatusChange = React.useCallback(
-    (todoId: string, nextStatus: TodoItem["status"]) => {
+    async (todoId: string, nextStatus: TodoItem["status"]) => {
+      const currentTodo = todos.find((todo) => todo.id === todoId)
+
+      if (!currentTodo || currentTodo.status === nextStatus) {
+        return
+      }
+
       setTodos((currentTodos) =>
         currentTodos.map((todo) =>
           todo.id === todoId ? { ...todo, status: nextStatus } : todo
         )
       )
+
+      try {
+        const response = await fetch(`/api/backlog-items/${todoId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: nextStatus }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to update backlog item status")
+        }
+      } catch (error) {
+        console.error(error)
+        setTodos((currentTodos) =>
+          currentTodos.map((todo) =>
+            todo.id === todoId ? { ...todo, status: currentTodo.status } : todo
+          )
+        )
+      }
     },
-    []
+    [todos]
   )
 
   const handleTodoUpdate = React.useCallback(
@@ -48,32 +75,12 @@ export default function DashboardBoardPage() {
     []
   )
 
-  const handleCreateFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const sizeInKb = file.size / 1024
-    const formattedSize =
-      sizeInKb < 1024
-        ? `${sizeInKb.toFixed(1)} KB`
-        : `${(sizeInKb / 1024).toFixed(1)} MB`
-
-    setCreateUploadedFile({
-      name: file.name,
-      size: formattedSize,
-      type: file.type || "File",
-    })
-  }
-
-  const handleCreateRemoveFile = () => {
-    setCreateUploadedFile(null)
-  }
-
   const resetCreateForm = () => {
+    setCreateStatus("todo")
     setCreateTitle("")
+    setCreateStartDate(undefined)
     setCreateDueDate(undefined)
     setCreateDescription("")
-    setCreateUploadedFile(null)
   }
 
   const handleCreateItem = async () => {
@@ -96,8 +103,9 @@ export default function DashboardBoardPage() {
           projectId: selectedProjectId,
           title: createTitle.trim(),
           description: createDescription.trim(),
+          startDate: createStartDate ? createStartDate.toISOString().slice(0, 10) : null,
           dueDate: createDueDate ? createDueDate.toISOString().slice(0, 10) : null,
-          file: createUploadedFile,
+          status: createStatus,
           assigneeId: null,
         }),
       })
@@ -163,21 +171,28 @@ export default function DashboardBoardPage() {
         people={people}
         onStatusChange={handleStatusChange}
         onTodoUpdate={handleTodoUpdate}
-        onCreate={() => setCreateOpen(true)}
+        onCreate={(status) => {
+          setCreateStatus(status)
+          setCreateOpen(true)
+        }}
       />
 
       <CreateWorkItemDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open)
+          if (!open) {
+            resetCreateForm()
+          }
+        }}
         title={createTitle}
+        startDate={createStartDate}
         dueDate={createDueDate}
         description={createDescription}
-        uploadedFile={createUploadedFile}
         onTitleChange={setCreateTitle}
+        onStartDateChange={setCreateStartDate}
         onDueDateChange={setCreateDueDate}
         onDescriptionChange={setCreateDescription}
-        onFileChange={handleCreateFileChange}
-        onRemoveFile={handleCreateRemoveFile}
         onAddItem={handleCreateItem}
       />
     </div>

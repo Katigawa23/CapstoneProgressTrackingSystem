@@ -4,21 +4,18 @@ import path from "path"
 
 import { getPreferredStorageMode } from "@/backend/config/storage-mode"
 import { getDb } from "@/backend/db/connection"
+import { ensureProjectExists } from "@/backend/repositories/project-repository"
 
 export type BacklogRow = {
   id: string
   projectId: string
   title: string
   description: string
+  startDate: string | null
   dueDate: string | null
   status: string
   checked: boolean
   assigneeId: string | null
-  file: {
-    name: string
-    size: string
-    type: string
-  } | null
   createdAt: string
 }
 
@@ -26,20 +23,18 @@ type CreateBacklogItemInput = {
   projectId: string
   title: string
   description: string
+  startDate: string | null
   dueDate: string | null
   status: string
   checked: boolean
   assigneeId: string | null
-  file: {
-    name: string
-    size: string
-    type: string
-  } | null
 }
 
 type UpdateBacklogItemInput = {
   title?: string
   description?: string
+  startDate?: string | null
+  dueDate?: string | null
   status?: string
   checked?: boolean
   assigneeId?: string | null
@@ -50,13 +45,11 @@ type BacklogRecord = {
   project_id: string
   title: string
   description: string
+  start_date: string | null
   due_date: string | null
   status: string
   checked: boolean
   assignee_id: string | null
-  file_name: string | null
-  file_size: string | null
-  file_type: string | null
   created_at: string
 }
 
@@ -68,24 +61,23 @@ let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<BacklogStorageMode> | null = null
 let fallbackWarningShown = false
 
+type RawBacklogRecord = Partial<BacklogRecord> & {
+  file_name?: string | null
+  file_size?: string | null
+  file_type?: string | null
+}
+
 function mapRecord(record: BacklogRecord): BacklogRow {
   return {
     id: record.id,
     projectId: record.project_id,
     title: record.title,
     description: record.description,
+    startDate: record.start_date,
     dueDate: record.due_date,
     status: record.status,
     checked: record.checked,
     assigneeId: record.assignee_id,
-    file:
-      record.file_name && record.file_size && record.file_type
-        ? {
-            name: record.file_name,
-            size: record.file_size,
-            type: record.file_type,
-          }
-        : null,
     createdAt: record.created_at,
   }
 }
@@ -96,14 +88,43 @@ function toRecord(input: BacklogRow): BacklogRecord {
     project_id: input.projectId,
     title: input.title,
     description: input.description,
+    start_date: input.startDate,
     due_date: input.dueDate,
     status: input.status,
     checked: input.checked,
     assignee_id: input.assigneeId,
-    file_name: input.file?.name ?? null,
-    file_size: input.file?.size ?? null,
-    file_type: input.file?.type ?? null,
     created_at: input.createdAt,
+  }
+}
+
+function sanitizeJsonArray(raw: string) {
+  const trimmedValue = raw.trim()
+  const firstBracket = trimmedValue.indexOf("[")
+  const lastBracket = trimmedValue.lastIndexOf("]")
+
+  if (firstBracket === -1 || lastBracket === -1 || lastBracket < firstBracket) {
+    throw new Error("Backlog file does not contain a valid JSON array.")
+  }
+
+  return trimmedValue.slice(firstBracket, lastBracket + 1)
+}
+
+function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
+  return {
+    id: typeof record.id === "string" ? record.id : randomUUID(),
+    project_id: typeof record.project_id === "string" ? record.project_id : "",
+    title: typeof record.title === "string" ? record.title : "",
+    description: typeof record.description === "string" ? record.description : "",
+    start_date: typeof record.start_date === "string" ? record.start_date : null,
+    due_date: typeof record.due_date === "string" ? record.due_date : null,
+    status: typeof record.status === "string" ? record.status : "todo",
+    checked: typeof record.checked === "boolean" ? record.checked : false,
+    assignee_id:
+      typeof record.assignee_id === "string" ? record.assignee_id : null,
+    created_at:
+      typeof record.created_at === "string"
+        ? record.created_at
+        : new Date().toISOString(),
   }
 }
 
@@ -153,19 +174,29 @@ async function ensureBacklogSchema() {
           project_id uuid references projects(id) on delete cascade,
           title text not null,
           description text not null default '',
+          start_date date,
           due_date date,
           status text not null check (
             status in ('todo', 'inprogress', 'inreview', 'revision', 'completed')
           ),
           checked boolean not null default false,
           assignee_id text,
-          file_name text,
-          file_size text,
-          file_type text,
           created_at timestamptz not null default now(),
           updated_at timestamptz not null default now()
         );
       `)
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists start_date date;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists due_date date;
+        `)
+      )
       .then(() =>
         getDb().query(`
           alter table backlog_items
@@ -252,7 +283,8 @@ async function withBacklogStore<T>(
 async function readFileRecords() {
   try {
     const raw = await readFile(backlogFilePath, "utf8")
-    return JSON.parse(raw) as BacklogRecord[]
+    const parsed = JSON.parse(sanitizeJsonArray(raw)) as RawBacklogRecord[]
+    return parsed.map(normalizeRecord)
   } catch (error) {
     const code =
       typeof error === "object" && error && "code" in error
@@ -281,13 +313,11 @@ export async function listBacklogItems(projectId: string) {
           project_id,
           title,
           description,
+          start_date,
           due_date,
           status,
           checked,
           assignee_id,
-          file_name,
-          file_size,
-          file_type,
           created_at
         from backlog_items
         where project_id = $1
@@ -307,45 +337,41 @@ export async function listBacklogItems(projectId: string) {
 export async function createBacklogItem(input: CreateBacklogItemInput) {
   return withBacklogStore(
     async () => {
+      await ensureProjectExists(input.projectId)
+
       const result = await getDb().query<BacklogRecord>(
         `insert into backlog_items (
           id,
           project_id,
           title,
           description,
+          start_date,
           due_date,
           status,
           checked,
-          assignee_id,
-          file_name,
-          file_size,
-          file_type
-        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          assignee_id
+        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         returning
           id,
           project_id,
           title,
           description,
+          start_date,
           due_date,
           status,
           checked,
           assignee_id,
-          file_name,
-          file_size,
-          file_type,
           created_at`,
         [
           randomUUID(),
           input.projectId,
           input.title,
           input.description,
+          input.startDate,
           input.dueDate,
           input.status,
           input.checked,
           input.assigneeId,
-          input.file?.name ?? null,
-          input.file?.size ?? null,
-          input.file?.type ?? null,
         ]
       )
 
@@ -357,11 +383,11 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
         projectId: input.projectId,
         title: input.title,
         description: input.description,
+        startDate: input.startDate,
         dueDate: input.dueDate,
         status: input.status,
         checked: input.checked,
         assigneeId: input.assigneeId,
-        file: input.file,
         createdAt: new Date().toISOString(),
       }
 
@@ -388,6 +414,16 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
       if (typeof input.description === "string") {
         fields.push(`description = $${fields.length + 1}`)
         values.push(input.description)
+      }
+
+      if ("startDate" in input) {
+        fields.push(`start_date = $${fields.length + 1}`)
+        values.push(input.startDate ?? null)
+      }
+
+      if ("dueDate" in input) {
+        fields.push(`due_date = $${fields.length + 1}`)
+        values.push(input.dueDate ?? null)
       }
 
       if (typeof input.status === "string") {
@@ -421,13 +457,11 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
           project_id,
           title,
           description,
+          start_date,
           due_date,
           status,
           checked,
           assignee_id,
-          file_name,
-          file_size,
-          file_type,
           created_at`,
         values
       )
@@ -454,6 +488,9 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
           typeof input.description === "string"
             ? input.description
             : current.description,
+        startDate:
+          "startDate" in input ? input.startDate ?? null : current.startDate,
+        dueDate: "dueDate" in input ? input.dueDate ?? null : current.dueDate,
         status: typeof input.status === "string" ? input.status : current.status,
         checked:
           typeof input.checked === "boolean" ? input.checked : current.checked,
