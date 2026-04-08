@@ -119,7 +119,7 @@ export default function DashboardLayout({
     }
   }, [])
 
-  const role: UserRole = session?.user.role === "adviser" ? "adviser" : "student"
+  const role: UserRole = "student"
   const hasAccess = canAccessPath(role, pathname)
 
   return (
