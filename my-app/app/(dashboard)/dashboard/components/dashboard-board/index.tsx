@@ -302,8 +302,7 @@ export function DashboardBoard({
         const request = new XMLHttpRequest()
         request.open("POST", `/api/backlog-items/${todoId}/submissions`)
         request.responseType = "json"
-        let fallbackProgressTimer: ReturnType<typeof window.setInterval> | null =
-          null
+        let fallbackProgressTimer: number | null = null
 
         const clearFallbackTimer = () => {
           if (fallbackProgressTimer !== null) {
