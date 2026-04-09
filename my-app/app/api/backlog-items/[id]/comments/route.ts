@@ -36,7 +36,7 @@ export async function POST(
 
     const comment = await createBacklogComment({
       backlogItemId: id,
-      author: body.author?.trim() || "Kerby Bryan Morte",
+      author: body.author?.trim() || "Unknown User",
       body: body.body?.trim() ?? "",
       attachments: Array.isArray(body.attachments)
         ? body.attachments

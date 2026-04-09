@@ -1,7 +1,22 @@
 import * as React from "react"
-import { Ellipsis, File, ImageIcon, Paperclip, Plus, Reply, ThumbsUp } from "lucide-react"
+import Image from "next/image"
+import {
+  CalendarDays,
+  Ellipsis,
+  File,
+  FileText,
+  ImageIcon,
+  Paperclip,
+  Plus,
+  Reply,
+  Rows3,
+  ThumbsUp,
+  Upload,
+  UserRound,
+} from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import {
   Carousel,
   CarouselContent,
@@ -23,10 +38,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  readClientAuthSession,
+  subscribeToAuthChange,
+  type AuthSession,
+} from "@/lib/auth-client"
 
-import { columns } from "../constants"
-import type { ColumnId, DashboardComment, TodoItem } from "../types"
+import { cardStatusStyles, columns } from "../constants"
+import type {
+  ColumnId,
+  DashboardComment,
+  DashboardSubmission,
+  TodoItem,
+} from "../types"
+import { formatDeadline, getInitials } from "../utils"
 import { DashboardTaskCard } from "./dashboard-task-card"
 
 type Person = {
@@ -131,6 +158,7 @@ export function DashboardBoard({
   onTodoUpdate,
   onCreate,
 }: DashboardBoardProps) {
+  const [authSession, setAuthSession] = React.useState<AuthSession | null>(null)
   const [selectedTodo, setSelectedTodo] = React.useState<TodoItem | null>(null)
   const [openTarget, setOpenTarget] = React.useState<"default" | "comments">(
     "default"
@@ -149,11 +177,30 @@ export function DashboardBoard({
   const [commentThreads, setCommentThreads] = React.useState<
     Record<string, DashboardComment[]>
   >({})
+  const [submissionThreads, setSubmissionThreads] = React.useState<
+    Record<string, DashboardSubmission[]>
+  >({})
   const [isLoadingComments, setIsLoadingComments] = React.useState(false)
+  const [isLoadingSubmissions, setIsLoadingSubmissions] = React.useState(false)
+  const [isUploadingSubmission, setIsUploadingSubmission] = React.useState(false)
   const imageInputRef = React.useRef<HTMLInputElement | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
   const commentImageInputRef = React.useRef<HTMLInputElement | null>(null)
   const commentFileInputRef = React.useRef<HTMLInputElement | null>(null)
+  const submissionInputRef = React.useRef<HTMLInputElement | null>(null)
+
+  React.useEffect(() => {
+    const syncSession = () => {
+      setAuthSession(readClientAuthSession())
+    }
+
+    syncSession()
+    const unsubscribe = subscribeToAuthChange(syncSession)
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 
   React.useEffect(() => {
     if (selectedTodo) {
@@ -218,6 +265,52 @@ export function DashboardBoard({
     }
   }, [onTodoUpdate, selectedTodo])
 
+  React.useEffect(() => {
+    if (!selectedTodo) {
+      return
+    }
+
+    const selectedTodoId = selectedTodo.id
+    let cancelled = false
+
+    async function loadSubmissions() {
+      setIsLoadingSubmissions(true)
+
+      try {
+        const response = await fetch(`/api/backlog-items/${selectedTodoId}/submissions`, {
+          cache: "no-store",
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to load submissions")
+        }
+
+        const data = (await response.json()) as {
+          submissions: DashboardSubmission[]
+        }
+
+        if (!cancelled) {
+          setSubmissionThreads((current) => ({
+            ...current,
+            [selectedTodoId]: data.submissions,
+          }))
+        }
+      } catch (error) {
+        console.error(error)
+      } finally {
+        if (!cancelled) {
+          setIsLoadingSubmissions(false)
+        }
+      }
+    }
+
+    void loadSubmissions()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedTodo])
+
   const handleDescriptionSave = React.useCallback(() => {
     if (!selectedTodo) {
       return
@@ -262,6 +355,53 @@ export function DashboardBoard({
     []
   )
 
+  const handleSubmissionAttach = React.useCallback(
+    (todoId: string, files: FileList | null) => {
+      if (!files || files.length === 0) {
+        return
+      }
+
+      const selectedFiles = Array.from(files)
+
+      async function uploadSubmissions() {
+        setIsUploadingSubmission(true)
+
+        try {
+          const formData = new FormData()
+
+          selectedFiles.forEach((file) => {
+            formData.append("files", file)
+          })
+
+          const response = await fetch(`/api/backlog-items/${todoId}/submissions`, {
+            method: "POST",
+            body: formData,
+          })
+
+          if (!response.ok) {
+            throw new Error("Failed to upload submissions")
+          }
+
+          const data = (await response.json()) as {
+            submissions: DashboardSubmission[]
+          }
+
+          setSubmissionThreads((current) => ({
+            ...current,
+            [todoId]: [...data.submissions, ...(current[todoId] ?? [])],
+          }))
+        } catch (error) {
+          console.error(error)
+        } finally {
+          setIsUploadingSubmission(false)
+        }
+      }
+
+      void uploadSubmissions()
+    },
+    []
+  )
+
   const formatCommentTime = React.useCallback((createdAt: string) => {
     const createdAtTime = new Date(createdAt).getTime()
     const minutesAgo = Math.max(
@@ -283,6 +423,38 @@ export function DashboardBoard({
 
     const hoursAgo = Math.floor(minutesAgo / 60)
     return hoursAgo === 1 ? "1 hour ago" : `${hoursAgo} hours ago`
+  }, [])
+
+  const formatSubmissionTime = React.useCallback((uploadedAt: string) => {
+    const uploadedDate = new Date(uploadedAt)
+
+    if (Number.isNaN(uploadedDate.getTime())) {
+      return "Uploaded recently"
+    }
+
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(uploadedDate)
+  }, [])
+
+  const formatSubmissionSize = React.useCallback((fileSize: number) => {
+    if (!Number.isFinite(fileSize) || fileSize <= 0) {
+      return "Unknown size"
+    }
+
+    if (fileSize < 1024) {
+      return `${fileSize} B`
+    }
+
+    if (fileSize < 1024 * 1024) {
+      return `${(fileSize / 1024).toFixed(1)} KB`
+    }
+
+    return `${(fileSize / (1024 * 1024)).toFixed(1)} MB`
   }, [])
 
   const handleCommentSave = React.useCallback(() => {
@@ -318,7 +490,7 @@ export function DashboardBoard({
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                author: "Kerby Bryan Morte",
+                author: authSession?.user.name?.trim() || "Unknown User",
                 body: trimmedComment,
                 attachments,
               }),
@@ -355,7 +527,15 @@ export function DashboardBoard({
     }
 
     void saveComment()
-  }, [commentAssets, commentDraft, editingCommentId, onTodoUpdate, selectedTodo])
+  }, [
+    authSession,
+    commentAssets,
+    commentDraft,
+    commentThreads,
+    editingCommentId,
+    onTodoUpdate,
+    selectedTodo,
+  ])
 
   const handleReplyToComment = React.useCallback((author: string) => {
     setCommentDraft(`@${author} `)
@@ -596,13 +776,204 @@ export function DashboardBoard({
                       )}
                     </section>
 
-                    <section className="space-y-2">
-                      <h3 className="text-lg font-semibold text-slate-900">
-                        Linked work items
-                      </h3>
-                      <div className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-500 sm:p-4">
-                        Add related tasks, links, or attachments here.
+<section>
+  <Card className="overflow-hidden rounded-lg border-slate-200 bg-slate-50/60 shadow-none">
+    <CardContent className="px-2 py-00">
+      
+      {/* Top Row */}
+      <div className="grid grid-cols-1 gap-x-2 sm:grid-cols-2">
+        
+        {/* Status */}
+        <div className="flex items-center gap-1 py-1">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500">
+            <Rows3 className="h-2.5 w-2.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              Status
+            </p>
+            <Badge
+              variant="secondary"
+              className={`mt-0 h-4 border-0 px-1.5 text-[9px] ${cardStatusStyles[selectedTodo.status].className}`}
+            >
+              {cardStatusStyles[selectedTodo.status].label}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Start Date */}
+        <div className="flex items-center gap-1 py-1">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500">
+            <CalendarDays className="h-2.5 w-2.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              Start Date
+            </p>
+            <p className="mt-0 text-[11px] font-medium text-slate-800">
+              {formatDeadline(selectedTodo.startDate)}
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <Separator className="bg-slate-200 my-0.5" />
+
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 gap-x-2 sm:grid-cols-2">
+        
+        {/* Assignees */}
+        <div className="flex items-center gap-1 py-1">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500">
+            <UserRound className="h-2.5 w-2.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              Assignees
+            </p>
+            <p className="mt-0 truncate text-[11px] font-medium text-slate-800">
+              {selectedTodo.assignee || "No assignee"}
+            </p>
+          </div>
+        </div>
+
+        {/* Due Date */}
+        <div className="flex items-center gap-1 py-1">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500">
+            <CalendarDays className="h-2.5 w-2.5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              Due Date
+            </p>
+            <p className="mt-0 text-[11px] font-medium text-slate-800">
+              {formatDeadline(selectedTodo.deadline)}
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+    </CardContent>
+  </Card>
+</section>
+
+                    <section className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-semibold text-slate-900">
+                            Submissions
+                          </h3>
+                          <p className="text-sm text-slate-500">
+                            Upload files or images for this task.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="min-h-9 gap-2"
+                          disabled={isUploadingSubmission}
+                          onClick={() => submissionInputRef.current?.click()}
+                        >
+                          <Upload className="h-4 w-4" />
+                          {isUploadingSubmission ? "Uploading..." : "Submit"}
+                        </Button>
+                        <input
+                          ref={submissionInputRef}
+                          type="file"
+                          className="hidden"
+                          multiple
+                          accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt"
+                          onChange={(event) => {
+                            handleSubmissionAttach(
+                              selectedTodo.id,
+                              event.target.files
+                            )
+                            event.target.value = ""
+                          }}
+                        />
                       </div>
+
+                      {isLoadingSubmissions ? (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                          Loading submissions...
+                        </div>
+                      ) : (submissionThreads[selectedTodo.id] ?? []).length > 0 ? (
+                        <div className="space-y-4">
+                          {(submissionThreads[selectedTodo.id] ?? []).map((submission) => {
+                            const isImage = submission.fileType.startsWith("image/")
+                            const isPdf =
+                              submission.fileType === "application/pdf" ||
+                              submission.fileName.toLowerCase().endsWith(".pdf")
+
+                            return (
+                              <div
+                                key={submission.id}
+                                className="overflow-hidden rounded-2xl border border-slate-800 bg-[#22232c] p-3 shadow-sm"
+                              >
+                                <div className="mb-3 flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-white">
+                                      {submission.fileName}
+                                    </p>
+                                    <p className="text-xs text-slate-300">
+                                      {formatSubmissionTime(submission.uploadedAt)} ·{" "}
+                                      {formatSubmissionSize(submission.fileSize)}
+                                    </p>
+                                  </div>
+                                  <a
+                                    href={submission.fileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="shrink-0 rounded-md border border-slate-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-slate-700"
+                                  >
+                                    Open
+                                  </a>
+                                </div>
+
+                                {isPdf ? (
+                                  <div className="overflow-hidden rounded-xl border border-slate-700 bg-white">
+                                    <iframe
+                                      src={submission.fileUrl}
+                                      title={submission.fileName}
+                                      className="h-[420px] w-full bg-white"
+                                    />
+                                  </div>
+                                ) : isImage ? (
+                                  <div className="overflow-hidden rounded-xl border border-slate-700 bg-black/40">
+                                    <Image
+                                      src={submission.fileUrl}
+                                      alt={submission.fileName}
+                                      width={1400}
+                                      height={900}
+                                      className="max-h-[420px] w-full object-contain"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-slate-200">
+                                      <FileText className="h-5 w-5" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-medium text-white">
+                                        {submission.fileName}
+                                      </p>
+                                      <p className="text-xs text-slate-300">
+                                        Preview is not available for this file type.
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                          No submissions yet. Use the submit button to upload a file or image.
+                        </div>
+                      )}
                     </section>
 
                   </div>
@@ -626,7 +997,7 @@ export function DashboardBoard({
                             (comment) => (
                               <div key={comment.id} className="flex gap-3">
                                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-                                  KB
+                                  {getInitials(comment.author || "Unknown User")}
                                 </div>
                                 <div className="min-w-0 flex-1 space-y-2">
                                   <div className="flex items-start justify-between gap-3">

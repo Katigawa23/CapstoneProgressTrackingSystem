@@ -136,7 +136,7 @@ export function DashboardTaskCard({
 
       <div className="my-2 h-px bg-slate-200" />
 
-      <div className="flex items-center gap-2 text-[11px] text-slate-500">
+      <div className="flex items-center justify-end text-[11px] text-slate-500">
         <button
           type="button"
           className="flex items-center gap-1 rounded-sm transition hover:text-slate-700"

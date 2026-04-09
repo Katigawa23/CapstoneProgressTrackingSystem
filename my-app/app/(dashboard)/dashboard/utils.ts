@@ -1,4 +1,5 @@
 import type { BacklogApiItem, ColumnId, TodoItem } from "./types"
+import { getAssigneeOption } from "./backlog/types"
 
 const fallbackDescription =
   "Write a 1000-word article discussing the latest advancements and trends."
@@ -40,21 +41,27 @@ export function mapBacklogItemsToTodos(items: BacklogApiItem[]): TodoItem[] {
     .filter((item): item is BacklogApiItem & { status: ColumnId } =>
       isDashboardColumn(item.status)
     )
-    .map((item) => ({
-      id: item.id,
-      title: item.title,
-      description: item.description || fallbackDescription,
-      assignee: "",
-      deadline: item.dueDate ?? "",
-      status: item.status,
-      comments: 0,
-      links: 0,
-      checklist: "0/0",
-      priority:
-        item.status === "revision"
-          ? "High"
-          : item.status === "completed"
-          ? "Low"
-          : "Medium",
-    }))
+    .map((item) => {
+      const assignee = getAssigneeOption(item.assigneeId)
+
+      return {
+        id: item.id,
+        title: item.title,
+        description: item.description || fallbackDescription,
+        assignee: assignee?.name ?? "",
+        assigneeId: item.assigneeId ?? null,
+        startDate: item.startDate ?? "",
+        deadline: item.dueDate ?? "",
+        status: item.status,
+        comments: 0,
+        links: 0,
+        checklist: "0/0",
+        priority:
+          item.status === "revision"
+            ? "High"
+            : item.status === "completed"
+            ? "Low"
+            : "Medium",
+      }
+    })
 }

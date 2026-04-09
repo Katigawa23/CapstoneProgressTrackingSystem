@@ -5,6 +5,8 @@ export type TodoItem = {
   title: string
   description: string
   assignee: string
+  assigneeId?: string | null
+  startDate: string
   deadline: string
   status: ColumnId
   comments: number
@@ -32,4 +34,14 @@ export type DashboardComment = {
   body: string
   attachments: string[]
   createdAt: string
+}
+
+export type DashboardSubmission = {
+  id: string
+  backlogItemId: string
+  fileName: string
+  fileUrl: string
+  fileType: string
+  fileSize: number
+  uploadedAt: string
 }
