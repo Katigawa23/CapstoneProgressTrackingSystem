@@ -43,6 +43,7 @@ export type DashboardProject = {
   yearLevel: string
   syTerm: string
   projectType: string
+  createdAt: string
 }
 
 export type DashboardProjectCollection = {
@@ -88,6 +89,8 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
     yearLevel: typeof candidate.yearLevel === "string" ? candidate.yearLevel : "",
     syTerm: typeof candidate.syTerm === "string" ? candidate.syTerm : "",
     projectType: typeof candidate.projectType === "string" ? candidate.projectType : "",
+    createdAt:
+      typeof candidate.createdAt === "string" ? candidate.createdAt : new Date(0).toISOString(),
   }
 }
 

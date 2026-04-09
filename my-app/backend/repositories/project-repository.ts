@@ -292,6 +292,10 @@ function mapRecord(record: ProjectRecord): DashboardProject {
     yearLevel: typeof record.year_level === "string" ? record.year_level : "",
     syTerm: typeof record.sy_term === "string" ? record.sy_term : "",
     projectType: typeof record.project_type === "string" ? record.project_type : "",
+    createdAt:
+      typeof record.created_at === "string"
+        ? record.created_at
+        : new Date(0).toISOString(),
   }
 }
 
@@ -344,6 +348,7 @@ function normalizeProject(input: CreateProjectInput): DashboardProject {
     yearLevel: input.yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
     syTerm: input.syTerm.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
     projectType: input.projectType.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
+    createdAt: new Date().toISOString(),
   }
 }
 

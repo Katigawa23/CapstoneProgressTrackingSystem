@@ -42,7 +42,7 @@ export function DashboardTaskCard({
     <div
       role="button"
       tabIndex={0}
-      className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
+      className="w-full border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
       onClick={() => onOpen(todo)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {

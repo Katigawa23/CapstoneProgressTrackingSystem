@@ -75,6 +75,41 @@ export default function DashboardBoardPage() {
     []
   )
 
+  const loadCommentCounts = React.useCallback(async (items: TodoItem[]) => {
+    const results = await Promise.allSettled(
+      items.map(async (item) => {
+        const response = await fetch(`/api/backlog-items/${item.id}/comments`, {
+          cache: "no-store",
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to load comments for backlog item ${item.id}`)
+        }
+
+        const data = (await response.json()) as {
+          comments: Array<{ id: string }>
+        }
+
+        return {
+          id: item.id,
+          comments: data.comments.length,
+        }
+      })
+    )
+
+    const counts = new Map<string, number>()
+
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        counts.set(result.value.id, result.value.comments)
+      } else {
+        console.error(result.reason)
+      }
+    }
+
+    return counts
+  }, [])
+
   const resetCreateForm = () => {
     setCreateStatus("todo")
     setCreateTitle("")
@@ -147,7 +182,19 @@ export default function DashboardBoardPage() {
         const data = (await response.json()) as { items: BacklogApiItem[] }
 
         if (!cancelled) {
-          setTodos(mapBacklogItemsToTodos(data.items))
+          const mappedTodos = mapBacklogItemsToTodos(data.items)
+          setTodos(mappedTodos)
+
+          const commentCounts = await loadCommentCounts(mappedTodos)
+
+          if (!cancelled) {
+            setTodos((currentTodos) =>
+              currentTodos.map((todo) => ({
+                ...todo,
+                comments: commentCounts.get(todo.id) ?? todo.comments,
+              }))
+            )
+          }
         }
       } catch (error) {
         console.error(error)
@@ -161,7 +208,7 @@ export default function DashboardBoardPage() {
       cancelled = true
       window.removeEventListener(PROJECT_CHANGE_EVENT, loadTodosForSelectedProject)
     }
-  }, [router])
+  }, [loadCommentCounts, router])
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
