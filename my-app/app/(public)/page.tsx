@@ -42,7 +42,7 @@ export default function LandingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-gray-800">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-gray-800 dark:from-[#212121] dark:to-[#171717] dark:text-slate-100">
       <Navbar />
 
       <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-10 px-4 py-12 sm:px-6 md:grid-cols-2 md:gap-12 md:py-16">
@@ -50,20 +50,20 @@ export default function LandingPage() {
           <h1 className="font-display text-4xl leading-tight font-extrabold tracking-tight sm:text-5xl md:text-6xl">
             <SplitText
               parts={[
-                { text: "Track", className: "text-slate-950" },
+                { text: "Track", className: "text-slate-950 dark:text-slate-50" },
                 { text: "Sphere", className: "text-sky-600" },
               ]}
             />
             <ScrollReveal className="block" delay={340} yOffset={16}>
-              <span className="block text-xl text-slate-600 sm:text-2xl md:text-3xl">
+              <span className="block text-xl text-slate-600 dark:text-slate-300 sm:text-2xl md:text-3xl">
                 Capstone & Thesis Progress Tracking
               </span>
             </ScrollReveal>
           </h1>
 
           <ScrollReveal className="mx-auto mt-6 max-w-md md:mx-0" delay={120}>
-            <p className="text-base text-gray-600 sm:text-lg">
-             Manage your research and capstone projects with ease through real-time tracking, smooth collaboration, and clear workflows.
+            <p className="text-base text-gray-600 dark:text-slate-300 sm:text-lg">
+             Manage your capstone and thesis projects with ease through real-time tracking, smooth collaboration, and clear workflows.
             </p>
           </ScrollReveal>
 
@@ -149,7 +149,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="scroll-mt-24 bg-white px-4 py-16 sm:px-6 md:py-20">
+      <section id="how-it-works" className="scroll-mt-24 bg-white px-4 py-16 dark:bg-[#1d1d1d] sm:px-6 md:py-20">
         <ScrollReveal>
           <h2 className="mb-10 text-center text-2xl font-bold sm:text-3xl md:mb-12">How It Works</h2>
         </ScrollReveal>
@@ -159,7 +159,7 @@ export default function LandingPage() {
             <div>
               <FolderPlus className="mx-auto mb-4 text-blue-600" />
               <h3 className="font-semibold">1. Create Project</h3>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
                 Start your capstone or thesis and define your goals.
               </p>
             </div>
@@ -169,7 +169,7 @@ export default function LandingPage() {
             <div>
               <BarChart3 className="mx-auto mb-4 text-blue-600" />
               <h3 className="font-semibold">2. Track Progress</h3>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
                 Update tasks and monitor milestones.
               </p>
             </div>
@@ -179,7 +179,7 @@ export default function LandingPage() {
             <div>
               <MessagesSquare className="mx-auto mb-4 text-blue-600" />
               <h3 className="font-semibold">3. Collaborate</h3>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
                 Work with advisers and improve your project.
               </p>
             </div>
@@ -192,7 +192,7 @@ export default function LandingPage() {
           <h2 className="mb-6 text-2xl font-bold sm:text-3xl">About</h2>
         </ScrollReveal>
         <ScrollReveal className="mx-auto max-w-2xl" delay={40}>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-slate-300">
             TrackSphere helps students and advisers keep projects organized, visible, and moving
             with a clearer and more structured workflow.
           </p>
@@ -208,15 +208,15 @@ export default function LandingPage() {
 
       <footer
         id="site-footer"
-        className="mt-10 border-t border-blue-100 bg-white/75 text-slate-700 backdrop-blur"
+        className="mt-10 border-t border-blue-100 bg-white/75 text-slate-700 backdrop-blur dark:border-[#343434] dark:bg-[#1d1d1d]/95 dark:text-slate-300"
       >
         <div className="mx-auto grid max-w-6xl gap-6 px-4 py-7 sm:px-6 md:grid-cols-[1.2fr_0.8fr]">
           <div>
             <h2 className="font-display text-lg font-semibold tracking-tight">
-              <span className="text-slate-950">Track</span>
+              <span className="text-slate-950 dark:text-slate-50">Track</span>
               <span className="text-sky-600">Sphere</span>
             </h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
+            <p className="mt-2 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
               Manage milestones, submissions, and collaboration in one organized workspace.
             </p>
           </div>
@@ -226,23 +226,23 @@ export default function LandingPage() {
               Quick Links
             </h3>
             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <Link href="/" className="transition hover:text-slate-950">
+              <Link href="/" className="transition hover:text-slate-950 dark:hover:text-slate-50">
                 Home
               </Link>
-              <Link href="/#features" className="transition hover:text-slate-950">
+              <Link href="/#features" className="transition hover:text-slate-950 dark:hover:text-slate-50">
                 Features
               </Link>
-              <Link href="/#how-it-works" className="transition hover:text-slate-950">
+              <Link href="/#how-it-works" className="transition hover:text-slate-950 dark:hover:text-slate-50">
                 How It Works
               </Link>
-              <Link href="/#about" className="transition hover:text-slate-950">
+              <Link href="/#about" className="transition hover:text-slate-950 dark:hover:text-slate-50">
                 About
               </Link>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-blue-100">
+        <div className="border-t border-blue-100 dark:border-slate-800">
           <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 text-center text-xs text-slate-500 sm:px-6 md:flex-row md:items-center md:justify-between md:text-left">
             <p>
               {"(c)"} {new Date().getFullYear()} TrackSphere

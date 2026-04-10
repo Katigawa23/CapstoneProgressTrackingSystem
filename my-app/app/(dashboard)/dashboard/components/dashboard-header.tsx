@@ -46,7 +46,7 @@ export function DashboardHeader({ people }: DashboardHeaderProps) {
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold">Board</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight">Board</h1>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative w-full sm:w-[220px]">

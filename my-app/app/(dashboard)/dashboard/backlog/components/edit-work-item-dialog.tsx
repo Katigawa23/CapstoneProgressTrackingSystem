@@ -76,7 +76,7 @@ export function EditWorkItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>Edit work item</DialogTitle>
+          <DialogTitle className="font-display tracking-tight">Edit work item</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">

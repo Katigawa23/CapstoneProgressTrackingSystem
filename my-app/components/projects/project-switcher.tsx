@@ -47,6 +47,8 @@ export function ProjectSwitcher({
             bg-white px-2 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-colors sm:min-h-12
             hover:border-sky-200 hover:bg-sky-50/40 data-[state=open]:border-sky-300
             data-[state=open]:bg-sky-50/70
+            dark:border-[#343434] dark:bg-[#242424] dark:hover:border-[#454545] dark:hover:bg-[#2a2a2a]
+            dark:data-[state=open]:border-[#4a4a4a] dark:data-[state=open]:bg-[#2a2a2a]
             group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:flex-none
             group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg
             group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent
@@ -61,25 +63,25 @@ export function ProjectSwitcher({
           </div>
 
           <div className="min-w-0 flex-1 self-center group-data-[collapsible=icon]:hidden">
-            <div className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <div className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
               Project
             </div>
-            <div className="truncate leading-tight text-[12px] font-semibold text-slate-900 sm:text-[13px]">
+            <div className="truncate leading-tight text-[12px] font-semibold text-slate-900 dark:text-slate-100 sm:text-[13px]">
               {teamName}
             </div>
           </div>
 
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform group-data-[collapsible=icon]:hidden group-data-[state=open]:rotate-180" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform group-data-[collapsible=icon]:hidden group-data-[state=open]:rotate-180 dark:text-slate-500" />
         </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
         align="start"
-        className="w-[min(16.5rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] rounded-lg border border-slate-200 bg-white p-1 shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+        className="w-[min(16.5rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] rounded-lg border border-slate-200 bg-white p-1 shadow-[0_18px_40px_rgba(15,23,42,0.14)] dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:shadow-[0_18px_40px_rgba(0,0,0,0.45)]"
       >
         <DropdownMenuLabel className="p-0">
-          <div className="rounded-md border border-slate-200 bg-slate-50/80 px-2.5 py-2">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          <div className="rounded-md border border-slate-200 bg-slate-50/80 px-2.5 py-2 dark:border-[#343434] dark:bg-[#262626]">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
               Current project
             </div>
             <div className="mt-1.5 flex items-start gap-2">
@@ -87,8 +89,8 @@ export function ProjectSwitcher({
                 <FolderOpen className="h-3.5 w-3.5 text-white" />
               </div>
               <div className="min-w-0">
-                <div className="truncate text-[12px] font-semibold text-slate-900 sm:text-[13px]">{teamName}</div>
-                <div className="hidden truncate text-[10px] text-slate-500 sm:block">{projectSummary}</div>
+                <div className="truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100 sm:text-[13px]">{teamName}</div>
+                <div className="hidden truncate text-[10px] text-slate-500 dark:text-slate-400 sm:block">{projectSummary}</div>
               </div>
             </div>
           </div>
@@ -98,12 +100,12 @@ export function ProjectSwitcher({
         {projects.length > 0 ? (
           <>
             <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-1">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                 Switch project
               </div>
               <Link
                 href="/dashboard"
-                className="text-[10px] font-medium text-sky-600 transition hover:text-sky-700"
+                className="text-[10px] font-medium text-sky-600 transition hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300"
               >
                 View all
               </Link>
@@ -116,8 +118,8 @@ export function ProjectSwitcher({
                   <DropdownMenuItem
                     key={project.id}
                     className={cn(
-                      "cursor-pointer items-start gap-2 rounded-md border border-transparent px-2 py-1.5 focus:bg-sky-50 focus:text-slate-950",
-                      active && "border-sky-100 bg-sky-50/80"
+                      "cursor-pointer items-start gap-2 rounded-md border border-transparent px-2 py-1.5 focus:bg-sky-50 focus:text-slate-950 dark:focus:bg-[#2a2a2a] dark:focus:text-slate-100",
+                      active && "border-sky-100 bg-sky-50/80 dark:border-[#3b82f6]/30 dark:bg-[#1f2937]"
                     )}
                     onClick={() => onSelectProject(project.id)}
                   >
@@ -125,15 +127,15 @@ export function ProjectSwitcher({
                       className={cn(
                         "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border",
                         active
-                          ? "border-sky-200 bg-white text-sky-700"
-                          : "border-slate-200 bg-slate-50 text-slate-500"
+                          ? "border-sky-200 bg-white text-sky-700 dark:border-sky-500/40 dark:bg-[#111827] dark:text-sky-300"
+                          : "border-slate-200 bg-slate-50 text-slate-500 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400"
                       )}
                     >
                       <FolderOpen className="h-3.5 w-3.5" />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12px] font-medium text-slate-900 sm:text-[13px]">
+                      <div className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">
                         {project.name}
                       </div>
                     </div>
@@ -151,19 +153,19 @@ export function ProjectSwitcher({
           </>
         ) : null}
 
-        <div className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+        <div className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
           Quick actions
         </div>
-        <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-sky-50">
+        <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-sky-50 dark:focus:bg-[#2a2a2a]">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-500">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-500 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400">
               <FolderOpen className="h-3.5 w-3.5" />
             </span>
-            <span className="truncate text-[12px] font-medium text-slate-900 sm:text-[13px]">Browse all projects</span>
+            <span className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">Browse all projects</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-sky-50"
+          className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-sky-50 dark:focus:bg-[#2a2a2a]"
           onSelect={(event) => {
             event.preventDefault()
             onCreateProject()
@@ -173,7 +175,7 @@ export function ProjectSwitcher({
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-600 text-white shadow-sm">
               <Plus className="h-3.5 w-3.5" />
             </span>
-            <span className="truncate text-[12px] font-medium text-slate-900 sm:text-[13px]">Create project</span>
+            <span className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">Create project</span>
           </span>
         </DropdownMenuItem>
       </DropdownMenuContent>

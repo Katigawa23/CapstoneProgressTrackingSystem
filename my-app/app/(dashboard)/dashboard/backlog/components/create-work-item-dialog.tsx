@@ -87,7 +87,7 @@ export function CreateWorkItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto text-black sm:max-w-lg">
         <DialogHeader className="border-b pb-4">
-          <DialogTitle className="text-left text-black">Create new task.</DialogTitle>
+          <DialogTitle className="font-display text-left tracking-tight text-black">Create new task.</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 py-2">

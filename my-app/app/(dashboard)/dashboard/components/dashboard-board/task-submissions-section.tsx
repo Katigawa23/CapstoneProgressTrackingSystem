@@ -39,8 +39,8 @@ export function TaskSubmissionsSection({
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">Submissions</h3>
-          <p className="text-sm text-slate-500">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Submissions</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Upload files or images for this task.
           </p>
         </div>
@@ -49,7 +49,7 @@ export function TaskSubmissionsSection({
             type="button"
             size="sm"
             variant="outline"
-            className="mt-3 gap-2 text-slate-700"
+            className="mt-3 gap-2 text-slate-700 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-200 dark:hover:bg-[#303030]"
             onClick={() => onSubmissionActionsOpenChange(false)}
           >
             <X className="h-4 w-4" />
@@ -89,7 +89,7 @@ export function TaskSubmissionsSection({
                 {submissionDrafts.map((draft) => (
                   <div
                     key={draft.id}
-                    className="relative overflow-hidden rounded-xl border border-sky-200 bg-sky-50"
+                    className="relative overflow-hidden rounded-xl border border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-950/20"
                   >
                     <Progress
                       value={draft.progress}
@@ -97,18 +97,18 @@ export function TaskSubmissionsSection({
                     />
                     <div className="relative z-10 flex items-center gap-2 px-3 py-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3 text-xs text-slate-800">
+                        <div className="flex items-center justify-between gap-3 text-xs text-slate-800 dark:text-slate-200">
                           <p className="truncate font-medium">
                             {draft.file.name} ({formatSubmissionSize(draft.file.size)})
                           </p>
-                          <span className="shrink-0 font-medium text-sky-900">
+                          <span className="shrink-0 font-medium text-sky-900 dark:text-sky-300">
                             {draft.progress}%
                           </span>
                         </div>
                       </div>
                       <button
                         type="button"
-                        className="rounded-full p-0.5 text-sky-900 transition hover:bg-white/40 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-full p-0.5 text-sky-900 transition hover:bg-white/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300 dark:hover:bg-sky-900/40"
                         disabled={draft.status === "uploading"}
                         onClick={() =>
                           onSubmissionDraftRemove(selectedTodo.id, draft.id)
@@ -126,7 +126,7 @@ export function TaskSubmissionsSection({
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Add one or more files, then submit them for checking.
               </p>
             )}
@@ -157,7 +157,7 @@ export function TaskSubmissionsSection({
       </div>
 
       {isLoadingSubmissions ? (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-400">
           Loading submissions...
         </div>
       ) : submissionThreads.length > 0 ? (

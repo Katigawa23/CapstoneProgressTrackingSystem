@@ -12,7 +12,24 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  var storageKey = "theme-preference";
+                  var storedTheme = window.localStorage.getItem(storageKey);
+                  var isDark = storedTheme === "dark" || (!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+                  document.documentElement.classList.toggle("dark", isDark);
+                  document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+                } catch (error) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="antialiased">
         {children}
       </body>

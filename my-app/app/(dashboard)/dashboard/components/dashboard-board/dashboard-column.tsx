@@ -34,10 +34,10 @@ export function DashboardColumn({
 
   return (
     <Card
-      className={`flex h-full min-h-0 min-w-0 flex-col rounded-xl ${className}`}
+      className={`flex h-full min-h-0 min-w-0 flex-col rounded-xl dark:border-[#343434] dark:bg-[#1f1f1f] ${className}`}
     >
       <CardHeader className="px-3 pb-2 pt-3">
-        <CardTitle className="flex items-center gap-1.5 text-[11px] font-semibold">
+        <CardTitle className="flex items-center gap-1.5 text-[11px] font-semibold dark:text-slate-100">
           <span className={`h-2 w-2 rounded-full ${column.color}`} />
           <span className="truncate">{column.title}</span>
         </CardTitle>
@@ -69,7 +69,7 @@ export function DashboardColumn({
             ))}
 
             {todos.length === 0 && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground dark:text-slate-400">
                 No tasks in this column.
               </p>
             )}
@@ -77,12 +77,12 @@ export function DashboardColumn({
         </ScrollArea>
       </CardContent>
 
-      <div className="border-t border-slate-200 p-1">
+      <div className="border-t border-slate-200 p-1 dark:border-[#343434]">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onCreate(column.id)}
-          className="w-full justify-start gap-1 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+          className="w-full justify-start gap-1 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-100"
         >
           <Plus className="h-3 w-3" />
           Create

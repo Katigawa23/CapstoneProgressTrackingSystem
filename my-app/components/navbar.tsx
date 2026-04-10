@@ -39,7 +39,7 @@ export default function Navbar() {
   const [activeHref, setActiveHref] = useState("/")
   const [isLoginOpen, setIsLoginOpen] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthenticated] = useState(() => !!readClientAuthSession())
 
   useEffect(() => {
     if (pathname !== "/") {
@@ -93,11 +93,6 @@ export default function Navbar() {
     }
   }, [pathname])
 
-  useEffect(() => {
-    const session = readClientAuthSession()
-    setIsAuthenticated(!!session)
-  }, [])
-
   const handleLogoClick = (e: React.MouseEvent) => {
     if (isAuthenticated) {
       e.preventDefault()
@@ -120,7 +115,7 @@ export default function Navbar() {
 
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/80 shadow-sm backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 shadow-sm backdrop-blur-md dark:border-[#343434] dark:bg-[#171717] dark:shadow-none">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -131,10 +126,10 @@ export default function Navbar() {
               </Button>
             </SheetTrigger>
 
-            <SheetContent side="left" className="w-[85vw] max-w-sm p-0">
-              <SheetHeader className="border-b px-5 py-5 text-left">
+              <SheetContent side="left" className="w-[85vw] max-w-sm border-border bg-background p-0">
+              <SheetHeader className="border-b border-border px-5 py-5 text-left">
                 <SheetTitle className="font-display text-xl">
-                  <span className="text-slate-950">Track</span>
+                  <span className="text-slate-950 dark:text-slate-50">Track</span>
                   <span className="text-sky-600">Sphere</span>
                 </SheetTitle>
                 <SheetDescription>Browse the landing page sections.</SheetDescription>
@@ -172,7 +167,7 @@ export default function Navbar() {
             onClick={handleLogoClick}
             className="font-display text-xl font-bold tracking-tight sm:text-2xl"
           >
-            <span className="text-slate-950">Track</span>
+            <span className="text-slate-950 dark:text-slate-50">Track</span>
             <span className="text-sky-600">Sphere</span>
           </Link>
         </div>
@@ -208,7 +203,7 @@ export default function Navbar() {
 
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="text-2xl">Login</DialogTitle>
+                <DialogTitle className="font-display text-2xl tracking-tight">Login</DialogTitle>
               </DialogHeader>
 
               <div className="mt-4 flex flex-col gap-4">

@@ -69,7 +69,7 @@ function NavList({ items }: { items: NavItem[] }) {
               asChild
               isActive={active}
               tooltip={item.title}
-              className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
+              className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm dark:text-slate-300 dark:hover:text-sky-400 dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-sky-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
             >
               <Link href={item.href} className="flex items-center gap-2">
                 {Icon && <Icon className="h-4 w-4" />}
@@ -123,7 +123,8 @@ export function AppSidebar({ role }: { role: UserRole }) {
   const visibleProjectItems = filterItemsByRole(projectItems, role)
   const visibleDocumentationItems = filterItemsByRole(documentationItems, role)
   const visibleGroupItems = filterItemsByRole(groupItems, role)
-  const isProjectPickerPage = pathname === "/dashboard"
+  const isProjectPickerPage =
+    pathname === "/dashboard" || pathname === "/dashboard/projects"
 
   return (
     <>
@@ -160,7 +161,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
 
       <Sidebar
         collapsible="icon"
-        className="relative top-16 h-[calc(100vh-64px)] border-r border-blue-100/70 shadow-[10px_0_26px_-20px_rgba(15,23,42,0.28)] after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-blue-200/85 [--sidebar:#f7fbff] [--sidebar-border:#dbeafe] [--sidebar-accent:#e8f1ff] [--sidebar-accent-foreground:#2563eb] [--sidebar-foreground:#334155]"
+        className="relative top-16 h-[calc(100vh-64px)] border-r border-blue-100/70 shadow-[10px_0_26px_-20px_rgba(15,23,42,0.28)] after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-blue-200/85 [--sidebar:#f7fbff] [--sidebar-border:#dbeafe] [--sidebar-accent:#e8f1ff] [--sidebar-accent-foreground:#2563eb] [--sidebar-foreground:#334155] dark:border-[#3a3a3a] dark:shadow-[10px_0_26px_-20px_rgba(0,0,0,0.85)] dark:after:bg-[#3a3a3a] dark:[--sidebar:#171717] dark:[--sidebar-border:#2f2f2f] dark:[--sidebar-accent:#242424] dark:[--sidebar-accent-foreground:#ffffff] dark:[--sidebar-foreground:#e5e5e5]"
       >
         <SidebarHeader className="gap-4 px-3 pt-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1">
           <div className="rounded-xl bg-transparent">
@@ -191,7 +192,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
           ) : (
             <>
               <SidebarGroup>
-                <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                   Project
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -199,10 +200,10 @@ export function AppSidebar({ role }: { role: UserRole }) {
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              <Separator className="bg-blue-100" />
+              <Separator className="bg-blue-100 dark:bg-slate-800" />
 
               <SidebarGroup>
-                <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                   Documentation
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -210,10 +211,10 @@ export function AppSidebar({ role }: { role: UserRole }) {
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              <Separator className="bg-blue-100" />
+              <Separator className="bg-blue-100 dark:bg-slate-800" />
 
               <SidebarGroup>
-                <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                   Groups
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -225,7 +226,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
         </SidebarContent>
 
         <SidebarFooter className="hidden px-2 pb-3 pt-0 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5">
-          <SidebarTrigger className="h-10 w-full justify-start rounded-xl px-3 text-slate-500 hover:bg-white hover:text-blue-700 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />
+          <SidebarTrigger className="h-10 w-full justify-start rounded-xl px-3 text-slate-500 hover:bg-white hover:text-blue-700 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-sky-400 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />
         </SidebarFooter>
 
         <SidebarRail />

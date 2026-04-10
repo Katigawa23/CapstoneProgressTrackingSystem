@@ -659,7 +659,7 @@ export function DashboardBoard({
 
       <Dialog open={selectedTodo !== null} onOpenChange={handleDialogOpenChange}>
         {selectedTodo ? (
-          <DialogContent className="h-[92vh] max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden border-slate-200 bg-white p-0 sm:h-[90vh] sm:max-h-[90vh] sm:w-[94vw] sm:max-w-[94vw] lg:h-[88vh] lg:max-h-[88vh] lg:w-[90vw] lg:max-w-[90vw]">
+          <DialogContent className="h-[92vh] max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden border-slate-200 bg-white p-0 dark:border-[#343434] dark:bg-[#1f1f1f] sm:h-[90vh] sm:max-h-[90vh] sm:w-[94vw] sm:max-w-[94vw] lg:h-[88vh] lg:max-h-[88vh] lg:w-[90vw] lg:max-w-[90vw]">
             <DialogHeader className="sr-only">
               <DialogTitle>{selectedTodo.title}</DialogTitle>
             </DialogHeader>
@@ -667,15 +667,15 @@ export function DashboardBoard({
               <div
                 className={`min-h-0 p-4 sm:p-5 lg:p-6 ${
                   isSubmissionActionsOpen[selectedTodo.id]
-                    ? "order-1 border-slate-200 pt-10 sm:pt-12 lg:border-r lg:pt-12"
-                    : "order-2 border-t border-slate-200 lg:order-1 lg:border-r lg:border-t-0"
+                    ? "order-1 border-slate-200 pt-10 dark:border-[#343434] sm:pt-12 lg:border-r lg:pt-12"
+                    : "order-2 border-t border-slate-200 dark:border-[#343434] lg:order-1 lg:border-r lg:border-t-0"
                 }`}
               >
                 <ScrollArea className="h-full pr-2 sm:pr-3 lg:pr-4">
                   {!isSubmissionActionsOpen[selectedTodo.id] ? (
                     <>
                       <DialogHeader className="mb-5 text-left sm:mb-6">
-                        <DialogTitle className="text-2xl font-semibold text-slate-900 sm:text-3xl">
+                        <DialogTitle className="font-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
                           {selectedTodo.title}
                         </DialogTitle>
                       </DialogHeader>
