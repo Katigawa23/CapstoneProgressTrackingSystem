@@ -17,7 +17,9 @@ import {
 import { useRouter } from "next/navigation"
 import {
   type DashboardProject,
+  getSelectedDashboardProjectId,
   getDashboardProjects,
+  PROJECT_CHANGE_EVENT,
   PROJECTS_CHANGE_EVENT,
   refreshDashboardProjects,
   setDashboardProject,
@@ -40,6 +42,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = React.useState<DashboardProject[]>([])
   const [activities, setActivities] = React.useState<DashboardActivity[]>([])
   const [isLoadingActivities, setIsLoadingActivities] = React.useState(true)
+  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null)
 
   const getMemberInitials = React.useCallback((name: string) => {
     return name
@@ -77,6 +80,11 @@ export default function DashboardPage() {
     return `${normalized[0]}${consonant ?? fallback}`.slice(0, 2)
   }, [])
 
+  const getProjectDisplayId = React.useCallback((projectType: string, index: number) => {
+    const year = new Date().getFullYear()
+    return `${getProjectTypeCode(projectType)}-${year}${String(index + 1).padStart(3, "0")}`
+  }, [getProjectTypeCode])
+
   const projectDisplayIds = React.useMemo(() => {
     const sortedProjects = [...projects].sort((left, right) => {
       const leftTime = new Date(left.createdAt).getTime()
@@ -104,10 +112,10 @@ export default function DashboardPage() {
     return new Map(
       sortedProjects.map((project, index) => [
         project.id,
-        `${getProjectTypeCode(project.projectType)}-${index + 1}`,
+        getProjectDisplayId(project.projectType, index),
       ])
     )
-  }, [getProjectTypeCode, projects])
+  }, [getProjectDisplayId, projects])
 
   React.useEffect(() => {
     const syncProjects = () => {
@@ -129,6 +137,21 @@ export default function DashboardPage() {
     return () => {
       window.removeEventListener("storage", syncProjects)
       window.removeEventListener(PROJECTS_CHANGE_EVENT, syncProjects)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const syncSelectedProject = () => {
+      setSelectedProjectId(getSelectedDashboardProjectId())
+    }
+
+    syncSelectedProject()
+    window.addEventListener("storage", syncSelectedProject)
+    window.addEventListener(PROJECT_CHANGE_EVENT, syncSelectedProject)
+
+    return () => {
+      window.removeEventListener("storage", syncSelectedProject)
+      window.removeEventListener(PROJECT_CHANGE_EVENT, syncSelectedProject)
     }
   }, [])
 
@@ -169,7 +192,7 @@ export default function DashboardPage() {
               title: item.title,
               action: item.assigneeId ? "Assigned" : "Created",
               createdAt: item.createdAt ?? new Date(0).toISOString(),
-              itemKey: `${projectDisplayIds.get(project.id) ?? getProjectTypeCode(project.projectType)}-${index + 1}`,
+              itemKey: `${projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, 0)}-${index + 1}`,
               projectId: project.id,
               projectName: project.name,
               projectMember: project.members[0] ?? "NA",
@@ -204,7 +227,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [getProjectTypeCode, projectDisplayIds, projects])
+  }, [getProjectDisplayId, projectDisplayIds, projects])
 
   const workedOnActivities = React.useMemo(
     () => activities,
@@ -229,6 +252,24 @@ export default function DashboardPage() {
       }),
     [activities, projects]
   )
+
+  const recentProjects = React.useMemo(() => {
+    if (!selectedProjectId) {
+      return projects
+    }
+
+    return [...projects].sort((left, right) => {
+      if (left.id === selectedProjectId) {
+        return -1
+      }
+
+      if (right.id === selectedProjectId) {
+        return 1
+      }
+
+      return 0
+    })
+  }, [projects, selectedProjectId])
 
   const oneMonthAgo = React.useMemo(() => {
     const date = new Date()
@@ -330,7 +371,7 @@ export default function DashboardPage() {
   return (
     <TooltipProvider>
       <ScrollArea className="h-full w-full">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-6 pr-8 sm:pr-10">
+        <div className="mx-auto flex w-full max-w-[92rem] flex-col gap-6 px-1 pb-6 pr-6 sm:pr-8 xl:px-2 xl:pr-10">
           <div>
             <h1 className="font-display text-2xl font-semibold tracking-tight">Choose a project</h1>
             <div className="mt-3 h-px w-full bg-slate-200 dark:bg-slate-800" />
@@ -358,11 +399,11 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="flex flex-wrap gap-4">
-            {projects.map((project, index) => (
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 2xl:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
+            {recentProjects.map((project, index) => (
               <Card
                 key={project.id}
-                className="relative flex min-h-[142px] w-full max-w-[220px] cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[#343434] dark:bg-[#1f1f1f]"
+                className="relative flex min-h-[142px] w-full cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[#343434] dark:bg-[#1f1f1f]"
                 onClick={() => {
                   setDashboardProject(project.id)
                   router.push("/dashboard/board")
@@ -373,8 +414,7 @@ export default function DashboardPage() {
                 <CardHeader className="flex-1 space-y-3 px-4 pb-3 pt-3.5">
                   <div className="space-y-1">
                     <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                      {projectDisplayIds.get(project.id) ??
-                        `${getProjectTypeCode(project.projectType)}-${index + 1}`}
+                      {projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, index)}
                     </p>
                     <Tooltip>
                       <TooltipTrigger asChild>

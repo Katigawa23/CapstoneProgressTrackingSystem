@@ -12,7 +12,11 @@ export default function MicrosoftLoginButton({
   return (
     <Button
       type="button"
-      className="flex w-full items-center justify-center gap-2 font-semibold"
+      style={{
+        backgroundColor: "var(--brand-primary-fixed)",
+        color: "var(--brand-primary-fixed-foreground)",
+      }}
+      className="flex w-full items-center justify-center gap-2 font-semibold hover:opacity-90"
       onClick={() => {
         onSuccess?.()
         window.location.assign("/api/auth/microsoft")

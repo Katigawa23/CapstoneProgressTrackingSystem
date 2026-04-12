@@ -79,6 +79,11 @@ function getProjectTypeCode(projectType: string) {
   return `${normalized[0]}${consonant ?? fallback}`.slice(0, 2)
 }
 
+function getProjectDisplayId(projectType: string, index: number) {
+  const year = new Date().getFullYear()
+  return `${getProjectTypeCode(projectType)}-${year}${String(index + 1).padStart(3, "0")}`
+}
+
 export default function DashboardProjectsPage() {
   const router = useRouter()
   const [projects, setProjects] = React.useState<DashboardProject[]>([])
@@ -89,7 +94,7 @@ export default function DashboardProjectsPage() {
       new Map(
         projects.map((project, index) => [
           project.id,
-          `${getProjectTypeCode(project.projectType)}-${index + 1}`,
+          getProjectDisplayId(project.projectType, index),
         ])
       ),
     [projects]
@@ -140,7 +145,7 @@ export default function DashboardProjectsPage() {
   }, [projectDisplayIds, projects, searchQuery])
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-3 overflow-auto pb-6">
+    <div className="mx-auto flex h-full w-full max-w-[92rem] flex-col gap-4 overflow-auto pb-6">
       <div>
         <h1 className="font-display text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
           Projects
@@ -150,7 +155,7 @@ export default function DashboardProjectsPage() {
         </p>
       </div>
 
-      <div className="max-w-[220px]">
+      <div className="w-full max-w-xs">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
           <Input

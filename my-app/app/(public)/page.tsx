@@ -45,8 +45,8 @@ export default function LandingPage() {
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-gray-800 dark:from-[#212121] dark:to-[#171717] dark:text-slate-100">
       <Navbar />
 
-      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-10 px-4 py-12 sm:px-6 md:grid-cols-2 md:gap-12 md:py-16">
-        <div className="text-center md:text-left">
+      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[92rem] items-center px-4 py-12 sm:px-6 md:py-16 lg:px-10 xl:px-14">
+        <div className="w-full max-w-3xl text-center md:pl-4 md:text-left xl:pl-6">
           <h1 className="font-display text-4xl leading-tight font-extrabold tracking-tight sm:text-5xl md:text-6xl">
             <SplitText
               parts={[
@@ -79,7 +79,11 @@ export default function LandingPage() {
               scale={0.92}
             >
               <Button
-                className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
+                style={{
+                  backgroundColor: "var(--brand-primary-fixed)",
+                  color: "var(--brand-primary-fixed-foreground)",
+                }}
+                className="rounded-2xl px-6 py-5 text-base hover:opacity-90 sm:min-w-40"
                 onClick={openLoginDialog}
               >
                 Get Started
@@ -107,7 +111,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-16 sm:px-6 md:py-20">
+      <section id="features" className="mx-auto w-full max-w-[92rem] scroll-mt-24 px-4 py-16 sm:px-6 md:py-20 xl:px-8">
         <ScrollReveal>
           <h2 className="mb-10 text-center text-2xl font-bold sm:text-3xl md:mb-12">Features</h2>
         </ScrollReveal>
@@ -149,12 +153,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="scroll-mt-24 bg-white px-4 py-16 dark:bg-[#1d1d1d] sm:px-6 md:py-20">
+      <section id="how-it-works" className="scroll-mt-24 bg-white px-4 py-16 dark:bg-[#1d1d1d] sm:px-6 md:py-20 xl:px-8">
         <ScrollReveal>
           <h2 className="mb-10 text-center text-2xl font-bold sm:text-3xl md:mb-12">How It Works</h2>
         </ScrollReveal>
 
-        <div className="mx-auto grid max-w-6xl gap-8 text-center md:grid-cols-3">
+        <div className="mx-auto grid w-full max-w-[92rem] gap-8 text-center md:grid-cols-3">
           <ScrollReveal delay={40}>
             <div>
               <FolderPlus className="mx-auto mb-4 text-blue-600" />
@@ -187,7 +191,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="about" className="mx-auto max-w-4xl scroll-mt-24 px-4 py-16 text-center sm:px-6 md:py-20">
+      <section id="about" className="mx-auto w-full max-w-5xl scroll-mt-24 px-4 py-16 text-center sm:px-6 md:py-20">
         <ScrollReveal>
           <h2 className="mb-6 text-2xl font-bold sm:text-3xl">About</h2>
         </ScrollReveal>
@@ -210,7 +214,7 @@ export default function LandingPage() {
         id="site-footer"
         className="mt-10 border-t border-blue-100 bg-white/75 text-slate-700 backdrop-blur dark:border-[#343434] dark:bg-[#1d1d1d]/95 dark:text-slate-300"
       >
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-7 sm:px-6 md:grid-cols-[1.2fr_0.8fr]">
+        <div className="mx-auto grid w-full max-w-[92rem] gap-6 px-4 py-7 sm:px-6 md:grid-cols-[1.2fr_0.8fr] xl:px-8">
           <div>
             <h2 className="font-display text-lg font-semibold tracking-tight">
               <span className="text-slate-950 dark:text-slate-50">Track</span>
@@ -243,7 +247,7 @@ export default function LandingPage() {
         </div>
 
         <div className="border-t border-blue-100 dark:border-slate-800">
-          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 text-center text-xs text-slate-500 sm:px-6 md:flex-row md:items-center md:justify-between md:text-left">
+          <div className="mx-auto flex w-full max-w-[92rem] flex-col gap-2 px-4 py-3 text-center text-xs text-slate-500 sm:px-6 md:flex-row md:items-center md:justify-between md:text-left xl:px-8">
             <p>
               {"(c)"} {new Date().getFullYear()} TrackSphere
             </p>

@@ -88,18 +88,18 @@ function SelectWithCustomInput({
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="text-sm font-medium text-slate-900">
+      <label htmlFor={id} className="text-sm font-medium text-slate-900 dark:text-slate-100">
         {label}
       </label>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger
           id={id}
-          className="w-full border-border/70 bg-white text-sm h-9"
+          className="h-9 w-full border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
           aria-label={label}
         >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100">
           {options.map((option) => (
             <SelectItem
               key={option}
@@ -116,7 +116,7 @@ function SelectWithCustomInput({
         value={customValue}
         onChange={(event) => onCustomValueChange(event.target.value)}
         placeholder={customInputPlaceholder}
-        className={`h-9 border-border/70 bg-white text-sm transition-all duration-200 ${
+        className={`h-9 border-border/70 bg-white text-sm transition-all duration-200 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500 ${
           isOtherSelected ? "opacity-100" : "h-0 overflow-hidden opacity-0"
         }`}
         autoFocus={isOtherSelected}
@@ -171,10 +171,10 @@ export function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden border-border/70 p-0 sm:max-w-xl">
-        <div className="border-b border-border/70 bg-gradient-to-br from-slate-50 via-white to-slate-100 px-5 py-3.5">
+      <DialogContent className="overflow-hidden border-border/70 bg-white p-0 dark:border-[#343434] dark:bg-[#171717] sm:max-w-xl">
+        <div className="border-b border-border/70 bg-gradient-to-br from-slate-50 via-white to-slate-100 px-5 py-3.5 dark:border-[#343434] dark:from-[#202020] dark:via-[#1a1a1a] dark:to-[#171717]">
           <DialogHeader className="gap-2 text-left">
-            <DialogTitle className="text-xl font-semibold tracking-tight">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
               Create new project
             </DialogTitle>
           </DialogHeader>
@@ -183,7 +183,7 @@ export function CreateProjectDialog({
         <form className="space-y-4 px-5 py-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <label htmlFor="project-title" className="text-sm font-medium text-slate-900">
+              <label htmlFor="project-title" className="text-sm font-medium text-slate-900 dark:text-slate-100">
                 Project title
               </label>
               <Input
@@ -192,7 +192,7 @@ export function CreateProjectDialog({
                 onChange={(event) => onProjectTitleChange(event.target.value)}
                 maxLength={PROJECT_TITLE_MAX_LENGTH}
                 placeholder="Capstone Progress Tracker"
-                className="h-9 border-border/70 bg-white text-sm"
+                className="h-9 border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
               />
               <p className="text-xs text-muted-foreground mt-0.5">
                 {projectTitle.length}/{PROJECT_TITLE_MAX_LENGTH}
@@ -248,7 +248,7 @@ export function CreateProjectDialog({
             />
 
             <div className="flex flex-col gap-2">
-              <label htmlFor="project-member" className="text-sm font-medium text-slate-900">
+              <label htmlFor="project-member" className="text-sm font-medium text-slate-900 dark:text-slate-100">
                 Member
               </label>
               <Input
@@ -256,18 +256,22 @@ export function CreateProjectDialog({
                 value={memberSearch}
                 onChange={(event) => onMemberSearchChange(event.target.value)}
                 placeholder="Search member by name"
-                className="h-9 border-border/70 bg-white text-sm"
+                className="h-9 border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </div>
           </div>
 
-          <DialogFooter className="border-t border-border/70 pt-3">
+          <DialogFooter className="border-t border-border/70 pt-3 dark:border-[#343434]">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button
               type="submit"
-              className="gap-2 bg-[#2972b6] text-white hover:bg-[#215f98]"
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+                color: "var(--brand-primary-fixed-foreground)",
+              }}
+              className="gap-2 hover:opacity-90"
               disabled={
                 !projectTitle.trim() ||
                 !isProgramComplete ||

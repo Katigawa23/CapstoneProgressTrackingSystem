@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { Check, ChevronDown, FolderOpen, Plus } from "lucide-react"
 
@@ -30,6 +31,7 @@ export function ProjectSwitcher({
   projects,
   team,
 }: ProjectSwitcherProps) {
+  const [mounted, setMounted] = React.useState(false)
   const visibleProjects = projects.slice(0, 3)
   const teamName = displayName ?? team?.name ?? "Create project"
   const activeProjectId = team?.id
@@ -37,6 +39,42 @@ export function ProjectSwitcher({
     projects.length === 0
       ? "Set up your first capstone project workspace."
       : `${projects.length} project${projects.length === 1 ? "" : "s"} available`
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <button
+        type="button"
+        className="
+          group flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-sky-100
+          bg-white px-2 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-colors sm:min-h-12
+          dark:border-[#343434] dark:bg-[#242424]
+          group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:flex-none
+          group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg
+          group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent
+          group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:shadow-none
+        "
+      >
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-[#2972b6] to-[#185a96] shadow-sm ring-1 ring-blue-200/60">
+          <FolderOpen className="h-4 w-4 text-white" />
+        </div>
+
+        <div className="min-w-0 flex-1 self-center group-data-[collapsible=icon]:hidden">
+          <div className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+            Project
+          </div>
+          <div className="truncate leading-tight text-[12px] font-semibold text-slate-900 dark:text-slate-100 sm:text-[13px]">
+            {teamName}
+          </div>
+        </div>
+
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400 group-data-[collapsible=icon]:hidden dark:text-slate-500" />
+      </button>
+    )
+  }
 
   return (
     <DropdownMenu>

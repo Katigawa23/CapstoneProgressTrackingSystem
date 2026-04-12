@@ -32,6 +32,22 @@ import { canAccessPath, roleLabels, type UserRole } from "@/lib/rbac"
 
 function ProfileMenu({ session }: { session: AuthSession | null }) {
   const fallback = session?.user.name?.trim().charAt(0).toUpperCase() || "N"
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <Button variant="ghost" className="h-9 w-9 rounded-full p-0">
+        <Avatar className="h-9 w-9">
+          <AvatarImage src="/avatar.png" alt="Profile" />
+          <AvatarFallback>{fallback}</AvatarFallback>
+        </Avatar>
+      </Button>
+    )
+  }
 
   return (
     <DropdownMenu>
@@ -58,14 +74,6 @@ function ProfileMenu({ session }: { session: AuthSession | null }) {
         <DropdownMenuItem asChild>
           <Link href="/dashboard/settings">Settings</Link>
         </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <div className="flex items-center justify-between rounded-sm px-2 py-1.5 text-sm">
-          <div className="text-foreground">Dark mode</div>
-          <ThemeSwitch compact />
-        </div>
-
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
@@ -141,9 +149,7 @@ export default function DashboardLayout({
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <div className="hidden rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300 sm:block">
-              Role: {roleLabels[role]}
-            </div>
+            <ThemeSwitch iconOnly />
 
             <Button
               variant="ghost"
@@ -161,7 +167,7 @@ export default function DashboardLayout({
         <AppSidebar role={role} />
 
         <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50/60 pt-16 dark:from-[#212121] dark:to-[#171717]">
-          <main className="flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-6">
+          <main className="flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10">
             {authLoading ? null : hasAccess ? children : <AccessDenied role={role} />}
           </main>
         </SidebarInset>

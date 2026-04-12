@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Moon, Sun } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 
 const THEME_STORAGE_KEY = "theme-preference"
@@ -26,16 +27,24 @@ function getPreferredTheme() {
 }
 
 function applyTheme(isDark: boolean) {
-  document.documentElement.classList.toggle("dark", isDark)
-  document.documentElement.style.colorScheme = isDark ? "dark" : "light"
+  const root = document.documentElement
+
+  root.classList.add("theme-transition")
+  root.classList.toggle("dark", isDark)
+  root.style.colorScheme = isDark ? "dark" : "light"
   window.localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light")
+
+  window.setTimeout(() => {
+    root.classList.remove("theme-transition")
+  }, 300)
 }
 
 type ThemeSwitchProps = {
   compact?: boolean
+  iconOnly?: boolean
 }
 
-export function ThemeSwitch({ compact = false }: ThemeSwitchProps) {
+export function ThemeSwitch({ compact = false, iconOnly = false }: ThemeSwitchProps) {
   const [mounted, setMounted] = React.useState(false)
   const [isDark, setIsDark] = React.useState(false)
 
@@ -68,6 +77,10 @@ export function ThemeSwitch({ compact = false }: ThemeSwitchProps) {
   }, [])
 
   if (!mounted) {
+    if (iconOnly) {
+      return <div className="h-9 w-9 rounded-full bg-muted/70" />
+    }
+
     return (
       <div
         className={
@@ -90,6 +103,22 @@ export function ThemeSwitch({ compact = false }: ThemeSwitchProps) {
         />
         <Moon className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
+    )
+  }
+
+  if (iconOnly) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={() => handleCheckedChange(!isDark)}
+        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        className="rounded-full text-slate-600 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400"
+      >
+        {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </Button>
     )
   }
 

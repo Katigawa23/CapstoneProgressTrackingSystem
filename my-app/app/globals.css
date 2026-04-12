@@ -66,6 +66,8 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.55 0.13 247);
   --primary-foreground: oklch(0.985 0 0);
+  --brand-primary-fixed: oklch(0.55 0.13 247);
+  --brand-primary-fixed-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -100,6 +102,8 @@
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
+  --brand-primary-fixed: oklch(0.55 0.13 247);
+  --brand-primary-fixed-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.26 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.26 0 0);
@@ -139,5 +143,22 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-transition,
+  html.theme-transition body,
+  html.theme-transition * {
+    transition-property:
+      background-color,
+      border-color,
+      color,
+      fill,
+      stroke,
+      box-shadow,
+      outline-color;
+    transition-duration: 280ms;
+    transition-timing-function: ease;
   }
 }

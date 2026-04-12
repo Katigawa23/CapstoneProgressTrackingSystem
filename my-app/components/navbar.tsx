@@ -7,6 +7,7 @@ import { Menu } from "lucide-react"
 import clsx from "clsx"
 
 import { Button } from "@/components/ui/button"
+import { ThemeSwitch } from "@/components/theme-switch"
 import {
   Dialog,
   DialogContent,
@@ -116,7 +117,7 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 shadow-sm backdrop-blur-md dark:border-[#343434] dark:bg-[#171717] dark:shadow-none">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-16 w-full max-w-[92rem] items-center justify-between px-4 sm:px-6 xl:px-8">
         <div className="flex items-center gap-3">
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <SheetTrigger asChild>
@@ -172,7 +173,7 @@ export default function Navbar() {
           </Link>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 lg:gap-8">
+        <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
           <nav className="hidden items-center gap-2 text-sm font-medium lg:flex xl:gap-3 xl:text-base">
             {navLinks.map((link) => {
               const isActive = pathname === "/" && activeHref === link.href
@@ -196,7 +197,13 @@ export default function Navbar() {
 
           <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
             <DialogTrigger asChild>
-              <Button className="px-4 text-sm font-semibold transition-all duration-200 hover:scale-105 hover:shadow-md sm:px-5 sm:text-base">
+              <Button
+                style={{
+                  backgroundColor: "var(--brand-primary-fixed)",
+                  color: "var(--brand-primary-fixed-foreground)",
+                }}
+                className="px-4 text-sm font-semibold transition-all duration-200 hover:scale-105 hover:opacity-90 hover:shadow-md sm:px-5 sm:text-base"
+              >
                 Login
               </Button>
             </DialogTrigger>
@@ -221,6 +228,8 @@ export default function Navbar() {
               </div>
             </DialogContent>
           </Dialog>
+
+          <ThemeSwitch iconOnly />
         </div>
       </div>
     </header>
