@@ -566,6 +566,33 @@ export function DashboardBoard({
     [submissionDrafts, uploadSubmissionFile]
   )
 
+  const handleSubmissionDelete = React.useCallback(
+    async (todoId: string, submissionId: string) => {
+      try {
+        const response = await fetch(
+          `/api/backlog-items/${todoId}/submissions?submissionId=${encodeURIComponent(submissionId)}`,
+          {
+            method: "DELETE",
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error("Failed to delete submission")
+        }
+
+        setSubmissionThreads((current) => ({
+          ...current,
+          [todoId]: (current[todoId] ?? []).filter(
+            (submission) => submission.id !== submissionId
+          ),
+        }))
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    []
+  )
+
   const handleCommentSave = React.useCallback(() => {
     async function saveComment() {
       if (!selectedTodo) {
@@ -753,10 +780,7 @@ export function DashboardBoard({
   )
 
   const rootTodos = React.useMemo(
-    () =>
-      todos.filter(
-        (todo) => todo.parentId === null || typeof todo.parentId === "undefined"
-      ),
+    () => todos.filter((todo) => !todo.parentId),
     [todos]
   )
 
@@ -877,7 +901,7 @@ export function DashboardBoard({
                     <>
                       <DialogHeader className="mb-5 text-left sm:mb-6">
                         <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] border border-slate-200 bg-slate-50 text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300">
                             <FolderCheck className="h-3.5 w-3.5" />
                           </span>
                           <button
@@ -897,7 +921,7 @@ export function DashboardBoard({
                           {selectedTodoIdParts?.subtaskId ? (
                             <>
                               <span className="text-slate-400 dark:text-slate-500">/</span>
-                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] border border-slate-200 bg-slate-50 text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300">
                                 <GitFork className="h-3.5 w-3.5" />
                               </span>
                               <button
@@ -953,9 +977,12 @@ export function DashboardBoard({
                     onSubmissionAttach={handleSubmissionAttach}
                     onSubmissionUpload={handleSubmissionUpload}
                     onSubmissionDraftRemove={handleSubmissionDraftRemove}
+                    onSubmissionDelete={handleSubmissionDelete}
                   />
 
-                  {selectedTodo.parentId ? null : (
+                  {selectedTodo.parentId ||
+                  (isSubmissionActionsOpen[selectedTodo.id] ?? false) ||
+                  isUploadingSubmission ? null : (
                     <TaskSubtasksSection
                       checklist={selectedTodo.checklist}
                       subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}

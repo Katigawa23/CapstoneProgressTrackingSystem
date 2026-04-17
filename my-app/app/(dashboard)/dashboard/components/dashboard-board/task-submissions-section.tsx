@@ -3,10 +3,12 @@ import * as React from "react"
 import {
   ChevronDown,
   Download,
+  Ellipsis,
   Eye,
   FileText,
   ImageIcon,
   Paperclip,
+  Trash2,
   Upload,
   X,
 } from "lucide-react"
@@ -35,6 +37,7 @@ type TaskSubmissionsSectionProps = {
   onSubmissionAttach: (todoId: string, files: FileList | null) => void
   onSubmissionUpload: (todoId: string) => void | Promise<void>
   onSubmissionDraftRemove: (todoId: string, draftId: string) => void
+  onSubmissionDelete: (todoId: string, submissionId: string) => void | Promise<void>
 }
 
 function formatAttachmentDate(uploadedAt: string) {
@@ -70,9 +73,9 @@ function FilePreviewTile({
     fileType === "application/pdf" || normalizedName.endsWith(".pdf")
 
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#303030]">
-      <div className="relative flex h-5.5 w-4.5 items-center justify-center rounded-[3px] bg-white text-slate-700 shadow-sm dark:bg-slate-100">
-        <div className="absolute right-0 top-0 h-1.5 w-1.5 rounded-bl-[3px] bg-slate-200 dark:bg-slate-300" />
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#303030]">
+      <div className="relative flex h-5.5 w-4.5 items-center justify-center rounded-[2px] bg-white text-slate-700 shadow-sm dark:bg-slate-100">
+        <div className="absolute right-0 top-0 h-1.5 w-1.5 rounded-bl-[2px] bg-slate-200 dark:bg-slate-300" />
         {isImage ? (
           <ImageIcon className="h-2.5 w-2.5" />
         ) : isPdf ? (
@@ -87,11 +90,15 @@ function FilePreviewTile({
 
 function AttachmentList({
   submissions,
+  backlogItemId,
+  onSubmissionDelete,
 }: {
   submissions: DashboardSubmission[]
+  backlogItemId: string
+  onSubmissionDelete: (todoId: string, submissionId: string) => void | Promise<void>
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
+    <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
       <div className="overflow-x-auto px-3 py-2">
         <div className="min-w-[640px]">
           <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 border-b border-slate-200 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:text-slate-400">
@@ -105,7 +112,7 @@ function AttachmentList({
             {submissions.map((submission) => (
               <div
                 key={submission.id}
-                className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-[#2c2c2c]"
+                className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 rounded-[2px] px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-[#2c2c2c]"
               >
                 <div className="flex min-w-0 items-center gap-2.5">
                   <FilePreviewTile
@@ -127,7 +134,7 @@ function AttachmentList({
                     href={submission.fileUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
                     aria-label={`Open ${submission.fileName}`}
                     title="Open"
                   >
@@ -136,12 +143,23 @@ function AttachmentList({
                   <a
                     href={submission.fileUrl}
                     download={submission.fileName}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
                     aria-label={`Download ${submission.fileName}`}
                     title="Download"
                   >
                     <Download className="h-3.5 w-3.5" />
                   </a>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                    aria-label={`Delete ${submission.fileName}`}
+                    title="Delete"
+                    onClick={() =>
+                      void onSubmissionDelete(backlogItemId, submission.id)
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -164,6 +182,7 @@ export function TaskSubmissionsSection({
   onSubmissionAttach,
   onSubmissionUpload,
   onSubmissionDraftRemove,
+  onSubmissionDelete,
 }: TaskSubmissionsSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
 
@@ -211,37 +230,54 @@ export function TaskSubmissionsSection({
           ) : null}
         </div>
 
-        {isSubmissionActionsOpen ? (
+        <div className="mt-0.5 flex items-center gap-2">
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="mt-0.5 gap-2 text-slate-700 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-200 dark:hover:bg-[#303030]"
-            onClick={() => onSubmissionActionsOpenChange(false)}
+            className="h-9 w-9 rounded-[2px] p-0 text-slate-700 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-200 dark:hover:bg-[#303030]"
+            aria-label="More attachment actions"
+            title="More"
           >
-            <X className="h-4 w-4" />
-            <span>Cancel</span>
+            <Ellipsis className="h-4 w-4" />
           </Button>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            className="mt-0.5 h-9 w-9 p-0"
-            disabled={isUploadingSubmission || isLoadingSubmissions}
-            onClick={() => {
-              setIsExpanded(true)
-              onSubmissionActionsOpenChange(true)
-            }}
-            aria-label={
-              submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
-            }
-            title={
-              submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
-            }
-          >
-            <Upload className="h-4 w-4" />
-          </Button>
-        )}
+
+          {isSubmissionActionsOpen ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-2 rounded-[2px] text-slate-700 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-200 dark:hover:bg-[#303030]"
+              onClick={() => onSubmissionActionsOpenChange(false)}
+            >
+              <X className="h-4 w-4" />
+              <span>Cancel</span>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 w-9 rounded-[2px] p-0 hover:opacity-90"
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+                color: "var(--brand-primary-fixed-foreground)",
+              }}
+              disabled={isUploadingSubmission || isLoadingSubmissions}
+              onClick={() => {
+                setIsExpanded(true)
+                onSubmissionActionsOpenChange(true)
+              }}
+              aria-label={
+                submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
+              }
+              title={
+                submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
+              }
+            >
+              <Upload className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       <CollapsibleContent className="space-y-2">
@@ -276,7 +312,7 @@ export function TaskSubmissionsSection({
                 {submissionDrafts.map((draft) => (
                   <div
                     key={draft.id}
-                    className="relative overflow-hidden rounded-xl border border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-950/20"
+                    className="relative overflow-hidden rounded-[2px] border border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-950/20"
                   >
                     <Progress
                       value={draft.progress}
@@ -331,13 +367,17 @@ export function TaskSubmissionsSection({
         />
 
         {!isSubmissionActionsOpen && submissionDrafts.length === 0 && isLoadingSubmissions ? (
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400">
+          <div className="rounded-[2px] border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400">
             Loading attachments...
           </div>
         ) : !isSubmissionActionsOpen &&
           submissionDrafts.length === 0 &&
           submissionThreads.length > 0 ? (
-          <AttachmentList submissions={submissionThreads} />
+          <AttachmentList
+            submissions={submissionThreads}
+            backlogItemId={selectedTodo.id}
+            onSubmissionDelete={onSubmissionDelete}
+          />
         ) : null}
       </CollapsibleContent>
     </Collapsible>

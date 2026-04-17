@@ -59,7 +59,7 @@ export function TaskCommentsPanel({
     <aside className="order-1 min-h-0 p-4 sm:p-5 lg:order-2 lg:p-6">
       <ScrollArea className="h-full pr-2 sm:pr-3 lg:pr-4">
         <div className="h-full">
-          <div className="flex h-full min-h-[550px] flex-col rounded-xl border border-slate-200 p-4 dark:border-[#343434] dark:bg-[#262626]">
+          <div className="flex h-full min-h-[550px] flex-col rounded-[2px] border border-slate-200 p-4 dark:border-[#343434] dark:bg-[#262626]">
             <div className="mb-3">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Comments
@@ -91,7 +91,7 @@ export function TaskCommentsPanel({
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="ml-auto rounded-sm p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-[#303030] dark:hover:text-slate-200"
+                              className="ml-auto rounded-[2px] p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-[#303030] dark:hover:text-slate-200"
                             >
                               <Ellipsis className="h-4 w-4" />
                             </button>
@@ -165,11 +165,11 @@ export function TaskCommentsPanel({
 
             <div className="mt-auto pb-3 pt-4">
               {isEditingComments ? (
-                <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#343434] dark:bg-[#1f1f1f]">
+                <div className="space-y-2 rounded-[2px] border border-slate-200 bg-white p-3 dark:border-[#343434] dark:bg-[#1f1f1f]">
                   <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[#343434]">
                     <button
                       type="button"
-                      className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
+                      className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
                       onClick={() => commentImageInputRef.current?.click()}
                     >
                       <ImageIcon className="h-3 w-3" />
@@ -177,7 +177,7 @@ export function TaskCommentsPanel({
                     </button>
                     <button
                       type="button"
-                      className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
+                      className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
                       onClick={() => commentFileInputRef.current?.click()}
                     >
                       <Paperclip className="h-3 w-3" />
@@ -247,7 +247,7 @@ export function TaskCommentsPanel({
               ) : (
                 <button
                   type="button"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 transition hover:border-slate-300 hover:bg-white dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-300 dark:hover:border-[#454545] dark:hover:bg-[#2a2a2a]"
+                  className="w-full rounded-[2px] border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 transition hover:border-slate-300 hover:bg-white dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-300 dark:hover:border-[#454545] dark:hover:bg-[#2a2a2a]"
                   onClick={onCommentEditStart}
                 >
                   {commentDraft || "Add a comment..."}

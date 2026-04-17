@@ -141,6 +141,7 @@ export function cacheDashboardProjects(projects: DashboardProject[]) {
 export async function refreshDashboardProjects() {
   const response = await fetch("/api/projects", {
     method: "GET",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
     },

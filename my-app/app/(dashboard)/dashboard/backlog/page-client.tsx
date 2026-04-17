@@ -79,10 +79,7 @@ export function BacklogPageClient({
   }, [initialItems, initialProjects, initialSelectedProjectId])
 
   const rootItems = React.useMemo(
-    () =>
-      items.filter(
-        (item) => item.parentId === null || typeof item.parentId === "undefined"
-      ),
+    () => items.filter((item) => !item.parentId),
     [items]
   )
 
@@ -326,7 +323,7 @@ export function BacklogPageClient({
   }))
 
   return (
-    <div className="min-h-screen space-y-6 bg-white p-4">
+    <div className="h-full space-y-6 bg-white dark:bg-[#171717]">
       <BacklogToolbar />
 
       <BacklogBoard

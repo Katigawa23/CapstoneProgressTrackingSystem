@@ -7,15 +7,18 @@ export function BacklogToolbar() {
   return (
     <div className="flex items-center gap-3">
       <div className="relative w-[190px]">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/60" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/60 dark:text-slate-400" />
         <Input
           placeholder="Search backlog..."
-          className="pl-9 text-black placeholder:text-black/50"
+          className="pl-9 text-black placeholder:text-black/50 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
         />
       </div>
 
-      <Button variant="outline" className="gap-2 border-black/20 text-black">
-        <SlidersHorizontal className="h-4 w-4 text-black" />
+      <Button
+        variant="outline"
+        className="gap-2 border-black/20 text-black dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:hover:bg-[#262626]"
+      >
+        <SlidersHorizontal className="h-4 w-4 text-black dark:text-slate-100" />
         Filter
       </Button>
     </div>

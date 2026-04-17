@@ -142,10 +142,10 @@ export function DashboardBoardPageClient({
       }
 
       const rootTodos = previousTodos.filter(
-        (todo) => todo.parentId === null || typeof todo.parentId === "undefined"
+        (todo) => !todo.parentId
       )
       const nonRootTodos = previousTodos.filter(
-        (todo) => !(todo.parentId === null || typeof todo.parentId === "undefined")
+        (todo) => Boolean(todo.parentId)
       )
       const remainingRootTodos = rootTodos.filter((todo) => todo.id !== todoId)
       const targetIndex =

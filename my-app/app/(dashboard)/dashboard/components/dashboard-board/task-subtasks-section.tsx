@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { CornerDownLeft, ChevronDown, Pencil, Plus, Trash2 } from "lucide-react"
+import { CornerDownLeft, ChevronDown, Ellipsis, Pencil, Plus, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 import {
@@ -130,19 +130,34 @@ export function TaskSubtasksSection({
             </button>
           </CollapsibleTrigger>
 
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground transition hover:opacity-90"
-            aria-label="Add subtask"
-            title="Add subtask"
-            onClick={() => {
-              setIsCreatingSubtask(true)
-              setEditingSubtaskId(null)
-              setEditingTitle("")
-            }}
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[2px] border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc] dark:hover:bg-[#24292f] dark:hover:text-[#dee4ea]"
+              aria-label="More subtask actions"
+              title="More"
+            >
+              <Ellipsis className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[2px] transition hover:opacity-90"
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+                color: "var(--brand-primary-fixed-foreground)",
+              }}
+              aria-label="Add subtask"
+              title="Add subtask"
+              onClick={() => {
+                setIsCreatingSubtask(true)
+                setEditingSubtaskId(null)
+                setEditingTitle("")
+              }}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {isExpanded ? (
@@ -161,7 +176,7 @@ export function TaskSubtasksSection({
       </div>
 
       <CollapsibleContent>
-        <div className="overflow-hidden rounded-[10px] border border-slate-200 bg-white shadow-sm dark:border-[#454f59] dark:bg-[#1d2125]">
+        <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#454f59] dark:bg-[#1d2125]">
           <div className="grid grid-cols-[minmax(0,1.55fr)_96px_132px_76px] items-center border-b border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-medium text-slate-500 dark:border-[#2b3138] dark:bg-[#1d2125] dark:text-[#9fadbc]">
             <span>Work</span>
             <span className="text-center">Assignee</span>
@@ -207,7 +222,7 @@ export function TaskSubtasksSection({
                           />
                           <button
                             type="button"
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition hover:opacity-90"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
                             aria-label="Save subtask title"
                             title="Save"
                             onMouseDown={(event) => event.preventDefault()}
@@ -251,7 +266,7 @@ export function TaskSubtasksSection({
                             nextStatus as TodoItem["status"]
                           )
                         }
-                        className="h-6 min-w-[88px] rounded-[4px] border-slate-300 bg-white px-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-900 dark:border-[#c7cbd1] dark:bg-[#f1f2f4] dark:text-[#172b4d]"
+                        className="h-6 min-w-[88px] rounded-[2px] border-slate-300 bg-white px-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-900 dark:border-[#c7cbd1] dark:bg-[#f1f2f4] dark:text-[#172b4d]"
                         contentClassName="dark:border-[#454f59] dark:bg-[#1d2125]"
                       />
                     </div>
@@ -259,7 +274,7 @@ export function TaskSubtasksSection({
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-[#9fadbc] dark:hover:bg-[#2c333a] dark:hover:text-[#dee4ea]"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-[#9fadbc] dark:hover:bg-[#2c333a] dark:hover:text-[#dee4ea]"
                         aria-label={`Edit ${subtask.title}`}
                         title="Edit"
                         onClick={() => {
@@ -271,7 +286,7 @@ export function TaskSubtasksSection({
                       </button>
                       <button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-[#9fadbc] dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-[#9fadbc] dark:hover:bg-red-950/30 dark:hover:text-red-400"
                         aria-label={`Delete ${subtask.title}`}
                         title="Delete"
                         onClick={() => void onDeleteSubtask(subtask)}
@@ -311,7 +326,7 @@ export function TaskSubtasksSection({
                   />
                   <button
                     type="button"
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition hover:opacity-90"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
                     aria-label="Create subtask"
                     title="Create"
                     onMouseDown={(event) => event.preventDefault()}

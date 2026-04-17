@@ -44,6 +44,15 @@ export function mapBacklogItemsToTodos(
   items: BacklogApiItem[],
   projectCode: string
 ): TodoItem[] {
+  const getNormalizedParentId = (parentId?: string | null) => {
+    if (typeof parentId !== "string") {
+      return null
+    }
+
+    const trimmedParentId = parentId.trim()
+    return trimmedParentId.length > 0 ? trimmedParentId : null
+  }
+
   const childItemsByParentId = new Map<
     string,
     Array<BacklogApiItem & { parentId: string }>
@@ -51,7 +60,9 @@ export function mapBacklogItemsToTodos(
   const rootDisplayIdById = new Map<string, string>()
 
   for (const item of items) {
-    if (!item.parentId) {
+    const normalizedParentId = getNormalizedParentId(item.parentId)
+
+    if (!normalizedParentId) {
       rootDisplayIdById.set(
         item.id,
         buildTaskDisplayId(projectCode, item.sequenceNumber)
@@ -59,9 +70,14 @@ export function mapBacklogItemsToTodos(
       continue
     }
 
-    const currentChildren = childItemsByParentId.get(item.parentId) ?? []
-    currentChildren.push(item as BacklogApiItem & { parentId: string })
-    childItemsByParentId.set(item.parentId, currentChildren)
+    const normalizedItem = {
+      ...item,
+      parentId: normalizedParentId,
+    } as BacklogApiItem & { parentId: string }
+    const currentChildren = childItemsByParentId.get(normalizedParentId) ?? []
+
+    currentChildren.push(normalizedItem)
+    childItemsByParentId.set(normalizedParentId, currentChildren)
   }
 
   for (const childItems of childItemsByParentId.values()) {
@@ -73,17 +89,18 @@ export function mapBacklogItemsToTodos(
       isDashboardColumn(item.status)
     )
     .map((item) => {
+      const normalizedParentId = getNormalizedParentId(item.parentId)
       const assignee = getAssigneeOption(item.assigneeId)
       const childItems = childItemsByParentId.get(item.id) ?? []
       const completedSubtasks = childItems.filter((child) => child.checked).length
-      const displayId = item.parentId
+      const displayId = normalizedParentId
         ? (() => {
-            const siblingItems = childItemsByParentId.get(item.parentId) ?? []
+            const siblingItems = childItemsByParentId.get(normalizedParentId) ?? []
             const siblingIndex = siblingItems.findIndex(
               (sibling) => sibling.id === item.id
             )
             const parentDisplayId =
-              rootDisplayIdById.get(item.parentId) ??
+              rootDisplayIdById.get(normalizedParentId) ??
               buildTaskDisplayId(projectCode, item.sequenceNumber)
 
             return `${parentDisplayId} / ST-${Math.max(siblingIndex + 1, 1)}`
@@ -95,10 +112,10 @@ export function mapBacklogItemsToTodos(
         id: item.id,
         displayId,
         orderIndex: item.orderIndex,
-        parentId: item.parentId ?? null,
+        parentId: normalizedParentId,
         title: item.title,
         description:
-          item.description || (item.parentId ? "" : fallbackDescription),
+          item.description || (normalizedParentId ? "" : fallbackDescription),
         assignee: assignee?.name ?? "",
         assigneeId: item.assigneeId ?? null,
         startDate: item.startDate ?? "",

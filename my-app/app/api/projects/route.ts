@@ -10,7 +10,14 @@ import { createProject, listProjects } from "@/backend/repositories/project-repo
 export async function GET() {
   try {
     const projects = await listProjects()
-    return NextResponse.json({ projects })
+    return NextResponse.json(
+      { projects },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
+    )
   } catch (error) {
     console.error("Failed to load projects", error)
     return NextResponse.json({ error: "Failed to load projects" }, { status: 500 })

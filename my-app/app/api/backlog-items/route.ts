@@ -35,7 +35,14 @@ export async function GET(request: Request) {
       limit: Number.isNaN(limitValue) ? undefined : limitValue,
       offset: Number.isNaN(offsetValue) ? undefined : offsetValue,
     })
-    return NextResponse.json({ items })
+    return NextResponse.json(
+      { items },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
+    )
   } catch (error) {
     console.error("Failed to load backlog items", error)
     return NextResponse.json(

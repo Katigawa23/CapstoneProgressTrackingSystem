@@ -33,12 +33,12 @@ export function BacklogBoard({
   onOpenCreate,
 }: BacklogBoardProps) {
   return (
-    <Card className="flex flex-col gap-4 border border-gray-200 p-4">
+    <Card className="flex flex-col gap-4 border border-gray-200 bg-white p-4 dark:border-[#343434] dark:bg-[#1f1f1f]">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 font-medium text-black">
+        <div className="flex items-center gap-2 font-medium text-black dark:text-slate-100">
           <ChevronDown className="h-4 w-4" />
           Board
-          <span className="text-sm text-black/60">
+          <span className="text-sm text-black/60 dark:text-slate-400">
             ({items.length} work item{items.length === 1 ? "" : "s"})
           </span>
         </div>
@@ -60,7 +60,7 @@ export function BacklogBoard({
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-md border border-dashed border-gray-300 py-10 text-center text-sm text-black/60">
+        <div className="rounded-md border border-dashed border-gray-300 py-10 text-center text-sm text-black/60 dark:border-[#3a3a3a] dark:text-slate-400">
           There&apos;s nothing on this board
         </div>
       ) : (
@@ -68,7 +68,7 @@ export function BacklogBoard({
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded border border-gray-200 px-2 py-1.5 text-sm transition hover:bg-muted/30"
+              className="flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1.5 text-sm transition hover:bg-muted/30 dark:border-[#343434] dark:bg-[#1f1f1f] dark:hover:bg-[#262626]"
             >
               <div className="flex min-w-0 items-center gap-2">
                 <Checkbox
@@ -80,13 +80,13 @@ export function BacklogBoard({
                 />
 
                 <div className="min-w-0">
-                  <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
                     {item.displayId}
                   </div>
-                  <div className="truncate text-[13px] font-medium text-black">
+                  <div className="truncate text-[13px] font-medium text-black dark:text-slate-100">
                     {item.title}
                   </div>
-                  <div className="text-[11px] text-slate-500">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     Due{" "}
                     {item.dueDate
                       ? item.dueDate.toLocaleDateString("en-GB", {
@@ -123,7 +123,11 @@ export function BacklogBoard({
       )}
 
       <div className="flex">
-        <Button variant="ghost" className="gap-2 text-black" onClick={onOpenCreate}>
+        <Button
+          variant="ghost"
+          className="gap-2 text-black hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-[#2a2a2a]"
+          onClick={onOpenCreate}
+        >
           <Plus className="h-4 w-4" />
           Create
         </Button>

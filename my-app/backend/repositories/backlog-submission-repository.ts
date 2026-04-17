@@ -301,3 +301,44 @@ export async function createBacklogSubmission(
     }
   )
 }
+
+export async function deleteBacklogSubmission(
+  backlogItemId: string,
+  submissionId: string
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<BacklogSubmissionRecord>(
+        `delete from backlog_submissions
+        where id = $1 and backlog_item_id = $2
+        returning
+          id,
+          backlog_item_id,
+          file_name,
+          file_url,
+          file_type,
+          file_size,
+          uploaded_at`,
+        [submissionId, backlogItemId]
+      )
+
+      return result.rows[0] ? mapRecord(result.rows[0]) : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const recordIndex = records.findIndex(
+        (record) =>
+          record.id === submissionId && record.backlog_item_id === backlogItemId
+      )
+
+      if (recordIndex < 0) {
+        return null
+      }
+
+      const [removedRecord] = records.splice(recordIndex, 1)
+      await writeFileRecords(records)
+
+      return mapRecord(removedRecord)
+    }
+  )
+}

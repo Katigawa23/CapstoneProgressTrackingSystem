@@ -8,6 +8,8 @@ import {
 import { listProjects } from "@/backend/repositories/project-repository"
 import { PROJECT_COOKIE_KEY, type DashboardProject } from "@/lib/projects"
 
+const useDashboardCache = process.env.NODE_ENV === "production"
+
 const getCachedProjects = unstable_cache(async () => listProjects(), ["dashboard-projects"], {
   revalidate: 300,
   tags: ["projects"],
@@ -32,18 +34,26 @@ const getCachedProjectActivities = unstable_cache(
 )
 
 export async function getDashboardProjectsData() {
-  return getCachedProjects()
+  if (useDashboardCache) {
+    return getCachedProjects()
+  }
+
+  return listProjects()
 }
 
 export async function getSelectedProjectData() {
-  const projects = await getCachedProjects()
+  const projects = await (useDashboardCache ? getCachedProjects() : listProjects())
   const cookieStore = await cookies()
   const selectedProjectId = cookieStore.get(PROJECT_COOKIE_KEY)?.value ?? null
   const selectedProject =
     projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null
 
   const items = selectedProject
-    ? await getCachedBacklogItemsWithStats(selectedProject.id)
+    ? await (
+        useDashboardCache
+          ? getCachedBacklogItemsWithStats(selectedProject.id)
+          : listBacklogItemsWithStats(selectedProject.id, { limit: 500, offset: 0 })
+      )
     : []
 
   return {
@@ -54,8 +64,12 @@ export async function getSelectedProjectData() {
 }
 
 export async function getDashboardHomeData() {
-  const projects = await getCachedProjects()
-  const activities = await getCachedProjectActivities(projects.map((project) => project.id))
+  const projects = await (useDashboardCache ? getCachedProjects() : listProjects())
+  const activities = await (
+    useDashboardCache
+      ? getCachedProjectActivities(projects.map((project) => project.id))
+      : listProjectBacklogActivities(projects.map((project) => project.id))
+  )
 
   return {
     projects,

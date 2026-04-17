@@ -1,12 +1,13 @@
 import { revalidateTag } from "next/cache"
 import { randomUUID } from "crypto"
-import { mkdir, writeFile } from "fs/promises"
+import { mkdir, unlink, writeFile } from "fs/promises"
 import path from "path"
 
 import { NextResponse } from "next/server"
 
 import {
   createBacklogSubmission,
+  deleteBacklogSubmission,
   listBacklogSubmissions,
 } from "@/backend/repositories/backlog-submission-repository"
 
@@ -92,6 +93,61 @@ export async function POST(
     console.error("Failed to upload backlog submissions", error)
     return NextResponse.json(
       { error: "Failed to upload backlog submissions" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const url = new URL(request.url)
+    const submissionId = url.searchParams.get("submissionId")?.trim()
+
+    if (!submissionId) {
+      return NextResponse.json(
+        { error: "submissionId is required" },
+        { status: 400 }
+      )
+    }
+
+    const deletedSubmission = await deleteBacklogSubmission(id, submissionId)
+
+    if (!deletedSubmission) {
+      return NextResponse.json(
+        { error: "Submission not found" },
+        { status: 404 }
+      )
+    }
+
+    if (deletedSubmission.fileUrl.startsWith("/uploads/backlog-submissions/")) {
+      const relativePath = deletedSubmission.fileUrl.replace(/^\/+/, "")
+      const filePath = path.join(process.cwd(), "public", relativePath)
+
+      try {
+        await unlink(filePath)
+      } catch (error) {
+        const code =
+          typeof error === "object" && error && "code" in error
+            ? String(error.code)
+            : null
+
+        if (code !== "ENOENT") {
+          throw error
+        }
+      }
+    }
+
+    revalidateTag("backlog-items", "max")
+
+    return NextResponse.json({ submission: deletedSubmission })
+  } catch (error) {
+    console.error("Failed to delete backlog submission", error)
+    return NextResponse.json(
+      { error: "Failed to delete backlog submission" },
       { status: 500 }
     )
   }

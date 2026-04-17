@@ -76,11 +76,11 @@ export function TaskDetailsSection({
 
       <CollapsibleContent className="space-y-2">
         {isEditingDescription ? (
-          <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#343434] dark:bg-[#262626]">
+          <div className="space-y-2 rounded-[2px] border border-slate-200 bg-white p-3 dark:border-[#343434] dark:bg-[#262626]">
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[#343434]">
               <button
                 type="button"
-                className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
+                className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
                 onClick={() => imageInputRef.current?.click()}
               >
                 <ImageIcon className="h-3 w-3" />
@@ -88,7 +88,7 @@ export function TaskDetailsSection({
               </button>
               <button
                 type="button"
-                className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
+                className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Paperclip className="h-3 w-3" />
@@ -161,7 +161,7 @@ export function TaskDetailsSection({
         ) : (
           <button
             type="button"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 transition hover:border-slate-300 hover:bg-white dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300 dark:hover:border-[#454545] dark:hover:bg-[#2a2a2a] sm:p-4"
+            className="w-full rounded-[2px] border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 transition hover:border-slate-300 hover:bg-white dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300 dark:hover:border-[#454545] dark:hover:bg-[#2a2a2a] sm:p-4"
             onClick={onDescriptionEditStart}
           >
             {selectedTodo.description || "Add a description..."}
