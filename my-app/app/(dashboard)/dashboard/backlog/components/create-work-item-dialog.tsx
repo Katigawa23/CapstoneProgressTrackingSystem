@@ -34,6 +34,7 @@ type CreateWorkItemDialogProps = {
   onDueDateChange: (value: Date | undefined) => void
   onDescriptionChange: (value: string) => void
   onAddItem: () => void
+  mode?: "task" | "subtask"
 }
 
 export function CreateWorkItemDialog({
@@ -48,6 +49,7 @@ export function CreateWorkItemDialog({
   onDueDateChange,
   onDescriptionChange,
   onAddItem,
+  mode = "task",
 }: CreateWorkItemDialogProps) {
   const [startDateOpen, setStartDateOpen] = React.useState(false)
   const [dueDateOpen, setDueDateOpen] = React.useState(false)
@@ -83,12 +85,14 @@ export function CreateWorkItemDialog({
     }
   }, [open])
 
+  const isSubtaskMode = mode === "subtask"
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto border-slate-200 bg-white text-slate-900 dark:border-[#343434] dark:bg-[#171717] dark:text-slate-100 sm:max-w-lg">
         <DialogHeader className="border-b border-slate-200 pb-4 dark:border-[#343434]">
           <DialogTitle className="font-display text-left tracking-tight text-slate-900 dark:text-slate-100">
-            Create new task.
+            {isSubtaskMode ? "Create new subtask." : "Create new task."}
           </DialogTitle>
         </DialogHeader>
 
@@ -106,80 +110,84 @@ export function CreateWorkItemDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-slate-900 dark:text-slate-100">Start date</Label>
-            <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start border-slate-200 bg-white text-left font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
-                    !startDate && "text-slate-500 dark:text-slate-500"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "PPP") : "Select date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto border-slate-200 bg-white p-0 dark:border-[#343434] dark:bg-[#1f1f1f]" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={(date) => {
-                    onStartDateChange(date)
+          {isSubtaskMode ? null : (
+            <>
+              <div className="space-y-2">
+                <Label className="text-slate-900 dark:text-slate-100">Start date</Label>
+                <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start border-slate-200 bg-white text-left font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
+                        !startDate && "text-slate-500 dark:text-slate-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, "PPP") : "Select date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto border-slate-200 bg-white p-0 dark:border-[#343434] dark:bg-[#1f1f1f]" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={(date) => {
+                        onStartDateChange(date)
 
-                    if (date && dueDate && isBeforeDate(dueDate, date)) {
-                      onDueDateChange(undefined)
-                    }
+                        if (date && dueDate && isBeforeDate(dueDate, date)) {
+                          onDueDateChange(undefined)
+                        }
 
-                    if (!date) {
-                      onDueDateChange(undefined)
-                      setDueDateOpen(false)
-                    }
+                        if (!date) {
+                          onDueDateChange(undefined)
+                          setDueDateOpen(false)
+                        }
 
-                    setStartDateOpen(false)
-                  }}
-                  disabled={isPastDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+                        setStartDateOpen(false)
+                      }}
+                      disabled={isPastDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
 
-          <div className="space-y-2">
-            <Label className="text-slate-900 dark:text-slate-100">Due date</Label>
-            <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={!startDate}
-                  className={cn(
-                    "w-full justify-start border-slate-200 bg-white text-left font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
-                    !dueDate && "text-slate-500 dark:text-slate-500"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dueDate
-                    ? format(dueDate, "PPP")
-                    : startDate
-                    ? "Select date"
-                    : "Select start date first"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto border-slate-200 bg-white p-0 dark:border-[#343434] dark:bg-[#1f1f1f]" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dueDate}
-                  onSelect={(date) => {
-                    onDueDateChange(date)
-                    setDueDateOpen(false)
-                  }}
-                  disabled={(date) => isPastDate(date) || isBeforeStartDate(date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+              <div className="space-y-2">
+                <Label className="text-slate-900 dark:text-slate-100">Due date</Label>
+                <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      disabled={!startDate}
+                      className={cn(
+                        "w-full justify-start border-slate-200 bg-white text-left font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
+                        !dueDate && "text-slate-500 dark:text-slate-500"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dueDate
+                        ? format(dueDate, "PPP")
+                        : startDate
+                        ? "Select date"
+                        : "Select start date first"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto border-slate-200 bg-white p-0 dark:border-[#343434] dark:bg-[#1f1f1f]" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dueDate}
+                      onSelect={(date) => {
+                        onDueDateChange(date)
+                        setDueDateOpen(false)
+                      }}
+                      disabled={(date) => isPastDate(date) || isBeforeStartDate(date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="description" className="text-slate-900 dark:text-slate-100">
@@ -213,7 +221,7 @@ export function CreateWorkItemDialog({
               onClick={onAddItem}
               disabled={!title.trim()}
             >
-              Add item
+              {isSubtaskMode ? "Add subtask" : "Add item"}
             </Button>
           </div>
         </div>

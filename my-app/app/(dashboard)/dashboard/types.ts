@@ -2,6 +2,9 @@ export type ColumnId = "todo" | "inprogress" | "revision" | "completed"
 
 export type TodoItem = {
   id: string
+  displayId: string
+  orderIndex: number
+  parentId?: string | null
   title: string
   description: string
   assignee: string
@@ -9,6 +12,7 @@ export type TodoItem = {
   startDate: string
   deadline: string
   status: ColumnId
+  checked?: boolean
   comments: number
   links: number
   checklist: string
@@ -17,6 +21,10 @@ export type TodoItem = {
 
 export type BacklogApiItem = {
   id: string
+  sequenceNumber: number
+  orderIndex: number
+  projectId?: string
+  parentId?: string | null
   title: string
   description: string
   startDate: string | null

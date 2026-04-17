@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { CheckSquare2 } from "lucide-react"
+import { CheckSquare2, GitFork } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,6 +32,7 @@ type DashboardActivity = {
   action: "Created" | "Assigned" | "Viewed" | "Starred"
   createdAt: string
   itemKey: string
+  isSubtask: boolean
   projectId: string
   projectName: string
   projectMember: string
@@ -84,6 +85,48 @@ export default function DashboardPage() {
     const year = new Date().getFullYear()
     return `${getProjectTypeCode(projectType)}-${year}${String(index + 1).padStart(3, "0")}`
   }, [getProjectTypeCode])
+
+  const buildActivityItemKeys = React.useCallback(
+    (items: BacklogApiItem[], projectType: string) => {
+      const projectCode = getProjectTypeCode(projectType)
+      const rootDisplayIdById = new Map<string, string>()
+      const childItemsByParentId = new Map<
+        string,
+        Array<BacklogApiItem & { parentId: string }>
+      >()
+
+      for (const item of items) {
+        if (!item.parentId) {
+          rootDisplayIdById.set(item.id, `${projectCode}-${item.sequenceNumber}`)
+          continue
+        }
+
+        const siblings = childItemsByParentId.get(item.parentId) ?? []
+        siblings.push(item as BacklogApiItem & { parentId: string })
+        childItemsByParentId.set(item.parentId, siblings)
+      }
+
+      for (const siblings of childItemsByParentId.values()) {
+        siblings.sort((left, right) => left.sequenceNumber - right.sequenceNumber)
+      }
+
+      return new Map(
+        items.map((item) => {
+          if (!item.parentId) {
+            return [item.id, rootDisplayIdById.get(item.id) ?? `${projectCode}-${item.sequenceNumber}`]
+          }
+
+          const siblings = childItemsByParentId.get(item.parentId) ?? []
+          const siblingIndex = siblings.findIndex((sibling) => sibling.id === item.id)
+          const parentDisplayId =
+            rootDisplayIdById.get(item.parentId) ?? `${projectCode}-${item.sequenceNumber}`
+
+          return [item.id, `${parentDisplayId} / ST-${Math.max(siblingIndex + 1, 1)}`]
+        })
+      )
+    },
+    [getProjectTypeCode]
+  )
 
   const projectDisplayIds = React.useMemo(() => {
     const sortedProjects = [...projects].sort((left, right) => {
@@ -186,13 +229,17 @@ export default function DashboardPage() {
 
               return leftTime - rightTime
             })
+            const itemKeys = buildActivityItemKeys(sortedItems, project.projectType)
 
-            return sortedItems.map((item, index) => ({
+            return sortedItems.map((item) => ({
               id: item.id,
               title: item.title,
               action: item.assigneeId ? "Assigned" : "Created",
               createdAt: item.createdAt ?? new Date(0).toISOString(),
-              itemKey: `${projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, 0)}-${index + 1}`,
+              itemKey:
+                itemKeys.get(item.id) ??
+                `${projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, 0)}-1`,
+              isSubtask: Boolean(item.parentId),
               projectId: project.id,
               projectName: project.name,
               projectMember: project.members[0] ?? "NA",
@@ -227,7 +274,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [getProjectDisplayId, projectDisplayIds, projects])
+  }, [buildActivityItemKeys, getProjectDisplayId, projectDisplayIds, projects])
 
   const workedOnActivities = React.useMemo(
     () => activities,
@@ -337,7 +384,11 @@ export default function DashboardPage() {
                   >
                     <div className="flex min-w-0 items-start gap-3">
                       <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md border border-sky-300 bg-sky-50 text-sky-600 dark:border-sky-500/40 dark:bg-[#111827] dark:text-sky-300">
-                        <CheckSquare2 className="h-3.5 w-3.5" />
+                        {activity.isSubtask ? (
+                          <GitFork className="h-3.5 w-3.5" />
+                        ) : (
+                          <CheckSquare2 className="h-3.5 w-3.5" />
+                        )}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -365,7 +416,7 @@ export default function DashboardPage() {
         </div>
       )
     },
-    [formatActivityDate, getMemberInitials, groupActivitiesByRecency, isLoadingActivities]
+    [formatActivityDate, groupActivitiesByRecency, isLoadingActivities]
   )
 
   return (

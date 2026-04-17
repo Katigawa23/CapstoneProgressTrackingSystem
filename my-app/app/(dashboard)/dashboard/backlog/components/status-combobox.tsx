@@ -22,9 +22,16 @@ import { getStatusOption, statusOptions } from "../types"
 type StatusComboboxProps = {
   value: string
   onChange: (value: string) => void
+  className?: string
+  contentClassName?: string
 }
 
-export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
+export function StatusCombobox({
+  value,
+  onChange,
+  className,
+  contentClassName,
+}: StatusComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const listId = React.useId()
   const selectedOption = getStatusOption(value)
@@ -39,7 +46,8 @@ export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
           aria-expanded={open}
           className={cn(
             "inline-flex h-6 min-w-[95px] items-center justify-between rounded border px-1.5 text-[11px] font-medium shadow-none outline-none transition-none focus:outline-none focus:ring-0 active:scale-100",
-            selectedOption.color
+            selectedOption.color,
+            className
           )}
         >
           <span>{selectedOption.label}</span>
@@ -47,7 +55,7 @@ export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
         </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[150px] p-1" align="end">
+      <PopoverContent className={cn("w-[150px] p-1", contentClassName)} align="end">
         <Command>
           <CommandList id={listId}>
             <CommandEmpty>No status found.</CommandEmpty>

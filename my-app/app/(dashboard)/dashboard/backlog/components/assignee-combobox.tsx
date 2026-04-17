@@ -23,14 +23,30 @@ import { assigneeOptions, getAssigneeOption } from "../types"
 type AssigneeComboboxProps = {
   value?: string | null
   onChange: (value: string | null) => void
+  className?: string
+  contentClassName?: string
+  avatarClassName?: string
+  fallbackClassName?: string
+  unassignedIconClassName?: string
 }
 
 export function AssigneeCombobox({
   value,
   onChange,
+  className,
+  contentClassName,
+  avatarClassName,
+  fallbackClassName,
+  unassignedIconClassName,
 }: AssigneeComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const selectedAssignee = getAssigneeOption(value)
+  const handleTriggerClick = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+    },
+    []
+  )
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -39,41 +55,63 @@ export function AssigneeCombobox({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-7 w-7 rounded-full border border-black/15 p-0 hover:bg-muted"
+          className={cn(
+            "h-7 w-7 rounded-full border border-slate-200 bg-white p-0 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700",
+            className
+          )}
+          onClick={handleTriggerClick}
         >
           {selectedAssignee?.initials ? (
-            <Avatar className="h-7 w-7">
-              <AvatarFallback className="text-[10px] font-medium">
+            <Avatar className={cn("h-7 w-7", avatarClassName)}>
+              <AvatarFallback
+                className={cn(
+                  "bg-slate-100 text-[10px] font-medium text-slate-600",
+                  fallbackClassName
+                )}
+              >
                 {selectedAssignee.initials}
               </AvatarFallback>
             </Avatar>
           ) : (
-            <User className="h-3.5 w-3.5 text-black/50" />
+            <User
+              className={cn("h-3.5 w-3.5 text-slate-500", unassignedIconClassName)}
+            />
           )}
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent align="start" className="w-[320px] p-1">
-        <Command>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className={cn(
+          "w-[210px] rounded-lg border border-slate-200 bg-white p-1 shadow-[0_12px_24px_rgba(15,23,42,0.1)]",
+          contentClassName
+        )}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Command className="rounded-lg bg-transparent">
           <CommandList>
-            <CommandGroup>
+            <CommandGroup className="p-0">
               <CommandItem
                 value="unassigned"
                 onSelect={() => {
                   onChange(null)
                   setOpen(false)
                 }}
-                className="flex items-center gap-3 rounded-md px-2 py-2"
+                className={cn(
+                  "flex min-h-9 items-center gap-2 rounded-md px-2 py-1.5 text-slate-900",
+                  !value && "bg-slate-100"
+                )}
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-background">
-                  <User className="h-4 w-4 text-black/50" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white">
+                  <User className="h-3 w-3 text-slate-500" />
                 </div>
 
-                <div className="flex-1 text-sm font-medium">Unassigned</div>
+                <div className="flex-1 text-[13px] font-medium">Unassigned</div>
 
                 <Check
                   className={cn(
-                    "h-4 w-4",
+                    "h-4 w-4 text-slate-600",
                     !value ? "opacity-100" : "opacity-0"
                   )}
                 />
@@ -87,18 +125,21 @@ export function AssigneeCombobox({
                     onChange(option.id)
                     setOpen(false)
                   }}
-                  className="flex items-start gap-3 rounded-md px-2 py-2"
+                  className={cn(
+                    "mt-1 flex min-h-9 items-start gap-2 rounded-md px-2 py-1.5 text-slate-900",
+                    value === option.id && "bg-slate-100"
+                  )}
                 >
-                  <Avatar className="mt-0.5 h-8 w-8">
-                    <AvatarFallback className="text-[11px] font-medium">
+                  <Avatar className="mt-0.5 h-7 w-7">
+                    <AvatarFallback className="bg-slate-100 text-[9px] font-medium text-slate-600">
                       {option.initials ?? "A"}
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="flex-1 leading-tight">
-                    <div className="text-sm font-medium">{option.name}</div>
+                    <div className="text-[12px] leading-4 font-medium">{option.name}</div>
                     {option.email ? (
-                      <div className="text-xs text-muted-foreground">
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">
                         {option.email}
                       </div>
                     ) : null}
@@ -106,7 +147,7 @@ export function AssigneeCombobox({
 
                   <Check
                     className={cn(
-                      "mt-1 h-4 w-4",
+                      "mt-1 h-4 w-4 text-slate-600",
                       value === option.id ? "opacity-100" : "opacity-0"
                     )}
                   />

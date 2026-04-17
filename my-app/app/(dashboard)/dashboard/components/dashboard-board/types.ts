@@ -18,8 +18,20 @@ export type DashboardBoardProps = {
   todos: TodoItem[]
   people: Person[]
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
+  onMoveTodo: (
+    todoId: string,
+    targetTodoId: string | null,
+    nextStatus: TodoItem["status"]
+  ) => Promise<void>
+  onAssigneeChange: (todoId: string, assigneeId: string | null) => void
   onTodoUpdate: (todoId: string, updates: Partial<TodoItem>) => void
   onCreate: (status: ColumnId) => void
+  onCreateSubtask: (parentTodo: TodoItem, title: string, description: string) => Promise<void>
+  onUpdateSubtask: (
+    subtaskId: string,
+    updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">
+  ) => Promise<void>
+  onDeleteSubtask: (parentTodoId: string, subtaskId: string) => Promise<void>
 }
 
 export type CommentThreads = Record<string, DashboardComment[]>

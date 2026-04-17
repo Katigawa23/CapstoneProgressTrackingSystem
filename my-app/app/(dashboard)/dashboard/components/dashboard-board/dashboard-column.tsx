@@ -13,7 +13,17 @@ type DashboardColumnProps = {
   column: (typeof columns)[number]
   todos: TodoItem[]
   people: Person[]
+  activeDropColumnId?: ColumnId | null
+  draggingTodoId?: string | null
+  activeDropTodoId?: string | null
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
+  onAssigneeChange: (todoId: string, assigneeId: string | null) => void
+  onDragStartTodo: (todoId: string) => void
+  onDragEndTodo: () => void
+  onDropTodoToColumn: (columnId: ColumnId) => void
+  onDropTodoOnCard: (targetTodoId: string) => void
+  onDragEnterColumn: (columnId: ColumnId) => void
+  onDragEnterCard: (todoId: string, columnId: ColumnId) => void
   onOpenTask: (todo: TodoItem, target?: OpenTaskTarget) => void
   onCreate: (status: ColumnId) => void
   className?: string
@@ -24,17 +34,40 @@ export function DashboardColumn({
   column,
   todos,
   people,
+  activeDropColumnId,
+  draggingTodoId,
+  activeDropTodoId,
   onStatusChange,
+  onAssigneeChange,
+  onDragStartTodo,
+  onDragEndTodo,
+  onDropTodoToColumn,
+  onDropTodoOnCard,
+  onDragEnterColumn,
+  onDragEnterCard,
   onOpenTask,
   onCreate,
   className = "",
   scrollAreaClassName,
 }: DashboardColumnProps) {
   const hasTodos = todos.length > 0
+  const isDropTarget = activeDropColumnId === column.id
 
   return (
     <Card
-      className={`flex h-full min-h-0 min-w-0 flex-col rounded-xl dark:border-[#343434] dark:bg-[#1f1f1f] ${className}`}
+      className={`flex h-full min-h-0 min-w-0 flex-col rounded-xl transition ${
+        isDropTarget
+          ? "border-sky-300 bg-sky-50/30 ring-2 ring-sky-200 dark:border-sky-700 dark:bg-sky-950/10 dark:ring-sky-900"
+          : "dark:border-[#343434] dark:bg-[#1f1f1f]"
+      } ${className}`}
+      onDragOver={(event) => {
+        event.preventDefault()
+        onDragEnterColumn(column.id)
+      }}
+      onDrop={(event) => {
+        event.preventDefault()
+        onDropTodoToColumn(column.id)
+      }}
     >
       <CardHeader className="px-3 pb-2 pt-3">
         <CardTitle className="flex items-center gap-1.5 text-[11px] font-semibold dark:text-slate-100">
@@ -63,7 +96,14 @@ export function DashboardColumn({
                 key={todo.id}
                 todo={todo}
                 people={people}
+                isDragging={draggingTodoId === todo.id}
+                showDropLine={activeDropTodoId === todo.id}
                 onStatusChange={onStatusChange}
+                onAssigneeChange={onAssigneeChange}
+                onDragStart={onDragStartTodo}
+                onDragEnd={onDragEndTodo}
+                onDragEnterCard={(todoId) => onDragEnterCard(todoId, column.id)}
+                onDropOnCard={onDropTodoOnCard}
                 onOpen={onOpenTask}
               />
             ))}

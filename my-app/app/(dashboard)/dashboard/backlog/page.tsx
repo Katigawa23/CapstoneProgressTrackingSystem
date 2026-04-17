@@ -11,13 +11,17 @@ import { EditWorkItemDialog } from "./components/edit-work-item-dialog"
 import { statusOptions, type WorkItem } from "./types"
 import {
   findDashboardProject,
+  getDashboardProjectCode,
   getSelectedDashboardProjectId,
   PROJECT_CHANGE_EVENT,
 } from "@/lib/projects"
 
-function mapApiItem(item: BacklogApiItem): WorkItem {
+function mapApiItem(item: BacklogApiItem, projectCode: string): WorkItem {
   return {
     id: item.id,
+    displayId: `${projectCode}-${item.sequenceNumber}`,
+    orderIndex: item.orderIndex,
+    parentId: item.parentId ?? null,
     title: item.title,
     description: item.description,
     startDate: item.startDate ? new Date(item.startDate) : undefined,
@@ -45,13 +49,22 @@ export default function BacklogPage() {
   const [editStartDate, setEditStartDate] = React.useState<Date | undefined>()
   const [editDueDate, setEditDueDate] = React.useState<Date | undefined>()
 
+  const rootItems = React.useMemo(
+    () =>
+      items.filter(
+        (item) => item.parentId === null || typeof item.parentId === "undefined"
+      ),
+    [items]
+  )
+
   React.useEffect(() => {
     let cancelled = false
 
     async function loadItems() {
       const selectedProjectId = getSelectedDashboardProjectId()
+      const selectedProject = findDashboardProject(selectedProjectId)
 
-      if (!selectedProjectId || !findDashboardProject(selectedProjectId)) {
+      if (!selectedProjectId || !selectedProject) {
         router.replace("/dashboard")
         return
       }
@@ -66,9 +79,10 @@ export default function BacklogPage() {
         }
 
         const data = (await response.json()) as { items: BacklogApiItem[] }
+        const projectCode = getDashboardProjectCode(selectedProject)
 
         if (!cancelled) {
-          setItems(data.items.map(mapApiItem))
+          setItems(data.items.map((item) => mapApiItem(item, projectCode)))
         }
       } catch (error) {
         console.error(error)
@@ -95,8 +109,9 @@ export default function BacklogPage() {
     if (!title.trim()) return
 
     const selectedProjectId = getSelectedDashboardProjectId()
+    const selectedProject = findDashboardProject(selectedProjectId)
 
-    if (!selectedProjectId) {
+    if (!selectedProjectId || !selectedProject) {
       router.replace("/dashboard")
       return
     }
@@ -109,6 +124,7 @@ export default function BacklogPage() {
         },
         body: JSON.stringify({
           projectId: selectedProjectId,
+          parentId: null,
           title: title.trim(),
           description: description.trim(),
           startDate: startDate ? startDate.toISOString().slice(0, 10) : null,
@@ -122,8 +138,9 @@ export default function BacklogPage() {
       }
 
       const data = (await response.json()) as { item: BacklogApiItem }
+      const projectCode = getDashboardProjectCode(selectedProject)
 
-      setItems((prev) => [mapApiItem(data.item), ...prev])
+      setItems((prev) => [mapApiItem(data.item, projectCode), ...prev])
       resetForm()
       setOpen(false)
     } catch (error) {
@@ -272,7 +289,7 @@ export default function BacklogPage() {
 
   const statusCounts = statusOptions.map((status) => ({
     ...status,
-    count: items.filter((item) => item.status === status.value).length,
+    count: rootItems.filter((item) => item.status === status.value).length,
   }))
 
   return (
@@ -280,7 +297,7 @@ export default function BacklogPage() {
       <BacklogToolbar />
 
       <BacklogBoard
-        items={items}
+        items={rootItems}
         statusCounts={statusCounts}
         onToggleCheckbox={toggleCheckbox}
         onUpdateStatus={updateItemStatus}

@@ -170,6 +170,43 @@ export function getDashboardProject(projectId: string | null | undefined) {
   return findDashboardProject(projectId) ?? getDashboardProjects()[0]
 }
 
+export function getDashboardProjectCode(
+  project: Pick<DashboardProject, "projectType"> | null | undefined
+) {
+  const projectType = project?.projectType?.trim().toUpperCase() ?? ""
+  const explicitCodeMap: Record<string, string> = {
+    CAPSTONE: "CP",
+    THESIS: "TH",
+    RESEARCH: "RS",
+    "SYSTEM DEVELOPMENT": "SD",
+  }
+
+  if (projectType in explicitCodeMap) {
+    return explicitCodeMap[projectType]
+  }
+
+  const words = projectType.split(/[^A-Z0-9]+/).filter(Boolean)
+
+  if (words.length >= 2) {
+    return `${words[0][0] ?? "P"}${words[1][0] ?? "J"}`
+  }
+
+  const normalized = words[0] ?? ""
+
+  if (!normalized) {
+    return "PJ"
+  }
+
+  const consonant = normalized
+    .slice(1)
+    .split("")
+    .find((character) => !"AEIOU".includes(character))
+
+  const fallback = normalized[1] ?? "X"
+
+  return `${normalized[0]}${consonant ?? fallback}`.slice(0, 2)
+}
+
 export function getStarredProjects(projects = getDashboardProjects()) {
   return projects.slice(0, 1)
 }

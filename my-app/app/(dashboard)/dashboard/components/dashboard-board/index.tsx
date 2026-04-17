@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { FolderCheck, GitFork } from "lucide-react"
 
 import {
   AlertDialog,
@@ -37,16 +38,27 @@ import { DashboardColumn } from "./dashboard-column"
 import { TaskCommentsPanel } from "./task-comments-panel"
 import { TaskDetailsSection } from "./task-details-section"
 import { TaskSubmissionsSection } from "./task-submissions-section"
+import { TaskSubtasksSection } from "./task-subtasks-section"
 import type { DashboardBoardProps, SubmissionDraft } from "./types"
 
 export function DashboardBoard({
   todos,
   people,
   onStatusChange,
+  onMoveTodo,
+  onAssigneeChange,
   onTodoUpdate,
   onCreate,
+  onCreateSubtask,
+  onUpdateSubtask,
+  onDeleteSubtask,
 }: DashboardBoardProps) {
   const [authSession, setAuthSession] = React.useState<AuthSession | null>(null)
+  const [draggingTodoId, setDraggingTodoId] = React.useState<string | null>(null)
+  const [activeDropColumnId, setActiveDropColumnId] = React.useState<
+    TodoItem["status"] | null
+  >(null)
+  const [activeDropTodoId, setActiveDropTodoId] = React.useState<string | null>(null)
   const [selectedTodo, setSelectedTodo] = React.useState<TodoItem | null>(null)
   const [openTarget, setOpenTarget] = React.useState<"default" | "comments">(
     "default"
@@ -85,6 +97,7 @@ export function DashboardBoard({
   const commentImageInputRef = React.useRef<HTMLInputElement | null>(null)
   const commentFileInputRef = React.useRef<HTMLInputElement | null>(null)
   const submissionInputRef = React.useRef<HTMLInputElement | null>(null)
+  const selectedTodoId = selectedTodo?.id ?? null
 
   React.useEffect(() => {
     const syncSession = () => {
@@ -111,6 +124,18 @@ export function DashboardBoard({
     setEditingCommentId(null)
   }, [openTarget, selectedTodo])
 
+  React.useEffect(() => {
+    if (!selectedTodoId) {
+      return
+    }
+
+    const nextSelectedTodo = todos.find((todo) => todo.id === selectedTodoId)
+
+    if (nextSelectedTodo && nextSelectedTodo !== selectedTodo) {
+      setSelectedTodo(nextSelectedTodo)
+    }
+  }, [selectedTodo, selectedTodoId, todos])
+
   const handleOpenTask = React.useCallback(
     (todo: TodoItem, target: "default" | "comments" = "default") => {
       setOpenTarget(target)
@@ -119,12 +144,77 @@ export function DashboardBoard({
     []
   )
 
+  const handleOpenSubtask = React.useCallback(
+    (subtask: TodoItem) => {
+      setOpenTarget("default")
+      setSelectedTodo(subtask)
+    },
+    []
+  )
+
+  const handleDragStartTodo = React.useCallback((todoId: string) => {
+    setDraggingTodoId(todoId)
+  }, [])
+
+  const handleDragEndTodo = React.useCallback(() => {
+    setDraggingTodoId(null)
+    setActiveDropColumnId(null)
+    setActiveDropTodoId(null)
+  }, [])
+
+  const handleDragEnterColumn = React.useCallback((columnId: TodoItem["status"]) => {
+    setActiveDropColumnId(columnId)
+    setActiveDropTodoId(null)
+  }, [])
+
+  const handleDragEnterCard = React.useCallback(
+    (todoId: string, columnId: TodoItem["status"]) => {
+      setActiveDropColumnId(columnId)
+      setActiveDropTodoId(todoId)
+    },
+    []
+  )
+
+  const handleDropTodoToColumn = React.useCallback(
+    (columnId: TodoItem["status"]) => {
+      if (!draggingTodoId) {
+        return
+      }
+
+      setDraggingTodoId(null)
+      setActiveDropColumnId(null)
+      setActiveDropTodoId(null)
+      void onMoveTodo(draggingTodoId, null, columnId)
+    },
+    [draggingTodoId, onMoveTodo]
+  )
+
+  const handleDropTodoOnCard = React.useCallback(
+    (targetTodoId: string) => {
+      if (!draggingTodoId || draggingTodoId === targetTodoId) {
+        return
+      }
+
+      const targetTodo = todos.find((todo) => todo.id === targetTodoId)
+
+      setDraggingTodoId(null)
+      setActiveDropColumnId(null)
+      setActiveDropTodoId(null)
+
+      if (!targetTodo) {
+        return
+      }
+
+      void onMoveTodo(draggingTodoId, targetTodoId, targetTodo.status)
+    },
+    [draggingTodoId, onMoveTodo, todos]
+  )
+
   React.useEffect(() => {
-    if (!selectedTodo) {
+    if (!selectedTodoId) {
       return
     }
 
-    const selectedTodoId = selectedTodo.id
     let cancelled = false
 
     async function loadComments() {
@@ -162,14 +252,17 @@ export function DashboardBoard({
     return () => {
       cancelled = true
     }
-  }, [onTodoUpdate, selectedTodo])
+  }, [onTodoUpdate, selectedTodoId])
 
   React.useEffect(() => {
-    if (!selectedTodo) {
+    if (!selectedTodoId) {
       return
     }
 
-    const selectedTodoId = selectedTodo.id
+    if (selectedTodoId in submissionThreads) {
+      return
+    }
+
     let cancelled = false
 
     async function loadSubmissions() {
@@ -211,7 +304,7 @@ export function DashboardBoard({
     return () => {
       cancelled = true
     }
-  }, [selectedTodo])
+  }, [selectedTodoId, submissionThreads])
 
   const handleDescriptionSave = React.useCallback(() => {
     if (!selectedTodo) {
@@ -303,6 +396,7 @@ export function DashboardBoard({
         request.open("POST", `/api/backlog-items/${todoId}/submissions`)
         request.responseType = "json"
         let fallbackProgressTimer: number | null = null
+        const initialProgress = Math.max(draft.progress, 8)
 
         const clearFallbackTimer = () => {
           if (fallbackProgressTimer !== null) {
@@ -323,27 +417,29 @@ export function DashboardBoard({
           }))
         }
 
-        updateDraftProgress(8, "uploading")
+        updateDraftProgress(initialProgress, "uploading")
 
-        fallbackProgressTimer = window.setInterval(() => {
-          setSubmissionDrafts((current) => ({
-            ...current,
-            [todoId]: (current[todoId] ?? []).map((item) => {
-              if (item.id !== draft.id || item.status === "complete") {
-                return item
-              }
+        if (initialProgress < 100) {
+          fallbackProgressTimer = window.setInterval(() => {
+            setSubmissionDrafts((current) => ({
+              ...current,
+              [todoId]: (current[todoId] ?? []).map((item) => {
+                if (item.id !== draft.id || item.status === "complete") {
+                  return item
+                }
 
-              const nextProgress =
-                item.progress >= 90 ? item.progress : item.progress + 12
+                const nextProgress =
+                  item.progress >= 90 ? item.progress : item.progress + 12
 
-              return {
-                ...item,
-                progress: nextProgress,
-                status: "uploading",
-              }
-            }),
-          }))
-        }, 250)
+                return {
+                  ...item,
+                  progress: nextProgress,
+                  status: "uploading",
+                }
+              }),
+            }))
+          }, 250)
+        }
 
         request.upload.addEventListener("progress", (event) => {
           if (!event.lengthComputable) {
@@ -355,7 +451,7 @@ export function DashboardBoard({
             Math.round((event.loaded / event.total) * 100)
           )
 
-          updateDraftProgress(progress, "uploading")
+          updateDraftProgress(Math.max(initialProgress, progress), "uploading")
         })
 
         request.addEventListener("load", () => {
@@ -607,12 +703,94 @@ export function DashboardBoard({
     setIsEmptySubmissionAlertOpen(false)
   }, [])
 
+  const handleCreateSubtask = React.useCallback(
+    async (title: string) => {
+      if (!selectedTodo || !title.trim()) {
+        return
+      }
+
+      try {
+        await onCreateSubtask(selectedTodo, title.trim(), "")
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    [onCreateSubtask, selectedTodo]
+  )
+
+  const handleEditSubtaskTitle = React.useCallback(
+    async (subtask: TodoItem, nextTitle: string) => {
+      try {
+        await onUpdateSubtask(subtask.id, {
+          title: nextTitle,
+          description: subtask.description,
+          startDate: subtask.startDate,
+          deadline: subtask.deadline,
+        })
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    [onUpdateSubtask]
+  )
+
+  const handleDeleteSubtaskRow = React.useCallback(
+    async (subtask: TodoItem) => {
+      if (!selectedTodo) {
+        return
+      }
+
+      try {
+        await onDeleteSubtask(selectedTodo.id, subtask.id)
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    [onDeleteSubtask, selectedTodo]
+  )
+
+  const rootTodos = React.useMemo(
+    () =>
+      todos.filter(
+        (todo) => todo.parentId === null || typeof todo.parentId === "undefined"
+      ),
+    [todos]
+  )
+
+  const selectedTodoIdParts = React.useMemo(() => {
+    if (!selectedTodo) {
+      return null
+    }
+
+    if (!selectedTodo.parentId) {
+      return {
+        parentId: selectedTodo.displayId,
+        subtaskId: null,
+      }
+    }
+
+    const [parentIdPart, subtaskIdPart] = selectedTodo.displayId.split(" / ")
+
+    return {
+      parentId: parentIdPart ?? selectedTodo.displayId,
+      subtaskId: subtaskIdPart ?? null,
+    }
+  }, [selectedTodo])
+
+  const selectedParentTodo = React.useMemo(() => {
+    if (!selectedTodo?.parentId) {
+      return null
+    }
+
+    return todos.find((todo) => todo.id === selectedTodo.parentId) ?? null
+  }, [selectedTodo, todos])
+
   return (
     <>
       <Carousel opts={{ align: "start" }} className="w-full px-6 md:hidden">
         <CarouselContent>
           {columns.map((column) => {
-            const columnTodos = todos.filter((todo) => todo.status === column.id)
+            const columnTodos = rootTodos.filter((todo) => todo.status === column.id)
             const hasTodos = columnTodos.length > 0
 
             return (
@@ -621,7 +799,17 @@ export function DashboardBoard({
                   column={column}
                   todos={columnTodos}
                   people={people}
+                  activeDropColumnId={activeDropColumnId}
+                  draggingTodoId={draggingTodoId}
+                  activeDropTodoId={activeDropTodoId}
                   onStatusChange={onStatusChange}
+                  onAssigneeChange={onAssigneeChange}
+                  onDragStartTodo={handleDragStartTodo}
+                  onDragEndTodo={handleDragEndTodo}
+                  onDropTodoToColumn={handleDropTodoToColumn}
+                  onDropTodoOnCard={handleDropTodoOnCard}
+                  onDragEnterColumn={handleDragEnterColumn}
+                  onDragEnterCard={handleDragEnterCard}
                   onOpenTask={handleOpenTask}
                   onCreate={onCreate}
                   className="h-full"
@@ -641,7 +829,7 @@ export function DashboardBoard({
 
       <div className="hidden min-h-0 flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => {
-          const columnTodos = todos.filter((todo) => todo.status === column.id)
+          const columnTodos = rootTodos.filter((todo) => todo.status === column.id)
 
           return (
             <DashboardColumn
@@ -649,7 +837,17 @@ export function DashboardBoard({
               column={column}
               todos={columnTodos}
               people={people}
+              activeDropColumnId={activeDropColumnId}
+              draggingTodoId={draggingTodoId}
+              activeDropTodoId={activeDropTodoId}
               onStatusChange={onStatusChange}
+              onAssigneeChange={onAssigneeChange}
+              onDragStartTodo={handleDragStartTodo}
+              onDragEndTodo={handleDragEndTodo}
+              onDropTodoToColumn={handleDropTodoToColumn}
+              onDropTodoOnCard={handleDropTodoOnCard}
+              onDragEnterColumn={handleDragEnterColumn}
+              onDragEnterCard={handleDragEnterCard}
               onOpenTask={handleOpenTask}
               onCreate={onCreate}
             />
@@ -675,7 +873,41 @@ export function DashboardBoard({
                   {!isSubmissionActionsOpen[selectedTodo.id] ? (
                     <>
                       <DialogHeader className="mb-5 text-left sm:mb-6">
-                        <DialogTitle className="font-display text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+                        <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300">
+                            <FolderCheck className="h-3.5 w-3.5" />
+                          </span>
+                          <button
+                            type="button"
+                            className="rounded-sm transition hover:text-blue-600 hover:underline dark:hover:text-sky-400"
+                            onClick={() => {
+                              if (selectedParentTodo) {
+                                handleOpenTask(selectedParentTodo)
+                                return
+                              }
+
+                              handleOpenTask(selectedTodo)
+                            }}
+                          >
+                            {selectedTodoIdParts?.parentId ?? selectedTodo.displayId}
+                          </button>
+                          {selectedTodoIdParts?.subtaskId ? (
+                            <>
+                              <span className="text-slate-400 dark:text-slate-500">/</span>
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300">
+                                <GitFork className="h-3.5 w-3.5" />
+                              </span>
+                              <button
+                                type="button"
+                                className="rounded-sm transition hover:text-blue-600 hover:underline dark:hover:text-sky-400"
+                                onClick={() => handleOpenTask(selectedTodo)}
+                              >
+                                {selectedTodoIdParts.subtaskId}
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                        <DialogTitle className="font-display text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
                           {selectedTodo.title}
                         </DialogTitle>
                       </DialogHeader>
@@ -719,6 +951,19 @@ export function DashboardBoard({
                     onSubmissionUpload={handleSubmissionUpload}
                     onSubmissionDraftRemove={handleSubmissionDraftRemove}
                   />
+
+                  {selectedTodo.parentId ? null : (
+                    <TaskSubtasksSection
+                      checklist={selectedTodo.checklist}
+                      subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
+                      onAddSubtask={handleCreateSubtask}
+                      onOpenSubtask={handleOpenSubtask}
+                      onSubtaskStatusChange={onStatusChange}
+                      onSubtaskAssigneeChange={onAssigneeChange}
+                      onEditSubtaskTitle={handleEditSubtaskTitle}
+                      onDeleteSubtask={handleDeleteSubtaskRow}
+                    />
+                  )}
                 </ScrollArea>
               </div>
 

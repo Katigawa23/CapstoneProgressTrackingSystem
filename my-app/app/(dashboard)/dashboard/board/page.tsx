@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 
 import {
   findDashboardProject,
+  getDashboardProjectCode,
   getSelectedDashboardProjectId,
   PROJECT_CHANGE_EVENT,
 } from "@/lib/projects"
@@ -12,12 +13,24 @@ import { people } from "../constants"
 import { DashboardBoard } from "../components/dashboard-board"
 import { DashboardHeader } from "../components/dashboard-header"
 import { CreateWorkItemDialog } from "../backlog/components/create-work-item-dialog"
+import { getAssigneeOption } from "../backlog/types"
 import type { BacklogApiItem, ColumnId, TodoItem } from "../types"
 import { mapBacklogItemsToTodos } from "../utils"
 
 export default function DashboardBoardPage() {
   const router = useRouter()
   const [todos, setTodos] = React.useState<TodoItem[]>([])
+  const getCurrentProjectCode = React.useCallback(() => {
+    const selectedProjectId = getSelectedDashboardProjectId()
+    return getDashboardProjectCode(findDashboardProject(selectedProjectId))
+  }, [])
+
+  const buildChecklist = React.useCallback((items: TodoItem[], parentId: string) => {
+    const subtasks = items.filter((item) => item.parentId === parentId)
+    const completedCount = subtasks.filter((item) => item.checked).length
+
+    return `${completedCount}/${subtasks.length}`
+  }, [])
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [createStatus, setCreateStatus] = React.useState<ColumnId>("todo")
@@ -29,16 +42,29 @@ export default function DashboardBoardPage() {
   const handleStatusChange = React.useCallback(
     async (todoId: string, nextStatus: TodoItem["status"]) => {
       const currentTodo = todos.find((todo) => todo.id === todoId)
+      const nextChecked = nextStatus === "completed"
 
       if (!currentTodo || currentTodo.status === nextStatus) {
         return
       }
 
-      setTodos((currentTodos) =>
-        currentTodos.map((todo) =>
-          todo.id === todoId ? { ...todo, status: nextStatus } : todo
+      setTodos((currentTodos) => {
+        const nextTodos = currentTodos.map((todo) =>
+          todo.id === todoId
+            ? { ...todo, status: nextStatus, checked: nextChecked }
+            : todo
         )
-      )
+
+        if (!currentTodo.parentId) {
+          return nextTodos
+        }
+
+        return nextTodos.map((todo) =>
+          todo.id === currentTodo.parentId
+            ? { ...todo, checklist: buildChecklist(nextTodos, currentTodo.parentId) }
+            : todo
+        )
+      })
 
       try {
         const response = await fetch(`/api/backlog-items/${todoId}`, {
@@ -46,7 +72,7 @@ export default function DashboardBoardPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ status: nextStatus }),
+          body: JSON.stringify({ status: nextStatus, checked: nextChecked }),
         })
 
         if (!response.ok) {
@@ -54,11 +80,110 @@ export default function DashboardBoardPage() {
         }
       } catch (error) {
         console.error(error)
-        setTodos((currentTodos) =>
-          currentTodos.map((todo) =>
-            todo.id === todoId ? { ...todo, status: currentTodo.status } : todo
+        setTodos((currentTodos) => {
+          const revertedTodos = currentTodos.map((todo) =>
+            todo.id === todoId
+              ? {
+                  ...todo,
+                  status: currentTodo.status,
+                  checked: currentTodo.checked,
+                }
+              : todo
+          )
+
+          if (!currentTodo.parentId) {
+            return revertedTodos
+          }
+
+          return revertedTodos.map((todo) =>
+            todo.id === currentTodo.parentId
+              ? { ...todo, checklist: buildChecklist(revertedTodos, currentTodo.parentId) }
+              : todo
+          )
+        })
+      }
+    },
+    [buildChecklist, todos]
+  )
+
+  const handleMoveTodo = React.useCallback(
+    async (
+      todoId: string,
+      targetTodoId: string | null,
+      nextStatus: TodoItem["status"]
+    ) => {
+      const previousTodos = todos
+      const currentTodo = previousTodos.find((todo) => todo.id === todoId)
+
+      if (!currentTodo) {
+        return
+      }
+
+      const rootTodos = previousTodos.filter(
+        (todo) => todo.parentId === null || typeof todo.parentId === "undefined"
+      )
+      const nonRootTodos = previousTodos.filter(
+        (todo) => !(todo.parentId === null || typeof todo.parentId === "undefined")
+      )
+      const remainingRootTodos = rootTodos.filter((todo) => todo.id !== todoId)
+      const targetIndex =
+        targetTodoId === null
+          ? (() => {
+              const lastMatchingIndex = remainingRootTodos.reduce(
+                (lastIndex, todo, index) =>
+                  todo.status === nextStatus ? index : lastIndex,
+                -1
+              )
+
+              return lastMatchingIndex === -1
+                ? remainingRootTodos.length
+                : lastMatchingIndex + 1
+            })()
+          : Math.max(
+              remainingRootTodos.findIndex((todo) => todo.id === targetTodoId) + 1,
+              0
+            )
+
+      const movedTodo: TodoItem = {
+        ...currentTodo,
+        status: nextStatus,
+        checked: nextStatus === "completed",
+      }
+      const reorderedRootTodos = [...remainingRootTodos]
+
+      reorderedRootTodos.splice(targetIndex, 0, movedTodo)
+
+      const normalizedRootTodos = reorderedRootTodos.map((todo, index) => ({
+        ...todo,
+        orderIndex: index + 1,
+      }))
+      const nextTodos = [...normalizedRootTodos, ...nonRootTodos]
+
+      setTodos(nextTodos)
+
+      try {
+        await Promise.all(
+          normalizedRootTodos.map((todo) =>
+            fetch(`/api/backlog-items/${todo.id}`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                status: todo.status,
+                checked: todo.checked ?? false,
+                orderIndex: todo.orderIndex,
+              }),
+            }).then((response) => {
+              if (!response.ok) {
+                throw new Error("Failed to reorder backlog item")
+              }
+            })
           )
         )
+      } catch (error) {
+        console.error(error)
+        setTodos(previousTodos)
       }
     },
     [todos]
@@ -73,6 +198,142 @@ export default function DashboardBoardPage() {
       )
     },
     []
+  )
+
+  const handleAssigneeChange = React.useCallback(
+    async (todoId: string, assigneeId: string | null) => {
+      const currentTodo = todos.find((todo) => todo.id === todoId)
+      const nextAssignee = getAssigneeOption(assigneeId)
+
+      if (!currentTodo || currentTodo.assigneeId === assigneeId) {
+        return
+      }
+
+      setTodos((currentTodos) =>
+        currentTodos.map((todo) =>
+          todo.id === todoId
+            ? {
+                ...todo,
+                assigneeId,
+                assignee: nextAssignee?.name ?? "",
+              }
+            : todo
+        )
+      )
+
+      try {
+        const response = await fetch(`/api/backlog-items/${todoId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ assigneeId }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to update backlog item assignee")
+        }
+      } catch (error) {
+        console.error(error)
+        setTodos((currentTodos) =>
+          currentTodos.map((todo) =>
+            todo.id === todoId
+              ? {
+                  ...todo,
+                  assigneeId: currentTodo.assigneeId ?? null,
+                  assignee: currentTodo.assignee,
+                }
+              : todo
+          )
+        )
+      }
+    },
+    [todos]
+  )
+
+  const handleUpdateSubtask = React.useCallback(
+    async (
+      subtaskId: string,
+      updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">
+    ) => {
+      const currentSubtask = todos.find((todo) => todo.id === subtaskId)
+
+      if (!currentSubtask) {
+        return
+      }
+
+      setTodos((currentTodos) =>
+        currentTodos.map((todo) =>
+          todo.id === subtaskId
+            ? {
+                ...todo,
+                title: updates.title,
+                description: updates.description,
+                startDate: updates.startDate,
+                deadline: updates.deadline,
+              }
+            : todo
+        )
+      )
+
+      try {
+        const response = await fetch(`/api/backlog-items/${subtaskId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: updates.title,
+            description: updates.description,
+            startDate: updates.startDate || null,
+            dueDate: updates.deadline || null,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to update subtask")
+        }
+      } catch (error) {
+        console.error(error)
+        setTodos((currentTodos) =>
+          currentTodos.map((todo) =>
+            todo.id === subtaskId ? currentSubtask : todo
+          )
+        )
+        throw error
+      }
+    },
+    [todos]
+  )
+
+  const handleDeleteSubtask = React.useCallback(
+    async (parentTodoId: string, subtaskId: string) => {
+      const previousTodos = todos
+      const nextTodos = todos.filter((todo) => todo.id !== subtaskId)
+
+      setTodos(
+        nextTodos.map((todo) =>
+          todo.id === parentTodoId
+            ? { ...todo, checklist: buildChecklist(nextTodos, parentTodoId) }
+            : todo
+        )
+      )
+
+      try {
+        const response = await fetch(`/api/backlog-items/${subtaskId}`, {
+          method: "DELETE",
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to delete subtask")
+        }
+      } catch (error) {
+        console.error(error)
+        setTodos(previousTodos)
+        throw error
+      }
+    },
+    [buildChecklist, todos]
   )
 
   const loadCommentCounts = React.useCallback(async (items: TodoItem[]) => {
@@ -136,6 +397,7 @@ export default function DashboardBoardPage() {
         },
         body: JSON.stringify({
           projectId: selectedProjectId,
+          parentId: null,
           title: createTitle.trim(),
           description: createDescription.trim(),
           startDate: createStartDate ? createStartDate.toISOString().slice(0, 10) : null,
@@ -151,7 +413,10 @@ export default function DashboardBoardPage() {
 
       const data = (await response.json()) as { item: BacklogApiItem }
 
-      setTodos((prev) => [...prev, ...mapBacklogItemsToTodos([data.item])])
+      setTodos((prev) => [
+        ...prev,
+        ...mapBacklogItemsToTodos([data.item], getCurrentProjectCode()),
+      ])
       resetCreateForm()
       setCreateOpen(false)
     } catch (error) {
@@ -182,7 +447,10 @@ export default function DashboardBoardPage() {
         const data = (await response.json()) as { items: BacklogApiItem[] }
 
         if (!cancelled) {
-          const mappedTodos = mapBacklogItemsToTodos(data.items)
+          const mappedTodos = mapBacklogItemsToTodos(
+            data.items,
+            getCurrentProjectCode()
+          )
           setTodos(mappedTodos)
 
           const commentCounts = await loadCommentCounts(mappedTodos)
@@ -208,7 +476,69 @@ export default function DashboardBoardPage() {
       cancelled = true
       window.removeEventListener(PROJECT_CHANGE_EVENT, loadTodosForSelectedProject)
     }
-  }, [loadCommentCounts, router])
+  }, [getCurrentProjectCode, loadCommentCounts, router])
+
+  const handleCreateSubtask = React.useCallback(
+    async (parentTodo: TodoItem, title: string, description: string) => {
+      const selectedProjectId = getSelectedDashboardProjectId()
+
+      if (!selectedProjectId) {
+        router.replace("/dashboard")
+        return
+      }
+
+      const response = await fetch("/api/backlog-items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId: selectedProjectId,
+          parentId: parentTodo.id,
+          title,
+          description,
+          startDate: null,
+          dueDate: null,
+          status: "todo",
+          assigneeId: null,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create subtask")
+      }
+
+      const data = (await response.json()) as { item: BacklogApiItem }
+      const [mappedSubtask] = mapBacklogItemsToTodos(
+        [
+          {
+            ...data.item,
+            parentId: data.item.parentId ?? parentTodo.id,
+          },
+        ],
+        getCurrentProjectCode()
+      )
+      const siblingCount = todos.filter((todo) => todo.parentId === parentTodo.id).length
+      const nextMappedSubtask = mappedSubtask
+        ? {
+            ...mappedSubtask,
+            displayId: `${parentTodo.displayId} / ST-${siblingCount + 1}`,
+          }
+        : mappedSubtask
+
+      setTodos((prev) =>
+        prev.map((todo) =>
+          todo.id === parentTodo.id
+            ? {
+                ...todo,
+                checklist: `${prev.filter((item) => item.parentId === parentTodo.id && item.checked).length}/${prev.filter((item) => item.parentId === parentTodo.id).length + 1}`,
+              }
+            : todo
+        ).concat(nextMappedSubtask ?? [])
+      )
+    },
+    [getCurrentProjectCode, router, todos]
+  )
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
@@ -217,11 +547,16 @@ export default function DashboardBoardPage() {
         todos={todos}
         people={people}
         onStatusChange={handleStatusChange}
+        onMoveTodo={handleMoveTodo}
+        onAssigneeChange={handleAssigneeChange}
         onTodoUpdate={handleTodoUpdate}
         onCreate={(status) => {
           setCreateStatus(status)
           setCreateOpen(true)
         }}
+        onCreateSubtask={handleCreateSubtask}
+        onUpdateSubtask={handleUpdateSubtask}
+        onDeleteSubtask={handleDeleteSubtask}
       />
 
       <CreateWorkItemDialog

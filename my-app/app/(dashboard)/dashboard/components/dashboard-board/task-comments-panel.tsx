@@ -51,12 +51,23 @@ export function TaskCommentsPanel({
   onEditComment,
   onDeleteComment,
 }: TaskCommentsPanelProps) {
+  const commentContextLabel = selectedTodo.parentId
+    ? "Subtask comments"
+    : "Parent task comments"
+
   return (
     <aside className="order-1 min-h-0 p-4 sm:p-5 lg:order-2 lg:p-6">
       <ScrollArea className="h-full pr-2 sm:pr-3 lg:pr-4">
         <div className="h-full">
           <div className="flex h-full min-h-[550px] flex-col rounded-xl border border-slate-200 p-4 dark:border-[#343434] dark:bg-[#262626]">
-            <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Comments</h3>
+            <div className="mb-3">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Comments
+              </h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {commentContextLabel} for {selectedTodo.displayId}
+              </p>
+            </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {isLoadingComments ? (
                 <p className="text-sm text-slate-500 dark:text-slate-400">Loading comments...</p>

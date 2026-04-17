@@ -43,6 +43,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       projectId?: string
+      parentId?: string | null
       title?: string
       description?: string
       startDate?: string | null
@@ -68,6 +69,10 @@ export async function POST(request: Request) {
 
     const item = await createBacklogItem({
       projectId,
+      parentId:
+        typeof body.parentId === "string" && body.parentId.trim().length > 0
+          ? body.parentId.trim()
+          : null,
       title,
       description: body.description?.trim() ?? "",
       startDate: normalizeOptionalDate(body.startDate),

@@ -79,9 +79,24 @@ export function BacklogBoard({
                   className="h-4 w-4"
                 />
 
-                <span className="truncate text-[13px] font-medium text-black">
-                  {item.title}
-                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                    {item.displayId}
+                  </div>
+                  <div className="truncate text-[13px] font-medium text-black">
+                    {item.title}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Due{" "}
+                    {item.dueDate
+                      ? item.dueDate.toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "No due date"}
+                  </div>
+                </div>
               </div>
 
               <div className="ml-3 flex items-center gap-2">

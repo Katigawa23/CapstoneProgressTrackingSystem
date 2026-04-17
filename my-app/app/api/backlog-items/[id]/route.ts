@@ -21,6 +21,7 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = (await request.json()) as {
+      parentId?: string | null
       title?: string
       description?: string
       startDate?: string | null
@@ -28,9 +29,16 @@ export async function PATCH(
       status?: string
       checked?: boolean
       assigneeId?: string | null
+      orderIndex?: number
     }
 
     const item = await updateBacklogItem(id, {
+      parentId:
+        "parentId" in body
+          ? typeof body.parentId === "string" && body.parentId.trim().length > 0
+            ? body.parentId.trim()
+            : null
+          : undefined,
       title: typeof body.title === "string" ? body.title.trim() : undefined,
       description: typeof body.description === "string" ? body.description.trim() : undefined,
       startDate: "startDate" in body ? normalizeOptionalDate(body.startDate) : undefined,
@@ -38,6 +46,10 @@ export async function PATCH(
       status: body.status,
       checked: body.checked,
       assigneeId: body.assigneeId,
+      orderIndex:
+        typeof body.orderIndex === "number" && Number.isFinite(body.orderIndex)
+          ? body.orderIndex
+          : undefined,
     })
 
     if (!item) {

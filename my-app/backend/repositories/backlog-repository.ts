@@ -9,6 +9,9 @@ import { ensureProjectExists } from "@/backend/repositories/project-repository"
 export type BacklogRow = {
   id: string
   projectId: string
+  parentId: string | null
+  sequenceNumber: number
+  orderIndex: number
   title: string
   description: string
   startDate: string | null
@@ -21,6 +24,7 @@ export type BacklogRow = {
 
 type CreateBacklogItemInput = {
   projectId: string
+  parentId: string | null
   title: string
   description: string
   startDate: string | null
@@ -31,6 +35,7 @@ type CreateBacklogItemInput = {
 }
 
 type UpdateBacklogItemInput = {
+  parentId?: string | null
   title?: string
   description?: string
   startDate?: string | null
@@ -38,11 +43,15 @@ type UpdateBacklogItemInput = {
   status?: string
   checked?: boolean
   assigneeId?: string | null
+  orderIndex?: number
 }
 
 type BacklogRecord = {
   id: string
   project_id: string
+  parent_id: string | null
+  sequence_number: number
+  order_index: number
   title: string
   description: string
   start_date: string | null
@@ -71,6 +80,9 @@ function mapRecord(record: BacklogRecord): BacklogRow {
   return {
     id: record.id,
     projectId: record.project_id,
+    parentId: record.parent_id,
+    sequenceNumber: record.sequence_number,
+    orderIndex: record.order_index,
     title: record.title,
     description: record.description,
     startDate: record.start_date,
@@ -86,6 +98,9 @@ function toRecord(input: BacklogRow): BacklogRecord {
   return {
     id: input.id,
     project_id: input.projectId,
+    parent_id: input.parentId,
+    sequence_number: input.sequenceNumber,
+    order_index: input.orderIndex,
     title: input.title,
     description: input.description,
     start_date: input.startDate,
@@ -113,6 +128,15 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
   return {
     id: typeof record.id === "string" ? record.id : randomUUID(),
     project_id: typeof record.project_id === "string" ? record.project_id : "",
+    parent_id: typeof record.parent_id === "string" ? record.parent_id : null,
+    sequence_number:
+      typeof record.sequence_number === "number" && Number.isFinite(record.sequence_number)
+        ? record.sequence_number
+        : 1,
+    order_index:
+      typeof record.order_index === "number" && Number.isFinite(record.order_index)
+        ? record.order_index
+        : 1,
     title: typeof record.title === "string" ? record.title : "",
     description: typeof record.description === "string" ? record.description : "",
     start_date: typeof record.start_date === "string" ? record.start_date : null,
@@ -172,6 +196,9 @@ async function ensureBacklogSchema() {
         create table if not exists backlog_items (
           id uuid primary key,
           project_id uuid references projects(id) on delete cascade,
+          parent_id uuid references backlog_items(id) on delete cascade,
+          sequence_number integer,
+          order_index integer,
           title text not null,
           description text not null default '',
           start_date date,
@@ -207,6 +234,88 @@ async function ensureBacklogSchema() {
         getDb().query(`
           alter table backlog_items
           add column if not exists project_id uuid references projects(id) on delete cascade;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists parent_id uuid;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists sequence_number integer;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists order_index integer;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          with numbered_items as (
+            select
+              id,
+              row_number() over (
+                partition by project_id
+                order by created_at asc, id asc
+              ) as next_sequence_number
+            from backlog_items
+          )
+          update backlog_items
+          set sequence_number = numbered_items.next_sequence_number
+          from numbered_items
+          where backlog_items.id = numbered_items.id
+            and backlog_items.sequence_number is null;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          with ordered_items as (
+            select
+              id,
+              row_number() over (
+                partition by project_id
+                order by created_at asc, id asc
+              ) as next_order_index
+            from backlog_items
+          )
+          update backlog_items
+          set order_index = ordered_items.next_order_index
+          from ordered_items
+          where backlog_items.id = ordered_items.id
+            and backlog_items.order_index is null;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          alter column sequence_number set not null;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          alter column order_index set not null;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          do $$
+          begin
+            if not exists (
+              select 1
+              from pg_constraint
+              where conname = 'fk_backlog_items_parent_id'
+            ) then
+              alter table backlog_items
+              add constraint fk_backlog_items_parent_id
+              foreign key (parent_id) references backlog_items(id) on delete cascade;
+            end if;
+          end $$;
         `)
       )
       .then(() => undefined)
@@ -311,6 +420,9 @@ export async function listBacklogItems(projectId: string) {
         `select
           id,
           project_id,
+          parent_id,
+          sequence_number,
+          order_index,
           title,
           description,
           start_date,
@@ -321,7 +433,7 @@ export async function listBacklogItems(projectId: string) {
           created_at
         from backlog_items
         where project_id = $1
-        order by created_at desc`,
+        order by order_index asc, created_at asc`,
         [projectId]
       )
 
@@ -329,7 +441,10 @@ export async function listBacklogItems(projectId: string) {
     },
     async () => {
       const records = await readFileRecords()
-      return records.filter((record) => record.project_id === projectId).map(mapRecord)
+      return records
+        .filter((record) => record.project_id === projectId)
+        .sort((left, right) => left.order_index - right.order_index)
+        .map(mapRecord)
     }
   )
 }
@@ -340,9 +455,21 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
       await ensureProjectExists(input.projectId)
 
       const result = await getDb().query<BacklogRecord>(
-        `insert into backlog_items (
+        `with next_sequence as (
+          select coalesce(max(sequence_number), 0) + 1 as value
+          from backlog_items
+          where project_id = $2
+        ), next_order as (
+          select coalesce(max(order_index), 0) + 1 as value
+          from backlog_items
+          where project_id = $2
+        )
+        insert into backlog_items (
           id,
           project_id,
+          parent_id,
+          sequence_number,
+          order_index,
           title,
           description,
           start_date,
@@ -350,10 +477,27 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
           status,
           checked,
           assignee_id
-        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        )
+        select
+          $1,
+          $2,
+          $3,
+          next_sequence.value,
+          next_order.value,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10
+        from next_sequence, next_order
         returning
           id,
           project_id,
+          parent_id,
+          sequence_number,
+          order_index,
           title,
           description,
           start_date,
@@ -365,6 +509,7 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
         [
           randomUUID(),
           input.projectId,
+          input.parentId,
           input.title,
           input.description,
           input.startDate,
@@ -375,12 +520,62 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
         ]
       )
 
-      return mapRecord(result.rows[0])
+      let createdRecord = mapRecord(result.rows[0])
+
+      // Defensively repair the parent link for subtasks if the inserted row
+      // comes back without parent_id for any reason.
+      if (input.parentId && !createdRecord.parentId) {
+        const repaired = await getDb().query<BacklogRecord>(
+          `update backlog_items
+          set parent_id = $1, updated_at = now()
+          where id = $2
+          returning
+            id,
+            project_id,
+            parent_id,
+            sequence_number,
+            order_index,
+            title,
+            description,
+            start_date,
+            due_date,
+            status,
+            checked,
+            assignee_id,
+            created_at`,
+          [input.parentId, createdRecord.id]
+        )
+
+        if (repaired.rows[0]) {
+          createdRecord = mapRecord(repaired.rows[0])
+        }
+      }
+
+      return createdRecord
     },
     async () => {
+      const records = await readFileRecords()
+      const nextSequenceNumber =
+        records
+          .filter((record) => record.project_id === input.projectId)
+          .reduce(
+            (maxValue, record) => Math.max(maxValue, record.sequence_number),
+            0
+          ) + 1
+      const nextOrderIndex =
+        records
+          .filter((record) => record.project_id === input.projectId)
+          .reduce(
+            (maxValue, record) => Math.max(maxValue, record.order_index),
+            0
+          ) + 1
+
       const item: BacklogRow = {
         id: randomUUID(),
         projectId: input.projectId,
+        parentId: input.parentId,
+        sequenceNumber: nextSequenceNumber,
+        orderIndex: nextOrderIndex,
         title: input.title,
         description: input.description,
         startDate: input.startDate,
@@ -391,7 +586,6 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
         createdAt: new Date().toISOString(),
       }
 
-      const records = await readFileRecords()
       records.unshift(toRecord(item))
       await writeFileRecords(records)
 
@@ -414,6 +608,11 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
       if (typeof input.description === "string") {
         fields.push(`description = $${fields.length + 1}`)
         values.push(input.description)
+      }
+
+      if ("parentId" in input) {
+        fields.push(`parent_id = $${fields.length + 1}`)
+        values.push(input.parentId ?? null)
       }
 
       if ("startDate" in input) {
@@ -441,6 +640,11 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
         values.push(input.assigneeId ?? null)
       }
 
+      if (typeof input.orderIndex === "number" && Number.isFinite(input.orderIndex)) {
+        fields.push(`order_index = $${fields.length + 1}`)
+        values.push(input.orderIndex)
+      }
+
       if (fields.length === 0) {
         return null
       }
@@ -455,6 +659,9 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
         returning
           id,
           project_id,
+          parent_id,
+          sequence_number,
+          order_index,
           title,
           description,
           start_date,
@@ -484,6 +691,7 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
       const next: BacklogRow = {
         ...current,
         title: typeof input.title === "string" ? input.title : current.title,
+        parentId: "parentId" in input ? input.parentId ?? null : current.parentId,
         description:
           typeof input.description === "string"
             ? input.description
@@ -496,6 +704,10 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
           typeof input.checked === "boolean" ? input.checked : current.checked,
         assigneeId:
           "assigneeId" in input ? input.assigneeId ?? null : current.assigneeId,
+        orderIndex:
+          typeof input.orderIndex === "number" && Number.isFinite(input.orderIndex)
+            ? input.orderIndex
+            : current.orderIndex,
       }
 
       records[index] = toRecord(next)
@@ -520,7 +732,9 @@ export async function deleteBacklogItem(id: string) {
     },
     async () => {
       const records = await readFileRecords()
-      const nextRecords = records.filter((record) => record.id !== id)
+      const nextRecords = records.filter(
+        (record) => record.id !== id && record.parent_id !== id
+      )
 
       if (nextRecords.length === records.length) {
         return false

@@ -36,26 +36,78 @@ export function isDashboardColumn(status: string): status is ColumnId {
   )
 }
 
-export function mapBacklogItemsToTodos(items: BacklogApiItem[]): TodoItem[] {
+export function buildTaskDisplayId(projectCode: string, sequenceNumber: number) {
+  return `${projectCode}-${sequenceNumber}`
+}
+
+export function mapBacklogItemsToTodos(
+  items: BacklogApiItem[],
+  projectCode: string
+): TodoItem[] {
+  const childItemsByParentId = new Map<
+    string,
+    Array<BacklogApiItem & { parentId: string }>
+  >()
+  const rootDisplayIdById = new Map<string, string>()
+
+  for (const item of items) {
+    if (!item.parentId) {
+      rootDisplayIdById.set(
+        item.id,
+        buildTaskDisplayId(projectCode, item.sequenceNumber)
+      )
+      continue
+    }
+
+    const currentChildren = childItemsByParentId.get(item.parentId) ?? []
+    currentChildren.push(item as BacklogApiItem & { parentId: string })
+    childItemsByParentId.set(item.parentId, currentChildren)
+  }
+
+  for (const childItems of childItemsByParentId.values()) {
+    childItems.sort((left, right) => left.sequenceNumber - right.sequenceNumber)
+  }
+
   return items
     .filter((item): item is BacklogApiItem & { status: ColumnId } =>
       isDashboardColumn(item.status)
     )
     .map((item) => {
       const assignee = getAssigneeOption(item.assigneeId)
+      const childItems = childItemsByParentId.get(item.id) ?? []
+      const completedSubtasks = childItems.filter((child) => child.checked).length
+      const displayId = item.parentId
+        ? (() => {
+            const siblingItems = childItemsByParentId.get(item.parentId) ?? []
+            const siblingIndex = siblingItems.findIndex(
+              (sibling) => sibling.id === item.id
+            )
+            const parentDisplayId =
+              rootDisplayIdById.get(item.parentId) ??
+              buildTaskDisplayId(projectCode, item.sequenceNumber)
+
+            return `${parentDisplayId} / ST-${Math.max(siblingIndex + 1, 1)}`
+          })()
+        : rootDisplayIdById.get(item.id) ??
+          buildTaskDisplayId(projectCode, item.sequenceNumber)
 
       return {
         id: item.id,
+        displayId,
+        orderIndex: item.orderIndex,
+        parentId: item.parentId ?? null,
         title: item.title,
-        description: item.description || fallbackDescription,
+        description:
+          item.description || (item.parentId ? "" : fallbackDescription),
         assignee: assignee?.name ?? "",
         assigneeId: item.assigneeId ?? null,
         startDate: item.startDate ?? "",
         deadline: item.dueDate ?? "",
         status: item.status,
+        checked: item.checked,
         comments: 0,
         links: 0,
-        checklist: "0/0",
+        checklist: `${completedSubtasks}/${childItems.length}`,
         priority:
           item.status === "revision"
             ? "High"

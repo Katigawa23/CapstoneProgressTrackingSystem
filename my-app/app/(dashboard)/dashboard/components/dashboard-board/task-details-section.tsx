@@ -1,14 +1,16 @@
-import { CalendarDays, File, ImageIcon, Paperclip, Rows3, UserRound } from "lucide-react"
+import * as React from "react"
 
-import { Badge } from "@/components/ui/badge"
+import { ChevronDown, File, ImageIcon, Paperclip } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { Textarea } from "@/components/ui/textarea"
 
-import { cardStatusStyles } from "../../constants"
 import type { TodoItem } from "../../types"
-import { formatDeadline } from "../../utils"
 
 type TaskDetailsSectionProps = {
   selectedTodo: TodoItem
@@ -37,10 +39,42 @@ export function TaskDetailsSection({
   onDescriptionCancel,
   onAssetAttach,
 }: TaskDetailsSectionProps) {
+  const [isExpanded, setIsExpanded] = React.useState(true)
+
+  React.useEffect(() => {
+    if (isEditingDescription) {
+      setIsExpanded(true)
+    }
+  }, [isEditingDescription])
+
   return (
-    <div className="space-y-6">
-      <section className="space-y-2">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Description</h3>
+    <Collapsible
+      open={isExpanded}
+      onOpenChange={(nextOpen) => {
+        if (isEditingDescription && !nextOpen) {
+          return
+        }
+
+        setIsExpanded(nextOpen)
+      }}
+      className="space-y-2"
+    >
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 text-left text-slate-900 transition hover:text-slate-700 dark:text-slate-100 dark:hover:text-slate-200"
+          aria-label={`${isExpanded ? "Collapse" : "Expand"} description`}
+        >
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 transition-transform ${
+              isExpanded ? "rotate-0" : "-rotate-90"
+            }`}
+          />
+          <span className="text-[15px] font-semibold">Description</span>
+        </button>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent className="space-y-2">
         {isEditingDescription ? (
           <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#343434] dark:bg-[#262626]">
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[#343434]">
@@ -87,10 +121,10 @@ export function TaskDetailsSection({
               value={descriptionDraft}
               onChange={(event) => onDescriptionDraftChange(event.target.value)}
               placeholder="Add a description..."
-              className="min-h-10 resize-none border-0 px-0 text-sm text-slate-700 shadow-none focus-visible:ring-0 dark:text-slate-200 dark:bg-transparent sm:min-h-12"
+              className="min-h-10 resize-none border-0 px-0 text-sm text-slate-700 shadow-none focus-visible:ring-0 dark:bg-transparent dark:text-slate-200 sm:min-h-12"
             />
 
-            {descriptionAssets.length > 0 && (
+            {descriptionAssets.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {descriptionAssets.map((asset) => (
                   <span
@@ -102,7 +136,7 @@ export function TaskDetailsSection({
                   </span>
                 ))}
               </div>
-            )}
+            ) : null}
 
             <div className="flex items-center gap-2">
               <Button
@@ -133,78 +167,7 @@ export function TaskDetailsSection({
             {selectedTodo.description || "Add a description..."}
           </button>
         )}
-      </section>
-
-      <section>
-        <Card className="overflow-hidden rounded-lg border-slate-200 bg-slate-50/60 shadow-none dark:border-[#343434] dark:bg-[#262626]">
-          <CardContent className="px-2 py-00">
-            <div className="grid grid-cols-1 gap-x-2 sm:grid-cols-2">
-              <div className="flex items-center gap-1 py-1">
-                <div className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-slate-400">
-                  <Rows3 className="h-2.5 w-2.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                    Status
-                  </p>
-                  <Badge
-                    variant="secondary"
-                    className={`mt-0 h-4 border-0 px-1.5 text-[9px] ${cardStatusStyles[selectedTodo.status].className}`}
-                  >
-                    {cardStatusStyles[selectedTodo.status].label}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1 py-1">
-                <div className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-slate-400">
-                  <CalendarDays className="h-2.5 w-2.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                    Start Date
-                  </p>
-                  <p className="mt-0 text-[11px] font-medium text-slate-800 dark:text-slate-200">
-                    {formatDeadline(selectedTodo.startDate)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <Separator className="bg-slate-200 my-0.5 dark:bg-[#3a3a3a]" />
-
-            <div className="grid grid-cols-1 gap-x-2 sm:grid-cols-2">
-              <div className="flex items-center gap-1 py-1">
-                <div className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-slate-400">
-                  <UserRound className="h-2.5 w-2.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                    Assignees
-                  </p>
-                  <p className="mt-0 truncate text-[11px] font-medium text-slate-800 dark:text-slate-200">
-                    {selectedTodo.assignee || "No assignee"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1 py-1">
-                <div className="flex h-5 w-5 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-slate-400">
-                  <CalendarDays className="h-2.5 w-2.5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
-                    Due Date
-                  </p>
-                  <p className="mt-0 text-[11px] font-medium text-slate-800 dark:text-slate-200">
-                    {formatDeadline(selectedTodo.deadline)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

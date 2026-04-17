@@ -1,12 +1,27 @@
-import Image from "next/image"
-import { FileText, Paperclip, Upload, X } from "lucide-react"
+import * as React from "react"
+
+import {
+  ChevronDown,
+  Download,
+  Eye,
+  FileText,
+  ImageIcon,
+  Paperclip,
+  Upload,
+  X,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { Progress } from "@/components/ui/progress"
 
 import type { DashboardSubmission, TodoItem } from "../../types"
 import type { SubmissionDraft } from "./types"
-import { formatSubmissionSize, formatSubmissionTime } from "./utils"
+import { formatSubmissionSize } from "./utils"
 
 type TaskSubmissionsSectionProps = {
   selectedTodo: TodoItem
@@ -22,6 +37,121 @@ type TaskSubmissionsSectionProps = {
   onSubmissionDraftRemove: (todoId: string, draftId: string) => void
 }
 
+function formatAttachmentDate(uploadedAt: string) {
+  const uploadedDate = new Date(uploadedAt)
+
+  if (Number.isNaN(uploadedDate.getTime())) {
+    return "Recently added"
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(uploadedDate)
+}
+
+function FilePreviewTile({
+  fileName,
+  fileType,
+}: {
+  fileName: string
+  fileType: string
+}) {
+  const normalizedName = fileName.toLowerCase()
+  const isImage =
+    fileType.startsWith("image/") ||
+    [".png", ".jpg", ".jpeg", ".gif", ".webp"].some((extension) =>
+      normalizedName.endsWith(extension)
+    )
+  const isPdf =
+    fileType === "application/pdf" || normalizedName.endsWith(".pdf")
+
+  return (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#303030]">
+      <div className="relative flex h-5.5 w-4.5 items-center justify-center rounded-[3px] bg-white text-slate-700 shadow-sm dark:bg-slate-100">
+        <div className="absolute right-0 top-0 h-1.5 w-1.5 rounded-bl-[3px] bg-slate-200 dark:bg-slate-300" />
+        {isImage ? (
+          <ImageIcon className="h-2.5 w-2.5" />
+        ) : isPdf ? (
+          <span className="text-[7px] font-bold tracking-tight text-slate-800">PDF</span>
+        ) : (
+          <FileText className="h-2.5 w-2.5" />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function AttachmentList({
+  submissions,
+}: {
+  submissions: DashboardSubmission[]
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
+      <div className="overflow-x-auto px-3 py-2">
+        <div className="min-w-[640px]">
+          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 border-b border-slate-200 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:text-slate-400">
+            <span>Name</span>
+            <span>Size</span>
+            <span>Date added</span>
+            <span className="text-right">Actions</span>
+          </div>
+
+          <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
+            {submissions.map((submission) => (
+              <div
+                key={submission.id}
+                className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-[#2c2c2c]"
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <FilePreviewTile
+                    fileName={submission.fileName}
+                    fileType={submission.fileType}
+                  />
+                  <p className="truncate text-[13px] font-medium text-slate-900 dark:text-slate-100">
+                    {submission.fileName}
+                  </p>
+                </div>
+                <p className="text-[13px] text-slate-600 dark:text-slate-300">
+                  {formatSubmissionSize(submission.fileSize)}
+                </p>
+                <p className="text-[13px] text-slate-600 dark:text-slate-300">
+                  {formatAttachmentDate(submission.uploadedAt)}
+                </p>
+                <div className="flex items-center justify-end gap-1">
+                  <a
+                    href={submission.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
+                    aria-label={`Open ${submission.fileName}`}
+                    title="Open"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </a>
+                  <a
+                    href={submission.fileUrl}
+                    download={submission.fileName}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
+                    aria-label={`Download ${submission.fileName}`}
+                    title="Download"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function TaskSubmissionsSection({
   selectedTodo,
   isSubmissionActionsOpen,
@@ -35,30 +165,87 @@ export function TaskSubmissionsSection({
   onSubmissionUpload,
   onSubmissionDraftRemove,
 }: TaskSubmissionsSectionProps) {
+  const [isExpanded, setIsExpanded] = React.useState(true)
+
+  React.useEffect(() => {
+    if (isSubmissionActionsOpen) {
+      setIsExpanded(true)
+    }
+  }, [isSubmissionActionsOpen])
+
   return (
-    <section className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Submissions</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Upload files or images for this task.
-          </p>
+    <Collapsible
+      open={isExpanded}
+      onOpenChange={(nextOpen) => {
+        if (isSubmissionActionsOpen && !nextOpen) {
+          return
+        }
+
+        setIsExpanded(nextOpen)
+      }}
+      className="mt-4 space-y-3"
+    >
+      <div className="flex w-full items-start justify-between gap-3">
+        <div className="space-y-1">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 text-left text-slate-900 transition hover:text-slate-700 dark:text-slate-100 dark:hover:text-slate-200"
+              aria-label={`${isExpanded ? "Collapse" : "Expand"} attachments`}
+            >
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 transition-transform ${
+                  isExpanded ? "rotate-0" : "-rotate-90"
+                }`}
+              />
+              <span className="text-[15px] font-semibold">Attachments</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-[#343434] dark:text-slate-300">
+                {submissionThreads.length}
+              </span>
+            </button>
+          </CollapsibleTrigger>
+          {isExpanded ? (
+            <p className="pl-6 text-sm text-slate-500 dark:text-slate-400">
+              Upload files or images for this task.
+            </p>
+          ) : null}
         </div>
+
         {isSubmissionActionsOpen ? (
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="mt-3 gap-2 text-slate-700 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-200 dark:hover:bg-[#303030]"
+            className="mt-0.5 gap-2 text-slate-700 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-200 dark:hover:bg-[#303030]"
             onClick={() => onSubmissionActionsOpenChange(false)}
           >
             <X className="h-4 w-4" />
             <span>Cancel</span>
           </Button>
-        ) : null}
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            className="mt-0.5 h-9 w-9 p-0"
+            disabled={isUploadingSubmission || isLoadingSubmissions}
+            onClick={() => {
+              setIsExpanded(true)
+              onSubmissionActionsOpenChange(true)
+            }}
+            aria-label={
+              submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
+            }
+            title={
+              submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
+            }
+          >
+            <Upload className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
-      <div className="space-y-2">
+      <CollapsibleContent className="space-y-2">
+
         {isSubmissionActionsOpen || submissionDrafts.length > 0 ? (
           <>
             <div className="flex flex-wrap items-center gap-2">
@@ -110,9 +297,7 @@ export function TaskSubmissionsSection({
                         type="button"
                         className="rounded-full p-0.5 text-sky-900 transition hover:bg-white/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300 dark:hover:bg-sky-900/40"
                         disabled={draft.status === "uploading"}
-                        onClick={() =>
-                          onSubmissionDraftRemove(selectedTodo.id, draft.id)
-                        }
+                        onClick={() => onSubmissionDraftRemove(selectedTodo.id, draft.id)}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -131,18 +316,8 @@ export function TaskSubmissionsSection({
               </p>
             )}
           </>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            className="min-h-9 gap-2"
-            disabled={isUploadingSubmission}
-            onClick={() => onSubmissionActionsOpenChange(true)}
-          >
-            <Upload className="h-4 w-4" />
-            {submissionThreads.length > 0 ? "Submit another" : "Submit"}
-          </Button>
-        )}
+        ) : null}
+
         <input
           ref={submissionInputRef}
           type="file"
@@ -154,83 +329,17 @@ export function TaskSubmissionsSection({
             event.target.value = ""
           }}
         />
-      </div>
 
-      {isLoadingSubmissions ? (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-400">
-          Loading submissions...
-        </div>
-      ) : submissionThreads.length > 0 ? (
-        <div className="space-y-4">
-          {submissionThreads.map((submission) => {
-            const isImage = submission.fileType.startsWith("image/")
-            const isPdf =
-              submission.fileType === "application/pdf" ||
-              submission.fileName.toLowerCase().endsWith(".pdf")
-
-            return (
-              <div
-                key={submission.id}
-                className="overflow-hidden rounded-2xl border border-slate-800 bg-[#22232c] p-3 shadow-sm"
-              >
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white">
-                      {submission.fileName}
-                    </p>
-                    <p className="text-xs text-slate-300">
-                      {formatSubmissionTime(submission.uploadedAt)} ·{" "}
-                      {formatSubmissionSize(submission.fileSize)}
-                    </p>
-                  </div>
-                  <a
-                    href={submission.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="shrink-0 rounded-md border border-slate-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-slate-700"
-                  >
-                    Open
-                  </a>
-                </div>
-
-                {isPdf ? (
-                  <div className="overflow-hidden rounded-xl border border-slate-700 bg-white">
-                    <iframe
-                      src={submission.fileUrl}
-                      title={submission.fileName}
-                      className="h-[420px] w-full bg-white"
-                    />
-                  </div>
-                ) : isImage ? (
-                  <div className="overflow-hidden rounded-xl border border-slate-700 bg-black/40">
-                    <Image
-                      src={submission.fileUrl}
-                      alt={submission.fileName}
-                      width={1400}
-                      height={900}
-                      className="max-h-[420px] w-full object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/70 p-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-slate-200">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white">
-                        {submission.fileName}
-                      </p>
-                      <p className="text-xs text-slate-300">
-                        Preview is not available for this file type.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      ) : null}
-    </section>
+        {!isSubmissionActionsOpen && submissionDrafts.length === 0 && isLoadingSubmissions ? (
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400">
+            Loading attachments...
+          </div>
+        ) : !isSubmissionActionsOpen &&
+          submissionDrafts.length === 0 &&
+          submissionThreads.length > 0 ? (
+          <AttachmentList submissions={submissionThreads} />
+        ) : null}
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

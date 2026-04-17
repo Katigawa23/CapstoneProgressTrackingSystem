@@ -13,6 +13,9 @@ export type AssigneeOption = {
 
 export type WorkItem = {
   id: string
+  displayId: string
+  orderIndex: number
+  parentId?: string | null
   title: string
   startDate?: Date
   dueDate?: Date
