@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import {
@@ -59,6 +60,9 @@ export async function PATCH(
       )
     }
 
+    revalidateTag("backlog-items", "max")
+    revalidateTag("backlog-comments", "max")
+
     return NextResponse.json({ item })
   } catch (error) {
     console.error("Failed to update backlog item", error)
@@ -83,6 +87,9 @@ export async function DELETE(
         { status: 404 }
       )
     }
+
+    revalidateTag("backlog-items", "max")
+    revalidateTag("backlog-comments", "max")
 
     return NextResponse.json({ success: true })
   } catch (error) {

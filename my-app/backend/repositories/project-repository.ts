@@ -116,6 +116,12 @@ async function ensureProjectsSchema() {
       `)
       .then(() =>
         getDb().query(`
+          create index if not exists projects_created_at_idx
+          on projects(created_at desc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
           do $$
           begin
             if exists (

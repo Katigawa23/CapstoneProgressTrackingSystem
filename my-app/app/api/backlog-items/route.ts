@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { createBacklogItem, listBacklogItems } from "@/backend/repositories/backlog-repository"
@@ -23,12 +24,17 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const projectId = searchParams.get("projectId")?.trim()
+    const limitValue = Number.parseInt(searchParams.get("limit") ?? "", 10)
+    const offsetValue = Number.parseInt(searchParams.get("offset") ?? "", 10)
 
     if (!projectId) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
     }
 
-    const items = await listBacklogItems(projectId)
+    const items = await listBacklogItems(projectId, {
+      limit: Number.isNaN(limitValue) ? undefined : limitValue,
+      offset: Number.isNaN(offsetValue) ? undefined : offsetValue,
+    })
     return NextResponse.json({ items })
   } catch (error) {
     console.error("Failed to load backlog items", error)
@@ -81,6 +87,9 @@ export async function POST(request: Request) {
       checked: false,
       assigneeId: body.assigneeId ?? null,
     })
+
+    revalidateTag("backlog-items", "max")
+    revalidateTag("backlog-comments", "max")
 
     return NextResponse.json({ item }, { status: 201 })
   } catch (error) {

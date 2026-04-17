@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import {
@@ -30,6 +31,9 @@ export async function PATCH(
       )
     }
 
+    revalidateTag("backlog-comments", "max")
+    revalidateTag("backlog-items", "max")
+
     return NextResponse.json({ comment })
   } catch (error) {
     console.error("Failed to update comment", error)
@@ -51,6 +55,9 @@ export async function DELETE(
     if (!deleted) {
       return NextResponse.json({ error: "Comment not found" }, { status: 404 })
     }
+
+    revalidateTag("backlog-comments", "max")
+    revalidateTag("backlog-items", "max")
 
     return NextResponse.json({ success: true })
   } catch (error) {

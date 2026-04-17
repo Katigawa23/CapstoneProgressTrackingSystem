@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import {
@@ -44,6 +45,9 @@ export async function POST(
             .filter(Boolean)
         : [],
     })
+
+    revalidateTag("backlog-comments", "max")
+    revalidateTag("backlog-items", "max")
 
     return NextResponse.json({ comment }, { status: 201 })
   } catch (error) {

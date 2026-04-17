@@ -1,4 +1,5 @@
 export const PROJECT_STORAGE_KEY = "dashboard-project"
+export const PROJECT_COOKIE_KEY = "dashboard-project"
 export const PROJECT_CHANGE_EVENT = "dashboard-project-change"
 export const PROJECTS_STORAGE_KEY = "dashboard-projects"
 export const PROJECTS_CHANGE_EVENT = "dashboard-projects-change"
@@ -265,5 +266,6 @@ export function createDashboardProject({
 
 export function setDashboardProject(projectId: string) {
   window.localStorage.setItem(PROJECT_STORAGE_KEY, projectId)
+  document.cookie = `${PROJECT_COOKIE_KEY}=${encodeURIComponent(projectId)}; path=/; max-age=31536000; samesite=lax`
   window.dispatchEvent(new CustomEvent(PROJECT_CHANGE_EVENT, { detail: projectId }))
 }

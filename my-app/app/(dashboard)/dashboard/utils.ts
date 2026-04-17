@@ -105,7 +105,7 @@ export function mapBacklogItemsToTodos(
         deadline: item.dueDate ?? "",
         status: item.status,
         checked: item.checked,
-        comments: 0,
+        comments: item.commentCount ?? 0,
         links: 0,
         checklist: `${completedSubtasks}/${childItems.length}`,
         priority:

@@ -29,6 +29,11 @@ function createPool() {
       (process.env.NODE_ENV === "production" ? "10000" : "2000"),
     10
   )
+  const maxConnections = Number.parseInt(
+    process.env.DB_POOL_MAX ??
+      (process.env.NODE_ENV === "production" ? "4" : "10"),
+    10
+  )
 
   if (!connectionString) {
     throw new Error(
@@ -41,7 +46,7 @@ function createPool() {
     ssl: shouldUseSsl(connectionString)
       ? { rejectUnauthorized: false }
       : false,
-    max: 10,
+    max: Number.isNaN(maxConnections) ? 4 : maxConnections,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: Number.isNaN(connectionTimeoutMillis)
       ? 2_000
@@ -53,9 +58,7 @@ function createPool() {
 export function getDb() {
   const pool = global.__backlogPool ?? createPool()
 
-  if (process.env.NODE_ENV !== "production") {
-    global.__backlogPool = pool
-  }
+  global.__backlogPool = pool
 
   return pool
 }

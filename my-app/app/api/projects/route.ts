@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import {
@@ -68,6 +69,10 @@ export async function POST(request: Request) {
       syTerm: syTerm.slice(0, PROJECT_METADATA_MAX_LENGTH),
       projectType: projectType.slice(0, PROJECT_METADATA_MAX_LENGTH),
     })
+
+    revalidateTag("projects", "max")
+    revalidateTag("backlog-items", "max")
+    revalidateTag("backlog-comments", "max")
 
     return NextResponse.json({ project }, { status: 201 })
   } catch (error) {

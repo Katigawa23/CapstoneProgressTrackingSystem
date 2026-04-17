@@ -33,6 +33,7 @@ export type BacklogApiItem = {
   checked: boolean
   assigneeId?: string | null
   createdAt?: string
+  commentCount?: number
 }
 
 export type DashboardComment = {

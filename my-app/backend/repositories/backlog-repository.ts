@@ -20,6 +20,7 @@ export type BacklogRow = {
   checked: boolean
   assigneeId: string | null
   createdAt: string
+  commentCount?: number
 }
 
 type CreateBacklogItemInput = {
@@ -62,6 +63,15 @@ type BacklogRecord = {
   created_at: string
 }
 
+type BacklogRecordWithStats = BacklogRecord & {
+  comment_count?: number | string | null
+}
+
+type ListBacklogItemsOptions = {
+  limit?: number
+  offset?: number
+}
+
 type BacklogStorageMode = "database" | "file"
 
 const backlogFilePath = path.join(process.cwd(), ".data", "backlog-items.json")
@@ -76,7 +86,7 @@ type RawBacklogRecord = Partial<BacklogRecord> & {
   file_type?: string | null
 }
 
-function mapRecord(record: BacklogRecord): BacklogRow {
+function mapRecord(record: BacklogRecordWithStats): BacklogRow {
   return {
     id: record.id,
     projectId: record.project_id,
@@ -91,6 +101,12 @@ function mapRecord(record: BacklogRecord): BacklogRow {
     checked: record.checked,
     assigneeId: record.assignee_id,
     createdAt: record.created_at,
+    commentCount:
+      typeof record.comment_count === "number"
+        ? record.comment_count
+        : typeof record.comment_count === "string"
+        ? Number.parseInt(record.comment_count, 10)
+        : undefined,
   }
 }
 
@@ -256,6 +272,42 @@ async function ensureBacklogSchema() {
       )
       .then(() =>
         getDb().query(`
+          create index if not exists backlog_items_project_order_idx
+          on backlog_items(project_id, order_index asc, created_at asc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists backlog_items_project_parent_idx
+          on backlog_items(project_id, parent_id, sequence_number asc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists backlog_items_parent_id_idx
+          on backlog_items(parent_id);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create table if not exists backlog_comments (
+            id uuid primary key,
+            backlog_item_id uuid not null references backlog_items(id) on delete cascade,
+            author text not null,
+            body text not null default '',
+            attachments jsonb not null default '[]'::jsonb,
+            created_at timestamptz not null default now()
+          );
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists backlog_comments_backlog_item_id_idx
+          on backlog_comments(backlog_item_id, created_at asc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
           with numbered_items as (
             select
               id,
@@ -413,28 +465,54 @@ async function writeFileRecords(records: BacklogRecord[]) {
   await writeFile(backlogFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
-export async function listBacklogItems(projectId: string) {
+export async function listBacklogItems(
+  projectId: string,
+  options?: ListBacklogItemsOptions
+) {
+  return listBacklogItemsWithStats(projectId, options)
+}
+
+export async function listBacklogItemsWithStats(
+  projectId: string,
+  options: ListBacklogItemsOptions = {}
+) {
   return withBacklogStore(
     async () => {
-      const result = await getDb().query<BacklogRecord>(
+      const limit = Math.max(1, Math.min(options.limit ?? 200, 500))
+      const offset = Math.max(0, options.offset ?? 0)
+      const result = await getDb().query<BacklogRecordWithStats>(
         `select
-          id,
-          project_id,
-          parent_id,
-          sequence_number,
-          order_index,
-          title,
-          description,
-          start_date,
-          due_date,
-          status,
-          checked,
-          assignee_id,
-          created_at
+          backlog_items.id,
+          backlog_items.project_id,
+          backlog_items.parent_id,
+          backlog_items.sequence_number,
+          backlog_items.order_index,
+          backlog_items.title,
+          backlog_items.description,
+          backlog_items.start_date,
+          backlog_items.due_date,
+          backlog_items.status,
+          backlog_items.checked,
+          backlog_items.assignee_id,
+          backlog_items.created_at,
+          coalesce(comment_counts.comment_count, 0) as comment_count
         from backlog_items
-        where project_id = $1
-        order by order_index asc, created_at asc`,
-        [projectId]
+        left join (
+          select
+            backlog_comments.backlog_item_id,
+            count(*)::int as comment_count
+          from backlog_comments
+          inner join backlog_items as scoped_items
+            on scoped_items.id = backlog_comments.backlog_item_id
+          where scoped_items.project_id = $1
+          group by backlog_comments.backlog_item_id
+        ) as comment_counts
+          on comment_counts.backlog_item_id = backlog_items.id
+        where backlog_items.project_id = $1
+        order by backlog_items.order_index asc, backlog_items.created_at asc
+        limit $2
+        offset $3`,
+        [projectId, limit, offset]
       )
 
       return result.rows.map(mapRecord)
@@ -444,7 +522,78 @@ export async function listBacklogItems(projectId: string) {
       return records
         .filter((record) => record.project_id === projectId)
         .sort((left, right) => left.order_index - right.order_index)
+        .slice(options.offset ?? 0, (options.offset ?? 0) + (options.limit ?? 200))
         .map(mapRecord)
+    }
+  )
+}
+
+export async function listProjectBacklogActivities(projectIds: string[]) {
+  if (projectIds.length === 0) {
+    return []
+  }
+
+  return withBacklogStore(
+    async () => {
+      const result = await getDb().query<
+        BacklogRecordWithStats & {
+          project_name: string
+          project_type: string
+          project_member: string[] | null
+        }
+      >(
+        `select
+          backlog_items.id,
+          backlog_items.project_id,
+          backlog_items.parent_id,
+          backlog_items.sequence_number,
+          backlog_items.order_index,
+          backlog_items.title,
+          backlog_items.description,
+          backlog_items.start_date,
+          backlog_items.due_date,
+          backlog_items.status,
+          backlog_items.checked,
+          backlog_items.assignee_id,
+          backlog_items.created_at,
+          coalesce(comment_counts.comment_count, 0) as comment_count,
+          projects.project_name,
+          projects.project_type,
+          projects.project_member
+        from backlog_items
+        inner join projects
+          on projects.id = backlog_items.project_id
+        left join (
+          select
+            backlog_comments.backlog_item_id,
+            count(*)::int as comment_count
+          from backlog_comments
+          group by backlog_comments.backlog_item_id
+        ) as comment_counts
+          on comment_counts.backlog_item_id = backlog_items.id
+        where backlog_items.project_id = any($1::uuid[])
+        order by backlog_items.created_at desc`,
+        [projectIds]
+      )
+
+      return result.rows.map((record) => ({
+        ...mapRecord(record),
+        projectName: record.project_name,
+        projectType: record.project_type,
+        projectMembers: record.project_member ?? [],
+      }))
+    },
+    async () => {
+      const records = await readFileRecords()
+      return records
+        .filter((record) => projectIds.includes(record.project_id))
+        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .map((record) => ({
+          ...mapRecord(record),
+          projectName: "",
+          projectType: "",
+          projectMembers: [],
+        }))
     }
   )
 }
