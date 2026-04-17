@@ -215,13 +215,14 @@ export function DashboardBoard({
       return
     }
 
+    const todoId = selectedTodoId
     let cancelled = false
 
     async function loadComments() {
       setIsLoadingComments(true)
 
       try {
-        const response = await fetch(`/api/backlog-items/${selectedTodoId}/comments`, {
+        const response = await fetch(`/api/backlog-items/${todoId}/comments`, {
           cache: "no-store",
         })
 
@@ -234,9 +235,9 @@ export function DashboardBoard({
         if (!cancelled) {
           setCommentThreads((current) => ({
             ...current,
-            [selectedTodoId]: data.comments,
+            [todoId]: data.comments,
           }))
-          onTodoUpdate(selectedTodoId, { comments: data.comments.length })
+          onTodoUpdate(todoId, { comments: data.comments.length })
         }
       } catch (error) {
         console.error(error)
@@ -259,7 +260,9 @@ export function DashboardBoard({
       return
     }
 
-    if (selectedTodoId in submissionThreads) {
+    const todoId = selectedTodoId
+
+    if (todoId in submissionThreads) {
       return
     }
 
@@ -270,7 +273,7 @@ export function DashboardBoard({
 
       try {
         const response = await fetch(
-          `/api/backlog-items/${selectedTodoId}/submissions`,
+          `/api/backlog-items/${todoId}/submissions`,
           {
             cache: "no-store",
           }
@@ -287,7 +290,7 @@ export function DashboardBoard({
         if (!cancelled) {
           setSubmissionThreads((current) => ({
             ...current,
-            [selectedTodoId]: data.submissions,
+            [todoId]: data.submissions,
           }))
         }
       } catch (error) {

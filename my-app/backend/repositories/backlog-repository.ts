@@ -598,7 +598,7 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
   return withBacklogStore(
     async () => {
       const fields: string[] = []
-      const values: Array<string | boolean | null> = []
+      const values: Array<string | number | boolean | null> = []
 
       if (typeof input.title === "string") {
         fields.push(`title = $${fields.length + 1}`)
