@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   BookOpen,
-  FilePen,
+  ExternalLink,
   History,
   LayoutDashboard,
   Map,
@@ -34,13 +34,18 @@ import { getDashboardProjectCollections } from "@/lib/projects"
 import { useDashboardProjects } from "@/hooks/use-dashboard-projects"
 import { canAccessPath, type UserRole } from "@/lib/rbac"
 
-type NavItem = { title: string; href: string; icon?: React.ElementType }
+type NavItem = {
+  title: string
+  href: string
+  icon?: React.ElementType
+  imageSrc?: string
+  external?: boolean
+}
 
 const projectItems: NavItem[] = [
   { title: "Board", href: "/dashboard/board", icon: LayoutDashboard },
   { title: "Roadmap", href: "/dashboard/roadmap", icon: Map },
   { title: "Backlog", href: "/dashboard/backlog", icon: Rows3},
-  { title: "Revisions", href: "/dashboard/revisions", icon: FilePen },
 ]
 
 const documentationItems: NavItem[] = [
@@ -54,14 +59,31 @@ const groupItems: NavItem[] = [
   { title: "Advisers", href: "/dashboard/adviser", icon: Users },
 ]
 
+const quickLinkItems: NavItem[] = [
+  {
+    title: "ELMS",
+    href: "https://elms.sti.edu/",
+    imageSrc:
+      "https://elms.sti.edu/files/2534719/STI_LOGO_for_eLMS(2).png?lmsauth=fe6600bdab0aafc21e4a67526017a8ded0be21f5",
+    external: true,
+  },
+  {
+    title: "ONE STI",
+    href: "https://one.sti.edu/",
+    imageSrc: "https://one.sti.edu/images/onesti_logo.png",
+    external: true,
+  },
+]
+
 function NavList({ items }: { items: NavItem[] }) {
   const pathname = usePathname()
 
   return (
     <SidebarMenu>
       {items.map((item) => {
-        const active = pathname === item.href
+        const active = item.external ? false : pathname === item.href
         const Icon = item.icon
+        const imageAlt = `${item.title} logo`
 
         return (
           <SidebarMenuItem key={item.href}>
@@ -71,8 +93,21 @@ function NavList({ items }: { items: NavItem[] }) {
               tooltip={item.title}
               className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm dark:text-slate-300 dark:hover:text-sky-400 dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-sky-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
             >
-              <Link href={item.href} className="flex items-center gap-2">
-                {Icon && <Icon className="h-4 w-4" />}
+              <Link
+                href={item.href}
+                className="flex items-center gap-2"
+                target={item.external ? "_blank" : undefined}
+                rel={item.external ? "noreferrer noopener" : undefined}
+              >
+                {item.imageSrc ? (
+                  <img
+                    src={item.imageSrc}
+                    alt={imageAlt}
+                    className="h-5 w-5 rounded-full object-cover"
+                  />
+                ) : Icon ? (
+                  <Icon className="h-4 w-4" />
+                ) : null}
                 <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
               </Link>
             </SidebarMenuButton>
@@ -84,7 +119,7 @@ function NavList({ items }: { items: NavItem[] }) {
 }
 
 function filterItemsByRole(items: NavItem[], role: UserRole) {
-  return items.filter((item) => canAccessPath(role, item.href))
+  return items.filter((item) => item.external || canAccessPath(role, item.href))
 }
 
 export function AppSidebar({ role }: { role: UserRole }) {
@@ -123,6 +158,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
   const visibleProjectItems = filterItemsByRole(projectItems, role)
   const visibleDocumentationItems = filterItemsByRole(documentationItems, role)
   const visibleGroupItems = filterItemsByRole(groupItems, role)
+  const visibleQuickLinkItems = filterItemsByRole(quickLinkItems, role)
   const isProjectPickerPage =
     pathname === "/dashboard" || pathname === "/dashboard/projects"
 
@@ -219,6 +255,17 @@ export function AppSidebar({ role }: { role: UserRole }) {
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <NavList items={visibleGroupItems} />
+                </SidebarGroupContent>
+              </SidebarGroup>
+
+              <Separator className="bg-blue-100 dark:bg-slate-800" />
+
+              <SidebarGroup>
+                <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  Quick Links
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <NavList items={visibleQuickLinkItems} />
                 </SidebarGroupContent>
               </SidebarGroup>
             </>

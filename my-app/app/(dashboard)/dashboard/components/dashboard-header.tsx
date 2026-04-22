@@ -4,6 +4,7 @@ import * as React from "react"
 import { Search } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   getDashboardProject,
@@ -18,9 +19,10 @@ type Person = {
 
 type DashboardHeaderProps = {
   people: Person[]
+  onCreate?: () => void
 }
 
-export function DashboardHeader({ people }: DashboardHeaderProps) {
+export function DashboardHeader({ people, onCreate }: DashboardHeaderProps) {
   const [projectName, setProjectName] = React.useState("No project selected")
 
   React.useEffect(() => {
@@ -49,6 +51,19 @@ export function DashboardHeader({ people }: DashboardHeaderProps) {
         <h1 className="font-display text-xl font-semibold tracking-tight">Board</h1>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button
+            type="button"
+            size="sm"
+            className="min-h-8 self-start hover:opacity-90 sm:self-auto"
+            style={{
+              backgroundColor: "var(--brand-primary-fixed)",
+              color: "var(--brand-primary-fixed-foreground)",
+            }}
+            onClick={onCreate}
+          >
+            Create
+          </Button>
+
           <div className="relative w-full sm:w-[220px]">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input className="h-8 w-full pl-8 text-xs" placeholder="Search" />

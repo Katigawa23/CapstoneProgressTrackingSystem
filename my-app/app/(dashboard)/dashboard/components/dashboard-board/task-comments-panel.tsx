@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 
 import type { DashboardComment, TodoItem } from "../../types"
@@ -55,6 +56,23 @@ export function TaskCommentsPanel({
     ? "Subtask comments"
     : "Parent task comments"
 
+  const renderCommentSkeleton = () => (
+    <div className="flex gap-3">
+      <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+      <div className="min-w-0 flex-1 space-y-3">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-44" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+        <Skeleton className="h-4 w-32" />
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-3 w-10" />
+          <Skeleton className="h-3 w-8" />
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <aside className="order-1 min-h-0 p-4 sm:p-5 lg:order-2 lg:p-6">
       <ScrollArea className="h-full pr-2 sm:pr-3 lg:pr-4">
@@ -70,7 +88,11 @@ export function TaskCommentsPanel({
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {isLoadingComments ? (
-                <p className="text-sm text-slate-500 dark:text-slate-400">Loading comments...</p>
+                <>
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <div key={index}>{renderCommentSkeleton()}</div>
+                  ))}
+                </>
               ) : comments.length > 0 ? (
                 comments.map((comment) => (
                   <div key={comment.id} className="flex gap-3">

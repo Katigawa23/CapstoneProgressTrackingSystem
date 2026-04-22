@@ -1,6 +1,5 @@
-import { Plus } from "lucide-react"
+import { Ellipsis } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -25,7 +24,6 @@ type DashboardColumnProps = {
   onDragEnterColumn: (columnId: ColumnId) => void
   onDragEnterCard: (todoId: string, columnId: ColumnId) => void
   onOpenTask: (todo: TodoItem, target?: OpenTaskTarget) => void
-  onCreate: (status: ColumnId) => void
   className?: string
   scrollAreaClassName?: string
 }
@@ -46,7 +44,6 @@ export function DashboardColumn({
   onDragEnterColumn,
   onDragEnterCard,
   onOpenTask,
-  onCreate,
   className = "",
   scrollAreaClassName,
 }: DashboardColumnProps) {
@@ -70,10 +67,20 @@ export function DashboardColumn({
       }}
     >
       <CardHeader className="px-3 pb-2 pt-3">
-        <CardTitle className="flex items-center gap-1.5 text-[11px] font-semibold dark:text-slate-100">
-          <span className={`h-2 w-2 rounded-full ${column.color}`} />
-          <span className="truncate">{column.title}</span>
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-1.5 text-[11px] font-semibold dark:text-slate-100">
+            <span className={`h-2 w-2 rounded-full ${column.color}`} />
+            <span className="truncate">{column.title}</span>
+          </CardTitle>
+
+          <button
+            type="button"
+            aria-label={`${column.title} actions`}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+          >
+            <Ellipsis className="h-4 w-4" />
+          </button>
+        </div>
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 p-2 pt-0">
@@ -90,7 +97,7 @@ export function DashboardColumn({
               : "min-h-[170px] w-full")
           }
         >
-          <div className={`space-y-2 p-0.5 pr-2 ${hasTodos ? "" : "h-full"}`}>
+          <div className={`space-y-2 p-0.5 pr-2 pb-2 ${hasTodos ? "" : "h-full"}`}>
             {todos.map((todo) => (
               <DashboardTaskCard
                 key={todo.id}
@@ -116,18 +123,6 @@ export function DashboardColumn({
           </div>
         </ScrollArea>
       </CardContent>
-
-      <div className="border-t border-slate-200 p-1 dark:border-[#343434]">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onCreate(column.id)}
-          className="w-full justify-start gap-1 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-100"
-        >
-          <Plus className="h-3 w-3" />
-          Create
-        </Button>
-      </div>
     </Card>
   )
 }

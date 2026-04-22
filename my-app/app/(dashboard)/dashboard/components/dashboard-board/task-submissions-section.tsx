@@ -20,6 +20,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import type { DashboardSubmission, TodoItem } from "../../types"
 import type { SubmissionDraft } from "./types"
@@ -160,6 +161,44 @@ function AttachmentList({
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AttachmentListSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
+      <div className="overflow-x-auto px-3 py-2">
+        <div className="min-w-[640px]">
+          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 border-b border-slate-200 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:text-slate-400">
+            <span>Name</span>
+            <span>Size</span>
+            <span>Date added</span>
+            <span className="text-right">Actions</span>
+          </div>
+
+          <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 rounded-[2px] px-2 py-2"
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Skeleton className="h-8 w-8 rounded-[2px]" />
+                  <Skeleton className="h-4 w-48" />
+                </div>
+                <Skeleton className="h-4 w-12" />
+                <Skeleton className="h-4 w-28" />
+                <div className="flex items-center justify-end gap-1">
+                  <Skeleton className="h-7 w-7 rounded-[2px]" />
+                  <Skeleton className="h-7 w-7 rounded-[2px]" />
+                  <Skeleton className="h-7 w-7 rounded-[2px]" />
                 </div>
               </div>
             ))}
@@ -367,9 +406,7 @@ export function TaskSubmissionsSection({
         />
 
         {!isSubmissionActionsOpen && submissionDrafts.length === 0 && isLoadingSubmissions ? (
-          <div className="rounded-[2px] border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400">
-            Loading attachments...
-          </div>
+          <AttachmentListSkeleton />
         ) : !isSubmissionActionsOpen &&
           submissionDrafts.length === 0 &&
           submissionThreads.length > 0 ? (

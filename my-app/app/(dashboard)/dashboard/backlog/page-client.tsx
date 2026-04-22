@@ -323,7 +323,7 @@ export function BacklogPageClient({
   }))
 
   return (
-    <div className="h-full space-y-6 bg-white dark:bg-[#171717]">
+    <div className="space-y-6">
       <BacklogToolbar />
 
       <BacklogBoard

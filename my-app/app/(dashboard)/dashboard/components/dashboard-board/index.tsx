@@ -48,7 +48,6 @@ export function DashboardBoard({
   onMoveTodo,
   onAssigneeChange,
   onTodoUpdate,
-  onCreate,
   onCreateSubtask,
   onUpdateSubtask,
   onDeleteSubtask,
@@ -838,7 +837,6 @@ export function DashboardBoard({
                   onDragEnterColumn={handleDragEnterColumn}
                   onDragEnterCard={handleDragEnterCard}
                   onOpenTask={handleOpenTask}
-                  onCreate={onCreate}
                   className="h-full"
                   scrollAreaClassName={
                     hasTodos
@@ -876,7 +874,6 @@ export function DashboardBoard({
               onDragEnterColumn={handleDragEnterColumn}
               onDragEnterCard={handleDragEnterCard}
               onOpenTask={handleOpenTask}
-              onCreate={onCreate}
             />
           )
         })}

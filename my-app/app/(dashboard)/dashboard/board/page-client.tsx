@@ -16,7 +16,7 @@ import { DashboardBoard } from "../components/dashboard-board"
 import { DashboardHeader } from "../components/dashboard-header"
 import { CreateWorkItemDialog } from "../backlog/components/create-work-item-dialog"
 import { getAssigneeOption } from "../backlog/types"
-import type { BacklogApiItem, ColumnId, TodoItem } from "../types"
+import type { BacklogApiItem, TodoItem } from "../types"
 import { mapBacklogItemsToTodos } from "../utils"
 
 type DashboardBoardPageClientProps = {
@@ -36,6 +36,11 @@ export function DashboardBoardPageClient({
     const selectedProjectId = projectId ?? getSelectedDashboardProjectId()
     return getDashboardProjectCode(findDashboardProject(selectedProjectId))
   }, [])
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [createTitle, setCreateTitle] = React.useState("")
+  const [createStartDate, setCreateStartDate] = React.useState<Date | undefined>()
+  const [createDueDate, setCreateDueDate] = React.useState<Date | undefined>()
+  const [createDescription, setCreateDescription] = React.useState("")
 
   const buildChecklist = React.useCallback((items: TodoItem[], parentId: string) => {
     const subtasks = items.filter((item) => item.parentId === parentId)
@@ -43,13 +48,6 @@ export function DashboardBoardPageClient({
 
     return `${completedCount}/${subtasks.length}`
   }, [])
-
-  const [createOpen, setCreateOpen] = React.useState(false)
-  const [createStatus, setCreateStatus] = React.useState<ColumnId>("todo")
-  const [createTitle, setCreateTitle] = React.useState("")
-  const [createStartDate, setCreateStartDate] = React.useState<Date | undefined>()
-  const [createDueDate, setCreateDueDate] = React.useState<Date | undefined>()
-  const [createDescription, setCreateDescription] = React.useState("")
 
   React.useEffect(() => {
     cacheDashboardProjects(initialProjects)
@@ -359,7 +357,6 @@ export function DashboardBoardPageClient({
   )
 
   const resetCreateForm = () => {
-    setCreateStatus("todo")
     setCreateTitle("")
     setCreateStartDate(undefined)
     setCreateDueDate(undefined)
@@ -389,7 +386,7 @@ export function DashboardBoardPageClient({
           description: createDescription.trim(),
           startDate: createStartDate ? createStartDate.toISOString().slice(0, 10) : null,
           dueDate: createDueDate ? createDueDate.toISOString().slice(0, 10) : null,
-          status: createStatus,
+          status: "todo",
           assigneeId: null,
         }),
       })
@@ -522,7 +519,12 @@ export function DashboardBoardPageClient({
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
-      <DashboardHeader people={people} />
+      <DashboardHeader
+        people={people}
+        onCreate={() => {
+          setCreateOpen(true)
+        }}
+      />
       <DashboardBoard
         todos={todos}
         people={people}
@@ -530,10 +532,6 @@ export function DashboardBoardPageClient({
         onMoveTodo={handleMoveTodo}
         onAssigneeChange={handleAssigneeChange}
         onTodoUpdate={handleTodoUpdate}
-        onCreate={(status) => {
-          setCreateStatus(status)
-          setCreateOpen(true)
-        }}
         onCreateSubtask={handleCreateSubtask}
         onUpdateSubtask={handleUpdateSubtask}
         onDeleteSubtask={handleDeleteSubtask}

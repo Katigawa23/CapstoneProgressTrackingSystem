@@ -25,7 +25,6 @@ export type DashboardBoardProps = {
   ) => Promise<void>
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
   onTodoUpdate: (todoId: string, updates: Partial<TodoItem>) => void
-  onCreate: (status: ColumnId) => void
   onCreateSubtask: (parentTodo: TodoItem, title: string, description: string) => Promise<void>
   onUpdateSubtask: (
     subtaskId: string,

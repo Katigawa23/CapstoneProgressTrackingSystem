@@ -29,6 +29,9 @@ import {
 } from "@/lib/auth-client"
 import { RoleProvider } from "@/lib/role-context"
 import { canAccessPath, roleLabels, type UserRole } from "@/lib/rbac"
+import { BacklogLoadingSkeleton } from "./backlog/backlog-loading-skeleton"
+import { BoardLoadingSkeleton } from "./board/board-loading-skeleton"
+import { DashboardHomeSkeleton } from "./dashboard-home-skeleton"
 
 function ProfileMenu({ session }: { session: AuthSession | null }) {
   const fallback = session?.user.name?.trim().charAt(0).toUpperCase() || "N"
@@ -168,7 +171,17 @@ export default function DashboardLayout({
 
         <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50/60 pt-16 dark:from-[#212121] dark:to-[#171717]">
           <main className="flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10">
-            {authLoading ? null : hasAccess ? children : <AccessDenied role={role} />}
+            {authLoading
+              ? pathname === "/dashboard"
+                ? <DashboardHomeSkeleton />
+                : pathname === "/dashboard/board"
+                  ? <BoardLoadingSkeleton useLiveHeader />
+                  : pathname === "/dashboard/backlog"
+                    ? <BacklogLoadingSkeleton />
+                : null
+              : hasAccess
+                ? children
+                : <AccessDenied role={role} />}
           </main>
         </SidebarInset>
       </SidebarProvider>
