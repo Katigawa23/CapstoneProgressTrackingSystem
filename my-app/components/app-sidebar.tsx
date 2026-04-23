@@ -262,7 +262,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
 
               <SidebarGroup>
                 <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Quick Links
+                  Shortcut - url's
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <NavList items={visibleQuickLinkItems} />

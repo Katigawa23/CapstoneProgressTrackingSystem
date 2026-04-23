@@ -5,15 +5,27 @@ import { Moon, Sun } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import { readClientAuthSession, subscribeToAuthChange } from "@/lib/auth-client"
 
 const THEME_STORAGE_KEY = "theme-preference"
+const GUEST_THEME_STORAGE_KEY = `${THEME_STORAGE_KEY}:guest`
+
+function getThemeStorageKey() {
+  const session = readClientAuthSession()
+
+  if (session?.user.id) {
+    return `${THEME_STORAGE_KEY}:${session.user.id}`
+  }
+
+  return GUEST_THEME_STORAGE_KEY
+}
 
 function getPreferredTheme() {
   if (typeof window === "undefined") {
     return false
   }
 
-  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
+  const storedTheme = window.localStorage.getItem(getThemeStorageKey())
 
   if (storedTheme === "dark") {
     return true
@@ -32,7 +44,7 @@ function applyTheme(isDark: boolean) {
   root.classList.add("theme-transition")
   root.classList.toggle("dark", isDark)
   root.style.colorScheme = isDark ? "dark" : "light"
-  window.localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light")
+  window.localStorage.setItem(getThemeStorageKey(), isDark ? "dark" : "light")
 
   window.setTimeout(() => {
     root.classList.remove("theme-transition")
@@ -49,13 +61,19 @@ export function ThemeSwitch({ compact = false, iconOnly = false }: ThemeSwitchPr
   const [isDark, setIsDark] = React.useState(false)
 
   React.useEffect(() => {
-    const nextIsDark = getPreferredTheme()
-    setIsDark(nextIsDark)
+    const syncTheme = () => {
+      const nextIsDark = getPreferredTheme()
+      setIsDark(nextIsDark)
+      document.documentElement.classList.toggle("dark", nextIsDark)
+      document.documentElement.style.colorScheme = nextIsDark ? "dark" : "light"
+    }
+
+    syncTheme()
     setMounted(true)
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
     const handleThemeChange = (event: MediaQueryListEvent) => {
-      if (window.localStorage.getItem(THEME_STORAGE_KEY)) {
+      if (window.localStorage.getItem(getThemeStorageKey())) {
         return
       }
 
@@ -65,9 +83,11 @@ export function ThemeSwitch({ compact = false, iconOnly = false }: ThemeSwitchPr
     }
 
     mediaQuery.addEventListener("change", handleThemeChange)
+    const unsubscribe = subscribeToAuthChange(syncTheme)
 
     return () => {
       mediaQuery.removeEventListener("change", handleThemeChange)
+      unsubscribe()
     }
   }, [])
 
