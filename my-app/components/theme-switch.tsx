@@ -54,9 +54,14 @@ function applyTheme(isDark: boolean) {
 type ThemeSwitchProps = {
   compact?: boolean
   iconOnly?: boolean
+  disabled?: boolean
 }
 
-export function ThemeSwitch({ compact = false, iconOnly = false }: ThemeSwitchProps) {
+export function ThemeSwitch({
+  compact = false,
+  iconOnly = false,
+  disabled = false,
+}: ThemeSwitchProps) {
   const [mounted, setMounted] = React.useState(false)
   const [isDark, setIsDark] = React.useState(false)
 
@@ -98,7 +103,19 @@ export function ThemeSwitch({ compact = false, iconOnly = false }: ThemeSwitchPr
 
   if (!mounted) {
     if (iconOnly) {
-      return <div className="h-9 w-9 rounded-full bg-muted/70" />
+      return (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled={disabled}
+          aria-label="Toggle dark mode"
+          title="Toggle dark mode"
+          className="rounded-full text-slate-600 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400"
+        >
+          <Moon className="h-5 w-5" />
+        </Button>
+      )
     }
 
     return (
@@ -132,6 +149,7 @@ export function ThemeSwitch({ compact = false, iconOnly = false }: ThemeSwitchPr
         type="button"
         variant="ghost"
         size="icon"
+        disabled={disabled}
         onClick={() => handleCheckedChange(!isDark)}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
         title={isDark ? "Switch to light mode" : "Switch to dark mode"}

@@ -40,6 +40,10 @@ export function buildTaskDisplayId(projectCode: string, sequenceNumber: number) 
   return `${projectCode}-${sequenceNumber}`
 }
 
+export function buildSubtaskDisplayId(parentDisplayId: string, subtaskSequenceNumber: number) {
+  return `${parentDisplayId}/ST-${subtaskSequenceNumber}`
+}
+
 export function mapBacklogItemsToTodos(
   items: BacklogApiItem[],
   projectCode: string
@@ -103,7 +107,7 @@ export function mapBacklogItemsToTodos(
               rootDisplayIdById.get(normalizedParentId) ??
               buildTaskDisplayId(projectCode, item.sequenceNumber)
 
-            return `${parentDisplayId} / ST-${Math.max(siblingIndex + 1, 1)}`
+            return buildSubtaskDisplayId(parentDisplayId, Math.max(siblingIndex + 1, 1))
           })()
         : rootDisplayIdById.get(item.id) ??
           buildTaskDisplayId(projectCode, item.sequenceNumber)

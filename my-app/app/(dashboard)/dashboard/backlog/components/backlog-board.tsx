@@ -68,7 +68,10 @@ export function BacklogBoard({
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1.5 text-sm transition hover:bg-muted/30 dark:border-[#343434] dark:bg-[#1f1f1f] dark:hover:bg-[#262626]"
+              className={cn(
+                "flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1.5 text-sm transition hover:bg-muted/30 dark:border-[#343434] dark:bg-[#1f1f1f] dark:hover:bg-[#262626]",
+                item.parentId ? "ml-6 border-dashed" : ""
+              )}
             >
               <div className="flex min-w-0 items-center gap-2">
                 <Checkbox
@@ -87,7 +90,8 @@ export function BacklogBoard({
                     {item.title}
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Due{" "}
+                    {item.parentId ? "Subtask" : "Task"}
+                    {" | "}Due{" "}
                     {item.dueDate
                       ? item.dueDate.toLocaleDateString("en-GB", {
                           day: "2-digit",

@@ -7,28 +7,31 @@ import {
   createDashboardProject,
   getDashboardProjects,
   getDashboardProject,
+  getSelectedDashboardProjectId,
   OTHER_PROJECT_OPTION,
   PROJECT_CHANGE_EVENT,
   PROJECTS_CHANGE_EVENT,
-  PROJECT_STORAGE_KEY,
   refreshDashboardProjects,
   setDashboardProject,
   type DashboardProject,
 } from "@/lib/projects"
 
-function getInitials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("")
+export type ProjectMemberOption = {
+  id: string
+  email: string
+  name: string
+  role: string
 }
 
-export function useDashboardProjects() {
-  const [projects, setProjects] = React.useState<DashboardProject[]>([])
-  const [team, setTeam] = React.useState<DashboardProject | null>(null)
+export function useDashboardProjects({
+  initialProjects = [],
+  initialTeam = null,
+}: {
+  initialProjects?: DashboardProject[]
+  initialTeam?: DashboardProject | null
+} = {}) {
+  const [projects, setProjects] = React.useState<DashboardProject[]>(initialProjects)
+  const [team, setTeam] = React.useState<DashboardProject | null>(initialTeam)
   const [createProjectOpen, setCreateProjectOpen] = React.useState(false)
   const [projectTitle, setProjectTitle] = React.useState("")
   const [projectProgram, setProjectProgram] = React.useState("")
@@ -40,9 +43,13 @@ export function useDashboardProjects() {
   const [projectType, setProjectType] = React.useState("")
   const [projectTypeOther, setProjectTypeOther] = React.useState("")
   const [memberSearch, setMemberSearch] = React.useState("")
+  const [memberOptions, setMemberOptions] = React.useState<ProjectMemberOption[]>([])
+  const [memberOptionsLoading, setMemberOptionsLoading] = React.useState(false)
+  const [selectedMembers, setSelectedMembers] = React.useState<ProjectMemberOption[]>([])
+  const latestMemberRequestId = React.useRef(0)
 
   const syncProjectState = React.useCallback(() => {
-    const savedProjectId = window.localStorage.getItem(PROJECT_STORAGE_KEY)
+    const savedProjectId = getSelectedDashboardProjectId()
     setProjects(getDashboardProjects())
     setTeam(getDashboardProject(savedProjectId) ?? null)
   }, [])
@@ -96,6 +103,82 @@ export function useDashboardProjects() {
     setProjectType("")
     setProjectTypeOther("")
     setMemberSearch("")
+    setMemberOptions([])
+    setSelectedMembers([])
+  }, [])
+
+  React.useEffect(() => {
+    if (!createProjectOpen) {
+      return
+    }
+
+    const controller = new AbortController()
+    const requestId = latestMemberRequestId.current + 1
+    latestMemberRequestId.current = requestId
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setMemberOptionsLoading(true)
+
+        const response = await fetch(
+          `/api/registered-users?q=${encodeURIComponent(memberSearch.trim())}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error("Failed to load registered users")
+        }
+
+        const data = (await response.json()) as { users?: ProjectMemberOption[] }
+        if (latestMemberRequestId.current !== requestId) {
+          return
+        }
+
+        setMemberOptions(Array.isArray(data.users) ? data.users : [])
+      } catch (error) {
+        if ((error as Error).name === "AbortError") {
+          return
+        }
+
+        console.error("Failed to load registered users", error)
+        if (latestMemberRequestId.current === requestId) {
+          setMemberOptions([])
+        }
+      } finally {
+        if (latestMemberRequestId.current === requestId) {
+          setMemberOptionsLoading(false)
+        }
+      }
+    }, 180)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timeoutId)
+    }
+  }, [createProjectOpen, memberSearch])
+
+  const handleMemberSearchChange = React.useCallback((value: string) => {
+    setMemberSearch(value)
+  }, [])
+
+  const handleMemberSelect = React.useCallback((member: ProjectMemberOption) => {
+    setSelectedMembers((currentMembers) => {
+      if (currentMembers.some((currentMember) => currentMember.id === member.id)) {
+        return currentMembers
+      }
+
+      return [...currentMembers, member]
+    })
+    setMemberSearch("")
+  }, [])
+
+  const handleMemberRemove = React.useCallback((memberId: string) => {
+    setSelectedMembers((currentMembers) =>
+      currentMembers.filter((member) => member.id !== memberId)
+    )
   }, [])
 
   const selectProject = React.useCallback(
@@ -118,15 +201,21 @@ export function useDashboardProjects() {
       (projectSyTerm === OTHER_PROJECT_OPTION ? projectSyTermOther : projectSyTerm).trim()
     const resolvedProjectType =
       (projectType === OTHER_PROJECT_OPTION ? projectTypeOther : projectType).trim()
-    const memberName = memberSearch.trim()
+    const memberNames = selectedMembers
+      .map((member) => member.name.trim())
+      .filter(Boolean)
+    const memberUserIds = selectedMembers
+      .map((member) => member.id.trim())
+      .filter(Boolean)
 
-    if (!title || !program || !yearLevel || !syTerm || !resolvedProjectType || !memberName) {
+    if (!title || !program || !yearLevel || !syTerm || !resolvedProjectType || memberNames.length === 0) {
       return null
     }
 
     const nextProject = await createDashboardProject({
       name: title,
-      members: [getInitials(memberName)],
+      members: memberNames,
+      memberUserIds,
       program,
       yearLevel,
       syTerm,
@@ -147,7 +236,6 @@ export function useDashboardProjects() {
 
     return nextProject
   }, [
-    memberSearch,
     projectProgram,
     projectProgramOther,
     projectSyTerm,
@@ -158,12 +246,18 @@ export function useDashboardProjects() {
     projectYearLevel,
     projectYearLevelOther,
     resetCreateProjectForm,
+    selectedMembers,
   ])
 
   return {
     createProject,
     createProjectOpen,
+    handleMemberSearchChange,
+    handleMemberRemove,
+    handleMemberSelect,
     memberSearch,
+    memberOptions,
+    memberOptionsLoading,
     projectProgram,
     projectProgramOther,
     projectSyTerm,
@@ -175,9 +269,9 @@ export function useDashboardProjects() {
     projectYearLevelOther,
     projects,
     resetCreateProjectForm,
+    selectedMembers,
     selectProject,
     setCreateProjectOpen,
-    setMemberSearch,
     setProjectProgram,
     setProjectProgramOther,
     setProjectSyTerm,

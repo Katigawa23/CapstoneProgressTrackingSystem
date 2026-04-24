@@ -10,6 +10,10 @@ import { CreateWorkItemDialog } from "./components/create-work-item-dialog"
 import { EditWorkItemDialog } from "./components/edit-work-item-dialog"
 import { statusOptions, type WorkItem } from "./types"
 import {
+  buildSubtaskDisplayId,
+  buildTaskDisplayId,
+} from "../utils"
+import {
   cacheDashboardProjects,
   findDashboardProject,
   getDashboardProjectCode,
@@ -18,20 +22,76 @@ import {
   type DashboardProject,
 } from "@/lib/projects"
 
-function mapApiItem(item: BacklogApiItem, projectCode: string): WorkItem {
-  return {
-    id: item.id,
-    displayId: `${projectCode}-${item.sequenceNumber}`,
-    orderIndex: item.orderIndex,
-    parentId: item.parentId ?? null,
-    title: item.title,
-    description: item.description,
-    startDate: item.startDate ? new Date(item.startDate) : undefined,
-    dueDate: item.dueDate ? new Date(item.dueDate) : undefined,
-    status: item.status,
-    checked: item.checked,
-    assigneeId: item.assigneeId ?? null,
+function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
+  const normalizeParentId = (parentId?: string | null) => {
+    if (typeof parentId !== "string") {
+      return null
+    }
+
+    const trimmedParentId = parentId.trim()
+    return trimmedParentId.length > 0 ? trimmedParentId : null
   }
+
+  const childItemsByParentId = new Map<
+    string,
+    Array<BacklogApiItem & { parentId: string }>
+  >()
+  const rootDisplayIdById = new Map<string, string>()
+
+  for (const item of items) {
+    const normalizedParentId = normalizeParentId(item.parentId)
+
+    if (!normalizedParentId) {
+      rootDisplayIdById.set(
+        item.id,
+        buildTaskDisplayId(projectCode, item.sequenceNumber)
+      )
+      continue
+    }
+
+    const currentChildren = childItemsByParentId.get(normalizedParentId) ?? []
+    currentChildren.push({
+      ...item,
+      parentId: normalizedParentId,
+    })
+    childItemsByParentId.set(normalizedParentId, currentChildren)
+  }
+
+  for (const childItems of childItemsByParentId.values()) {
+    childItems.sort((left, right) => left.sequenceNumber - right.sequenceNumber)
+  }
+
+  return items.map((item) => {
+    const normalizedParentId = normalizeParentId(item.parentId)
+    const displayId = normalizedParentId
+      ? (() => {
+          const siblingItems = childItemsByParentId.get(normalizedParentId) ?? []
+          const siblingIndex = siblingItems.findIndex(
+            (sibling) => sibling.id === item.id
+          )
+          const parentDisplayId =
+            rootDisplayIdById.get(normalizedParentId) ??
+            buildTaskDisplayId(projectCode, item.sequenceNumber)
+
+          return buildSubtaskDisplayId(parentDisplayId, Math.max(siblingIndex + 1, 1))
+        })()
+      : rootDisplayIdById.get(item.id) ??
+        buildTaskDisplayId(projectCode, item.sequenceNumber)
+
+    return {
+      id: item.id,
+      displayId,
+      orderIndex: item.orderIndex,
+      parentId: normalizedParentId,
+      title: item.title,
+      description: item.description,
+      startDate: item.startDate ? new Date(item.startDate) : undefined,
+      dueDate: item.dueDate ? new Date(item.dueDate) : undefined,
+      status: item.status,
+      checked: item.checked,
+      assigneeId: item.assigneeId ?? null,
+    }
+  })
 }
 
 type BacklogPageClientProps = {
@@ -75,13 +135,47 @@ export function BacklogPageClient({
     }
 
     const projectCode = getDashboardProjectCode(selectedProject)
-    setItems(initialItems.map((item) => mapApiItem(item, projectCode)))
+    setItems(mapApiItems(initialItems, projectCode))
   }, [initialItems, initialProjects, initialSelectedProjectId])
 
-  const rootItems = React.useMemo(
-    () => items.filter((item) => !item.parentId),
-    [items]
-  )
+  const orderedItems = React.useMemo(() => {
+    const sortedItems = [...items].sort(
+      (left, right) => left.orderIndex - right.orderIndex
+    )
+    const childItemsByParentId = new Map<string, WorkItem[]>()
+
+    for (const item of sortedItems) {
+      if (!item.parentId) {
+        continue
+      }
+
+      const currentChildren = childItemsByParentId.get(item.parentId) ?? []
+      currentChildren.push(item)
+      childItemsByParentId.set(item.parentId, currentChildren)
+    }
+
+    const ordered: WorkItem[] = []
+
+    const appendItemTree = (item: WorkItem) => {
+      ordered.push(item)
+
+      const childItems = childItemsByParentId.get(item.id) ?? []
+
+      for (const childItem of childItems) {
+        appendItemTree(childItem)
+      }
+    }
+
+    for (const item of sortedItems) {
+      if (item.parentId) {
+        continue
+      }
+
+      appendItemTree(item)
+    }
+
+    return ordered
+  }, [items])
 
   React.useEffect(() => {
     let cancelled = false
@@ -112,7 +206,7 @@ export function BacklogPageClient({
         const projectCode = getDashboardProjectCode(selectedProject)
 
         if (!cancelled) {
-          setItems(data.items.map((item) => mapApiItem(item, projectCode)))
+          setItems(mapApiItems(data.items, projectCode))
         }
       } catch (error) {
         console.error(error)
@@ -170,7 +264,7 @@ export function BacklogPageClient({
       const data = (await response.json()) as { item: BacklogApiItem }
       const projectCode = getDashboardProjectCode(selectedProject)
 
-      setItems((prev) => [mapApiItem(data.item, projectCode), ...prev])
+      setItems((prev) => [...mapApiItems([data.item], projectCode), ...prev])
       resetForm()
       setOpen(false)
     } catch (error) {
@@ -223,6 +317,12 @@ export function BacklogPageClient({
   }
 
   const updateItemAssignee = async (id: string, assigneeId: string | null) => {
+    const currentItem = items.find((item) => item.id === id)
+
+    if (!currentItem) {
+      return
+    }
+
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, assigneeId } : item))
     )
@@ -233,7 +333,10 @@ export function BacklogPageClient({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ assigneeId }),
+        body: JSON.stringify({
+          assigneeId,
+          parentId: currentItem.parentId ?? null,
+        }),
       })
 
       if (!response.ok) {
@@ -319,7 +422,7 @@ export function BacklogPageClient({
 
   const statusCounts = statusOptions.map((status) => ({
     ...status,
-    count: rootItems.filter((item) => item.status === status.value).length,
+    count: orderedItems.filter((item) => item.status === status.value).length,
   }))
 
   return (
@@ -327,7 +430,7 @@ export function BacklogPageClient({
       <BacklogToolbar />
 
       <BacklogBoard
-        items={rootItems}
+        items={orderedItems}
         statusCounts={statusCounts}
         onToggleCheckbox={toggleCheckbox}
         onUpdateStatus={updateItemStatus}

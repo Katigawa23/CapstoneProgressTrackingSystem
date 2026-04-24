@@ -205,20 +205,23 @@ export async function listBacklogComments(backlogItemId: string, ownerUserId: st
     async () => {
       const result = await getDb().query<BacklogCommentRecord>(
         `select
-          id,
-          backlog_item_id,
-          author,
-          body,
-          attachments,
-          created_at
+          backlog_comments.id,
+          backlog_comments.backlog_item_id,
+          backlog_comments.author,
+          backlog_comments.body,
+          backlog_comments.attachments,
+          backlog_comments.created_at
         from backlog_comments
         inner join backlog_items
           on backlog_items.id = backlog_comments.backlog_item_id
         inner join projects
           on projects.id = backlog_items.project_id
-        where backlog_item_id = $1
-          and projects.owner_user_id = $2
-        order by created_at asc`,
+        where backlog_comments.backlog_item_id = $1
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+        order by backlog_comments.created_at asc`,
         [backlogItemId, ownerUserId]
       )
 
@@ -257,7 +260,10 @@ export async function createBacklogComment(
         inner join projects
           on projects.id = backlog_items.project_id
         where backlog_items.id = $2
-          and projects.owner_user_id = $6
+          and (
+            projects.owner_user_id = $6
+            or $6 = any(projects.member_user_ids)
+          )
         returning
           id,
           backlog_item_id,
@@ -332,6 +338,7 @@ export async function updateBacklogComment(
             inner join projects
               on projects.id = backlog_items.project_id
             where projects.owner_user_id = $${values.length + 1}
+              or $${values.length + 1} = any(projects.member_user_ids)
           )
         returning
           id,
@@ -382,6 +389,7 @@ export async function deleteBacklogComment(id: string, ownerUserId: string) {
             inner join projects
               on projects.id = backlog_items.project_id
             where projects.owner_user_id = $2
+              or $2 = any(projects.member_user_ids)
           )
         returning id`,
         [id, ownerUserId]

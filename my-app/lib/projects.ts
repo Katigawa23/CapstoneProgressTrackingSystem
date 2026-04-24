@@ -1,5 +1,6 @@
 export const PROJECT_STORAGE_KEY = "dashboard-project"
 export const PROJECT_COOKIE_KEY = "dashboard-project"
+export const PROJECTS_COOKIE_KEY = "dashboard-projects"
 export const PROJECT_CHANGE_EVENT = "dashboard-project-change"
 export const PROJECTS_STORAGE_KEY = "dashboard-projects"
 export const PROJECTS_CHANGE_EVENT = "dashboard-projects-change"
@@ -40,6 +41,7 @@ export type DashboardProject = {
   id: string
   name: string
   members: string[]
+  memberUserIds: string[]
   program: string
   yearLevel: string
   syTerm: string
@@ -52,9 +54,14 @@ export type DashboardProjectCollection = {
   items: DashboardProject[]
 }
 
+type CookieStoreLike = {
+  get: (name: string) => { value: string } | undefined
+}
+
 export type CreateDashboardProjectInput = {
   name: string
   members: string[]
+  memberUserIds?: string[]
   program: string
   yearLevel: string
   syTerm: string
@@ -111,6 +118,7 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
     id: candidate.id,
     name: candidate.name,
     members: candidate.members,
+    memberUserIds: isStringArray(candidate.memberUserIds) ? candidate.memberUserIds : [],
     program: typeof candidate.program === "string" ? candidate.program : "",
     yearLevel: typeof candidate.yearLevel === "string" ? candidate.yearLevel : "",
     syTerm: typeof candidate.syTerm === "string" ? candidate.syTerm : "",
@@ -153,11 +161,35 @@ function writeStoredProjects(projects: DashboardProject[]) {
     return
   }
 
+  const serializedProjects = JSON.stringify(projects)
+
   window.localStorage.setItem(
     getUserScopedStorageKey(PROJECTS_STORAGE_KEY),
-    JSON.stringify(projects)
+    serializedProjects
   )
+  document.cookie = `${PROJECTS_COOKIE_KEY}=${encodeURIComponent(serializedProjects)}; path=/; max-age=31536000; samesite=lax`
   window.dispatchEvent(new CustomEvent(PROJECTS_CHANGE_EVENT, { detail: projects }))
+}
+
+function prioritizeProject(
+  projects: DashboardProject[],
+  projectId: string | null | undefined
+) {
+  if (!projectId) {
+    return projects
+  }
+
+  const prioritizedProject =
+    projects.find((project) => project.id === projectId) ?? null
+
+  if (!prioritizedProject) {
+    return projects
+  }
+
+  return [
+    prioritizedProject,
+    ...projects.filter((project) => project.id !== projectId),
+  ]
 }
 
 export function getDashboardProjects() {
@@ -165,7 +197,7 @@ export function getDashboardProjects() {
 }
 
 export function cacheDashboardProjects(projects: DashboardProject[]) {
-  writeStoredProjects(projects)
+  writeStoredProjects(prioritizeProject(projects, getSelectedDashboardProjectId()))
 }
 
 export async function refreshDashboardProjects() {
@@ -306,6 +338,7 @@ export function getDashboardProjectCollections(
 export function createDashboardProject({
   name,
   members,
+  memberUserIds,
   program,
   yearLevel,
   syTerm,
@@ -319,6 +352,7 @@ export function createDashboardProject({
     body: JSON.stringify({
       name: name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
       members,
+      memberUserIds: Array.isArray(memberUserIds) ? memberUserIds : [],
       program: program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       syTerm: syTerm.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
@@ -339,5 +373,28 @@ export function createDashboardProject({
 export function setDashboardProject(projectId: string) {
   window.localStorage.setItem(getUserScopedStorageKey(PROJECT_STORAGE_KEY), projectId)
   document.cookie = `${PROJECT_COOKIE_KEY}=${encodeURIComponent(projectId)}; path=/; max-age=31536000; samesite=lax`
+  writeStoredProjects(prioritizeProject(getDashboardProjects(), projectId))
   window.dispatchEvent(new CustomEvent(PROJECT_CHANGE_EVENT, { detail: projectId }))
+}
+
+export function readDashboardProjectsFromCookieStore(cookieStore: CookieStoreLike) {
+  const storedProjects = cookieStore.get(PROJECTS_COOKIE_KEY)?.value
+
+  if (!storedProjects) {
+    return dashboardProjects
+  }
+
+  try {
+    const parsedProjects = JSON.parse(decodeURIComponent(storedProjects)) as unknown
+
+    if (!Array.isArray(parsedProjects)) {
+      return dashboardProjects
+    }
+
+    return parsedProjects
+      .map(normalizeStoredProject)
+      .filter((project): project is DashboardProject => project !== null)
+  } catch {
+    return dashboardProjects
+  }
 }

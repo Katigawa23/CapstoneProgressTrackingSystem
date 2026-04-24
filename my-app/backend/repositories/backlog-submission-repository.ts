@@ -211,21 +211,24 @@ export async function listBacklogSubmissions(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
         `select
-          id,
-          backlog_item_id,
-          file_name,
-          file_url,
-          file_type,
-          file_size,
-          uploaded_at
+          backlog_submissions.id,
+          backlog_submissions.backlog_item_id,
+          backlog_submissions.file_name,
+          backlog_submissions.file_url,
+          backlog_submissions.file_type,
+          backlog_submissions.file_size,
+          backlog_submissions.uploaded_at
         from backlog_submissions
         inner join backlog_items
           on backlog_items.id = backlog_submissions.backlog_item_id
         inner join projects
           on projects.id = backlog_items.project_id
-        where backlog_item_id = $1
-          and projects.owner_user_id = $2
-        order by uploaded_at desc`,
+        where backlog_submissions.backlog_item_id = $1
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+        order by backlog_submissions.uploaded_at desc`,
         [backlogItemId, ownerUserId]
       )
 
@@ -267,7 +270,10 @@ export async function createBacklogSubmission(
         inner join projects
           on projects.id = backlog_items.project_id
         where backlog_items.id = $2
-          and projects.owner_user_id = $7
+          and (
+            projects.owner_user_id = $7
+            or $7 = any(projects.member_user_ids)
+          )
         returning
           id,
           backlog_item_id,
@@ -325,6 +331,7 @@ export async function deleteBacklogSubmission(
             inner join projects
               on projects.id = backlog_items.project_id
             where projects.owner_user_id = $3
+              or $3 = any(projects.member_user_ids)
           )
         returning
           id,

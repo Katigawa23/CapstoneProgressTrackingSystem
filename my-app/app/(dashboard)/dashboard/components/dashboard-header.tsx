@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   getDashboardProject,
+  getSelectedDashboardProjectId,
   PROJECT_CHANGE_EVENT,
-  PROJECT_STORAGE_KEY,
 } from "@/lib/projects"
+import { getInitials } from "../utils"
 
 type Person = {
   name: string
@@ -24,10 +25,12 @@ type DashboardHeaderProps = {
 
 export function DashboardHeader({ people, onCreate }: DashboardHeaderProps) {
   const [projectName, setProjectName] = React.useState("No project selected")
+  const visiblePeople = people.slice(0, 3)
+  const hiddenCount = Math.max(people.length - visiblePeople.length, 0)
 
   React.useEffect(() => {
     const syncProject = () => {
-      const savedProjectId = window.localStorage.getItem(PROJECT_STORAGE_KEY)
+      const savedProjectId = getSelectedDashboardProjectId()
       setProjectName(getDashboardProject(savedProjectId)?.name ?? "No project selected")
     }
 
@@ -70,23 +73,26 @@ export function DashboardHeader({ people, onCreate }: DashboardHeaderProps) {
           </div>
 
           <div className="flex items-center">
-            {people.map((person, index) => (
+            {visiblePeople.map((person, index) => (
               <Avatar
                 key={person.name}
-                className={`h-5 w-5 ring-2 ring-background ${
-                  index === 0 ? "" : "-ml-1.5"
+                title={person.name}
+                className={`h-7 w-7 ring-2 ring-background ${
+                  index === 0 ? "" : "-ml-2"
                 }`}
               >
                 <AvatarImage src={person.src} alt={person.name} />
-                <AvatarFallback className="text-[8px]">
-                  {person.name}
+                <AvatarFallback className="text-[10px]">
+                  {getInitials(person.name)}
                 </AvatarFallback>
               </Avatar>
             ))}
 
-            <Avatar className="h-5 w-5 ring-2 ring-background -ml-1.5">
-              <AvatarFallback className="text-[8px]">+</AvatarFallback>
-            </Avatar>
+            {hiddenCount > 0 ? (
+              <Avatar className="h-7 w-7 ring-2 ring-background -ml-2" title={`${hiddenCount} more members`}>
+                <AvatarFallback className="text-[10px]">+{hiddenCount}</AvatarFallback>
+              </Avatar>
+            ) : null}
           </div>
         </div>
       </div>

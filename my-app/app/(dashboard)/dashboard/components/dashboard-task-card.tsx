@@ -2,6 +2,7 @@ import * as React from "react"
 
 import {
   CalendarDays,
+  FolderKanban,
   GitFork,
   MessageSquareMore,
   MoreHorizontal,
@@ -37,6 +38,7 @@ type Person = {
 type DashboardTaskCardProps = {
   todo: TodoItem
   people: Person[]
+  parentTaskTitle?: string | null
   isDragging?: boolean
   showDropLine?: boolean
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
@@ -50,6 +52,7 @@ type DashboardTaskCardProps = {
 
 export function DashboardTaskCard({
   todo,
+  parentTaskTitle,
   isDragging = false,
   showDropLine = false,
   onStatusChange,
@@ -65,10 +68,11 @@ export function DashboardTaskCard({
   const subtaskCount = Number.parseInt(totalSubtasksRaw, 10) || 0
   const remainingSubtasks = Math.max(subtaskCount - completedSubtasks, 0)
   const wasDraggedRef = React.useRef(false)
+  const isSubtask = Boolean(todo.parentId)
   const subtaskTooltipLabel =
     remainingSubtasks === 1
-      ? "1 subtask remaining"
-      : `${remainingSubtasks} subtasks remaining`
+      ? "1 child task remaining"
+      : `${remainingSubtasks} child tasks remaining`
 
   return (
     <div className="relative">
@@ -86,7 +90,11 @@ export function DashboardTaskCard({
         role="button"
         tabIndex={0}
         draggable="true"
-        className={`w-full cursor-grab border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300 active:cursor-grabbing dark:border-[#343434] dark:bg-[#262626] dark:hover:border-[#454545] dark:focus:ring-[#4a4a4a] ${
+        className={`w-full border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-[#343434] dark:bg-[#262626] dark:focus:ring-[#4a4a4a] ${
+          isSubtask
+            ? "cursor-grab border-l-2 border-l-sky-400 active:cursor-grabbing"
+            : "cursor-grab active:cursor-grabbing"
+        } ${
           isDragging ? "opacity-50 ring-2 ring-sky-300 dark:ring-sky-700" : ""
         }`}
         onClick={() => {
@@ -127,8 +135,9 @@ export function DashboardTaskCard({
           onDropOnCard?.(todo.id)
         }}
       >
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-        {todo.displayId}
+      <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+        {isSubtask ? <GitFork className="h-3.5 w-3.5" /> : <FolderKanban className="h-3.5 w-3.5" />}
+        <span title={isSubtask ? "Child task" : "Parent task"}>{todo.displayId}</span>
       </div>
 
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -216,11 +225,13 @@ export function DashboardTaskCard({
               <TooltipTrigger asChild>
                 <div className="flex cursor-default items-center gap-1 rounded-sm transition hover:text-slate-700 dark:hover:text-slate-200">
                   <GitFork className="h-3 w-3" />
-                  <span>{subtaskCount}</span>
+                  <span>{isSubtask ? "Child task" : subtaskCount}</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent sideOffset={6}>
-                {subtaskTooltipLabel}
+                {isSubtask
+                  ? `Child task of ${parentTaskTitle?.trim() || "parent task"}`
+                  : subtaskTooltipLabel}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -231,7 +242,7 @@ export function DashboardTaskCard({
           onChange={(assigneeId) => onAssigneeChange(todo.id, assigneeId)}
           className="h-5 w-5 rounded-full border-slate-200 bg-transparent p-0 transition hover:scale-105 hover:bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#262626] dark:hover:bg-[#303030]"
           avatarClassName="h-5 w-5"
-          fallbackClassName="bg-slate-100 text-[8px] text-slate-600 dark:bg-[#303030] dark:text-slate-300"
+          fallbackClassName="text-[8px]"
           unassignedIconClassName="h-3 w-3 text-slate-500 dark:text-slate-300"
           contentClassName="dark:border-[#343434] dark:bg-[#262626]"
         />

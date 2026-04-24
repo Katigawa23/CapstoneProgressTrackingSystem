@@ -2,7 +2,11 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/backend/auth/user"
-import { createBacklogItem, listBacklogItems } from "@/backend/repositories/backlog-repository"
+import {
+  createBacklogItem,
+  listBacklogItems,
+  updateBacklogItem,
+} from "@/backend/repositories/backlog-repository"
 
 const allowedStatuses = new Set([
   "todo",
@@ -70,6 +74,10 @@ export async function POST(request: Request) {
 
     const title = body.title?.trim()
     const projectId = body.projectId?.trim()
+    const requestedParentId =
+      typeof body.parentId === "string" && body.parentId.trim().length > 0
+        ? body.parentId.trim()
+        : null
     const status =
       typeof body.status === "string" && allowedStatuses.has(body.status)
         ? body.status
@@ -85,10 +93,7 @@ export async function POST(request: Request) {
 
     const item = await createBacklogItem({
       projectId,
-      parentId:
-        typeof body.parentId === "string" && body.parentId.trim().length > 0
-          ? body.parentId.trim()
-          : null,
+      parentId: requestedParentId,
       title,
       description: body.description?.trim() ?? "",
       startDate: normalizeOptionalDate(body.startDate),
@@ -105,10 +110,17 @@ export async function POST(request: Request) {
       )
     }
 
+    const nextItem =
+      requestedParentId && item.parentId !== requestedParentId
+        ? await updateBacklogItem(item.id, user.id, {
+            parentId: requestedParentId,
+          })
+        : item
+
     revalidateTag("backlog-items", "max")
     revalidateTag("backlog-comments", "max")
 
-    return NextResponse.json({ item }, { status: 201 })
+    return NextResponse.json({ item: nextItem ?? item }, { status: 201 })
   } catch (error) {
     console.error("Failed to create backlog item", error)
     return NextResponse.json(

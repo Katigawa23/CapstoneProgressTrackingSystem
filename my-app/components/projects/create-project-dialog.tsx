@@ -1,9 +1,17 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUpRight } from "lucide-react"
+import { ArrowUpRight, Check, CircleUserRound, Loader2, Search, UserRound, X } from "lucide-react"
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import {
   Dialog,
   DialogContent,
@@ -27,11 +35,16 @@ import {
   PROJECT_TITLE_MAX_LENGTH,
   PROJECT_YEAR_LEVEL_OPTIONS,
 } from "@/lib/projects"
+import type { ProjectMemberOption } from "@/hooks/use-dashboard-projects"
 
 type CreateProjectDialogProps = {
   memberSearch: string
+  memberOptions: ProjectMemberOption[]
+  memberOptionsLoading: boolean
   onCreateProject: () => Promise<unknown>
   onMemberSearchChange: (value: string) => void
+  onMemberRemove: (memberId: string) => void
+  onMemberSelect: (member: ProjectMemberOption) => void
   onOpenChange: (open: boolean) => void
   onProjectProgramChange: (value: string) => void
   onProjectProgramOtherChange: (value: string) => void
@@ -52,6 +65,7 @@ type CreateProjectDialogProps = {
   projectTypeOther: string
   projectYearLevel: string
   projectYearLevelOther: string
+  selectedMembers: ProjectMemberOption[]
 }
 
 type SelectWithCustomInputProps = {
@@ -64,6 +78,16 @@ type SelectWithCustomInputProps = {
   options: readonly string[]
   placeholder: string
   value: string
+}
+
+function getMemberRoleLabel(role: string) {
+  return role === "student" ? "Student" : "Adviser"
+}
+
+function getMemberDisplayName(name: string) {
+  return name
+    .trim()
+    .replace(/\s*\((student|adviser)\)\s*$/i, "")
 }
 
 function SelectWithCustomInput({
@@ -128,8 +152,12 @@ function SelectWithCustomInput({
 
 export function CreateProjectDialog({
   memberSearch,
+  memberOptions,
+  memberOptionsLoading,
   onCreateProject,
   onMemberSearchChange,
+  onMemberRemove,
+  onMemberSelect,
   onOpenChange,
   onProjectProgramChange,
   onProjectProgramOtherChange,
@@ -150,7 +178,10 @@ export function CreateProjectDialog({
   projectTypeOther,
   projectYearLevel,
   projectYearLevelOther,
+  selectedMembers,
 }: CreateProjectDialogProps) {
+  const [memberPickerOpen, setMemberPickerOpen] = React.useState(false)
+  const memberPickerRef = React.useRef<HTMLDivElement | null>(null)
   const isProgramComplete =
     projectProgram.trim().length > 0 &&
     (projectProgram !== OTHER_PROJECT_OPTION || projectProgramOther.trim().length > 0)
@@ -164,9 +195,43 @@ export function CreateProjectDialog({
     projectType.trim().length > 0 &&
     (projectType !== OTHER_PROJECT_OPTION || projectTypeOther.trim().length > 0)
 
+  React.useEffect(() => {
+    if (!open) {
+      setMemberPickerOpen(false)
+    }
+  }, [open])
+
+  React.useEffect(() => {
+    if (!memberPickerOpen) {
+      return
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!memberPickerRef.current?.contains(event.target as Node)) {
+        setMemberPickerOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown)
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown)
+    }
+  }, [memberPickerOpen])
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     await onCreateProject()
+  }
+
+  function getInitials(name: string) {
+    return getMemberDisplayName(name)
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("")
   }
 
   return (
@@ -251,14 +316,135 @@ export function CreateProjectDialog({
               <label htmlFor="project-member" className="text-sm font-medium text-slate-900 dark:text-slate-100">
                 Member
               </label>
-              <Input
-                id="project-member"
-                value={memberSearch}
-                onChange={(event) => onMemberSearchChange(event.target.value)}
-                placeholder="Search member by name"
-                className="h-9 border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
-              />
+              <div ref={memberPickerRef} className="relative">
+                <Search className="pointer-events-none absolute left-3 top-[18px] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  id="project-member"
+                  value={memberSearch}
+                  onFocus={() => setMemberPickerOpen(true)}
+                  onChange={(event) => {
+                    onMemberSearchChange(event.target.value)
+                    setMemberPickerOpen(true)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      setMemberPickerOpen(false)
+                    }
+                  }}
+                  placeholder="Search registered member"
+                  autoComplete="off"
+                  className="h-9 border-border/70 bg-white pr-9 pl-9 text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+                />
+                {memberSearch ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMemberSearchChange("")
+                      setMemberPickerOpen(true)
+                    }}
+                    className="absolute right-2 top-[18px] inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                    aria-label="Clear member search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+
+                {memberPickerOpen ? (
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-[0_18px_38px_rgba(15,23,42,0.12)] dark:border-[#343434] dark:bg-[#1b1b1b]">
+                    {memberOptionsLoading ? (
+                      <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-slate-500 dark:text-slate-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading users...
+                      </div>
+                    ) : memberOptions.length > 0 ? (
+                      <Command className="rounded-lg bg-transparent">
+                        <CommandList className="max-h-[260px]">
+                          <CommandGroup className="p-0">
+                            {memberOptions.map((member) => {
+                              const isSelected = selectedMembers.some(
+                                (selectedMember) => selectedMember.id === member.id
+                              )
+
+                              return (
+                                <CommandItem
+                                  key={member.id}
+                                  value={`${member.name} ${member.email}`}
+                                  onMouseDown={(event) => event.preventDefault()}
+                                  onSelect={() => {
+                                    onMemberSelect(member)
+                                    setMemberPickerOpen(true)
+                                  }}
+                                  className="flex items-start gap-3 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100"
+                                >
+                                  <Avatar className="mt-0.5 h-8 w-8">
+                                    <AvatarFallback className="text-[10px]">
+                                      {getInitials(member.name) || <UserRound className="h-3.5 w-3.5" />}
+                                    </AvatarFallback>
+                                  </Avatar>
+
+                                  <div className="min-w-0 flex-1 leading-tight">
+                                    <div className="truncate text-[13px] font-medium">
+                                      {getMemberDisplayName(member.name)}
+                                    </div>
+                                    <div className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                      {member.email}
+                                    </div>
+                                    <div className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:bg-[#262626] dark:text-slate-400">
+                                      {getMemberRoleLabel(member.role)}
+                                    </div>
+                                  </div>
+
+                                  <Check
+                                    className={`mt-1 h-4 w-4 ${
+                                      isSelected ? "opacity-100 text-sky-600 dark:text-sky-400" : "opacity-0"
+                                    }`}
+                                  />
+                                </CommandItem>
+                              )
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    ) : (
+                      <Command className="rounded-lg bg-transparent">
+                        <CommandEmpty className="flex py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                          No registered users found.
+                        </CommandEmpty>
+                      </Command>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {selectedMembers.length > 0
+                  ? `${selectedMembers.length} member${selectedMembers.length === 1 ? "" : "s"} selected`
+                  : ""}
+              </p>
             </div>
+
+            {selectedMembers.length > 0 ? (
+              <div className="flex flex-wrap gap-2 sm:col-span-2">
+                {selectedMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="inline-flex max-w-full items-center gap-2 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 shadow-sm dark:border-[#3a3a3a] dark:bg-[#222222] dark:text-slate-100"
+                  >
+                    <CircleUserRound className="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
+                    <span className="truncate">
+                      {getMemberDisplayName(member.name)} ({getMemberRoleLabel(member.role)})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onMemberRemove(member.id)}
+                      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                      aria-label={`Remove ${member.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <DialogFooter className="border-t border-border/70 pt-3 dark:border-[#343434]">
@@ -278,7 +464,7 @@ export function CreateProjectDialog({
                 !isYearLevelComplete ||
                 !isSyTermComplete ||
                 !isProjectTypeComplete ||
-                !memberSearch.trim()
+                selectedMembers.length === 0
               }
             >
               Create project

@@ -18,6 +18,7 @@ import {
 type ProjectRecord = {
   id: string
   owner_user_id: string
+  member_user_ids: string[]
   project_name: string
   project_member: string[]
   program: string
@@ -34,6 +35,7 @@ type RawProjectRecord = Partial<ProjectRecord> & {
 type CreateProjectInput = {
   name: string
   members: string[]
+  memberUserIds: string[]
   program: string
   yearLevel: string
   syTerm: string
@@ -55,6 +57,11 @@ function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
       typeof (record as { owner_user_id?: string }).owner_user_id === "string"
         ? (record as { owner_user_id?: string }).owner_user_id ?? ""
         : "",
+    member_user_ids: Array.isArray((record as { member_user_ids?: unknown[] }).member_user_ids)
+      ? ((record as { member_user_ids?: unknown[] }).member_user_ids ?? []).filter(
+          (memberUserId): memberUserId is string => typeof memberUserId === "string"
+        )
+      : [],
     project_name:
       typeof record.project_name === "string" ? record.project_name : "",
     project_member: Array.isArray(record.project_member)
@@ -96,6 +103,7 @@ async function ensureProjectsSchema() {
         create table if not exists projects (
           id uuid primary key,
           owner_user_id text not null default '',
+          member_user_ids text[] not null default '{}',
           project_name text not null,
           project_member text[] not null default '{}',
           program text not null default '',
@@ -109,6 +117,12 @@ async function ensureProjectsSchema() {
         getDb().query(`
           alter table projects
           add column if not exists owner_user_id text not null default '';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists member_user_ids text[] not null default '{}';
         `)
       )
       .then(() =>
@@ -291,6 +305,7 @@ function mapRecord(record: ProjectRecord): DashboardProject {
     id: record.id,
     name: record.project_name,
     members: record.project_member,
+    memberUserIds: record.member_user_ids,
     program: typeof record.program === "string" ? record.program : "",
     yearLevel: typeof record.year_level === "string" ? record.year_level : "",
     syTerm: typeof record.sy_term === "string" ? record.sy_term : "",
@@ -306,6 +321,7 @@ function toRecord(project: DashboardProject, ownerUserId: string): ProjectRecord
   return {
     id: project.id,
     owner_user_id: ownerUserId,
+    member_user_ids: project.memberUserIds,
     project_name: project.name,
     project_member: project.members,
     program: project.program,
@@ -321,6 +337,7 @@ async function insertProjectRecord(record: ProjectRecord) {
     `insert into projects (
        id,
        owner_user_id,
+       member_user_ids,
        project_name,
        project_member,
        program,
@@ -334,6 +351,7 @@ async function insertProjectRecord(record: ProjectRecord) {
     [
       record.id,
       record.owner_user_id,
+      record.member_user_ids,
       record.project_name,
       record.project_member,
       record.program,
@@ -350,6 +368,7 @@ function normalizeProject(input: CreateProjectInput): DashboardProject {
     id: randomUUID(),
     name: input.name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
     members: input.members,
+    memberUserIds: input.memberUserIds.filter(Boolean),
     program: input.program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
     yearLevel: input.yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
     syTerm: input.syTerm.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
@@ -365,6 +384,7 @@ export async function listProjects(ownerUserId: string) {
         `select
            id,
            owner_user_id,
+           member_user_ids,
            project_name,
            project_member,
            program,
@@ -374,6 +394,7 @@ export async function listProjects(ownerUserId: string) {
            created_at
          from projects
          where owner_user_id = $1
+            or $1 = any(member_user_ids)
          order by created_at desc`,
         [ownerUserId]
       )
@@ -385,7 +406,11 @@ export async function listProjects(ownerUserId: string) {
       return [
         ...dashboardProjects,
         ...records
-          .filter((record) => record.owner_user_id === ownerUserId)
+          .filter(
+            (record) =>
+              record.owner_user_id === ownerUserId ||
+              record.member_user_ids.includes(ownerUserId)
+          )
           .map(mapRecord),
       ]
     }
@@ -401,6 +426,7 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
         `insert into projects (
            id,
            owner_user_id,
+           member_user_ids,
            project_name,
            project_member,
            program,
@@ -408,10 +434,11 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
            sy_term,
            project_type
          )
-         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          returning
            id,
            owner_user_id,
+           member_user_ids,
            project_name,
            project_member,
            program,
@@ -422,6 +449,7 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
         [
           project.id,
           ownerUserId,
+          input.memberUserIds.filter((memberUserId) => memberUserId !== ownerUserId),
           project.name,
           project.members,
           project.program,
@@ -436,7 +464,10 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
     async () => {
       const project = normalizeProject(input)
       const records = await readFileRecords()
-      records.unshift(toRecord(project, ownerUserId))
+      records.unshift({
+        ...toRecord(project, ownerUserId),
+        member_user_ids: input.memberUserIds.filter((memberUserId) => memberUserId !== ownerUserId),
+      })
       await writeFileRecords(records)
       return project
     }
@@ -447,7 +478,14 @@ export async function ensureProjectExists(projectId: string, ownerUserId: string
   return withProjectStore(
     async () => {
       const existingProject = await getDb().query<{ id: string }>(
-        `select id from projects where id = $1 and owner_user_id = $2 limit 1`,
+        `select id
+         from projects
+         where id = $1
+           and (
+             owner_user_id = $2
+             or $2 = any(member_user_ids)
+           )
+         limit 1`,
         [projectId, ownerUserId]
       )
 
@@ -457,7 +495,12 @@ export async function ensureProjectExists(projectId: string, ownerUserId: string
 
       const fileRecords = await readFileRecords()
       const matchingRecord = fileRecords.find(
-        (record) => record.id === projectId && record.owner_user_id === ownerUserId
+        (record) =>
+          record.id === projectId &&
+          (
+            record.owner_user_id === ownerUserId ||
+            record.member_user_ids.includes(ownerUserId)
+          )
       )
 
       if (!matchingRecord) {

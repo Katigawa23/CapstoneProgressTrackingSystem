@@ -11,6 +11,7 @@ import type { OpenTaskTarget, Person } from "./types"
 type DashboardColumnProps = {
   column: (typeof columns)[number]
   todos: TodoItem[]
+  allTodos: TodoItem[]
   people: Person[]
   activeDropColumnId?: ColumnId | null
   draggingTodoId?: string | null
@@ -31,6 +32,7 @@ type DashboardColumnProps = {
 export function DashboardColumn({
   column,
   todos,
+  allTodos,
   people,
   activeDropColumnId,
   draggingTodoId,
@@ -102,6 +104,11 @@ export function DashboardColumn({
               <DashboardTaskCard
                 key={todo.id}
                 todo={todo}
+                parentTaskTitle={
+                  todo.parentId
+                    ? allTodos.find((candidate) => candidate.id === todo.parentId)?.title ?? null
+                    : null
+                }
                 people={people}
                 isDragging={draggingTodoId === todo.id}
                 showDropLine={activeDropTodoId === todo.id}

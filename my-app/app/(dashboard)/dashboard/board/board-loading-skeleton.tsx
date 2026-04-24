@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { columns, people } from "../constants"
 import { DashboardHeader } from "../components/dashboard-header"
+import type { DashboardBoardState } from "@/lib/dashboard-board-state"
 
 function BoardCardSkeleton() {
   return (
@@ -107,10 +108,17 @@ function BoardHeaderStatic() {
 
 export function BoardLoadingSkeleton({
   useLiveHeader = false,
+  cardCounts,
 }: {
   useLiveHeader?: boolean
+  cardCounts?: DashboardBoardState
 }) {
-  const cardCounts = [1, 1, 0, 1]
+  const visibleCardCounts = [
+    cardCounts?.todoCount ?? 0,
+    cardCounts?.inprogressCount ?? 0,
+    cardCounts?.revisionCount ?? 0,
+    cardCounts?.completedCount ?? 0,
+  ]
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
@@ -122,7 +130,7 @@ export function BoardLoadingSkeleton({
             key={column.id}
             title={column.title}
             color={column.color}
-            cards={cardCounts[index] ?? 1}
+            cards={visibleCardCounts[index] ?? 0}
           />
         ))}
       </div>

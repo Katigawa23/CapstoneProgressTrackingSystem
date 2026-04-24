@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       name?: string
       members?: string[]
+      memberUserIds?: string[]
       program?: string
       yearLevel?: string
       syTerm?: string
@@ -45,6 +46,9 @@ export async function POST(request: Request) {
     const projectType = body.projectType?.trim()
     const members = Array.isArray(body.members)
       ? body.members.filter((member) => typeof member === "string" && member.trim())
+      : []
+    const memberUserIds = Array.isArray(body.memberUserIds)
+      ? body.memberUserIds.filter((memberUserId) => typeof memberUserId === "string" && memberUserId.trim())
       : []
 
     if (!name) {
@@ -74,6 +78,7 @@ export async function POST(request: Request) {
     const project = await createProject({
       name: name.slice(0, PROJECT_TITLE_MAX_LENGTH),
       members,
+      memberUserIds,
       program: program.slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.slice(0, PROJECT_METADATA_MAX_LENGTH),
       syTerm: syTerm.slice(0, PROJECT_METADATA_MAX_LENGTH),

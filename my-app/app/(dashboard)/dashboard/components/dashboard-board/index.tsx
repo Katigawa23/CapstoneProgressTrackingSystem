@@ -26,11 +26,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  readClientAuthSession,
-  subscribeToAuthChange,
-  type AuthSession,
-} from "@/lib/auth-client"
 
 import { columns } from "../../constants"
 import type { DashboardComment, DashboardSubmission, TodoItem } from "../../types"
@@ -52,7 +47,6 @@ export function DashboardBoard({
   onUpdateSubtask,
   onDeleteSubtask,
 }: DashboardBoardProps) {
-  const [authSession, setAuthSession] = React.useState<AuthSession | null>(null)
   const [draggingTodoId, setDraggingTodoId] = React.useState<string | null>(null)
   const [activeDropColumnId, setActiveDropColumnId] = React.useState<
     TodoItem["status"] | null
@@ -97,19 +91,6 @@ export function DashboardBoard({
   const commentFileInputRef = React.useRef<HTMLInputElement | null>(null)
   const submissionInputRef = React.useRef<HTMLInputElement | null>(null)
   const selectedTodoId = selectedTodo?.id ?? null
-
-  React.useEffect(() => {
-    const syncSession = () => {
-      setAuthSession(readClientAuthSession())
-    }
-
-    syncSession()
-    const unsubscribe = subscribeToAuthChange(syncSession)
-
-    return () => {
-      unsubscribe()
-    }
-  }, [])
 
   React.useEffect(() => {
     if (!selectedTodo) {
@@ -180,12 +161,20 @@ export function DashboardBoard({
         return
       }
 
+      const draggingTodo = todos.find((todo) => todo.id === draggingTodoId)
+
       setDraggingTodoId(null)
       setActiveDropColumnId(null)
       setActiveDropTodoId(null)
+
+      if (draggingTodo?.parentId) {
+        void onStatusChange(draggingTodoId, columnId)
+        return
+      }
+
       void onMoveTodo(draggingTodoId, null, columnId)
     },
-    [draggingTodoId, onMoveTodo]
+    [draggingTodoId, onMoveTodo, onStatusChange, todos]
   )
 
   const handleDropTodoOnCard = React.useCallback(
@@ -194,19 +183,30 @@ export function DashboardBoard({
         return
       }
 
+      const draggingTodo = todos.find((todo) => todo.id === draggingTodoId)
       const targetTodo = todos.find((todo) => todo.id === targetTodoId)
 
       setDraggingTodoId(null)
       setActiveDropColumnId(null)
       setActiveDropTodoId(null)
 
-      if (!targetTodo) {
+      if (!draggingTodo || !targetTodo) {
+        return
+      }
+
+      if (draggingTodo.parentId) {
+        void onStatusChange(draggingTodoId, targetTodo.status)
+        return
+      }
+
+      if (targetTodo.parentId) {
+        void onMoveTodo(draggingTodoId, null, targetTodo.status)
         return
       }
 
       void onMoveTodo(draggingTodoId, targetTodoId, targetTodo.status)
     },
-    [draggingTodoId, onMoveTodo, todos]
+    [draggingTodoId, onMoveTodo, onStatusChange, todos]
   )
 
   React.useEffect(() => {
@@ -625,7 +625,6 @@ export function DashboardBoard({
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                author: authSession?.user.name?.trim() || "Unknown User",
                 body: trimmedComment,
                 attachments,
               }),
@@ -662,7 +661,6 @@ export function DashboardBoard({
 
     void saveComment()
   }, [
-    authSession,
     commentAssets,
     commentDraft,
     commentThreads,
@@ -778,8 +776,25 @@ export function DashboardBoard({
     [onDeleteSubtask, selectedTodo]
   )
 
-  const rootTodos = React.useMemo(
-    () => todos.filter((todo) => !todo.parentId),
+  const getColumnTodos = React.useCallback(
+    (columnId: TodoItem["status"]) =>
+      todos
+        .filter((todo) => todo.status === columnId)
+        .sort((left, right) => {
+          if (left.parentId === right.parentId) {
+            return left.orderIndex - right.orderIndex
+          }
+
+          if (!left.parentId && right.parentId) {
+            return -1
+          }
+
+          if (left.parentId && !right.parentId) {
+            return 1
+          }
+
+          return left.displayId.localeCompare(right.displayId)
+        }),
     [todos]
   )
 
@@ -795,7 +810,7 @@ export function DashboardBoard({
       }
     }
 
-    const [parentIdPart, subtaskIdPart] = selectedTodo.displayId.split(" / ")
+    const [parentIdPart, subtaskIdPart] = selectedTodo.displayId.split("/")
 
     return {
       parentId: parentIdPart ?? selectedTodo.displayId,
@@ -816,7 +831,7 @@ export function DashboardBoard({
       <Carousel opts={{ align: "start" }} className="w-full px-6 md:hidden">
         <CarouselContent>
           {columns.map((column) => {
-            const columnTodos = rootTodos.filter((todo) => todo.status === column.id)
+            const columnTodos = getColumnTodos(column.id)
             const hasTodos = columnTodos.length > 0
 
             return (
@@ -824,6 +839,7 @@ export function DashboardBoard({
                 <DashboardColumn
                   column={column}
                   todos={columnTodos}
+                  allTodos={todos}
                   people={people}
                   activeDropColumnId={activeDropColumnId}
                   draggingTodoId={draggingTodoId}
@@ -854,13 +870,14 @@ export function DashboardBoard({
 
       <div className="hidden min-h-0 flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => {
-          const columnTodos = rootTodos.filter((todo) => todo.status === column.id)
+          const columnTodos = getColumnTodos(column.id)
 
           return (
             <DashboardColumn
               key={column.id}
               column={column}
               todos={columnTodos}
+              allTodos={todos}
               people={people}
               activeDropColumnId={activeDropColumnId}
               draggingTodoId={draggingTodoId}

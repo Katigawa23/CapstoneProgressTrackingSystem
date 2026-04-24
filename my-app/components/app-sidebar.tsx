@@ -4,7 +4,6 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   BookOpen,
-  ExternalLink,
   History,
   LayoutDashboard,
   Map,
@@ -30,7 +29,7 @@ import { Separator } from "@/components/ui/separator"
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
 import { ProjectPickerContent } from "@/components/projects/project-picker-content"
 import { ProjectSwitcher } from "@/components/projects/project-switcher"
-import { getDashboardProjectCollections } from "@/lib/projects"
+import { getDashboardProjectCollections, type DashboardProject } from "@/lib/projects"
 import { useDashboardProjects } from "@/hooks/use-dashboard-projects"
 import { canAccessPath, type UserRole } from "@/lib/rbac"
 
@@ -122,13 +121,26 @@ function filterItemsByRole(items: NavItem[], role: UserRole) {
   return items.filter((item) => item.external || canAccessPath(role, item.href))
 }
 
-export function AppSidebar({ role }: { role: UserRole }) {
+export function AppSidebar({
+  role,
+  initialProjects = [],
+  initialTeam = null,
+}: {
+  role: UserRole
+  initialProjects?: DashboardProject[]
+  initialTeam?: DashboardProject | null
+}) {
   const pathname = usePathname()
   const router = useRouter()
   const {
     createProject,
     createProjectOpen,
+    handleMemberSearchChange,
+    handleMemberRemove,
+    handleMemberSelect,
     memberSearch,
+    memberOptions,
+    memberOptionsLoading,
     projectProgram,
     projectProgramOther,
     projectSyTerm,
@@ -140,9 +152,9 @@ export function AppSidebar({ role }: { role: UserRole }) {
     projectYearLevelOther,
     projects,
     resetCreateProjectForm,
+    selectedMembers,
     selectProject,
     setCreateProjectOpen,
-    setMemberSearch,
     setProjectProgram,
     setProjectProgramOther,
     setProjectSyTerm,
@@ -153,7 +165,10 @@ export function AppSidebar({ role }: { role: UserRole }) {
     setProjectYearLevel,
     setProjectYearLevelOther,
     team,
-  } = useDashboardProjects()
+  } = useDashboardProjects({
+    initialProjects,
+    initialTeam,
+  })
   const projectCollections = getDashboardProjectCollections(projects)
   const visibleProjectItems = filterItemsByRole(projectItems, role)
   const visibleDocumentationItems = filterItemsByRole(documentationItems, role)
@@ -173,8 +188,12 @@ export function AppSidebar({ role }: { role: UserRole }) {
           }
         }}
         memberSearch={memberSearch}
+        memberOptions={memberOptions}
+        memberOptionsLoading={memberOptionsLoading}
         onCreateProject={createProject}
-        onMemberSearchChange={setMemberSearch}
+        onMemberSearchChange={handleMemberSearchChange}
+        onMemberRemove={handleMemberRemove}
+        onMemberSelect={handleMemberSelect}
         onProjectProgramChange={setProjectProgram}
         onProjectProgramOtherChange={setProjectProgramOther}
         onProjectSyTermChange={setProjectSyTerm}
@@ -193,6 +212,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
         projectTypeOther={projectTypeOther}
         projectYearLevel={projectYearLevel}
         projectYearLevelOther={projectYearLevelOther}
+        selectedMembers={selectedMembers}
       />
 
       <Sidebar
@@ -262,7 +282,7 @@ export function AppSidebar({ role }: { role: UserRole }) {
 
               <SidebarGroup>
                 <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Shortcut - url's
+                  Shortcut - URLs
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <NavList items={visibleQuickLinkItems} />

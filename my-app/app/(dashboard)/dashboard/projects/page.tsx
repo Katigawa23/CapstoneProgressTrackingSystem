@@ -52,6 +52,33 @@ function sortProjects(projects: DashboardProject[]) {
   })
 }
 
+function getStableProjectIndex(projects: DashboardProject[], projectId: string) {
+  return [...projects]
+    .sort((left, right) => {
+      const leftTime = new Date(left.createdAt).getTime()
+      const rightTime = new Date(right.createdAt).getTime()
+
+      if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) {
+        return left.name.localeCompare(right.name)
+      }
+
+      if (Number.isNaN(leftTime)) {
+        return 1
+      }
+
+      if (Number.isNaN(rightTime)) {
+        return -1
+      }
+
+      if (leftTime === rightTime) {
+        return left.name.localeCompare(right.name)
+      }
+
+      return leftTime - rightTime
+    })
+    .findIndex((project) => project.id === projectId)
+}
+
 function getProjectTypeCode(projectType: string) {
   const words = projectType
     .trim()
@@ -92,9 +119,12 @@ export default function DashboardProjectsPage() {
   const projectDisplayIds = React.useMemo(
     () =>
       new Map(
-        projects.map((project, index) => [
+        projects.map((project) => [
           project.id,
-          getProjectDisplayId(project.projectType, index),
+          getProjectDisplayId(
+            project.projectType,
+            Math.max(getStableProjectIndex(projects, project.id), 0)
+          ),
         ])
       ),
     [projects]
@@ -212,7 +242,7 @@ export default function DashboardProjectsPage() {
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
-                            <AvatarFallback className="bg-sky-100 text-[9px] font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+                            <AvatarFallback className="text-[9px]">
                               {getMemberInitials(leadName)}
                             </AvatarFallback>
                           </Avatar>

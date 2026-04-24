@@ -65,7 +65,7 @@ export function AssigneeCombobox({
             <Avatar className={cn("h-7 w-7", avatarClassName)}>
               <AvatarFallback
                 className={cn(
-                  "bg-slate-100 text-[10px] font-medium text-slate-600",
+                  "text-[10px]",
                   fallbackClassName
                 )}
               >
@@ -131,7 +131,7 @@ export function AssigneeCombobox({
                   )}
                 >
                   <Avatar className="mt-0.5 h-7 w-7">
-                    <AvatarFallback className="bg-slate-100 text-[9px] font-medium text-slate-600">
+                    <AvatarFallback className="text-[9px]">
                       {option.initials ?? "A"}
                     </AvatarFallback>
                   </Avatar>

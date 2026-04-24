@@ -12,6 +12,15 @@ type MicrosoftLoginRecord = {
   login_at: string
 }
 
+export type RegisteredMicrosoftUser = {
+  id: string
+  email: string
+  name: string
+  role: string
+  tenantId: string
+  loginAt: string
+}
+
 let schemaReady: Promise<void> | null = null
 
 async function ensureMicrosoftLoginSchema() {
@@ -111,4 +120,66 @@ export async function updateUserRole(userId: string, newRole: "student" | "advis
   )
 
   return (result.rowCount ?? 0) > 0
+}
+
+export async function searchRegisteredMicrosoftUsers({
+  tenantId,
+  query,
+  limit = 8,
+}: {
+  tenantId: string
+  query?: string
+  limit?: number
+}): Promise<RegisteredMicrosoftUser[]> {
+  await ensureMicrosoftLoginSchema()
+
+  const normalizedQuery = query?.trim() ?? ""
+  const searchPattern = `%${normalizedQuery}%`
+
+  const result = await getDb().query<{
+    microsoft_user_id: string
+    email: string
+    name: string
+    role: string
+    tenant_id: string
+    login_at: string
+  }>(
+    `with latest_users as (
+       select distinct on (microsoft_user_id)
+         microsoft_user_id,
+         email,
+         name,
+         role,
+         tenant_id,
+         login_at
+       from microsoft_account_logins
+       where tenant_id = $1
+         and (
+           $2 = ''
+           or name ilike $3
+           or email ilike $3
+         )
+       order by microsoft_user_id, login_at desc
+     )
+     select
+       microsoft_user_id,
+       email,
+       name,
+       role,
+       tenant_id,
+       login_at
+     from latest_users
+     order by name asc, email asc
+     limit $4`,
+    [tenantId, normalizedQuery, searchPattern, Math.max(1, Math.min(limit, 20))]
+  )
+
+  return result.rows.map((row) => ({
+    id: row.microsoft_user_id,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    tenantId: row.tenant_id,
+    loginAt: row.login_at,
+  }))
 }

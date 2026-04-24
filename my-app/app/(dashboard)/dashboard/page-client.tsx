@@ -17,13 +17,17 @@ import {
 import { useRouter } from "next/navigation"
 import {
   type DashboardProject,
-  PROJECT_CHANGE_EVENT,
   PROJECTS_CHANGE_EVENT,
   cacheDashboardProjects,
   getDashboardProjects,
-  getSelectedDashboardProjectId,
   setDashboardProject,
 } from "@/lib/projects"
+import { readClientAuthSession } from "@/lib/auth-client"
+import {
+  subscribeToDashboardActivitySync,
+} from "@/lib/dashboard-activity-sync"
+import { writeDashboardHomeState } from "@/lib/dashboard-home-state"
+import { buildAssigneeOptionId } from "./backlog/types"
 import type { BacklogApiItem } from "./types"
 
 type DashboardActivity = {
@@ -55,7 +59,21 @@ export function DashboardPageClient({
 }: DashboardPageClientProps) {
   const router = useRouter()
   const [projects, setProjects] = React.useState<DashboardProject[]>(initialProjects)
-  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null)
+  const [activityItems, setActivityItems] = React.useState(initialActivities)
+  const currentUser = React.useMemo(() => readClientAuthSession()?.user ?? null, [])
+  const currentUserAssigneeIds = React.useMemo(() => {
+    const ids = new Set<string>()
+
+    if (currentUser?.id?.trim()) {
+      ids.add(currentUser.id.trim())
+    }
+
+    if (currentUser?.name?.trim()) {
+      ids.add(buildAssigneeOptionId(currentUser.name))
+    }
+
+    return ids
+  }, [currentUser])
 
   const getMemberInitials = React.useCallback((name: string) => {
     return name
@@ -97,6 +115,35 @@ export function DashboardPageClient({
     const year = new Date().getFullYear()
     return `${getProjectTypeCode(projectType)}-${year}${String(index + 1).padStart(3, "0")}`
   }, [getProjectTypeCode])
+
+  const getStableProjectIndex = React.useCallback(
+    (projectId: string) =>
+      [...projects]
+        .sort((left, right) => {
+          const leftTime = new Date(left.createdAt).getTime()
+          const rightTime = new Date(right.createdAt).getTime()
+
+          if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) {
+            return left.name.localeCompare(right.name)
+          }
+
+          if (Number.isNaN(leftTime)) {
+            return 1
+          }
+
+          if (Number.isNaN(rightTime)) {
+            return -1
+          }
+
+          if (leftTime === rightTime) {
+            return left.name.localeCompare(right.name)
+          }
+
+          return leftTime - rightTime
+        })
+        .findIndex((project) => project.id === projectId),
+    [projects]
+  )
 
   const buildActivityItemKeys = React.useCallback(
     (items: BacklogApiItem[], projectType: string) => {
@@ -141,42 +188,22 @@ export function DashboardPageClient({
   )
 
   const projectDisplayIds = React.useMemo(() => {
-    const sortedProjects = [...projects].sort((left, right) => {
-      const leftTime = new Date(left.createdAt).getTime()
-      const rightTime = new Date(right.createdAt).getTime()
-
-      if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) {
-        return left.name.localeCompare(right.name)
-      }
-
-      if (Number.isNaN(leftTime)) {
-        return 1
-      }
-
-      if (Number.isNaN(rightTime)) {
-        return -1
-      }
-
-      if (leftTime === rightTime) {
-        return left.name.localeCompare(right.name)
-      }
-
-      return leftTime - rightTime
-    })
-
     return new Map(
-      sortedProjects.map((project, index) => [
+      projects.map((project) => [
         project.id,
-        getProjectDisplayId(project.projectType, index),
+        getProjectDisplayId(
+          project.projectType,
+          Math.max(getStableProjectIndex(project.id), 0)
+        ),
       ])
     )
-  }, [getProjectDisplayId, projects])
+  }, [getProjectDisplayId, getStableProjectIndex, projects])
 
   const activities = React.useMemo(() => {
     const projectById = new Map(projects.map((project) => [project.id, project]))
     const itemsByProjectId = new Map<string, BacklogApiItem[]>()
 
-    for (const item of initialActivities) {
+    for (const item of activityItems) {
       const projectId = item.projectId ?? ""
       const items = itemsByProjectId.get(projectId) ?? []
       items.push(item)
@@ -200,7 +227,7 @@ export function DashboardPageClient({
       itemKeysByProjectId.set(projectId, buildActivityItemKeys(sortedItems, project.projectType))
     }
 
-    return initialActivities
+    return activityItems
       .reduce<DashboardActivity[]>((entries, item) => {
         const project = projectById.get(item.projectId ?? "")
 
@@ -213,7 +240,9 @@ export function DashboardPageClient({
         entries.push({
           id: item.id,
           title: item.title,
-          action: item.assigneeId ? "Assigned" : "Created",
+          action: item.assigneeId && currentUserAssigneeIds.has(item.assigneeId)
+            ? "Assigned"
+            : "Created",
           createdAt: item.createdAt ?? new Date(0).toISOString(),
           itemKey:
             itemKeys?.get(item.id) ??
@@ -230,11 +259,22 @@ export function DashboardPageClient({
         (left, right) =>
           new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
       )
-  }, [buildActivityItemKeys, getProjectDisplayId, initialActivities, projectDisplayIds, projects])
+  }, [
+    activityItems,
+    buildActivityItemKeys,
+    currentUserAssigneeIds,
+    getProjectDisplayId,
+    projectDisplayIds,
+    projects,
+  ])
+
+  React.useEffect(() => {
+    setActivityItems(initialActivities)
+  }, [initialActivities])
 
   React.useEffect(() => {
     cacheDashboardProjects(initialProjects)
-    setProjects(initialProjects)
+    setProjects(getDashboardProjects())
 
     const syncProjects = () => {
       setProjects(getDashboardProjects())
@@ -250,17 +290,21 @@ export function DashboardPageClient({
   }, [initialProjects])
 
   React.useEffect(() => {
-    const syncSelectedProject = () => {
-      setSelectedProjectId(getSelectedDashboardProjectId())
-    }
-
-    syncSelectedProject()
-    window.addEventListener("storage", syncSelectedProject)
-    window.addEventListener(PROJECT_CHANGE_EVENT, syncSelectedProject)
+    const unsubscribe = subscribeToDashboardActivitySync(({ itemId, assigneeId }) => {
+      setActivityItems((currentItems) =>
+        currentItems.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                assigneeId,
+              }
+            : item
+        )
+      )
+    })
 
     return () => {
-      window.removeEventListener("storage", syncSelectedProject)
-      window.removeEventListener(PROJECT_CHANGE_EVENT, syncSelectedProject)
+      unsubscribe()
     }
   }, [])
 
@@ -286,22 +330,15 @@ export function DashboardPageClient({
   )
 
   const recentProjects = React.useMemo(() => {
-    if (!selectedProjectId) {
-      return projects
-    }
+    return projects
+  }, [projects])
 
-    return [...projects].sort((left, right) => {
-      if (left.id === selectedProjectId) {
-        return -1
-      }
-
-      if (right.id === selectedProjectId) {
-        return 1
-      }
-
-      return 0
+  React.useEffect(() => {
+    writeDashboardHomeState({
+      recentProjectsCount: recentProjects.length,
+      workedOnCount: workedOnActivities.length,
     })
-  }, [projects, selectedProjectId])
+  }, [recentProjects.length, workedOnActivities.length])
 
   const oneMonthAgo = React.useMemo(() => {
     const date = new Date()
@@ -465,18 +502,36 @@ export function DashboardPageClient({
                     </div>
 
                     <div className="flex justify-end">
-                      <div className="flex items-center">
-                        {project.members.slice(0, 3).map((member, index) => (
-                          <Avatar
-                            key={`${project.id}-${member}`}
-                            className={`h-7 w-7 border-2 border-white ${index === 0 ? "" : "-ml-2"}`}
-                          >
-                            <AvatarFallback className="bg-slate-100 text-[10px] font-medium text-slate-600 dark:bg-[#2a2a2a] dark:text-slate-200">
-                              {getMemberInitials(member)}
-                            </AvatarFallback>
-                          </Avatar>
-                        ))}
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center">
+                            {project.members.slice(0, 3).map((member, index) => (
+                              <Avatar
+                                key={`${project.id}-${member}`}
+                                className={`h-7 w-7 border-2 border-white ${index === 0 ? "" : "-ml-2"}`}
+                              >
+                                <AvatarFallback className="text-[10px]">
+                                  {getMemberInitials(member)}
+                                </AvatarFallback>
+                              </Avatar>
+                            ))}
+                            {project.members.length > 3 ? (
+                              <div className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-emerald-600 text-[10px] font-semibold text-white">
+                                +{project.members.length - 3}
+                              </div>
+                            ) : null}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent align="end" className="max-w-[240px]">
+                          <div className="space-y-1">
+                            {project.members.map((member) => (
+                              <p key={`${project.id}-tooltip-${member}`} className="text-xs">
+                                {member}
+                              </p>
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                   </CardHeader>
                 </Card>

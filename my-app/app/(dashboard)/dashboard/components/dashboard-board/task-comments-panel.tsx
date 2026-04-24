@@ -35,6 +35,10 @@ type TaskCommentsPanelProps = {
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 export function TaskCommentsPanel({
   selectedTodo,
   comments,
@@ -54,6 +58,14 @@ export function TaskCommentsPanel({
   onDeleteComment,
   onStatusChange,
 }: TaskCommentsPanelProps) {
+  const knownMentionNames = Array.from(
+    new Set(
+      comments
+        .map((comment) => comment.author.trim())
+        .filter(Boolean)
+        .sort((left, right) => right.length - left.length)
+    )
+  )
   const taskMeta = [
     { label: "Status", value: selectedTodo.status },
     {
@@ -87,6 +99,69 @@ export function TaskCommentsPanel({
       </div>
     </div>
   )
+
+  const renderCommentBody = (comment: DashboardComment) => {
+    if (!comment.body) {
+      return null
+    }
+
+    if (knownMentionNames.length === 0) {
+      return (
+        <span className="whitespace-pre-wrap break-words">{comment.body}</span>
+      )
+    }
+
+    const mentionPattern = new RegExp(
+      `@(?:${knownMentionNames.map(escapeRegExp).join("|")})`,
+      "g"
+    )
+    const segments: Array<{ type: "text" | "mention"; value: string }> = []
+    let lastIndex = 0
+
+    for (const match of comment.body.matchAll(mentionPattern)) {
+      const mention = match[0]
+      const matchIndex = match.index ?? 0
+
+      if (matchIndex > lastIndex) {
+        segments.push({
+          type: "text",
+          value: comment.body.slice(lastIndex, matchIndex),
+        })
+      }
+
+      segments.push({ type: "mention", value: mention })
+      lastIndex = matchIndex + mention.length
+    }
+
+    if (lastIndex < comment.body.length) {
+      segments.push({
+        type: "text",
+        value: comment.body.slice(lastIndex),
+      })
+    }
+
+    if (segments.length === 0) {
+      segments.push({ type: "text", value: comment.body })
+    }
+
+    return segments.map((segment, index) =>
+      segment.type === "mention" ? (
+        <span
+          key={`${comment.id}-mention-${index}`}
+          className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
+        >
+          {segment.value}
+        </span>
+      ) : (
+        <span
+          key={`${comment.id}-text-${index}`}
+          className="whitespace-pre-wrap break-words"
+        >
+          {segment.value}
+        </span>
+      )
+    )
+  }
 
   return (
     <aside className="order-1 min-h-0 p-4 sm:p-5 lg:order-2 lg:p-6">
@@ -175,18 +250,7 @@ export function TaskCommentsPanel({
                       </div>
                       {comment.body ? (
                         <div className="flex flex-wrap items-center gap-1 text-sm text-slate-700 dark:text-slate-300">
-                          {comment.body.split(" ").map((part, index) =>
-                            part.startsWith("@") ? (
-                              <span
-                                key={`${comment.id}-mention-${index}`}
-                                className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
-                              >
-                                {part}
-                              </span>
-                            ) : (
-                              <span key={`${comment.id}-text-${index}`}>{part}</span>
-                            )
-                          )}
+                          {renderCommentBody(comment)}
                         </div>
                       ) : null}
                       {comment.attachments.length > 0 ? (

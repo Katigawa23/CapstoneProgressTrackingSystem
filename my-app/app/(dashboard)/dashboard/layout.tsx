@@ -1,194 +1,47 @@
-"use client"
+import { cookies } from "next/headers"
 
-import * as React from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Bell } from "lucide-react"
-
-import { AppSidebar } from "@/components/app-sidebar"
-import { ThemeSwitch } from "@/components/theme-switch"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-
+import { readAuthenticatedUser } from "@/backend/auth/user"
+import { readDashboardHomeStateFromCookieStore } from "@/lib/dashboard-home-state"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  clearClientAuthSession,
-  createMicrosoftLogoutUrl,
-  readClientAuthSession,
-  subscribeToAuthChange,
-  type AuthSession,
-} from "@/lib/auth-client"
-import { RoleProvider } from "@/lib/role-context"
-import { canAccessPath, roleLabels, type UserRole } from "@/lib/rbac"
-import { BacklogLoadingSkeleton } from "./backlog/backlog-loading-skeleton"
-import { BoardLoadingSkeleton } from "./board/board-loading-skeleton"
-import { DashboardHomeSkeleton } from "./dashboard-home-skeleton"
+  PROJECT_COOKIE_KEY,
+  readDashboardProjectsFromCookieStore,
+} from "@/lib/projects"
 
-function ProfileMenu({ session }: { session: AuthSession | null }) {
-  const fallback = session?.user.name?.trim().charAt(0).toUpperCase() || "N"
-  const [mounted, setMounted] = React.useState(false)
+import { DashboardLayoutClient } from "./layout-client"
 
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return (
-      <Button variant="ghost" className="h-9 w-9 rounded-full p-0">
-        <Avatar className="h-9 w-9">
-          <AvatarImage src="/avatar.png" alt="Profile" />
-          <AvatarFallback>{fallback}</AvatarFallback>
-        </Avatar>
-      </Button>
-    )
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 w-9 rounded-full p-0">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src="/avatar.png" alt="Profile" />
-            <AvatarFallback>{fallback}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>
-          <div className="font-medium">{session?.user.name ?? "My Account"}</div>
-          {session?.user.email ? (
-            <div className="text-xs font-normal text-muted-foreground">{session.user.email}</div>
-          ) : null}
-        </DropdownMenuLabel>
-        <DropdownMenuItem asChild>
-          <Link href="/dashboard/profile">Profile</Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link href="/dashboard/settings">Settings</Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem
-          onClick={async () => {
-            const tenantId = session?.tenantId ?? "common"
-            clearClientAuthSession()
-            await fetch("/api/auth/logout", {
-              method: "POST",
-              credentials: "include",
-            }).catch(() => undefined)
-            window.location.href = createMicrosoftLogoutUrl(tenantId, "/")
-          }}
-        >
-          Logout
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-function AccessDenied({ role }: { role: UserRole }) {
-  return (
-    <div className="rounded-lg border bg-card p-6">
-      <h2 className="font-display text-lg font-semibold tracking-tight">Access denied</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        The {roleLabels[role]} role cannot open this page. Go back to the landing page and choose the
-        correct role, or update permissions in{" "}
-        <code className="rounded bg-muted px-1 py-0.5">lib/rbac.ts</code>.
-      </p>
-    </div>
-  )
-}
-
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const pathname = usePathname()
-  const [session, setSession] = React.useState<AuthSession | null>(null)
-  const [authLoading, setAuthLoading] = React.useState(true)
-
-  React.useEffect(() => {
-    const syncSession = () => {
-      const nextSession = readClientAuthSession()
-
-      if (!nextSession) {
-        window.location.href = "/"
-        return
-      }
-
-      setSession(nextSession)
-      setAuthLoading(false)
-    }
-
-    syncSession()
-    const unsubscribe = subscribeToAuthChange(syncSession)
-
-    return () => {
-      unsubscribe()
-    }
-  }, [])
-
-  const role: UserRole = "student"
-  const hasAccess = canAccessPath(role, pathname)
+  const cookieStore = await cookies()
+  const authenticatedUser = await readAuthenticatedUser()
+  const initialDashboardHomeState = readDashboardHomeStateFromCookieStore(cookieStore)
+  const initialProjects = readDashboardProjectsFromCookieStore(cookieStore)
+  const selectedProjectId = cookieStore.get(PROJECT_COOKIE_KEY)?.value ?? null
+  const initialTeam =
+    initialProjects.find((project) => project.id === selectedProjectId) ?? initialProjects[0] ?? null
 
   return (
-    <RoleProvider role={role}>
-      <SidebarProvider>
-        <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center border-b bg-background/80 px-4 shadow-sm backdrop-blur-md dark:border-[#343434] dark:bg-[#171717] dark:shadow-none sm:px-6">
-          <div className="flex items-center gap-3">
-            <SidebarTrigger className="md:hidden" />
-            <Link href="/dashboard/board" className="font-display text-xl font-bold tracking-tight sm:text-2xl">
-              <span className="text-slate-950 dark:text-slate-50">Track</span>
-              <span className="text-sky-600">Sphere</span>
-            </Link>
-          </div>
-
-          <div className="ml-auto flex items-center gap-2">
-            <ThemeSwitch iconOnly />
-
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Notifications"
-              className="rounded-full text-slate-600 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400"
-            >
-              <Bell className="h-5 w-5" />
-            </Button>
-
-            <ProfileMenu session={session} />
-          </div>
-        </header>
-
-        <AppSidebar role={role} />
-
-        <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50/60 pt-16 dark:from-[#212121] dark:to-[#171717]">
-          <main className="flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10">
-            {authLoading
-              ? pathname === "/dashboard"
-                ? <DashboardHomeSkeleton />
-                : pathname === "/dashboard/board"
-                  ? <BoardLoadingSkeleton useLiveHeader />
-                  : pathname === "/dashboard/backlog"
-                    ? <BacklogLoadingSkeleton />
-                : null
-              : hasAccess
-                ? children
-                : <AccessDenied role={role} />}
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
-    </RoleProvider>
+    <DashboardLayoutClient
+      initialAuthSession={
+        authenticatedUser?.id
+          ? {
+              user: {
+                id: authenticatedUser.id,
+                name: authenticatedUser.name,
+                email: authenticatedUser.email,
+              },
+              tenantId: authenticatedUser.tenantId,
+              expiresAt: new Date(authenticatedUser.expiresAt).toISOString(),
+            }
+          : null
+      }
+      initialDashboardHomeState={initialDashboardHomeState}
+      initialProjects={initialProjects}
+      initialTeam={initialTeam}
+    >
+      {children}
+    </DashboardLayoutClient>
   )
 }

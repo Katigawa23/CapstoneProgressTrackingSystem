@@ -33,14 +33,13 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const { id } = await params
     const body = (await request.json()) as {
-      author?: string
       body?: string
       attachments?: string[]
     }
 
     const comment = await createBacklogComment({
       backlogItemId: id,
-      author: body.author?.trim() || "Unknown User",
+      author: user.name?.trim() || user.email?.trim() || "Unknown User",
       body: body.body?.trim() ?? "",
       attachments: Array.isArray(body.attachments)
         ? body.attachments

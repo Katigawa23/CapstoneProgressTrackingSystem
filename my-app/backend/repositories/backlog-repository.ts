@@ -85,9 +85,47 @@ let storageModePromise: Promise<BacklogStorageMode> | null = null
 let fallbackWarningShown = false
 
 type RawBacklogRecord = Partial<BacklogRecord> & {
+  projectId?: string | null
+  parentId?: string | null
+  sequenceNumber?: number | null
+  orderIndex?: number | null
+  startDate?: string | null
+  dueDate?: string | null
+  assigneeId?: string | null
+  createdAt?: string | null
   file_name?: string | null
   file_size?: string | null
   file_type?: string | null
+}
+
+function readStringAlias(
+  record: RawBacklogRecord,
+  ...keys: Array<keyof RawBacklogRecord>
+) {
+  for (const key of keys) {
+    const value = record[key]
+
+    if (typeof value === "string") {
+      return value
+    }
+  }
+
+  return null
+}
+
+function readNumberAlias(
+  record: RawBacklogRecord,
+  ...keys: Array<keyof RawBacklogRecord>
+) {
+  for (const key of keys) {
+    const value = record[key]
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value
+    }
+  }
+
+  return null
 }
 
 function mapRecord(record: BacklogRecordWithStats): BacklogRow {
@@ -145,30 +183,35 @@ function sanitizeJsonArray(raw: string) {
 }
 
 function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
+  const projectId = readStringAlias(record, "project_id", "projectId")
+  const parentId = readStringAlias(record, "parent_id", "parentId")
+  const sequenceNumber = readNumberAlias(
+    record,
+    "sequence_number",
+    "sequenceNumber"
+  )
+  const orderIndex = readNumberAlias(record, "order_index", "orderIndex")
+  const startDate = readStringAlias(record, "start_date", "startDate")
+  const dueDate = readStringAlias(record, "due_date", "dueDate")
+  const assigneeId = readStringAlias(record, "assignee_id", "assigneeId")
+  const createdAt = readStringAlias(record, "created_at", "createdAt")
+
   return {
     id: typeof record.id === "string" ? record.id : randomUUID(),
-    project_id: typeof record.project_id === "string" ? record.project_id : "",
-    parent_id: typeof record.parent_id === "string" ? record.parent_id : null,
+    project_id: projectId ?? "",
+    parent_id: parentId,
     sequence_number:
-      typeof record.sequence_number === "number" && Number.isFinite(record.sequence_number)
-        ? record.sequence_number
-        : 1,
+      sequenceNumber ?? 1,
     order_index:
-      typeof record.order_index === "number" && Number.isFinite(record.order_index)
-        ? record.order_index
-        : 1,
+      orderIndex ?? 1,
     title: typeof record.title === "string" ? record.title : "",
     description: typeof record.description === "string" ? record.description : "",
-    start_date: typeof record.start_date === "string" ? record.start_date : null,
-    due_date: typeof record.due_date === "string" ? record.due_date : null,
+    start_date: startDate,
+    due_date: dueDate,
     status: typeof record.status === "string" ? record.status : "todo",
     checked: typeof record.checked === "boolean" ? record.checked : false,
-    assignee_id:
-      typeof record.assignee_id === "string" ? record.assignee_id : null,
-    created_at:
-      typeof record.created_at === "string"
-        ? record.created_at
-        : new Date().toISOString(),
+    assignee_id: assigneeId,
+    created_at: createdAt ?? new Date().toISOString(),
   }
 }
 
@@ -498,7 +541,10 @@ export async function listBacklogItemsWithStats(
         ) as comment_counts
           on comment_counts.backlog_item_id = backlog_items.id
         where backlog_items.project_id = $1
-          and projects.owner_user_id = $2
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
         order by backlog_items.order_index asc, backlog_items.created_at asc
         limit $3
         offset $4`,
@@ -565,7 +611,10 @@ export async function listProjectBacklogActivities(
         ) as comment_counts
           on comment_counts.backlog_item_id = backlog_items.id
         where backlog_items.project_id = any($1::uuid[])
-          and projects.owner_user_id = $2
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
         order by backlog_items.created_at desc`,
         [projectIds, ownerUserId]
       )
@@ -639,7 +688,10 @@ export async function createBacklogItem(
           $10
         from next_sequence, next_order, projects
         where projects.id = $2
-          and projects.owner_user_id = $11
+          and (
+            projects.owner_user_id = $11
+            or $11 = any(projects.member_user_ids)
+          )
         returning
           id,
           project_id,
@@ -817,6 +869,7 @@ export async function updateBacklogItem(
             select id
             from projects
             where owner_user_id = $${values.length + 1}
+              or $${values.length + 1} = any(member_user_ids)
           )
         returning
           id,
@@ -890,6 +943,7 @@ export async function deleteBacklogItem(id: string, ownerUserId: string) {
             select id
             from projects
             where owner_user_id = $2
+              or $2 = any(member_user_ids)
           )
         returning id`,
         [id, ownerUserId]

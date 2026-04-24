@@ -22,6 +22,9 @@ add constraint fk_backlog_items_project_id
 foreign key (project_id) references projects(id) on delete cascade;
 
 alter table backlog_items
+add column if not exists parent_id uuid;
+
+alter table backlog_items
 add column if not exists sequence_number integer;
 
 alter table backlog_items
@@ -62,6 +65,15 @@ where backlog_items.id = ordered_items.id
 
 alter table backlog_items
 alter column order_index set not null;
+
+create index if not exists backlog_items_project_order_idx
+  on backlog_items(project_id, order_index asc, created_at asc);
+
+create index if not exists backlog_items_project_parent_idx
+  on backlog_items(project_id, parent_id, sequence_number asc);
+
+create index if not exists backlog_items_parent_id_idx
+  on backlog_items(parent_id);
 
 do $$
 begin
