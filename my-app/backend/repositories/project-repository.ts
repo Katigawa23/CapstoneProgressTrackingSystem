@@ -5,6 +5,10 @@ import path from "path"
 import { getPreferredStorageMode } from "@/backend/config/storage-mode"
 import { getDb } from "@/backend/db/connection"
 import {
+  canUseLocalFileFallback,
+  shouldFallbackToLocalStore,
+} from "@/backend/db/fallback"
+import {
   dashboardProjects,
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
@@ -13,6 +17,7 @@ import {
 
 type ProjectRecord = {
   id: string
+  owner_user_id: string
   project_name: string
   project_member: string[]
   program: string
@@ -46,6 +51,10 @@ let fallbackWarningShown = false
 function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
   return {
     id: typeof record.id === "string" ? record.id : randomUUID(),
+    owner_user_id:
+      typeof (record as { owner_user_id?: string }).owner_user_id === "string"
+        ? (record as { owner_user_id?: string }).owner_user_id ?? ""
+        : "",
     project_name:
       typeof record.project_name === "string" ? record.project_name : "",
     project_member: Array.isArray(record.project_member)
@@ -62,27 +71,8 @@ function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
   }
 }
 
-function canUseFileFallback() {
-  return process.env.NODE_ENV !== "production"
-}
-
 function shouldUseFileFallback(error: unknown) {
-  if (!canUseFileFallback()) {
-    return false
-  }
-
-  const message = error instanceof Error ? error.message : String(error)
-
-  return [
-    "DATABASE_URL is not set",
-    "Unable to establish connection to upstream database",
-    "Circuit breaker open",
-    "ECONNREFUSED",
-    "ENOTFOUND",
-    "ETIMEDOUT",
-    "timeout expired",
-    "server closed the connection unexpectedly",
-  ].some((fragment) => message.includes(fragment))
+  return shouldFallbackToLocalStore(error)
 }
 
 function showFallbackWarning(error: unknown) {
@@ -105,6 +95,7 @@ async function ensureProjectsSchema() {
       .query(`
         create table if not exists projects (
           id uuid primary key,
+          owner_user_id text not null default '',
           project_name text not null,
           project_member text[] not null default '{}',
           program text not null default '',
@@ -114,6 +105,12 @@ async function ensureProjectsSchema() {
           created_at timestamptz not null default now()
         );
       `)
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists owner_user_id text not null default '';
+        `)
+      )
       .then(() =>
         getDb().query(`
           create index if not exists projects_created_at_idx
@@ -215,7 +212,7 @@ async function getStorageMode(): Promise<ProjectStorageMode> {
       }
 
       if (!process.env.DATABASE_URL) {
-        if (!canUseFileFallback()) {
+        if (!canUseLocalFileFallback()) {
           throw new Error(
             "DATABASE_URL is not set. Add your database connection string to .env.local and Vercel project settings."
           )
@@ -305,9 +302,10 @@ function mapRecord(record: ProjectRecord): DashboardProject {
   }
 }
 
-function toRecord(project: DashboardProject): ProjectRecord {
+function toRecord(project: DashboardProject, ownerUserId: string): ProjectRecord {
   return {
     id: project.id,
+    owner_user_id: ownerUserId,
     project_name: project.name,
     project_member: project.members,
     program: project.program,
@@ -322,6 +320,7 @@ async function insertProjectRecord(record: ProjectRecord) {
   await getDb().query(
     `insert into projects (
        id,
+       owner_user_id,
        project_name,
        project_member,
        program,
@@ -330,10 +329,11 @@ async function insertProjectRecord(record: ProjectRecord) {
        project_type,
        created_at
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      on conflict (id) do nothing`,
     [
       record.id,
+      record.owner_user_id,
       record.project_name,
       record.project_member,
       record.program,
@@ -358,12 +358,13 @@ function normalizeProject(input: CreateProjectInput): DashboardProject {
   }
 }
 
-export async function listProjects() {
+export async function listProjects(ownerUserId: string) {
   return withProjectStore(
     async () => {
       const result = await getDb().query<ProjectRecord>(
         `select
            id,
+           owner_user_id,
            project_name,
            project_member,
            program,
@@ -372,19 +373,26 @@ export async function listProjects() {
            project_type,
            created_at
          from projects
-         order by created_at desc`
+         where owner_user_id = $1
+         order by created_at desc`,
+        [ownerUserId]
       )
 
       return [...dashboardProjects, ...result.rows.map(mapRecord)]
     },
     async () => {
       const records = await readFileRecords()
-      return [...dashboardProjects, ...records.map(mapRecord)]
+      return [
+        ...dashboardProjects,
+        ...records
+          .filter((record) => record.owner_user_id === ownerUserId)
+          .map(mapRecord),
+      ]
     }
   )
 }
 
-export async function createProject(input: CreateProjectInput) {
+export async function createProject(input: CreateProjectInput, ownerUserId: string) {
   return withProjectStore(
     async () => {
       const project = normalizeProject(input)
@@ -392,6 +400,7 @@ export async function createProject(input: CreateProjectInput) {
       const result = await getDb().query<ProjectRecord>(
         `insert into projects (
            id,
+           owner_user_id,
            project_name,
            project_member,
            program,
@@ -399,9 +408,10 @@ export async function createProject(input: CreateProjectInput) {
            sy_term,
            project_type
          )
-         values ($1, $2, $3, $4, $5, $6, $7)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
          returning
            id,
+           owner_user_id,
            project_name,
            project_member,
            program,
@@ -411,6 +421,7 @@ export async function createProject(input: CreateProjectInput) {
            created_at`,
         [
           project.id,
+          ownerUserId,
           project.name,
           project.members,
           project.program,
@@ -425,19 +436,19 @@ export async function createProject(input: CreateProjectInput) {
     async () => {
       const project = normalizeProject(input)
       const records = await readFileRecords()
-      records.unshift(toRecord(project))
+      records.unshift(toRecord(project, ownerUserId))
       await writeFileRecords(records)
       return project
     }
   )
 }
 
-export async function ensureProjectExists(projectId: string) {
+export async function ensureProjectExists(projectId: string, ownerUserId: string) {
   return withProjectStore(
     async () => {
       const existingProject = await getDb().query<{ id: string }>(
-        `select id from projects where id = $1 limit 1`,
-        [projectId]
+        `select id from projects where id = $1 and owner_user_id = $2 limit 1`,
+        [projectId, ownerUserId]
       )
 
       if ((existingProject.rowCount ?? 0) > 0) {
@@ -445,7 +456,9 @@ export async function ensureProjectExists(projectId: string) {
       }
 
       const fileRecords = await readFileRecords()
-      const matchingRecord = fileRecords.find((record) => record.id === projectId)
+      const matchingRecord = fileRecords.find(
+        (record) => record.id === projectId && record.owner_user_id === ownerUserId
+      )
 
       if (!matchingRecord) {
         return

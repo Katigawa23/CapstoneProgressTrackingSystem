@@ -1,7 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { BarChart3, CheckCircle2, FolderPlus, MessagesSquare, Users } from "lucide-react"
+import {
+  BarChart3,
+  CheckCircle2,
+  FolderPlus,
+  MessagesSquare,
+  Users,
+} from "lucide-react"
 import { useLayoutEffect } from "react"
 
 import AnimatedContent from "@/components/animated-content"
@@ -45,7 +51,10 @@ export default function LandingPage() {
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-gray-800 dark:from-[#212121] dark:to-[#171717] dark:text-slate-100">
       <Navbar />
 
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[92rem] items-center px-4 py-12 sm:px-6 md:py-16 lg:px-10 xl:px-14">
+      <section
+        id="hero"
+        className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[92rem] items-center px-4 py-12 sm:px-6 md:py-16 lg:px-10 xl:px-14"
+      >
         <div className="w-full max-w-3xl text-center md:pl-4 md:text-left xl:pl-6">
           <h1 className="font-display text-4xl leading-tight font-extrabold tracking-tight sm:text-5xl md:text-6xl">
             <SplitText

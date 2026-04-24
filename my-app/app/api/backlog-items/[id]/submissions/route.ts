@@ -5,6 +5,7 @@ import path from "path"
 
 import { NextResponse } from "next/server"
 
+import { requireAuthenticatedUser } from "@/backend/auth/user"
 import {
   createBacklogSubmission,
   deleteBacklogSubmission,
@@ -38,8 +39,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireAuthenticatedUser()
     const { id } = await params
-    const submissions = await listBacklogSubmissions(id)
+    const submissions = await listBacklogSubmissions(id, user.id)
 
     return NextResponse.json({ submissions })
   } catch (error) {
@@ -56,6 +58,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireAuthenticatedUser()
     const { id } = await params
     const formData = await request.formData()
     const files = formData.getAll("files").filter((value): value is File => value instanceof File)
@@ -82,13 +85,25 @@ export async function POST(
           fileUrl: `/uploads/backlog-submissions/${id}/${storedName}`,
           fileType: file.type || "application/octet-stream",
           fileSize: file.size,
-        })
+        }, user.id)
       })
+    )
+
+    if (submissions.some((submission) => submission === null)) {
+      return NextResponse.json(
+        { error: "Backlog item not found" },
+        { status: 404 }
+      )
+    }
+
+    const createdSubmissions = submissions.filter(
+      (submission): submission is NonNullable<(typeof submissions)[number]> =>
+        submission !== null
     )
 
     revalidateTag("backlog-items", "max")
 
-    return NextResponse.json({ submissions }, { status: 201 })
+    return NextResponse.json({ submissions: createdSubmissions }, { status: 201 })
   } catch (error) {
     console.error("Failed to upload backlog submissions", error)
     return NextResponse.json(
@@ -103,6 +118,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireAuthenticatedUser()
     const { id } = await params
     const url = new URL(request.url)
     const submissionId = url.searchParams.get("submissionId")?.trim()
@@ -114,7 +130,7 @@ export async function DELETE(
       )
     }
 
-    const deletedSubmission = await deleteBacklogSubmission(id, submissionId)
+    const deletedSubmission = await deleteBacklogSubmission(id, submissionId, user.id)
 
     if (!deletedSubmission) {
       return NextResponse.json(

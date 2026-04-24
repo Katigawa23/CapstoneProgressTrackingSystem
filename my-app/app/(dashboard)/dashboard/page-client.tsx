@@ -429,11 +429,11 @@ export function DashboardPageClient({
               </Link>
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 2xl:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
+            <div className="flex flex-wrap gap-4">
               {recentProjects.map((project, index) => (
                 <Card
                   key={project.id}
-                  className="relative flex min-h-[142px] w-full cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[#343434] dark:bg-[#1f1f1f]"
+                  className="relative flex min-h-[142px] w-[220px] flex-none cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md sm:w-[240px] dark:border-[#343434] dark:bg-[#1f1f1f]"
                   onClick={() => {
                     setDashboardProject(project.id)
                     router.push("/dashboard/board")

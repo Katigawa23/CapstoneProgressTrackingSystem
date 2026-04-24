@@ -63,9 +63,11 @@ export function DashboardHomeSkeleton() {
             </span>
           </div>
 
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 2xl:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
+          <div className="flex flex-wrap gap-4">
             {Array.from({ length: 4 }).map((_, index) => (
-              <ProjectCardSkeleton key={index} />
+              <div key={index} className="w-[220px] flex-none sm:w-[240px]">
+                <ProjectCardSkeleton />
+              </div>
             ))}
           </div>
         </section>

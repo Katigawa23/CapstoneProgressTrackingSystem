@@ -1019,6 +1019,7 @@ export function DashboardBoard({
                 onReplyToComment={handleReplyToComment}
                 onEditComment={handleEditComment}
                 onDeleteComment={handleDeleteComment}
+                onStatusChange={onStatusChange}
               />
             </div>
           </DialogContent>

@@ -95,6 +95,15 @@ export default function Navbar() {
   }, [pathname])
 
   const handleLogoClick = (e: React.MouseEvent) => {
+    if (pathname === "/") {
+      e.preventDefault()
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" })
+      window.history.replaceState(null, "", "/")
+      setActiveHref("/")
+      setIsMenuOpen(false)
+      return
+    }
+
     if (isAuthenticated) {
       e.preventDefault()
       router.push("/dashboard/board")

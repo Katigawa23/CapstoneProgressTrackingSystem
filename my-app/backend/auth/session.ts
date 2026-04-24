@@ -1,6 +1,15 @@
 import { createHmac, timingSafeEqual } from "crypto"
 
 export const AUTH_STATE_COOKIE = "tracksphere_oauth_state"
+export const AUTH_USER_COOKIE = "tracksphere_auth_user"
+
+type AuthCookieUser = {
+  id: string
+  name: string
+  email: string
+  tenantId: string
+  expiresAt: number
+}
 
 function getSessionSecret() {
   return (
@@ -78,6 +87,21 @@ export function createStateCookieValue(state: string) {
   })
 }
 
+export function createUserCookieValue(user: {
+  id: string
+  name: string
+  email: string
+  tenantId: string
+}) {
+  return encodeSignedPayload({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    tenantId: user.tenantId,
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  })
+}
+
 export function readStateCookieValue(value: string | undefined) {
   const payload = decodeSignedPayload<{ state: string; expiresAt: number }>(value)
 
@@ -86,6 +110,24 @@ export function readStateCookieValue(value: string | undefined) {
   }
 
   return payload.state
+}
+
+export function readUserCookieValue(value: string | undefined) {
+  const payload = decodeSignedPayload<AuthCookieUser>(value)
+
+  if (
+    !payload ||
+    typeof payload.id !== "string" ||
+    typeof payload.name !== "string" ||
+    typeof payload.email !== "string" ||
+    typeof payload.tenantId !== "string" ||
+    typeof payload.expiresAt !== "number" ||
+    payload.expiresAt < Date.now()
+  ) {
+    return null
+  }
+
+  return payload
 }
 
 export function getAuthCookieOptions(expires?: Date) {

@@ -63,6 +63,31 @@ export type CreateDashboardProjectInput = {
 
 export const dashboardProjects: DashboardProject[] = []
 
+function getUserScopedStorageKey(baseKey: string) {
+  if (typeof window === "undefined") {
+    return baseKey
+  }
+
+  try {
+    const sessionValue = window.localStorage.getItem("tracksphere_auth_session")
+
+    if (!sessionValue) {
+      return `${baseKey}:guest`
+    }
+
+    const session = JSON.parse(sessionValue) as {
+      user?: { id?: string }
+    }
+    const userId = session?.user?.id
+
+    return typeof userId === "string" && userId.trim()
+      ? `${baseKey}:${userId.trim()}`
+      : `${baseKey}:guest`
+  } catch {
+    return `${baseKey}:guest`
+  }
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string")
 }
@@ -100,7 +125,9 @@ function readStoredProjects() {
     return dashboardProjects
   }
 
-  const storedProjects = window.localStorage.getItem(PROJECTS_STORAGE_KEY)
+  const storedProjects = window.localStorage.getItem(
+    getUserScopedStorageKey(PROJECTS_STORAGE_KEY)
+  )
 
   if (!storedProjects) {
     return dashboardProjects
@@ -126,7 +153,10 @@ function writeStoredProjects(projects: DashboardProject[]) {
     return
   }
 
-  window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects))
+  window.localStorage.setItem(
+    getUserScopedStorageKey(PROJECTS_STORAGE_KEY),
+    JSON.stringify(projects)
+  )
   window.dispatchEvent(new CustomEvent(PROJECTS_CHANGE_EVENT, { detail: projects }))
 }
 
@@ -165,7 +195,7 @@ export function getSelectedDashboardProjectId() {
     return null
   }
 
-  return window.localStorage.getItem(PROJECT_STORAGE_KEY)
+  return window.localStorage.getItem(getUserScopedStorageKey(PROJECT_STORAGE_KEY))
 }
 
 export function getDashboardProject(projectId: string | null | undefined) {
@@ -207,6 +237,47 @@ export function getDashboardProjectCode(
   const fallback = normalized[1] ?? "X"
 
   return `${normalized[0]}${consonant ?? fallback}`.slice(0, 2)
+}
+
+export function getProjectMonogram(name: string) {
+  const normalizedName = name.trim()
+
+  if (!normalizedName) {
+    return "P"
+  }
+
+  const words = normalizedName
+    .split(/[^A-Za-z0-9]+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+
+  if (words.length >= 2) {
+    return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase()
+  }
+
+  const singleWord = words[0] ?? normalizedName.replace(/[^A-Za-z0-9]/g, "")
+
+  if (!singleWord) {
+    return "P"
+  }
+
+  if (singleWord.length <= 4) {
+    return (singleWord[0] ?? "P").toUpperCase()
+  }
+
+  const lettersOnly = singleWord.replace(/[^A-Za-z]/g, "").toUpperCase()
+
+  if (lettersOnly.length <= 1) {
+    return (singleWord[0] ?? "P").toUpperCase()
+  }
+
+  const secondLetter =
+    lettersOnly
+      .slice(1)
+      .split("")
+      .find((character) => !"AEIOU".includes(character)) ?? lettersOnly[1]
+
+  return `${lettersOnly[0]}${secondLetter ?? ""}`.slice(0, 2)
 }
 
 export function getStarredProjects(projects = getDashboardProjects()) {
@@ -266,7 +337,7 @@ export function createDashboardProject({
 }
 
 export function setDashboardProject(projectId: string) {
-  window.localStorage.setItem(PROJECT_STORAGE_KEY, projectId)
+  window.localStorage.setItem(getUserScopedStorageKey(PROJECT_STORAGE_KEY), projectId)
   document.cookie = `${PROJECT_COOKIE_KEY}=${encodeURIComponent(projectId)}; path=/; max-age=31536000; samesite=lax`
   window.dispatchEvent(new CustomEvent(PROJECT_CHANGE_EVENT, { detail: projectId }))
 }

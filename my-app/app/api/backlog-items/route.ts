@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
+import { requireAuthenticatedUser } from "@/backend/auth/user"
 import { createBacklogItem, listBacklogItems } from "@/backend/repositories/backlog-repository"
 
 const allowedStatuses = new Set([
@@ -22,6 +23,7 @@ function normalizeOptionalDate(value: unknown) {
 
 export async function GET(request: Request) {
   try {
+    const user = await requireAuthenticatedUser()
     const { searchParams } = new URL(request.url)
     const projectId = searchParams.get("projectId")?.trim()
     const limitValue = Number.parseInt(searchParams.get("limit") ?? "", 10)
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
     }
 
-    const items = await listBacklogItems(projectId, {
+    const items = await listBacklogItems(projectId, user.id, {
       limit: Number.isNaN(limitValue) ? undefined : limitValue,
       offset: Number.isNaN(offsetValue) ? undefined : offsetValue,
     })
@@ -54,6 +56,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const user = await requireAuthenticatedUser()
     const body = (await request.json()) as {
       projectId?: string
       parentId?: string | null
@@ -93,7 +96,14 @@ export async function POST(request: Request) {
       status,
       checked: false,
       assigneeId: body.assigneeId ?? null,
-    })
+    }, user.id)
+
+    if (!item) {
+      return NextResponse.json(
+        { error: "Project not found" },
+        { status: 404 }
+      )
+    }
 
     revalidateTag("backlog-items", "max")
     revalidateTag("backlog-comments", "max")

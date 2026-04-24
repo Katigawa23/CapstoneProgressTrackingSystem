@@ -2,8 +2,9 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Check, ChevronDown, FolderOpen, Plus } from "lucide-react"
+import { Check, ChevronDown, FolderClosed, Plus } from "lucide-react"
 
+import { ProjectMonogram } from "@/components/projects/project-monogram"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,9 +59,13 @@ export function ProjectSwitcher({
           group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:shadow-none
         "
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-[#2972b6] to-[#185a96] shadow-sm ring-1 ring-blue-200/60">
-          <FolderOpen className="h-4 w-4 text-white" />
-        </div>
+        <ProjectMonogram
+          name={teamName}
+          active={Boolean(team)}
+          icon={FolderClosed}
+          size="large"
+          className="bg-gradient-to-br from-[#2972b6] to-[#185a96] text-white shadow-sm ring-1 ring-blue-200/60"
+        />
 
         <div className="min-w-0 flex-1 self-center group-data-[collapsible=icon]:hidden">
           <div className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
@@ -96,9 +101,13 @@ export function ProjectSwitcher({
             group-data-[collapsible=icon]:data-[state=open]:bg-transparent
           "
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-[#2972b6] to-[#185a96] shadow-sm ring-1 ring-blue-200/60">
-            <FolderOpen className="h-4 w-4 text-white" />
-          </div>
+          <ProjectMonogram
+            name={teamName}
+            active={Boolean(team)}
+            icon={FolderClosed}
+            size="large"
+            className="bg-gradient-to-br from-[#2972b6] to-[#185a96] text-white shadow-sm ring-1 ring-blue-200/60"
+          />
 
           <div className="min-w-0 flex-1 self-center group-data-[collapsible=icon]:hidden">
             <div className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
@@ -122,10 +131,13 @@ export function ProjectSwitcher({
             <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
               Current project
             </div>
-            <div className="mt-1.5 flex items-start gap-2">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-[#2972b6] to-[#185a96] shadow-sm ring-1 ring-blue-200/60">
-                <FolderOpen className="h-3.5 w-3.5 text-white" />
-              </div>
+            <div className="mt-1.5 flex items-center gap-2">
+              <ProjectMonogram
+                name={teamName}
+                active={Boolean(team)}
+                icon={FolderClosed}
+                className="bg-gradient-to-br from-[#2972b6] to-[#185a96] text-white shadow-sm ring-1 ring-blue-200/60"
+              />
               <div className="min-w-0">
                 <div className="truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100 sm:text-[13px]">{teamName}</div>
                 <div className="hidden truncate text-[10px] text-slate-500 dark:text-slate-400 sm:block">{projectSummary}</div>
@@ -156,21 +168,16 @@ export function ProjectSwitcher({
                   <DropdownMenuItem
                     key={project.id}
                     className={cn(
-                      "cursor-pointer items-start gap-2 rounded-md border border-transparent px-2 py-1.5 focus:bg-sky-50 focus:text-slate-950 dark:focus:bg-[#2a2a2a] dark:focus:text-slate-100",
+                      "cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1.5 focus:bg-sky-50 focus:text-slate-950 dark:focus:bg-[#2a2a2a] dark:focus:text-slate-100",
                       active && "border-sky-100 bg-sky-50/80 dark:border-[#3b82f6]/30 dark:bg-[#1f2937]"
                     )}
                     onClick={() => onSelectProject(project.id)}
                   >
-                    <div
-                      className={cn(
-                        "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border",
-                        active
-                          ? "border-sky-200 bg-white text-sky-700 dark:border-sky-500/40 dark:bg-[#111827] dark:text-sky-300"
-                          : "border-slate-200 bg-slate-50 text-slate-500 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400"
-                      )}
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" />
-                    </div>
+                    <ProjectMonogram
+                      name={project.name}
+                      active={active}
+                      className={cn(active && "bg-white dark:bg-[#111827]")}
+                    />
 
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">
@@ -179,7 +186,7 @@ export function ProjectSwitcher({
                     </div>
 
                     {active ? (
-                      <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sky-600 text-white">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sky-600 text-white">
                         <Check className="h-2.5 w-2.5" />
                       </span>
                     ) : null}
@@ -196,9 +203,7 @@ export function ProjectSwitcher({
         </div>
         <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-sky-50 dark:focus:bg-[#2a2a2a]">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-500 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400">
-              <FolderOpen className="h-3.5 w-3.5" />
-            </span>
+            <ProjectMonogram name="Projects" />
             <span className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">Browse all projects</span>
           </Link>
         </DropdownMenuItem>

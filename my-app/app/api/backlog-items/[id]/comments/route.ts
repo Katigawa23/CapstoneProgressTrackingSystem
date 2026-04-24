@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
+import { requireAuthenticatedUser } from "@/backend/auth/user"
 import {
   createBacklogComment,
   listBacklogComments,
@@ -11,8 +12,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireAuthenticatedUser()
     const { id } = await params
-    const comments = await listBacklogComments(id)
+    const comments = await listBacklogComments(id, user.id)
     return NextResponse.json({ comments })
   } catch (error) {
     console.error("Failed to load backlog comments", error)
@@ -28,6 +30,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireAuthenticatedUser()
     const { id } = await params
     const body = (await request.json()) as {
       author?: string
@@ -44,7 +47,14 @@ export async function POST(
             .map((item) => String(item).trim())
             .filter(Boolean)
         : [],
-    })
+    }, user.id)
+
+    if (!comment) {
+      return NextResponse.json(
+        { error: "Backlog item not found" },
+        { status: 404 }
+      )
+    }
 
     revalidateTag("backlog-comments", "max")
     revalidateTag("backlog-items", "max")

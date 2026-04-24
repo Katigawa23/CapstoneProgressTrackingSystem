@@ -7,6 +7,8 @@ import {
 
 import {
   AUTH_STATE_COOKIE,
+  AUTH_USER_COOKIE,
+  createUserCookieValue,
   getAuthCookieOptions,
   readStateCookieValue,
 } from "@/backend/auth/session"
@@ -83,6 +85,16 @@ export async function GET(request: NextRequest) {
       path: "/",
       maxAge: 0,
     })
+    response.cookies.set(
+      AUTH_USER_COOKIE,
+      createUserCookieValue({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        tenantId: getMicrosoftTenantId(),
+      }),
+      getAuthCookieOptions(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+    )
 
     return response
   } catch (error) {
@@ -92,8 +104,12 @@ export async function GET(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined,
     })
 
+    const authError = errorMessage.includes("Only @alabang.sti.edu.ph Microsoft accounts can sign in")
+      ? "domain"
+      : "callback"
+
     const response = NextResponse.redirect(
-      new URL("/?authError=callback", request.url)
+      new URL(`/?authError=${authError}`, request.url)
     )
 
     response.cookies.set(AUTH_STATE_COOKIE, "", {
@@ -103,6 +119,10 @@ export async function GET(request: NextRequest) {
 
     response.cookies.set("redirect_after_login", "", {
       path: "/",
+      maxAge: 0,
+    })
+    response.cookies.set(AUTH_USER_COOKIE, "", {
+      ...getAuthCookieOptions(new Date(0)),
       maxAge: 0,
     })
 

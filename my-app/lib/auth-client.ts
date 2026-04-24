@@ -1,6 +1,7 @@
 "use client"
 
 export const AUTH_STORAGE_KEY = "tracksphere_auth_session"
+export const DASHBOARD_BOOTSTRAP_KEY = "tracksphere_dashboard_bootstrapped"
 
 const AUTH_CHANGE_EVENT = "tracksphere-auth-change"
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
@@ -39,6 +40,7 @@ function clearInvalidSession() {
   }
 
   window.localStorage.removeItem(AUTH_STORAGE_KEY)
+  window.sessionStorage.removeItem(DASHBOARD_BOOTSTRAP_KEY)
   emitAuthChange()
 }
 
@@ -110,7 +112,24 @@ export function clearClientAuthSession() {
   }
 
   window.localStorage.removeItem(AUTH_STORAGE_KEY)
+  window.sessionStorage.removeItem(DASHBOARD_BOOTSTRAP_KEY)
   emitAuthChange()
+}
+
+export function hasBootstrappedDashboardSession() {
+  if (!isBrowser()) {
+    return false
+  }
+
+  return window.sessionStorage.getItem(DASHBOARD_BOOTSTRAP_KEY) === "true"
+}
+
+export function markDashboardSessionBootstrapped() {
+  if (!isBrowser()) {
+    return
+  }
+
+  window.sessionStorage.setItem(DASHBOARD_BOOTSTRAP_KEY, "true")
 }
 
 export function subscribeToAuthChange(callback: () => void) {

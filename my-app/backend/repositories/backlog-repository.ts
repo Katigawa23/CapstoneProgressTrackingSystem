@@ -4,6 +4,10 @@ import path from "path"
 
 import { getPreferredStorageMode } from "@/backend/config/storage-mode"
 import { getDb } from "@/backend/db/connection"
+import {
+  canUseLocalFileFallback,
+  shouldFallbackToLocalStore,
+} from "@/backend/db/fallback"
 import { ensureProjectExists } from "@/backend/repositories/project-repository"
 
 export type BacklogRow = {
@@ -168,27 +172,8 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
   }
 }
 
-function canUseFileFallback() {
-  return process.env.NODE_ENV !== "production"
-}
-
 function shouldUseFileFallback(error: unknown) {
-  if (!canUseFileFallback()) {
-    return false
-  }
-
-  const message = error instanceof Error ? error.message : String(error)
-
-  return [
-    "DATABASE_URL is not set",
-    "Unable to establish connection to upstream database",
-    "Circuit breaker open",
-    "ECONNREFUSED",
-    "ENOTFOUND",
-    "ETIMEDOUT",
-    "timeout expired",
-    "server closed the connection unexpectedly",
-  ].some((fragment) => message.includes(fragment))
+  return shouldFallbackToLocalStore(error)
 }
 
 function showFallbackWarning(error: unknown) {
@@ -391,7 +376,7 @@ async function getStorageMode(): Promise<BacklogStorageMode> {
       }
 
       if (!process.env.DATABASE_URL) {
-        if (!canUseFileFallback()) {
+        if (!canUseLocalFileFallback()) {
           throw new Error(
             "DATABASE_URL is not set. Add your database connection string to .env.local and Vercel project settings."
           )
@@ -467,13 +452,15 @@ async function writeFileRecords(records: BacklogRecord[]) {
 
 export async function listBacklogItems(
   projectId: string,
+  ownerUserId: string,
   options?: ListBacklogItemsOptions
 ) {
-  return listBacklogItemsWithStats(projectId, options)
+  return listBacklogItemsWithStats(projectId, ownerUserId, options)
 }
 
 export async function listBacklogItemsWithStats(
   projectId: string,
+  ownerUserId: string,
   options: ListBacklogItemsOptions = {}
 ) {
   return withBacklogStore(
@@ -497,6 +484,8 @@ export async function listBacklogItemsWithStats(
           backlog_items.created_at,
           coalesce(comment_counts.comment_count, 0) as comment_count
         from backlog_items
+        inner join projects
+          on projects.id = backlog_items.project_id
         left join (
           select
             backlog_comments.backlog_item_id,
@@ -509,10 +498,11 @@ export async function listBacklogItemsWithStats(
         ) as comment_counts
           on comment_counts.backlog_item_id = backlog_items.id
         where backlog_items.project_id = $1
+          and projects.owner_user_id = $2
         order by backlog_items.order_index asc, backlog_items.created_at asc
-        limit $2
-        offset $3`,
-        [projectId, limit, offset]
+        limit $3
+        offset $4`,
+        [projectId, ownerUserId, limit, offset]
       )
 
       return result.rows.map(mapRecord)
@@ -528,7 +518,10 @@ export async function listBacklogItemsWithStats(
   )
 }
 
-export async function listProjectBacklogActivities(projectIds: string[]) {
+export async function listProjectBacklogActivities(
+  projectIds: string[],
+  ownerUserId: string
+) {
   if (projectIds.length === 0) {
     return []
   }
@@ -572,8 +565,9 @@ export async function listProjectBacklogActivities(projectIds: string[]) {
         ) as comment_counts
           on comment_counts.backlog_item_id = backlog_items.id
         where backlog_items.project_id = any($1::uuid[])
+          and projects.owner_user_id = $2
         order by backlog_items.created_at desc`,
-        [projectIds]
+        [projectIds, ownerUserId]
       )
 
       return result.rows.map((record) => ({
@@ -598,10 +592,13 @@ export async function listProjectBacklogActivities(projectIds: string[]) {
   )
 }
 
-export async function createBacklogItem(input: CreateBacklogItemInput) {
+export async function createBacklogItem(
+  input: CreateBacklogItemInput,
+  ownerUserId: string
+) {
   return withBacklogStore(
     async () => {
-      await ensureProjectExists(input.projectId)
+      await ensureProjectExists(input.projectId, ownerUserId)
 
       const result = await getDb().query<BacklogRecord>(
         `with next_sequence as (
@@ -640,7 +637,9 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
           $8,
           $9,
           $10
-        from next_sequence, next_order
+        from next_sequence, next_order, projects
+        where projects.id = $2
+          and projects.owner_user_id = $11
         returning
           id,
           project_id,
@@ -666,8 +665,13 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
           input.status,
           input.checked,
           input.assigneeId,
+          ownerUserId,
         ]
       )
+
+      if (!result.rows[0]) {
+        return null
+      }
 
       let createdRecord = mapRecord(result.rows[0])
 
@@ -743,7 +747,11 @@ export async function createBacklogItem(input: CreateBacklogItemInput) {
   )
 }
 
-export async function updateBacklogItem(id: string, input: UpdateBacklogItemInput) {
+export async function updateBacklogItem(
+  id: string,
+  ownerUserId: string,
+  input: UpdateBacklogItemInput
+) {
   return withBacklogStore(
     async () => {
       const fields: string[] = []
@@ -805,6 +813,11 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
         `update backlog_items
         set ${fields.join(", ")}
         where id = $${values.length}
+          and project_id in (
+            select id
+            from projects
+            where owner_user_id = $${values.length + 1}
+          )
         returning
           id,
           project_id,
@@ -819,7 +832,7 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
           checked,
           assignee_id,
           created_at`,
-        values
+        [...values, ownerUserId]
       )
 
       return result.rows[0] ? mapRecord(result.rows[0]) : null
@@ -867,14 +880,19 @@ export async function updateBacklogItem(id: string, input: UpdateBacklogItemInpu
   )
 }
 
-export async function deleteBacklogItem(id: string) {
+export async function deleteBacklogItem(id: string, ownerUserId: string) {
   return withBacklogStore(
     async () => {
       const result = await getDb().query<{ id: string }>(
         `delete from backlog_items
         where id = $1
+          and project_id in (
+            select id
+            from projects
+            where owner_user_id = $2
+          )
         returning id`,
-        [id]
+        [id, ownerUserId]
       )
 
       return (result.rowCount ?? 0) > 0

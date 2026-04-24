@@ -80,9 +80,13 @@ function ProfileMenu({ session }: { session: AuthSession | null }) {
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
-          onClick={() => {
+          onClick={async () => {
             const tenantId = session?.tenantId ?? "common"
             clearClientAuthSession()
+            await fetch("/api/auth/logout", {
+              method: "POST",
+              credentials: "include",
+            }).catch(() => undefined)
             window.location.href = createMicrosoftLogoutUrl(tenantId, "/")
           }}
         >

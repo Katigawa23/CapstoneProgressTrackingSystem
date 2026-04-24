@@ -4,6 +4,10 @@ import path from "path"
 
 import { getPreferredStorageMode } from "@/backend/config/storage-mode"
 import { getDb } from "@/backend/db/connection"
+import {
+  canUseLocalFileFallback,
+  shouldFallbackToLocalStore,
+} from "@/backend/db/fallback"
 
 export type BacklogSubmissionRow = {
   id: string
@@ -45,27 +49,8 @@ let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<SubmissionStorageMode> | null = null
 let fallbackWarningShown = false
 
-function canUseFileFallback() {
-  return process.env.NODE_ENV !== "production"
-}
-
 function shouldUseFileFallback(error: unknown) {
-  if (!canUseFileFallback()) {
-    return false
-  }
-
-  const message = error instanceof Error ? error.message : String(error)
-
-  return [
-    "DATABASE_URL is not set",
-    "Unable to establish connection to upstream database",
-    "Circuit breaker open",
-    "ECONNREFUSED",
-    "ENOTFOUND",
-    "ETIMEDOUT",
-    "timeout expired",
-    "server closed the connection unexpectedly",
-  ].some((fragment) => message.includes(fragment))
+  return shouldFallbackToLocalStore(error)
 }
 
 function showFallbackWarning(error: unknown) {
@@ -145,7 +130,7 @@ async function getStorageMode(): Promise<SubmissionStorageMode> {
       }
 
       if (!process.env.DATABASE_URL) {
-        if (!canUseFileFallback()) {
+        if (!canUseLocalFileFallback()) {
           throw new Error(
             "DATABASE_URL is not set. Add your database connection string to .env.local and Vercel project settings."
           )
@@ -218,7 +203,10 @@ async function writeFileRecords(records: BacklogSubmissionRecord[]) {
   await writeFile(submissionsFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
-export async function listBacklogSubmissions(backlogItemId: string) {
+export async function listBacklogSubmissions(
+  backlogItemId: string,
+  ownerUserId: string
+) {
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
@@ -231,9 +219,14 @@ export async function listBacklogSubmissions(backlogItemId: string) {
           file_size,
           uploaded_at
         from backlog_submissions
+        inner join backlog_items
+          on backlog_items.id = backlog_submissions.backlog_item_id
+        inner join projects
+          on projects.id = backlog_items.project_id
         where backlog_item_id = $1
+          and projects.owner_user_id = $2
         order by uploaded_at desc`,
-        [backlogItemId]
+        [backlogItemId, ownerUserId]
       )
 
       return result.rows.map(mapRecord)
@@ -249,7 +242,8 @@ export async function listBacklogSubmissions(backlogItemId: string) {
 }
 
 export async function createBacklogSubmission(
-  input: CreateBacklogSubmissionInput
+  input: CreateBacklogSubmissionInput,
+  ownerUserId: string
 ) {
   return withSubmissionStore(
     async () => {
@@ -261,7 +255,19 @@ export async function createBacklogSubmission(
           file_url,
           file_type,
           file_size
-        ) values ($1, $2, $3, $4, $5, $6)
+        )
+        select
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6
+        from backlog_items
+        inner join projects
+          on projects.id = backlog_items.project_id
+        where backlog_items.id = $2
+          and projects.owner_user_id = $7
         returning
           id,
           backlog_item_id,
@@ -277,10 +283,11 @@ export async function createBacklogSubmission(
           input.fileUrl,
           input.fileType,
           input.fileSize,
+          ownerUserId,
         ]
       )
 
-      return mapRecord(result.rows[0])
+      return result.rows[0] ? mapRecord(result.rows[0]) : null
     },
     async () => {
       const submission: BacklogSubmissionRow = {
@@ -304,13 +311,21 @@ export async function createBacklogSubmission(
 
 export async function deleteBacklogSubmission(
   backlogItemId: string,
-  submissionId: string
+  submissionId: string,
+  ownerUserId: string
 ) {
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
         `delete from backlog_submissions
         where id = $1 and backlog_item_id = $2
+          and backlog_item_id in (
+            select backlog_items.id
+            from backlog_items
+            inner join projects
+              on projects.id = backlog_items.project_id
+            where projects.owner_user_id = $3
+          )
         returning
           id,
           backlog_item_id,
@@ -319,7 +334,7 @@ export async function deleteBacklogSubmission(
           file_type,
           file_size,
           uploaded_at`,
-        [submissionId, backlogItemId]
+        [submissionId, backlogItemId, ownerUserId]
       )
 
       return result.rows[0] ? mapRecord(result.rows[0]) : null

@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
+import { requireAuthenticatedUser } from "@/backend/auth/user"
 import {
   deleteBacklogComment,
   updateBacklogComment,
@@ -11,13 +12,14 @@ export async function PATCH(
   { params }: { params: Promise<{ commentId: string }> }
 ) {
   try {
+    const user = await requireAuthenticatedUser()
     const { commentId } = await params
     const body = (await request.json()) as {
       body?: string
       attachments?: string[]
     }
 
-    const comment = await updateBacklogComment(commentId, {
+    const comment = await updateBacklogComment(commentId, user.id, {
       body: typeof body.body === "string" ? body.body.trim() : undefined,
       attachments: Array.isArray(body.attachments)
         ? body.attachments.map((item) => String(item).trim()).filter(Boolean)
@@ -49,8 +51,9 @@ export async function DELETE(
   { params }: { params: Promise<{ commentId: string }> }
 ) {
   try {
+    const user = await requireAuthenticatedUser()
     const { commentId } = await params
-    const deleted = await deleteBacklogComment(commentId)
+    const deleted = await deleteBacklogComment(commentId, user.id)
 
     if (!deleted) {
       return NextResponse.json({ error: "Comment not found" }, { status: 404 })

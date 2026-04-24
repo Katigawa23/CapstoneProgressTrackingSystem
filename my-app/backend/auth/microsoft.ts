@@ -7,6 +7,8 @@ export type MicrosoftUser = {
   role: "student" | "adviser"
 }
 
+const ALLOWED_MICROSOFT_EMAIL_DOMAIN = "alabang.sti.edu.ph"
+
 type MicrosoftTokenResponse = {
   access_token?: string
   id_token?: string
@@ -172,6 +174,10 @@ function determineRoleFromEmail(email: string): "student" | "adviser" {
   return "student"
 }
 
+function isAllowedMicrosoftEmail(email: string) {
+  return email.trim().toLowerCase().endsWith(`@${ALLOWED_MICROSOFT_EMAIL_DOMAIN}`)
+}
+
 function getUserFromIdToken(idToken: string): MicrosoftUser {
   const claims = parseJwtPayload<MicrosoftIdTokenClaims>(idToken)
 
@@ -180,6 +186,10 @@ function getUserFromIdToken(idToken: string): MicrosoftUser {
 
   if (!id || !email) {
     throw new Error("Microsoft account details are incomplete")
+  }
+
+  if (!isAllowedMicrosoftEmail(email)) {
+    throw new Error(`Only @${ALLOWED_MICROSOFT_EMAIL_DOMAIN} Microsoft accounts can sign in`)
   }
 
   return {

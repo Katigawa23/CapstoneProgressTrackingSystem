@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
+import { requireAuthenticatedUser } from "@/backend/auth/user"
 import {
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
@@ -9,7 +10,8 @@ import { createProject, listProjects } from "@/backend/repositories/project-repo
 
 export async function GET() {
   try {
-    const projects = await listProjects()
+    const user = await requireAuthenticatedUser()
+    const projects = await listProjects(user.id)
     return NextResponse.json(
       { projects },
       {
@@ -26,6 +28,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const user = await requireAuthenticatedUser()
     const body = (await request.json()) as {
       name?: string
       members?: string[]
@@ -75,7 +78,7 @@ export async function POST(request: Request) {
       yearLevel: yearLevel.slice(0, PROJECT_METADATA_MAX_LENGTH),
       syTerm: syTerm.slice(0, PROJECT_METADATA_MAX_LENGTH),
       projectType: projectType.slice(0, PROJECT_METADATA_MAX_LENGTH),
-    })
+    }, user.id)
 
     revalidateTag("projects", "max")
     revalidateTag("backlog-items", "max")

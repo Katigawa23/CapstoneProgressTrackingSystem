@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
+import { requireAuthenticatedUser } from "@/backend/auth/user"
 import {
   deleteBacklogItem,
   updateBacklogItem,
@@ -20,6 +21,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireAuthenticatedUser()
     const { id } = await params
     const body = (await request.json()) as {
       parentId?: string | null
@@ -33,7 +35,7 @@ export async function PATCH(
       orderIndex?: number
     }
 
-    const item = await updateBacklogItem(id, {
+    const item = await updateBacklogItem(id, user.id, {
       parentId:
         "parentId" in body
           ? typeof body.parentId === "string" && body.parentId.trim().length > 0
@@ -78,8 +80,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireAuthenticatedUser()
     const { id } = await params
-    const deleted = await deleteBacklogItem(id)
+    const deleted = await deleteBacklogItem(id, user.id)
 
     if (!deleted) {
       return NextResponse.json(

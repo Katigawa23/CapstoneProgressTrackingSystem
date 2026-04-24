@@ -4,6 +4,10 @@ import path from "path"
 
 import { getPreferredStorageMode } from "@/backend/config/storage-mode"
 import { getDb } from "@/backend/db/connection"
+import {
+  canUseLocalFileFallback,
+  shouldFallbackToLocalStore,
+} from "@/backend/db/fallback"
 
 export type BacklogCommentRow = {
   id: string
@@ -43,27 +47,8 @@ let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<CommentStorageMode> | null = null
 let fallbackWarningShown = false
 
-function canUseFileFallback() {
-  return process.env.NODE_ENV !== "production"
-}
-
 function shouldUseFileFallback(error: unknown) {
-  if (!canUseFileFallback()) {
-    return false
-  }
-
-  const message = error instanceof Error ? error.message : String(error)
-
-  return [
-    "DATABASE_URL is not set",
-    "Unable to establish connection to upstream database",
-    "Circuit breaker open",
-    "ECONNREFUSED",
-    "ENOTFOUND",
-    "ETIMEDOUT",
-    "timeout expired",
-    "server closed the connection unexpectedly",
-  ].some((fragment) => message.includes(fragment))
+  return shouldFallbackToLocalStore(error)
 }
 
 function showFallbackWarning(error: unknown) {
@@ -142,7 +127,7 @@ async function getStorageMode(): Promise<CommentStorageMode> {
       }
 
       if (!process.env.DATABASE_URL) {
-        if (!canUseFileFallback()) {
+        if (!canUseLocalFileFallback()) {
           throw new Error(
             "DATABASE_URL is not set. Add your database connection string to .env.local and Vercel project settings."
           )
@@ -215,7 +200,7 @@ async function writeFileRecords(records: BacklogCommentRecord[]) {
   await writeFile(commentsFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
-export async function listBacklogComments(backlogItemId: string) {
+export async function listBacklogComments(backlogItemId: string, ownerUserId: string) {
   return withCommentStore(
     async () => {
       const result = await getDb().query<BacklogCommentRecord>(
@@ -227,9 +212,14 @@ export async function listBacklogComments(backlogItemId: string) {
           attachments,
           created_at
         from backlog_comments
+        inner join backlog_items
+          on backlog_items.id = backlog_comments.backlog_item_id
+        inner join projects
+          on projects.id = backlog_items.project_id
         where backlog_item_id = $1
+          and projects.owner_user_id = $2
         order by created_at asc`,
-        [backlogItemId]
+        [backlogItemId, ownerUserId]
       )
 
       return result.rows.map(mapRecord)
@@ -243,7 +233,10 @@ export async function listBacklogComments(backlogItemId: string) {
   )
 }
 
-export async function createBacklogComment(input: CreateBacklogCommentInput) {
+export async function createBacklogComment(
+  input: CreateBacklogCommentInput,
+  ownerUserId: string
+) {
   return withCommentStore(
     async () => {
       const result = await getDb().query<BacklogCommentRecord>(
@@ -253,7 +246,18 @@ export async function createBacklogComment(input: CreateBacklogCommentInput) {
           author,
           body,
           attachments
-        ) values ($1, $2, $3, $4, $5::jsonb)
+        )
+        select
+          $1,
+          $2,
+          $3,
+          $4,
+          $5::jsonb
+        from backlog_items
+        inner join projects
+          on projects.id = backlog_items.project_id
+        where backlog_items.id = $2
+          and projects.owner_user_id = $6
         returning
           id,
           backlog_item_id,
@@ -267,10 +271,11 @@ export async function createBacklogComment(input: CreateBacklogCommentInput) {
           input.author,
           input.body,
           JSON.stringify(input.attachments),
+          ownerUserId,
         ]
       )
 
-      return mapRecord(result.rows[0])
+      return result.rows[0] ? mapRecord(result.rows[0]) : null
     },
     async () => {
       const comment: BacklogCommentRow = {
@@ -293,6 +298,7 @@ export async function createBacklogComment(input: CreateBacklogCommentInput) {
 
 export async function updateBacklogComment(
   id: string,
+  ownerUserId: string,
   input: UpdateBacklogCommentInput
 ) {
   return withCommentStore(
@@ -320,6 +326,13 @@ export async function updateBacklogComment(
         `update backlog_comments
         set ${fields.join(", ")}
         where id = $${values.length}
+          and backlog_item_id in (
+            select backlog_items.id
+            from backlog_items
+            inner join projects
+              on projects.id = backlog_items.project_id
+            where projects.owner_user_id = $${values.length + 1}
+          )
         returning
           id,
           backlog_item_id,
@@ -327,7 +340,7 @@ export async function updateBacklogComment(
           body,
           attachments,
           created_at`,
-        values
+        [...values, ownerUserId]
       )
 
       return result.rows[0] ? mapRecord(result.rows[0]) : null
@@ -357,14 +370,21 @@ export async function updateBacklogComment(
   )
 }
 
-export async function deleteBacklogComment(id: string) {
+export async function deleteBacklogComment(id: string, ownerUserId: string) {
   return withCommentStore(
     async () => {
       const result = await getDb().query<{ id: string }>(
         `delete from backlog_comments
         where id = $1
+          and backlog_item_id in (
+            select backlog_items.id
+            from backlog_items
+            inner join projects
+              on projects.id = backlog_items.project_id
+            where projects.owner_user_id = $2
+          )
         returning id`,
-        [id]
+        [id, ownerUserId]
       )
 
       return (result.rowCount ?? 0) > 0
