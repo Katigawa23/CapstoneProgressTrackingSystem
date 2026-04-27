@@ -22,6 +22,8 @@ import {
 import {
   clearClientAuthSession,
   createMicrosoftLogoutUrl,
+  hasBootstrappedDashboardSession,
+  markDashboardSessionBootstrapped,
   readClientAuthSession,
   subscribeToAuthChange,
   type AuthSession,
@@ -126,6 +128,9 @@ export function DashboardLayoutClient({
   const pathname = usePathname()
   const [session, setSession] = React.useState<AuthSession | null>(initialAuthSession)
   const [authLoading, setAuthLoading] = React.useState(!initialAuthSession)
+  const [showInitialDashboardSkeleton, setShowInitialDashboardSkeleton] = React.useState(
+    () => !hasBootstrappedDashboardSession()
+  )
 
   React.useEffect(() => {
     const syncSession = () => {
@@ -134,6 +139,8 @@ export function DashboardLayoutClient({
       if (!nextSession) {
         if (initialAuthSession) {
           setSession(initialAuthSession)
+          markDashboardSessionBootstrapped()
+          setShowInitialDashboardSkeleton(false)
           setAuthLoading(false)
           return
         }
@@ -143,6 +150,8 @@ export function DashboardLayoutClient({
       }
 
       setSession(nextSession)
+      markDashboardSessionBootstrapped()
+      setShowInitialDashboardSkeleton(false)
       setAuthLoading(false)
     }
 
@@ -192,7 +201,9 @@ export function DashboardLayoutClient({
           <main className="flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10">
             {authLoading
               ? pathname === "/dashboard"
-                ? <DashboardLoadingState initialDashboardHomeState={initialDashboardHomeState} />
+                ? showInitialDashboardSkeleton
+                  ? <DashboardLoadingState initialDashboardHomeState={initialDashboardHomeState} />
+                  : null
                 : pathname === "/dashboard/board"
                   ? null
                   : pathname === "/dashboard/backlog"

@@ -41,6 +41,8 @@ export type DashboardProject = {
   id: string
   name: string
   members: string[]
+  advisers: string[]
+  starred: boolean
   memberUserIds: string[]
   program: string
   yearLevel: string
@@ -61,6 +63,7 @@ type CookieStoreLike = {
 export type CreateDashboardProjectInput = {
   name: string
   members: string[]
+  advisers?: string[]
   memberUserIds?: string[]
   program: string
   yearLevel: string
@@ -118,6 +121,8 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
     id: candidate.id,
     name: candidate.name,
     members: candidate.members,
+    advisers: isStringArray(candidate.advisers) ? candidate.advisers : [],
+    starred: candidate.starred === true,
     memberUserIds: isStringArray(candidate.memberUserIds) ? candidate.memberUserIds : [],
     program: typeof candidate.program === "string" ? candidate.program : "",
     yearLevel: typeof candidate.yearLevel === "string" ? candidate.yearLevel : "",
@@ -313,11 +318,11 @@ export function getProjectMonogram(name: string) {
 }
 
 export function getStarredProjects(projects = getDashboardProjects()) {
-  return projects.slice(0, 1)
+  return projects.filter((project) => project.starred)
 }
 
 export function getRecentProjects(projects = getDashboardProjects()) {
-  return projects.slice(1)
+  return projects.filter((project) => !project.starred)
 }
 
 export function getDashboardProjectCollections(
@@ -338,6 +343,7 @@ export function getDashboardProjectCollections(
 export function createDashboardProject({
   name,
   members,
+  advisers,
   memberUserIds,
   program,
   yearLevel,
@@ -352,6 +358,8 @@ export function createDashboardProject({
     body: JSON.stringify({
       name: name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
       members,
+      advisers: Array.isArray(advisers) ? advisers : [],
+      starred: false,
       memberUserIds: Array.isArray(memberUserIds) ? memberUserIds : [],
       program: program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
@@ -368,6 +376,31 @@ export function createDashboardProject({
     cacheDashboardProjects(nextProjects)
     return data.project
   })
+}
+
+export async function setDashboardProjectStarred(projectId: string, starred: boolean) {
+  const response = await fetch("/api/projects", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      projectId,
+      starred,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error("Failed to update project star")
+  }
+
+  const data = (await response.json()) as { project: DashboardProject }
+  const nextProjects = getDashboardProjects().map((project) =>
+    project.id === data.project.id ? data.project : project
+  )
+
+  cacheDashboardProjects(nextProjects)
+  return data.project
 }
 
 export function setDashboardProject(projectId: string) {

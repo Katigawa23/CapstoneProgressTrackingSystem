@@ -11,19 +11,24 @@ import {
   PROJECT_CHANGE_EVENT,
   type DashboardProject,
 } from "@/lib/projects"
-import { readClientAuthSession } from "@/lib/auth-client"
+import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
 import { broadcastDashboardActivitySync } from "@/lib/dashboard-activity-sync"
 import { writeDashboardBoardState } from "@/lib/dashboard-board-state"
 import { DashboardBoard } from "../components/dashboard-board"
-import { DashboardHeader } from "../components/dashboard-header"
+import {
+  DashboardHeader,
+  type DashboardBoardFilter,
+  type SprintOption,
+} from "../components/dashboard-header"
 import { CreateWorkItemDialog } from "../backlog/components/create-work-item-dialog"
 import {
+  buildAssigneeOptionId,
   createAssigneeOptionsFromProject,
   getAssigneeOption,
   setAssigneeOptions,
 } from "../backlog/types"
 import type { BacklogApiItem, TodoItem } from "../types"
-import { buildSubtaskDisplayId, mapBacklogItemsToTodos } from "../utils"
+import { mapBacklogItemsToTodos } from "../utils"
 
 type DashboardBoardPageClientProps = {
   initialProjects: DashboardProject[]
@@ -51,7 +56,19 @@ export function DashboardBoardPageClient({
   const [createDueDate, setCreateDueDate] = React.useState<Date | undefined>()
   const [createDescription, setCreateDescription] = React.useState("")
   const [hasLoadedBoardData, setHasLoadedBoardData] = React.useState(false)
-  const currentUser = React.useMemo(() => readClientAuthSession()?.user ?? null, [])
+  const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
+  const [searchValue, setSearchValue] = React.useState("")
+  const [filterValue, setFilterValue] =
+    React.useState<DashboardBoardFilter>("none")
+  const sprintOptions = React.useMemo<SprintOption[]>(
+    () => [
+      { value: "sprint-12", label: "Sprint 12", status: "active" },
+      { value: "sprint-11", label: "Sprint 11", status: "completed" },
+      { value: "sprint-10", label: "Sprint 10", status: "completed" },
+    ],
+    []
+  )
+  const [sprintValue, setSprintValue] = React.useState("sprint-12")
   const selectedProject = React.useMemo(
     () =>
       initialProjects.find((project) => project.id === selectedProjectId) ?? null,
@@ -73,12 +90,57 @@ export function DashboardBoardPageClient({
     },
     [currentUser, selectedProject]
   )
+  const currentUserAssigneeIds = React.useMemo(() => {
+    const ids = new Set<string>()
+
+    if (currentUser?.id?.trim()) {
+      ids.add(currentUser.id.trim())
+    }
+
+    if (currentUser?.name?.trim()) {
+      ids.add(buildAssigneeOptionId(currentUser.name))
+    }
+
+    return ids
+  }, [currentUser])
 
   const buildChecklist = React.useCallback((items: TodoItem[], parentId: string) => {
     const subtasks = items.filter((item) => item.parentId === parentId)
     const completedCount = subtasks.filter((item) => item.checked).length
 
     return `${completedCount}/${subtasks.length}`
+  }, [])
+
+  const fetchTodosForProject = React.useCallback(
+    async (projectId: string) => {
+      const response = await fetch(`/api/backlog-items?projectId=${projectId}&limit=500`, {
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to load backlog items")
+      }
+
+      const data = (await response.json()) as { items: BacklogApiItem[] }
+      return mapBacklogItemsToTodos(
+        data.items,
+        getCurrentProjectCode(projectId)
+      )
+    },
+    [getCurrentProjectCode]
+  )
+
+  React.useEffect(() => {
+    const syncCurrentUser = () => {
+      setCurrentUser(readClientAuthSession()?.user ?? null)
+    }
+
+    syncCurrentUser()
+    const unsubscribe = subscribeToAuthChange(syncCurrentUser)
+
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   React.useEffect(() => {
@@ -490,31 +552,17 @@ export function DashboardBoardPageClient({
         createAssigneeOptionsFromProject(nextProject, currentUser)
       )
 
-      if (savedProjectId === initialSelectedProjectId) {
-        return
-      }
-
       try {
-        const response = await fetch(`/api/backlog-items?projectId=${savedProjectId}&limit=500`, {
-          cache: "no-store",
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to load backlog items")
-        }
-
-        const data = (await response.json()) as { items: BacklogApiItem[] }
+        const mappedTodos = await fetchTodosForProject(savedProjectId)
 
         if (!cancelled) {
-          const mappedTodos = mapBacklogItemsToTodos(
-            data.items,
-            getCurrentProjectCode(savedProjectId)
-          )
           setTodos(mappedTodos)
           setHasLoadedBoardData(true)
         }
       } catch (error) {
-        console.error(error)
+        if (!cancelled) {
+          console.error(error)
+        }
       }
     }
 
@@ -525,7 +573,7 @@ export function DashboardBoardPageClient({
       cancelled = true
       window.removeEventListener(PROJECT_CHANGE_EVENT, loadTodosForSelectedProject)
     }
-  }, [currentUser, getCurrentProjectCode, initialProjects, initialSelectedProjectId, router])
+  }, [currentUser, fetchTodosForProject, initialProjects, router])
 
   const handleCreateSubtask = React.useCallback(
     async (parentTodo: TodoItem, title: string, description: string) => {
@@ -536,14 +584,13 @@ export function DashboardBoardPageClient({
         return
       }
 
-      const response = await fetch("/api/backlog-items", {
+      const response = await fetch(`/api/backlog-items/${parentTodo.id}/subtasks`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           projectId: selectedProjectId,
-          parentId: parentTodo.id,
           title,
           description,
           startDate: null,
@@ -557,79 +604,75 @@ export function DashboardBoardPageClient({
         throw new Error("Failed to create subtask")
       }
 
-      const data = (await response.json()) as { item: BacklogApiItem }
-      const persistedItem =
-        data.item.parentId === parentTodo.id
-          ? data.item
-          : await (async () => {
-              const repairResponse = await fetch(`/api/backlog-items/${data.item.id}`, {
-                method: "PATCH",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  parentId: parentTodo.id,
-                }),
-              })
-
-              if (!repairResponse.ok) {
-                throw new Error("Failed to persist subtask parent")
-              }
-
-              const repairedData = (await repairResponse.json()) as { item: BacklogApiItem }
-              return repairedData.item
-            })()
-
-      const [mappedSubtask] = mapBacklogItemsToTodos(
-        [
-          {
-            ...persistedItem,
-            parentId: persistedItem.parentId ?? parentTodo.id,
-          },
-        ],
-        getCurrentProjectCode(selectedProjectId)
-      )
-      const siblingCount = todos.filter((todo) => todo.parentId === parentTodo.id).length
-      const nextMappedSubtask = mappedSubtask
-        ? {
-            ...mappedSubtask,
-            displayId: buildSubtaskDisplayId(parentTodo.displayId, siblingCount + 1),
-          }
-        : mappedSubtask
-
-      setTodos((prev) =>
-        prev.map((todo) =>
-          todo.id === parentTodo.id
-            ? {
-                ...todo,
-                checklist: `${prev.filter((item) => item.parentId === parentTodo.id && item.checked).length}/${prev.filter((item) => item.parentId === parentTodo.id).length + 1}`,
-              }
-            : todo
-        ).concat(nextMappedSubtask ?? [])
-      )
+      const refreshedTodos = await fetchTodosForProject(selectedProjectId)
+      setTodos(refreshedTodos)
+      setHasLoadedBoardData(true)
     },
-    [getCurrentProjectCode, router, todos]
+    [fetchTodosForProject, router]
   )
+
+  const filteredTodos = React.useMemo(() => {
+    const normalizedSearch = searchValue.trim().toLowerCase()
+
+    return todos.filter((todo) => {
+      if (filterValue === "subtask" && !todo.parentId) {
+        return false
+      }
+
+      if (
+        filterValue === "assignee" &&
+        (!todo.assigneeId || !currentUserAssigneeIds.has(todo.assigneeId))
+      ) {
+        return false
+      }
+
+      if (!normalizedSearch) {
+        return true
+      }
+
+      const searchableValues = [
+        todo.title,
+        todo.displayId,
+        todo.description,
+        todo.assignee,
+      ]
+
+      return searchableValues.some((value) =>
+        value.toLowerCase().includes(normalizedSearch)
+      )
+    })
+  }, [currentUserAssigneeIds, filterValue, searchValue, todos])
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
       <DashboardHeader
         people={projectPeople}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        filterValue={filterValue}
+        onFilterChange={setFilterValue}
+        sprintOptions={sprintOptions}
+        sprintValue={sprintValue}
+        onSprintChange={setSprintValue}
         onCreate={() => {
           setCreateOpen(true)
         }}
+        onCreateSprint={() => {}}
+        onManageSprints={() => {}}
       />
-      <DashboardBoard
-        todos={todos}
-        people={projectPeople}
-        onStatusChange={handleStatusChange}
-        onMoveTodo={handleMoveTodo}
-        onAssigneeChange={handleAssigneeChange}
-        onTodoUpdate={handleTodoUpdate}
-        onCreateSubtask={handleCreateSubtask}
-        onUpdateSubtask={handleUpdateSubtask}
-        onDeleteSubtask={handleDeleteSubtask}
-      />
+      <div className="min-h-0 w-full md:max-w-[calc(100vw-var(--sidebar-width)-2rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
+        <DashboardBoard
+          todos={filteredTodos}
+          people={projectPeople}
+          onStatusChange={handleStatusChange}
+          onMoveTodo={handleMoveTodo}
+          onAssigneeChange={handleAssigneeChange}
+          onTodoUpdate={handleTodoUpdate}
+          onCreateSubtask={handleCreateSubtask}
+          onUpdateSubtask={handleUpdateSubtask}
+          onDeleteSubtask={handleDeleteSubtask}
+        />
+      </div>
 
       <CreateWorkItemDialog
         open={createOpen}

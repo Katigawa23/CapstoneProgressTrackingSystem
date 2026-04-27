@@ -2,10 +2,26 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { CheckSquare2, GitFork } from "lucide-react"
+import {
+  Archive,
+  CheckSquare2,
+  GitFork,
+  MoreHorizontal,
+  Pencil,
+  Star,
+  Trash2,
+} from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
+import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -21,8 +37,13 @@ import {
   cacheDashboardProjects,
   getDashboardProjects,
   setDashboardProject,
+  setDashboardProjectStarred,
 } from "@/lib/projects"
-import { readClientAuthSession } from "@/lib/auth-client"
+import {
+  readClientAuthSession,
+  subscribeToAuthChange,
+  type AuthenticatedUser,
+} from "@/lib/auth-client"
 import {
   subscribeToDashboardActivitySync,
 } from "@/lib/dashboard-activity-sync"
@@ -60,7 +81,7 @@ export function DashboardPageClient({
   const router = useRouter()
   const [projects, setProjects] = React.useState<DashboardProject[]>(initialProjects)
   const [activityItems, setActivityItems] = React.useState(initialActivities)
-  const currentUser = React.useMemo(() => readClientAuthSession()?.user ?? null, [])
+  const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
   const currentUserAssigneeIds = React.useMemo(() => {
     const ids = new Set<string>()
 
@@ -269,12 +290,25 @@ export function DashboardPageClient({
   ])
 
   React.useEffect(() => {
+    const syncCurrentUser = () => {
+      setCurrentUser(readClientAuthSession()?.user ?? null)
+    }
+
+    syncCurrentUser()
+    const unsubscribe = subscribeToAuthChange(syncCurrentUser)
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
+
+  React.useEffect(() => {
     setActivityItems(initialActivities)
   }, [initialActivities])
 
   React.useEffect(() => {
     cacheDashboardProjects(initialProjects)
-    setProjects(getDashboardProjects())
+    setProjects(initialProjects)
 
     const syncProjects = () => {
       setProjects(getDashboardProjects())
@@ -320,18 +354,23 @@ export function DashboardPageClient({
     [activities]
   )
 
-  const starredActivities = React.useMemo(
-    () =>
-      activities.filter((activity) => {
-        const starredProjectId = projects[0]?.id
-        return activity.projectId === starredProjectId
-      }),
-    [activities, projects]
-  )
-
   const recentProjects = React.useMemo(() => {
     return projects
   }, [projects])
+
+  const starredProjects = React.useMemo(
+    () => projects.filter((project) => project.starred),
+    [projects]
+  )
+
+  const handleToggleStarred = React.useCallback(async (projectId: string, starred: boolean) => {
+    const updatedProject = await setDashboardProjectStarred(projectId, starred)
+    setProjects((currentProjects) =>
+      currentProjects.map((project) =>
+        project.id === updatedProject.id ? updatedProject : project
+      )
+    )
+  }, [])
 
   React.useEffect(() => {
     writeDashboardHomeState({
@@ -435,12 +474,68 @@ export function DashboardPageClient({
     [formatActivityDate, groupActivitiesByRecency]
   )
 
+  const renderStarredProjectsContent = React.useCallback(() => {
+    if (starredProjects.length === 0) {
+      return (
+        <div className="px-1 py-6 text-sm text-muted-foreground">
+          No starred projects yet.
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-2 pt-4">
+        {starredProjects.map((project, index) => (
+          <div
+            key={`starred-${project.id}`}
+            className="flex cursor-pointer items-start justify-between gap-4 rounded-lg px-1 py-1.5 transition hover:bg-slate-50 dark:hover:bg-[#242424]"
+            onClick={() => {
+              setDashboardProject(project.id)
+              router.push("/dashboard/board")
+            }}
+          >
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-amber-500 dark:border-amber-500/40 dark:bg-[#2b2110] dark:text-amber-400">
+                <Star className="h-3.5 w-3.5 fill-current" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                  {project.name}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, index)} · {project.projectType || "No project type"}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }, [getProjectDisplayId, projectDisplayIds, router, starredProjects])
+
   return (
     <TooltipProvider>
       <ScrollArea className="h-full w-full">
         <div className="mx-auto flex w-full max-w-[92rem] flex-col gap-6 px-1 pb-6 pr-6 sm:pr-8 xl:px-2 xl:pr-10">
           <div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight">Choose a project</h1>
+            <div className="flex items-center justify-between gap-4">
+              <h1 className="font-display text-2xl font-semibold tracking-tight">
+                Choose a project
+              </h1>
+              <Button
+                type="button"
+                className="rounded-lg px-5"
+                style={{
+                  backgroundColor: "var(--brand-primary-fixed)",
+                  color: "var(--brand-primary-fixed-foreground)",
+                }}
+                onClick={() => {
+                  window.dispatchEvent(new Event("tracksphere-open-create-project"))
+                }}
+              >
+                Create
+              </Button>
+            </div>
             <div className="mt-3 h-px w-full bg-slate-200 dark:bg-slate-800" />
           </div>
 
@@ -477,6 +572,50 @@ export function DashboardPageClient({
                   }}
                 >
                   <div className="absolute inset-y-0 left-0 w-1.5 bg-sky-600 dark:bg-sky-500" />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`More options for ${project.name}`}
+                        className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                        }}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                      }}
+                    >
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onSelect={() => {
+                          void handleToggleStarred(project.id, !project.starred)
+                        }}
+                      >
+                        <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
+                        {project.starred ? "Remove from starred" : "Add to starred"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer">
+                        <Pencil className="h-4 w-4" />
+                        Edit project
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer">
+                        <Archive className="h-4 w-4" />
+                        Archive project
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" className="cursor-pointer">
+                        <Trash2 className="h-4 w-4" />
+                        Delete Project
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   <CardHeader className="flex-1 space-y-3 px-4 pb-3 pt-3.5">
                     <div className="space-y-1">
@@ -516,7 +655,7 @@ export function DashboardPageClient({
                               </Avatar>
                             ))}
                             {project.members.length > 3 ? (
-                              <div className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-emerald-600 text-[10px] font-semibold text-white">
+                              <div className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-emerald-600 text-[10px] font-bold text-white">
                                 +{project.members.length - 3}
                               </div>
                             ) : null}
@@ -574,7 +713,7 @@ export function DashboardPageClient({
             <TabsContent value="worked-on">{renderActivityContent(workedOnActivities)}</TabsContent>
             <TabsContent value="assigned-to-me">{renderActivityContent(assignedActivities)}</TabsContent>
             <TabsContent value="viewed">{renderActivityContent(viewedActivities)}</TabsContent>
-            <TabsContent value="starred">{renderActivityContent(starredActivities)}</TabsContent>
+            <TabsContent value="starred">{renderStarredProjectsContent()}</TabsContent>
           </Tabs>
         </div>
       </ScrollArea>

@@ -21,6 +21,8 @@ type ProjectRecord = {
   member_user_ids: string[]
   project_name: string
   project_member: string[]
+  project_adviser: string[]
+  is_starred: boolean
   program: string
   year_level: string
   sy_term: string
@@ -35,6 +37,8 @@ type RawProjectRecord = Partial<ProjectRecord> & {
 type CreateProjectInput = {
   name: string
   members: string[]
+  advisers?: string[]
+  starred?: boolean
   memberUserIds: string[]
   program: string
   yearLevel: string
@@ -67,6 +71,12 @@ function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
     project_member: Array.isArray(record.project_member)
       ? record.project_member.filter((member): member is string => typeof member === "string")
       : [],
+    project_adviser: Array.isArray((record as { project_adviser?: unknown[] }).project_adviser)
+      ? ((record as { project_adviser?: unknown[] }).project_adviser ?? []).filter(
+          (adviser): adviser is string => typeof adviser === "string"
+        )
+      : [],
+    is_starred: record.is_starred === true,
     program: typeof record.program === "string" ? record.program : "",
     year_level: typeof record.year_level === "string" ? record.year_level : "",
     sy_term: typeof record.sy_term === "string" ? record.sy_term : "",
@@ -106,6 +116,8 @@ async function ensureProjectsSchema() {
           member_user_ids text[] not null default '{}',
           project_name text not null,
           project_member text[] not null default '{}',
+          project_adviser text[] not null default '{}',
+          is_starred boolean not null default false,
           program text not null default '',
           year_level text not null default '',
           sy_term text not null default '',
@@ -123,6 +135,18 @@ async function ensureProjectsSchema() {
         getDb().query(`
           alter table projects
           add column if not exists member_user_ids text[] not null default '{}';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists project_adviser text[] not null default '{}';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists is_starred boolean not null default false;
         `)
       )
       .then(() =>
@@ -305,6 +329,8 @@ function mapRecord(record: ProjectRecord): DashboardProject {
     id: record.id,
     name: record.project_name,
     members: record.project_member,
+    advisers: record.project_adviser,
+    starred: record.is_starred,
     memberUserIds: record.member_user_ids,
     program: typeof record.program === "string" ? record.program : "",
     yearLevel: typeof record.year_level === "string" ? record.year_level : "",
@@ -324,6 +350,8 @@ function toRecord(project: DashboardProject, ownerUserId: string): ProjectRecord
     member_user_ids: project.memberUserIds,
     project_name: project.name,
     project_member: project.members,
+    project_adviser: project.advisers,
+    is_starred: project.starred,
     program: project.program,
     year_level: project.yearLevel,
     sy_term: project.syTerm,
@@ -340,13 +368,15 @@ async function insertProjectRecord(record: ProjectRecord) {
        member_user_ids,
        project_name,
        project_member,
+       project_adviser,
+       is_starred,
        program,
        year_level,
        sy_term,
        project_type,
        created_at
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      on conflict (id) do nothing`,
     [
       record.id,
@@ -354,6 +384,8 @@ async function insertProjectRecord(record: ProjectRecord) {
       record.member_user_ids,
       record.project_name,
       record.project_member,
+      record.project_adviser,
+      record.is_starred,
       record.program,
       record.year_level,
       record.sy_term,
@@ -368,6 +400,8 @@ function normalizeProject(input: CreateProjectInput): DashboardProject {
     id: randomUUID(),
     name: input.name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
     members: input.members,
+    advisers: Array.isArray(input.advisers) ? input.advisers.filter(Boolean) : [],
+    starred: input.starred === true,
     memberUserIds: input.memberUserIds.filter(Boolean),
     program: input.program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
     yearLevel: input.yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
@@ -387,6 +421,8 @@ export async function listProjects(ownerUserId: string) {
            member_user_ids,
            project_name,
            project_member,
+           project_adviser,
+           is_starred,
            program,
            year_level,
            sy_term,
@@ -429,18 +465,22 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
            member_user_ids,
            project_name,
            project_member,
+           project_adviser,
+           is_starred,
            program,
            year_level,
            sy_term,
            project_type
          )
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          returning
            id,
            owner_user_id,
            member_user_ids,
            project_name,
            project_member,
+           project_adviser,
+           is_starred,
            program,
            year_level,
            sy_term,
@@ -452,6 +492,8 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
           input.memberUserIds.filter((memberUserId) => memberUserId !== ownerUserId),
           project.name,
           project.members,
+          project.advisers,
+          project.starred,
           project.program,
           project.yearLevel,
           project.syTerm,
@@ -470,6 +512,65 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
       })
       await writeFileRecords(records)
       return project
+    }
+  )
+}
+
+export async function updateProjectStarred(
+  projectId: string,
+  ownerUserId: string,
+  starred: boolean
+) {
+  return withProjectStore(
+    async () => {
+      const result = await getDb().query<ProjectRecord>(
+        `update projects
+         set is_starred = $3
+         where id = $1
+           and (
+             owner_user_id = $2
+             or $2 = any(member_user_ids)
+           )
+         returning
+           id,
+           owner_user_id,
+           member_user_ids,
+           project_name,
+           project_member,
+           project_adviser,
+           is_starred,
+           program,
+           year_level,
+           sy_term,
+           project_type,
+           created_at`,
+        [projectId, ownerUserId, starred]
+      )
+
+      return result.rows[0] ? mapRecord(result.rows[0]) : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const recordIndex = records.findIndex(
+        (record) =>
+          record.id === projectId &&
+          (
+            record.owner_user_id === ownerUserId ||
+            record.member_user_ids.includes(ownerUserId)
+          )
+      )
+
+      if (recordIndex < 0) {
+        return null
+      }
+
+      records[recordIndex] = {
+        ...records[recordIndex],
+        is_starred: starred,
+      }
+
+      await writeFileRecords(records)
+      return mapRecord(records[recordIndex])
     }
   )
 }

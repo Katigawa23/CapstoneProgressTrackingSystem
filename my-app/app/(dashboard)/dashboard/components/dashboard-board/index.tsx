@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import { columns } from "../../constants"
 import type { DashboardComment, DashboardSubmission, TodoItem } from "../../types"
@@ -84,6 +85,7 @@ export function DashboardBoard({
   const [isLoadingComments, setIsLoadingComments] = React.useState(false)
   const [isLoadingSubmissions, setIsLoadingSubmissions] = React.useState(false)
   const [isUploadingSubmission, setIsUploadingSubmission] = React.useState(false)
+  const [loadedTaskIds, setLoadedTaskIds] = React.useState<Record<string, true>>({})
 
   const imageInputRef = React.useRef<HTMLInputElement | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -115,6 +117,21 @@ export function DashboardBoard({
       setSelectedTodo(nextSelectedTodo)
     }
   }, [selectedTodo, selectedTodoId, todos])
+
+  React.useEffect(() => {
+    if (!selectedTodoId || loadedTaskIds[selectedTodoId]) {
+      return
+    }
+
+    if (!(selectedTodoId in commentThreads) || !(selectedTodoId in submissionThreads)) {
+      return
+    }
+
+    setLoadedTaskIds((current) => ({
+      ...current,
+      [selectedTodoId]: true,
+    }))
+  }, [commentThreads, loadedTaskIds, selectedTodoId, submissionThreads])
 
   const handleOpenTask = React.useCallback(
     (todo: TodoItem, target: "default" | "comments" = "default") => {
@@ -215,6 +232,11 @@ export function DashboardBoard({
     }
 
     const todoId = selectedTodoId
+
+    if (todoId in commentThreads) {
+      return
+    }
+
     let cancelled = false
 
     async function loadComments() {
@@ -252,7 +274,7 @@ export function DashboardBoard({
     return () => {
       cancelled = true
     }
-  }, [onTodoUpdate, selectedTodoId])
+  }, [commentThreads, onTodoUpdate, selectedTodoId])
 
   React.useEffect(() => {
     if (!selectedTodoId) {
@@ -825,6 +847,9 @@ export function DashboardBoard({
 
     return todos.find((todo) => todo.id === selectedTodo.parentId) ?? null
   }, [selectedTodo, todos])
+  const isFirstTaskOpenLoading = Boolean(
+    selectedTodoId && !loadedTaskIds[selectedTodoId]
+  )
 
   return (
     <>
@@ -855,9 +880,7 @@ export function DashboardBoard({
                   onOpenTask={handleOpenTask}
                   className="h-full"
                   scrollAreaClassName={
-                    hasTodos
-                      ? "w-full max-h-[min(58vh,420px)]"
-                      : "min-h-[240px] max-h-[240px] w-full"
+                    "h-[240px] w-full sm:h-[280px] md:h-[340px] xl:h-[420px]"
                   }
                 />
               </CarouselItem>
@@ -902,6 +925,51 @@ export function DashboardBoard({
             <DialogHeader className="sr-only">
               <DialogTitle>{selectedTodo.title}</DialogTitle>
             </DialogHeader>
+            {isFirstTaskOpenLoading ? (
+              <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
+                <div className="min-h-0 p-4 sm:p-5 lg:border-r lg:p-6 dark:border-[#343434]">
+                  <div className="space-y-5">
+                    <div className="space-y-3">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-10 w-52" />
+                    </div>
+                    <div className="space-y-3">
+                      <Skeleton className="h-6 w-28" />
+                      <Skeleton className="h-16 w-full rounded-[2px]" />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-6 w-28" />
+                        <div className="flex gap-2">
+                          <Skeleton className="h-9 w-9 rounded-[2px]" />
+                          <Skeleton className="h-9 w-9 rounded-[2px]" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-14 w-full rounded-[2px]" />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-6 w-24" />
+                        <div className="flex gap-2">
+                          <Skeleton className="h-9 w-9 rounded-[2px]" />
+                          <Skeleton className="h-9 w-9 rounded-[2px]" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-2 w-full" />
+                      <Skeleton className="h-24 w-full rounded-[2px]" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="min-h-0 p-4 sm:p-5 lg:p-6">
+                  <div className="flex h-full min-h-[550px] flex-col gap-4">
+                    <Skeleton className="h-32 w-full rounded-[2px]" />
+                    <Skeleton className="flex-1 w-full rounded-[2px]" />
+                    <Skeleton className="h-12 w-full rounded-[2px]" />
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
               <div
                 className={`min-h-0 p-4 sm:p-5 lg:p-6 ${
@@ -1039,6 +1107,7 @@ export function DashboardBoard({
                 onStatusChange={onStatusChange}
               />
             </div>
+            )}
           </DialogContent>
         ) : null}
       </Dialog>

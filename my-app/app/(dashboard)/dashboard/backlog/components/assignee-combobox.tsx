@@ -17,6 +17,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 import { assigneeOptions, getAssigneeOption } from "../types"
 
@@ -50,35 +56,46 @@ export function AssigneeCombobox({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "h-7 w-7 rounded-full border border-slate-200 bg-white p-0 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700",
-            className
-          )}
-          onClick={handleTriggerClick}
-        >
-          {selectedAssignee?.initials ? (
-            <Avatar className={cn("h-7 w-7", avatarClassName)}>
-              <AvatarFallback
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 className={cn(
-                  "text-[10px]",
-                  fallbackClassName
+                  "h-7 w-7 rounded-full border border-slate-200 bg-white p-0 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700",
+                  className
                 )}
+                onClick={handleTriggerClick}
               >
-                {selectedAssignee.initials}
-              </AvatarFallback>
-            </Avatar>
-          ) : (
-            <User
-              className={cn("h-3.5 w-3.5 text-slate-500", unassignedIconClassName)}
-            />
-          )}
-        </Button>
-      </PopoverTrigger>
+                {selectedAssignee?.initials ? (
+                  <Avatar className={cn("h-7 w-7", avatarClassName)}>
+                    <AvatarFallback
+                      className={cn(
+                        "text-[10px]",
+                        fallbackClassName
+                      )}
+                    >
+                      {selectedAssignee.initials}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <User
+                    className={cn("h-3.5 w-3.5 text-slate-500", unassignedIconClassName)}
+                  />
+                )}
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          {selectedAssignee ? (
+            <TooltipContent sideOffset={6}>
+              <p className="text-xs font-medium">{selectedAssignee.name}</p>
+            </TooltipContent>
+          ) : null}
+        </Tooltip>
+      </TooltipProvider>
 
       <PopoverContent
         align="end"

@@ -55,7 +55,10 @@ export function useDashboardProjects({
   }, [])
 
   React.useEffect(() => {
-    syncProjectState()
+    cacheDashboardProjects(initialProjects)
+    setProjects(initialProjects)
+    setTeam(initialTeam)
+
     window.addEventListener("storage", syncProjectState)
     window.addEventListener(PROJECT_CHANGE_EVENT, syncProjectState)
     window.addEventListener(PROJECTS_CHANGE_EVENT, syncProjectState)
@@ -65,7 +68,7 @@ export function useDashboardProjects({
       window.removeEventListener(PROJECT_CHANGE_EVENT, syncProjectState)
       window.removeEventListener(PROJECTS_CHANGE_EVENT, syncProjectState)
     }
-  }, [syncProjectState])
+  }, [initialProjects, initialTeam, syncProjectState])
 
   React.useEffect(() => {
     let active = true
@@ -202,6 +205,11 @@ export function useDashboardProjects({
     const resolvedProjectType =
       (projectType === OTHER_PROJECT_OPTION ? projectTypeOther : projectType).trim()
     const memberNames = selectedMembers
+      .filter((member) => member.role === "student")
+      .map((member) => member.name.trim())
+      .filter(Boolean)
+    const adviserNames = selectedMembers
+      .filter((member) => member.role === "adviser")
       .map((member) => member.name.trim())
       .filter(Boolean)
     const memberUserIds = selectedMembers
@@ -215,6 +223,7 @@ export function useDashboardProjects({
     const nextProject = await createDashboardProject({
       name: title,
       members: memberNames,
+      advisers: adviserNames,
       memberUserIds,
       program,
       yearLevel,

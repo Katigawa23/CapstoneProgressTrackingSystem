@@ -314,7 +314,7 @@ export function CreateProjectDialog({
 
             <div className="flex flex-col gap-2">
               <label htmlFor="project-member" className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                Member
+                Members and advisers
               </label>
               <div ref={memberPickerRef} className="relative">
                 <Search className="pointer-events-none absolute left-3 top-[18px] h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -331,7 +331,7 @@ export function CreateProjectDialog({
                       setMemberPickerOpen(false)
                     }
                   }}
-                  placeholder="Search registered member"
+                  placeholder="Search registered users"
                   autoComplete="off"
                   className="h-9 border-border/70 bg-white pr-9 pl-9 text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
@@ -417,7 +417,7 @@ export function CreateProjectDialog({
               </div>
               <p className="text-xs text-muted-foreground">
                 {selectedMembers.length > 0
-                  ? `${selectedMembers.length} member${selectedMembers.length === 1 ? "" : "s"} selected`
+                  ? `${selectedMembers.length} participant${selectedMembers.length === 1 ? "" : "s"} selected`
                   : ""}
               </p>
             </div>

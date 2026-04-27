@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -78,7 +79,7 @@ function NavList({ items }: { items: NavItem[] }) {
   const pathname = usePathname()
 
   return (
-    <SidebarMenu>
+    <SidebarMenu>  
       {items.map((item) => {
         const active = item.external ? false : pathname === item.href
         const Icon = item.icon
@@ -176,6 +177,18 @@ export function AppSidebar({
   const visibleQuickLinkItems = filterItemsByRole(quickLinkItems, role)
   const isProjectPickerPage =
     pathname === "/dashboard" || pathname === "/dashboard/projects"
+
+  React.useEffect(() => {
+    const handleOpenCreateProject = () => {
+      setCreateProjectOpen(true)
+    }
+
+    window.addEventListener("tracksphere-open-create-project", handleOpenCreateProject)
+
+    return () => {
+      window.removeEventListener("tracksphere-open-create-project", handleOpenCreateProject)
+    }
+  }, [setCreateProjectOpen])
 
   return (
     <>

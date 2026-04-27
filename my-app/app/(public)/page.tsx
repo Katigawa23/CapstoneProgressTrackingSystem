@@ -86,16 +86,16 @@ export default function LandingPage() {
               initialOpacity={0}
               reverse
               scale={0.92}
-            >
-              <Button
-                style={{
-                  backgroundColor: "var(--brand-primary-fixed)",
-                  color: "var(--brand-primary-fixed-foreground)",
-                }}
-                className="rounded-2xl px-6 py-5 text-base hover:opacity-90 sm:min-w-40"
-                onClick={openLoginDialog}
               >
-                Get Started
+                <Button
+                  style={{
+                    backgroundColor: "var(--brand-primary-fixed)",
+                    color: "var(--brand-primary-fixed-foreground)",
+                  }}
+                  className="rounded-2xl px-6 py-5 text-base hover:opacity-90 sm:min-w-40"
+                  onClick={openLoginDialog}
+                >
+                  Get Started
               </Button>
             </AnimatedContent>
 
@@ -107,17 +107,18 @@ export default function LandingPage() {
               distance={56}
               initialOpacity={0}
               scale={0.92}
-            >
-              <Button
-                variant="outline"
-                className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
-                onClick={() => scrollToSection("features")}
               >
-                Learn More
-              </Button>
-            </AnimatedContent>
+                <Button
+                  variant="outline"
+                  className="rounded-2xl px-6 py-5 text-base sm:min-w-40"
+                  onClick={() => scrollToSection("features")}
+                >
+                  Learn More
+                </Button>
+              </AnimatedContent>
           </div>
         </div>
+
       </section>
 
       <section id="features" className="mx-auto w-full max-w-[92rem] scroll-mt-24 px-4 py-16 sm:px-6 md:py-20 xl:px-8">

@@ -1,5 +1,6 @@
 import { Ellipsis, File, ImageIcon, Paperclip, Reply, ThumbsUp } from "lucide-react"
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -9,8 +10,15 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 import { StatusCombobox } from "../../backlog/components/status-combobox"
+import { getAssigneeOption } from "../../backlog/types"
 import type { DashboardComment, TodoItem } from "../../types"
 import { formatDeadline, getInitials } from "../../utils"
 import { formatCommentTime } from "./utils"
@@ -58,6 +66,7 @@ export function TaskCommentsPanel({
   onDeleteComment,
   onStatusChange,
 }: TaskCommentsPanelProps) {
+  const selectedAssignee = getAssigneeOption(selectedTodo.assigneeId)
   const knownMentionNames = Array.from(
     new Set(
       comments
@@ -79,6 +88,10 @@ export function TaskCommentsPanel({
       value: selectedTodo.deadline
         ? formatDeadline(selectedTodo.deadline)
         : "No due date",
+    },
+    {
+      label: "Assignee",
+      value: selectedAssignee?.name ?? "Unassigned",
     },
     { label: "Created by", value: "Not available" },
   ]
@@ -172,9 +185,12 @@ export function TaskCommentsPanel({
               Details
             </h3>
           </div>
-          <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
-            {taskMeta.map((item) => (
-              <div key={item.label} className="min-w-0">
+          <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+            {taskMeta.map((item, index) => (
+              <div
+                key={item.label}
+                className={index >= 3 ? "min-w-0 col-span-1" : "min-w-0"}
+              >
                 <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
                   {item.label}
                 </p>
@@ -186,6 +202,29 @@ export function TaskCommentsPanel({
                         onStatusChange(selectedTodo.id, value as TodoItem["status"])
                       }
                     />
+                  </div>
+                ) : item.label === "Assignee" ? (
+                  <div className="mt-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {selectedAssignee?.initials ? (
+                            <Avatar className="h-7 w-7 cursor-default">
+                              <AvatarFallback className="text-[9px]">
+                                {selectedAssignee.initials}
+                              </AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            <div className="flex h-7 w-7 cursor-default items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-500 dark:border-[#4a4a4a] dark:bg-[#262626] dark:text-slate-300">
+                              -
+                            </div>
+                          )}
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={6}>
+                          <p className="text-xs font-medium">{item.value}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 ) : (
                   <p className="mt-0.5 truncate text-xs text-slate-800 dark:text-slate-200">
@@ -213,7 +252,7 @@ export function TaskCommentsPanel({
               ) : comments.length > 0 ? (
                 comments.map((comment) => (
                   <div key={comment.id} className="flex gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
                       {getInitials(comment.author || "Unknown User")}
                     </div>
                     <div className="min-w-0 flex-1 space-y-2">

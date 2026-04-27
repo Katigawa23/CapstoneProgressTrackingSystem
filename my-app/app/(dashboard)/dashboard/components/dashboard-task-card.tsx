@@ -1,11 +1,17 @@
 import * as React from "react"
 
 import {
+  Archive,
   CalendarDays,
+  CircleCheckBig,
+  MessageCirclePlus,
+  PencilLine,
   FolderKanban,
   GitFork,
   MessageSquareMore,
   MoreHorizontal,
+  Trash2,
+  UserRound,
 } from "lucide-react"
 
 import {
@@ -24,8 +30,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 import { AssigneeCombobox } from "../backlog/components/assignee-combobox"
+import { assigneeOptions } from "../backlog/types"
 import { columns } from "../constants"
 import type { TodoItem } from "../types"
 import { formatDeadline } from "../utils"
@@ -161,9 +169,15 @@ export function DashboardTaskCard({
             className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
             onClick={(event) => event.stopPropagation()}
           >
-            <DropdownMenuItem>Submit</DropdownMenuItem>
+            <DropdownMenuItem>
+              <CircleCheckBig className="h-4 w-4" />
+              Submit
+            </DropdownMenuItem>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Change status</DropdownMenuSubTrigger>
+              <DropdownMenuSubTrigger>
+                <PencilLine className="h-4 w-4" />
+                Change status
+              </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
                 {columns.map((column) => (
                   <DropdownMenuItem
@@ -182,16 +196,55 @@ export function DashboardTaskCard({
             </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Assignee</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
-                <DropdownMenuItem>unassign</DropdownMenuItem>
-                <DropdownMenuItem>kerby@gmail.com</DropdownMenuItem>
+              <DropdownMenuSubTrigger>
+                <UserRound className="h-4 w-4" />
+                Assignee
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                <DropdownMenuItem
+                  className={
+                    !todo.assigneeId
+                      ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                      : undefined
+                  }
+                  onSelect={() => onAssigneeChange(todo.id, null)}
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[#4a4a4a] dark:bg-[#262626]">
+                    <UserRound className="h-3.5 w-3.5 text-slate-500 dark:text-slate-300" />
+                  </span>
+                  <span className="flex-1">Unassigned</span>
+                </DropdownMenuItem>
+                {assigneeOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.id}
+                    className={
+                      todo.assigneeId === option.id
+                        ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                        : undefined
+                    }
+                    onSelect={() => onAssigneeChange(todo.id, option.id)}
+                  >
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback className="text-[9px]">
+                        {option.initials ?? "A"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="flex-1 truncate">{option.name}</span>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuItem>Add Comment</DropdownMenuItem>
+            <DropdownMenuItem>
+              <MessageCirclePlus className="h-4 w-4" />
+              Add Comment
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Archive</DropdownMenuItem>
+            <DropdownMenuItem>
+              <Archive className="h-4 w-4" />
+              Archive
+            </DropdownMenuItem>
             <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:focus:bg-red-950/30 dark:focus:text-red-400">
+              <Trash2 className="h-4 w-4" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>

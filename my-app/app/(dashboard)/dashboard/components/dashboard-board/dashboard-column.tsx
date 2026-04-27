@@ -89,14 +89,12 @@ export function DashboardColumn({
         <ScrollArea
           className={
             scrollAreaClassName ??
-            (hasTodos
-              ? `
-                  w-full max-h-[180px]
-                  sm:max-h-[260px]
-                  lg:max-h-[340px]
-                  xl:max-h-[420px]
-                `
-              : "min-h-[170px] w-full")
+            `
+              h-[240px] w-full
+              sm:h-[280px]
+              lg:h-[340px]
+              xl:h-[420px]
+            `
           }
         >
           <div className={`space-y-2 p-0.5 pr-2 pb-2 ${hasTodos ? "" : "h-full"}`}>

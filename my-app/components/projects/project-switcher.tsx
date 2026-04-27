@@ -36,6 +36,8 @@ export function ProjectSwitcher({
   const visibleProjects = projects.slice(0, 3)
   const teamName = displayName ?? team?.name ?? "Create project"
   const activeProjectId = team?.id
+  const shouldUseFolderIcon = Boolean(displayName) || !team
+  const switcherIcon = shouldUseFolderIcon ? FolderClosed : undefined
   const projectSummary =
     projects.length === 0
       ? "Set up your first capstone project workspace."
@@ -62,9 +64,10 @@ export function ProjectSwitcher({
         <ProjectMonogram
           name={teamName}
           active={Boolean(team)}
-          icon={FolderClosed}
+          icon={switcherIcon}
+          seed={team?.id ?? teamName}
           size="large"
-          className="bg-gradient-to-br from-[#2972b6] to-[#185a96] text-white shadow-sm ring-1 ring-blue-200/60"
+          className={switcherIcon ? "bg-gradient-to-br from-[#2972b6] to-[#185a96] text-white shadow-sm ring-1 ring-blue-200/60" : undefined}
         />
 
         <div className="min-w-0 flex-1 self-center group-data-[collapsible=icon]:hidden">
@@ -104,9 +107,10 @@ export function ProjectSwitcher({
           <ProjectMonogram
             name={teamName}
             active={Boolean(team)}
-            icon={FolderClosed}
+            icon={switcherIcon}
+            seed={team?.id ?? teamName}
             size="large"
-            className="bg-gradient-to-br from-[#2972b6] to-[#185a96] text-white shadow-sm ring-1 ring-blue-200/60"
+            className={switcherIcon ? "bg-gradient-to-br from-[#2972b6] to-[#185a96] text-white shadow-sm ring-1 ring-blue-200/60" : undefined}
           />
 
           <div className="min-w-0 flex-1 self-center group-data-[collapsible=icon]:hidden">
@@ -135,8 +139,9 @@ export function ProjectSwitcher({
               <ProjectMonogram
                 name={teamName}
                 active={Boolean(team)}
-                icon={FolderClosed}
-                className="bg-gradient-to-br from-[#2972b6] to-[#185a96] text-white shadow-sm ring-1 ring-blue-200/60"
+                icon={switcherIcon}
+                seed={team?.id ?? teamName}
+                className={switcherIcon ? "bg-gradient-to-br from-[#2972b6] to-[#185a96] text-white shadow-sm ring-1 ring-blue-200/60" : undefined}
               />
               <div className="min-w-0">
                 <div className="truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100 sm:text-[13px]">{teamName}</div>
@@ -176,7 +181,7 @@ export function ProjectSwitcher({
                     <ProjectMonogram
                       name={project.name}
                       active={active}
-                      className={cn(active && "bg-white dark:bg-[#111827]")}
+                      seed={project.id}
                     />
 
                     <div className="min-w-0 flex-1">
@@ -203,7 +208,7 @@ export function ProjectSwitcher({
         </div>
         <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-sky-50 dark:focus:bg-[#2a2a2a]">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <ProjectMonogram name="Projects" />
+            <ProjectMonogram name="Projects" icon={FolderClosed} />
             <span className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">Browse all projects</span>
           </Link>
         </DropdownMenuItem>
@@ -216,7 +221,7 @@ export function ProjectSwitcher({
         >
           <span className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-600 text-white shadow-sm">
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5 text-white" />
             </span>
             <span className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">Create project</span>
           </span>

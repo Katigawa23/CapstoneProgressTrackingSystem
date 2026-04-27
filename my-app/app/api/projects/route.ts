@@ -6,7 +6,11 @@ import {
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
 } from "@/lib/projects"
-import { createProject, listProjects } from "@/backend/repositories/project-repository"
+import {
+  createProject,
+  listProjects,
+  updateProjectStarred,
+} from "@/backend/repositories/project-repository"
 
 export async function GET() {
   try {
@@ -32,6 +36,8 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       name?: string
       members?: string[]
+      advisers?: string[]
+      starred?: boolean
       memberUserIds?: string[]
       program?: string
       yearLevel?: string
@@ -46,6 +52,9 @@ export async function POST(request: Request) {
     const projectType = body.projectType?.trim()
     const members = Array.isArray(body.members)
       ? body.members.filter((member) => typeof member === "string" && member.trim())
+      : []
+    const advisers = Array.isArray(body.advisers)
+      ? body.advisers.filter((adviser) => typeof adviser === "string" && adviser.trim())
       : []
     const memberUserIds = Array.isArray(body.memberUserIds)
       ? body.memberUserIds.filter((memberUserId) => typeof memberUserId === "string" && memberUserId.trim())
@@ -78,6 +87,8 @@ export async function POST(request: Request) {
     const project = await createProject({
       name: name.slice(0, PROJECT_TITLE_MAX_LENGTH),
       members,
+      advisers,
+      starred: body.starred === true,
       memberUserIds,
       program: program.slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.slice(0, PROJECT_METADATA_MAX_LENGTH),
@@ -93,5 +104,34 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Failed to create project", error)
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const user = await requireAuthenticatedUser()
+    const body = (await request.json()) as {
+      projectId?: string
+      starred?: boolean
+    }
+
+    const projectId = body.projectId?.trim()
+
+    if (!projectId) {
+      return NextResponse.json({ error: "Project id is required" }, { status: 400 })
+    }
+
+    const project = await updateProjectStarred(projectId, user.id, body.starred === true)
+
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    revalidateTag("projects", "max")
+
+    return NextResponse.json({ project })
+  } catch (error) {
+    console.error("Failed to update project", error)
+    return NextResponse.json({ error: "Failed to update project" }, { status: 500 })
   }
 }

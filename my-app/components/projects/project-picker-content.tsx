@@ -67,7 +67,7 @@ export function ProjectPickerContent({
                         )}
                         onClick={() => onSelectProject(project.id)}
                       >
-                        <ProjectMonogram name={project.name} active={active} />
+                        <ProjectMonogram name={project.name} active={active} seed={project.id} />
                         <div className="min-w-0 flex-1 self-center">
                           <div className="flex items-center justify-between gap-2">
                             <span className="block truncate text-[12px] font-semibold dark:text-slate-100 sm:text-[13px]">
