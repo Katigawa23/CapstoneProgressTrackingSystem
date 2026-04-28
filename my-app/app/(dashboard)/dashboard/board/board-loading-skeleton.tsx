@@ -122,7 +122,17 @@ export function BoardLoadingSkeleton({
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
-      {useLiveHeader ? <DashboardHeader people={people} /> : <BoardHeaderStatic />}
+      {useLiveHeader ? (
+        <DashboardHeader
+          people={people}
+          searchValue=""
+          onSearchChange={() => {}}
+          filterValue="none"
+          onFilterChange={() => {}}
+        />
+      ) : (
+        <BoardHeaderStatic />
+      )}
 
       <div className="hidden min-h-0 flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column, index) => (
