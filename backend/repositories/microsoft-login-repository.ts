@@ -1,6 +1,6 @@
-import { getDb } from "@/backend/db/connection"
+import { getDb } from "@backend/db/connection"
 
-import type { MicrosoftUser } from "@/backend/auth/microsoft"
+import type { MicrosoftUser } from "@backend/auth/microsoft"
 
 type MicrosoftLoginRecord = {
   id: string

@@ -5,12 +5,12 @@ import path from "path"
 
 import { NextResponse } from "next/server"
 
-import { requireAuthenticatedUser } from "@/backend/auth/user"
+import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   createBacklogSubmission,
   deleteBacklogSubmission,
   listBacklogSubmissions,
-} from "@/backend/repositories/backlog-submission-repository"
+} from "@backend/repositories/backlog-submission-repository"
 
 export const runtime = "nodejs"
 

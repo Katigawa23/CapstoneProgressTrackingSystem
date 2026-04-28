@@ -1,7 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
-import { requireAuthenticatedUser } from "@/backend/auth/user"
+import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
@@ -10,7 +10,7 @@ import {
   createProject,
   listProjects,
   updateProjectStarred,
-} from "@/backend/repositories/project-repository"
+} from "@backend/repositories/project-repository"
 
 export async function GET() {
   try {

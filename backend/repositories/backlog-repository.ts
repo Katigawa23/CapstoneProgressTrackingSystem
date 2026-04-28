@@ -2,13 +2,13 @@ import { randomUUID } from "crypto"
 import { mkdir, readFile, writeFile } from "fs/promises"
 import path from "path"
 
-import { getPreferredStorageMode } from "@/backend/config/storage-mode"
-import { getDb } from "@/backend/db/connection"
+import { getPreferredStorageMode } from "@backend/config/storage-mode"
+import { getDb } from "@backend/db/connection"
 import {
   canUseLocalFileFallback,
   shouldFallbackToLocalStore,
-} from "@/backend/db/fallback"
-import { ensureProjectExists } from "@/backend/repositories/project-repository"
+} from "@backend/db/fallback"
+import { ensureProjectExists } from "@backend/repositories/project-repository"
 
 export type BacklogRow = {
   id: string

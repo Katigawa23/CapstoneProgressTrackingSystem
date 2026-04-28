@@ -1,11 +1,11 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
-import { requireAuthenticatedUser } from "@/backend/auth/user"
+import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   deleteBacklogItem,
   updateBacklogItem,
-} from "@/backend/repositories/backlog-repository"
+} from "@backend/repositories/backlog-repository"
 
 function normalizeOptionalDate(value: unknown) {
   if (typeof value !== "string") {

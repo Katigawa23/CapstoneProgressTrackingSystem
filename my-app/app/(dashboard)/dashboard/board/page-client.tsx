@@ -18,8 +18,8 @@ import { DashboardBoard } from "../components/dashboard-board"
 import {
   DashboardHeader,
   type DashboardBoardFilter,
-  type SprintOption,
 } from "../components/dashboard-header"
+import { CreateSprintDialog } from "../components/create-sprint-dialog"
 import { CreateWorkItemDialog } from "../backlog/components/create-work-item-dialog"
 import {
   buildAssigneeOptionId,
@@ -55,20 +55,18 @@ export function DashboardBoardPageClient({
   const [createStartDate, setCreateStartDate] = React.useState<Date | undefined>()
   const [createDueDate, setCreateDueDate] = React.useState<Date | undefined>()
   const [createDescription, setCreateDescription] = React.useState("")
+  const [createSprintOpen, setCreateSprintOpen] = React.useState(false)
+  const [sprintName, setSprintName] = React.useState("")
+  const [sprintDuration, setSprintDuration] = React.useState("2-weeks")
+  const [sprintStartDate, setSprintStartDate] = React.useState<Date | undefined>()
+  const [sprintEndDate, setSprintEndDate] = React.useState<Date | undefined>()
+  const [sprintScopeItemId, setSprintScopeItemId] = React.useState("")
+  const [sprintDescription, setSprintDescription] = React.useState("")
   const [hasLoadedBoardData, setHasLoadedBoardData] = React.useState(false)
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
   const [searchValue, setSearchValue] = React.useState("")
   const [filterValue, setFilterValue] =
     React.useState<DashboardBoardFilter>("none")
-  const sprintOptions = React.useMemo<SprintOption[]>(
-    () => [
-      { value: "sprint-12", label: "Sprint 12", status: "active" },
-      { value: "sprint-11", label: "Sprint 11", status: "completed" },
-      { value: "sprint-10", label: "Sprint 10", status: "completed" },
-    ],
-    []
-  )
-  const [sprintValue, setSprintValue] = React.useState("sprint-12")
   const selectedProject = React.useMemo(
     () =>
       initialProjects.find((project) => project.id === selectedProjectId) ?? null,
@@ -643,6 +641,31 @@ export function DashboardBoardPageClient({
     })
   }, [currentUserAssigneeIds, filterValue, searchValue, todos])
 
+  const sprintScopeOptions = React.useMemo(
+    () =>
+      todos
+        .filter((todo) => !todo.parentId)
+        .map((todo) => ({
+          id: todo.id,
+          label: `${todo.displayId} - ${todo.title}`,
+        })),
+    [todos]
+  )
+
+  const resetCreateSprintForm = React.useCallback(() => {
+    setSprintName("")
+    setSprintDuration("2-weeks")
+    setSprintStartDate(undefined)
+    setSprintEndDate(undefined)
+    setSprintScopeItemId("")
+    setSprintDescription("")
+  }, [])
+
+  const handleCreateSprint = React.useCallback(() => {
+    setCreateSprintOpen(false)
+    resetCreateSprintForm()
+  }, [resetCreateSprintForm])
+
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
       <DashboardHeader
@@ -651,13 +674,12 @@ export function DashboardBoardPageClient({
         onSearchChange={setSearchValue}
         filterValue={filterValue}
         onFilterChange={setFilterValue}
-        sprintOptions={sprintOptions}
-        sprintValue={sprintValue}
-        onSprintChange={setSprintValue}
         onCreate={() => {
           setCreateOpen(true)
         }}
-        onCreateSprint={() => {}}
+        onCreateSprint={() => {
+          setCreateSprintOpen(true)
+        }}
         onManageSprints={() => {}}
       />
       <div className="min-h-0 w-full md:max-w-[calc(100vw-var(--sidebar-width)-2rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
@@ -691,6 +713,30 @@ export function DashboardBoardPageClient({
         onDueDateChange={setCreateDueDate}
         onDescriptionChange={setCreateDescription}
         onAddItem={handleCreateItem}
+      />
+
+      <CreateSprintDialog
+        open={createSprintOpen}
+        onOpenChange={(open) => {
+          setCreateSprintOpen(open)
+          if (!open) {
+            resetCreateSprintForm()
+          }
+        }}
+        sprintName={sprintName}
+        duration={sprintDuration}
+        startDate={sprintStartDate}
+        endDate={sprintEndDate}
+        scopeItemId={sprintScopeItemId}
+        description={sprintDescription}
+        scopeOptions={sprintScopeOptions}
+        onSprintNameChange={setSprintName}
+        onDurationChange={setSprintDuration}
+        onStartDateChange={setSprintStartDate}
+        onEndDateChange={setSprintEndDate}
+        onScopeItemChange={setSprintScopeItemId}
+        onDescriptionChange={setSprintDescription}
+        onCreateSprint={handleCreateSprint}
       />
     </div>
   )

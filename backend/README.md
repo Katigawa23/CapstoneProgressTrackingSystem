@@ -1,13 +1,13 @@
 ## Backend Structure
 
-This folder contains the server-side backend code for the app.
+This folder contains the Node.js server-side backend code for the app and now lives at the repository root instead of inside `my-app/`.
 
 - `config/`: backend runtime configuration helpers
 - `db/`: database connection utilities
 - `repositories/`: persistence and data-access logic used by API routes
 - `sql/`: SQL scripts and schema files
 
-The Next.js/Vercel route entrypoints remain in `app/api/`, so deployment behavior is unchanged.
+The Next.js/Vercel route entrypoints remain in `my-app/app/api/`, so deployment behavior is unchanged while the backend implementation stays separated from the frontend app code.
 
 ## Microsoft Auth Deployment
 

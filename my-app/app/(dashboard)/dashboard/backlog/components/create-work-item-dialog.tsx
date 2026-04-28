@@ -89,37 +89,39 @@ export function CreateWorkItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto border-slate-200 bg-white text-slate-900 dark:border-[#343434] dark:bg-[#171717] dark:text-slate-100 sm:max-w-lg">
-        <DialogHeader className="border-b border-slate-200 pb-4 dark:border-[#343434]">
+      <DialogContent className="rounded-[2px] border-slate-200 bg-white px-5 py-4 text-slate-900 dark:border-[#343434] dark:bg-[#171717] dark:text-slate-100 sm:max-w-md">
+        <DialogHeader className="border-b border-slate-200 pb-2 dark:border-[#343434]">
           <DialogTitle className="font-display text-left tracking-tight text-slate-900 dark:text-slate-100">
             {isSubtaskMode ? "Create new subtask." : "Create new task."}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-2">
-          <div className="space-y-2">
+        <div className="space-y-3 py-1">
+          <div className="space-y-1">
             <Label htmlFor="title" className="text-slate-900 dark:text-slate-100">
-              Title
+              Title <span className="text-red-500">*</span>
             </Label>
             <Input
               id="title"
               value={title}
               onChange={(event) => onTitleChange(event.target.value)}
               placeholder="Enter task title"
-              className="border-slate-200 bg-white text-slate-900 placeholder:text-slate-500 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="h-8 rounded-[2px] border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-500 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
             />
           </div>
 
           {isSubtaskMode ? null : (
             <>
-              <div className="space-y-2">
-                <Label className="text-slate-900 dark:text-slate-100">Start date</Label>
+              <div className="space-y-1">
+                <Label className="text-slate-900 dark:text-slate-100">
+                  Start date <span className="text-red-500">*</span>
+                </Label>
                 <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-full justify-start border-slate-200 bg-white text-left font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
+                        "h-8 w-full justify-start rounded-[2px] border-slate-200 bg-white px-3 text-left text-sm font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
                         !startDate && "text-slate-500 dark:text-slate-500"
                       )}
                     >
@@ -152,15 +154,17 @@ export function CreateWorkItemDialog({
                 </Popover>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-slate-900 dark:text-slate-100">Due date</Label>
+              <div className="space-y-1">
+                <Label className="text-slate-900 dark:text-slate-100">
+                  Due date <span className="text-red-500">*</span>
+                </Label>
                 <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       disabled={!startDate}
                       className={cn(
-                        "w-full justify-start border-slate-200 bg-white text-left font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
+                        "h-8 w-full justify-start rounded-[2px] border-slate-200 bg-white px-3 text-left text-sm font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
                         !dueDate && "text-slate-500 dark:text-slate-500"
                       )}
                     >
@@ -189,7 +193,7 @@ export function CreateWorkItemDialog({
             </>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="description" className="text-slate-900 dark:text-slate-100">
               Description
             </Label>
@@ -198,15 +202,16 @@ export function CreateWorkItemDialog({
               value={description}
               onChange={(event) => onDescriptionChange(event.target.value)}
               placeholder="Write a short description"
-              className="min-h-[140px] resize-none border-slate-200 bg-white text-slate-900 placeholder:text-slate-500 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="min-h-[112px] resize-none rounded-[2px] border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-500 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
             />
           </div>
 
-          <div className="flex gap-3 border-t border-slate-200 pt-4 dark:border-[#343434]">
+          <div className="flex justify-end gap-2 border-t border-slate-200 pt-2.5 dark:border-[#343434]">
             <Button
               type="button"
               variant="outline"
-              className="flex-1 border-slate-200 bg-white text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
+              size="sm"
+              className="h-8 min-w-24 rounded-[2px] border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
               onClick={() => onOpenChange(false)}
             >
               Cancel
@@ -217,7 +222,8 @@ export function CreateWorkItemDialog({
                 backgroundColor: "var(--brand-primary-fixed)",
                 color: "var(--brand-primary-fixed-foreground)",
               }}
-              className="flex-1 hover:opacity-90"
+              size="sm"
+              className="h-8 min-w-24 rounded-[2px] px-3 text-sm hover:opacity-90"
               onClick={onAddItem}
               disabled={!title.trim()}
             >

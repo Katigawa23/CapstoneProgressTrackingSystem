@@ -113,12 +113,12 @@ function SelectWithCustomInput({
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={id} className="text-sm font-medium text-slate-900 dark:text-slate-100">
-        {label}
+        {label} <span className="text-red-500">*</span>
       </label>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger
           id={id}
-          className="h-9 w-full border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
+          className="h-8 w-full rounded-[2px] border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
           aria-label={label}
         >
           <SelectValue placeholder={placeholder} />
@@ -140,7 +140,7 @@ function SelectWithCustomInput({
         value={customValue}
         onChange={(event) => onCustomValueChange(event.target.value)}
         placeholder={customInputPlaceholder}
-        className={`h-9 border-border/70 bg-white text-sm transition-all duration-200 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500 ${
+        className={`h-8 rounded-[2px] border-border/70 bg-white text-sm transition-all duration-200 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500 ${
           isOtherSelected ? "opacity-100" : "h-0 overflow-hidden opacity-0"
         }`}
         autoFocus={isOtherSelected}
@@ -236,8 +236,8 @@ export function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden border-border/70 bg-white p-0 dark:border-[#343434] dark:bg-[#171717] sm:max-w-xl">
-        <div className="border-b border-border/70 bg-gradient-to-br from-slate-50 via-white to-slate-100 px-5 py-3.5 dark:border-[#343434] dark:from-[#202020] dark:via-[#1a1a1a] dark:to-[#171717]">
+      <DialogContent className="overflow-hidden rounded-[2px] border-border/70 bg-white px-5 py-4 dark:border-[#343434] dark:bg-[#171717] sm:max-w-xl">
+        <div className="border-b border-border/70 pb-2 dark:border-[#343434]">
           <DialogHeader className="gap-2 text-left">
             <DialogTitle className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
               Create new project
@@ -245,11 +245,11 @@ export function CreateProjectDialog({
           </DialogHeader>
         </div>
 
-        <form className="space-y-4 px-5 py-4" onSubmit={handleSubmit}>
+        <form className="space-y-3 py-1" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <label htmlFor="project-title" className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                Project title
+                Project title <span className="text-red-500">*</span>
               </label>
               <Input
                 id="project-title"
@@ -257,7 +257,7 @@ export function CreateProjectDialog({
                 onChange={(event) => onProjectTitleChange(event.target.value)}
                 maxLength={PROJECT_TITLE_MAX_LENGTH}
                 placeholder="Capstone Progress Tracker"
-                className="h-9 border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+                className="h-8 rounded-[2px] border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
               />
               <p className="text-xs text-muted-foreground mt-0.5">
                 {projectTitle.length}/{PROJECT_TITLE_MAX_LENGTH}
@@ -314,7 +314,7 @@ export function CreateProjectDialog({
 
             <div className="flex flex-col gap-2">
               <label htmlFor="project-member" className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                Members and advisers
+                Members <span className="text-red-500">*</span>
               </label>
               <div ref={memberPickerRef} className="relative">
                 <Search className="pointer-events-none absolute left-3 top-[18px] h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -331,9 +331,9 @@ export function CreateProjectDialog({
                       setMemberPickerOpen(false)
                     }
                   }}
-                  placeholder="Search registered users"
+                  placeholder="Search members"
                   autoComplete="off"
-                  className="h-9 border-border/70 bg-white pr-9 pl-9 text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+                  className="h-8 rounded-[2px] border-border/70 bg-white pr-9 pl-9 text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
                 {memberSearch ? (
                   <button
@@ -350,7 +350,7 @@ export function CreateProjectDialog({
                 ) : null}
 
                 {memberPickerOpen ? (
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-[0_18px_38px_rgba(15,23,42,0.12)] dark:border-[#343434] dark:bg-[#1b1b1b]">
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 shadow-[0_18px_38px_rgba(15,23,42,0.12)] dark:border-[#343434] dark:bg-[#1b1b1b]">
                     {memberOptionsLoading ? (
                       <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-slate-500 dark:text-slate-400">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -447,17 +447,24 @@ export function CreateProjectDialog({
             ) : null}
           </div>
 
-          <DialogFooter className="border-t border-border/70 pt-3 dark:border-[#343434]">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <DialogFooter className="justify-end gap-2 border-t border-border/70 pt-2.5 dark:border-[#343434]">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 min-w-24 rounded-[2px]"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button
               type="submit"
+              size="sm"
               style={{
                 backgroundColor: "var(--brand-primary-fixed)",
                 color: "var(--brand-primary-fixed-foreground)",
               }}
-              className="gap-2 hover:opacity-90"
+              className="h-8 min-w-24 rounded-[2px] gap-2 hover:opacity-90"
               disabled={
                 !projectTitle.trim() ||
                 !isProgramComplete ||

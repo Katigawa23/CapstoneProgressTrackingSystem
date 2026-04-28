@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 
-import { AUTH_USER_COOKIE, readUserCookieValue } from "@/backend/auth/session"
+import { AUTH_USER_COOKIE, readUserCookieValue } from "@backend/auth/session"
 
 export async function readAuthenticatedUser() {
   const cookieStore = await cookies()

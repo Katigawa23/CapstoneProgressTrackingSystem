@@ -1,6 +1,6 @@
 import { cookies } from "next/headers"
 
-import { readAuthenticatedUser } from "@/backend/auth/user"
+import { readAuthenticatedUser } from "@/lib/server-auth"
 import { readDashboardHomeStateFromCookieStore } from "@/lib/dashboard-home-state"
 import { PROJECT_COOKIE_KEY } from "@/lib/projects"
 

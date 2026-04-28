@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { AUTH_USER_COOKIE, getAuthCookieOptions } from "@/backend/auth/session"
+import { AUTH_USER_COOKIE, getAuthCookieOptions } from "@backend/auth/session"
 
 export async function POST() {
   const response = NextResponse.json({ success: true })

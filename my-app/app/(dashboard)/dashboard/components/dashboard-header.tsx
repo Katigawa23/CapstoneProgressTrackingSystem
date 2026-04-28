@@ -34,12 +34,6 @@ type Person = {
 
 export type DashboardBoardFilter = "none" | "assignee" | "subtask"
 
-export type SprintOption = {
-  label: string
-  status?: "active" | "completed"
-  value: string
-}
-
 type DashboardHeaderProps = {
   people: Person[]
   onCreate?: () => void
@@ -49,9 +43,6 @@ type DashboardHeaderProps = {
   onSearchChange: (value: string) => void
   filterValue: DashboardBoardFilter
   onFilterChange: (value: DashboardBoardFilter) => void
-  sprintOptions: SprintOption[]
-  sprintValue: string
-  onSprintChange: (value: string) => void
 }
 
 export function DashboardHeader({
@@ -63,15 +54,10 @@ export function DashboardHeader({
   onSearchChange,
   filterValue,
   onFilterChange,
-  sprintOptions,
-  sprintValue,
-  onSprintChange,
 }: DashboardHeaderProps) {
   const [projectName, setProjectName] = React.useState("No project selected")
   const visiblePeople = people.slice(0, 3)
   const hiddenCount = Math.max(people.length - visiblePeople.length, 0)
-  const selectedSprint =
-    sprintOptions.find((option) => option.value === sprintValue) ?? sprintOptions[0] ?? null
 
   React.useEffect(() => {
     const syncProject = () => {
@@ -144,22 +130,6 @@ export function DashboardHeader({
                     Create Sprint
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {sprintOptions.map((sprint) => (
-                    <DropdownMenuItem
-                      key={sprint.value}
-                      onSelect={() => onSprintChange(sprint.value)}
-                    >
-                      <span className="flex flex-1 items-center justify-between gap-3">
-                        <span>{sprint.label}</span>
-                        {sprint.status ? (
-                          <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                            {sprint.status}
-                          </span>
-                        ) : null}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={onManageSprints}>
                     Manage Sprints
                   </DropdownMenuItem>
@@ -176,28 +146,6 @@ export function DashboardHeader({
               value={searchValue}
               onChange={(event) => onSearchChange(event.target.value)}
             />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Sprint:
-            </span>
-            <Select value={sprintValue} onValueChange={onSprintChange}>
-              <SelectTrigger size="sm" className="h-8 min-w-[156px] px-2 text-xs">
-                <SelectValue placeholder="Select sprint">
-                  {selectedSprint
-                    ? `${selectedSprint.label}${selectedSprint.status === "active" ? " (Active)" : ""}`
-                    : "Select sprint"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent align="end">
-                {sprintOptions.map((sprint) => (
-                  <SelectItem key={sprint.value} value={sprint.value}>
-                    {sprint.label}{sprint.status === "active" ? " (Active)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <Select

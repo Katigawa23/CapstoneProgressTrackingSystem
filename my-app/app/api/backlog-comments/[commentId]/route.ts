@@ -1,11 +1,11 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
-import { requireAuthenticatedUser } from "@/backend/auth/user"
+import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   deleteBacklogComment,
   updateBacklogComment,
-} from "@/backend/repositories/backlog-comment-repository"
+} from "@backend/repositories/backlog-comment-repository"
 
 export async function PATCH(
   request: Request,

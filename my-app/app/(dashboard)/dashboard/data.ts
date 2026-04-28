@@ -1,12 +1,12 @@
 import { unstable_cache } from "next/cache"
 import { cookies } from "next/headers"
 
-import { readAuthenticatedUser } from "@/backend/auth/user"
+import { readAuthenticatedUser } from "@/lib/server-auth"
+import { listProjects } from "@/lib/server-project-repository"
 import {
   listBacklogItemsWithStats,
   listProjectBacklogActivities,
-} from "@/backend/repositories/backlog-repository"
-import { listProjects } from "@/backend/repositories/project-repository"
+} from "@backend/repositories/backlog-repository"
 import { PROJECT_COOKIE_KEY, type DashboardProject } from "@/lib/projects"
 
 const useDashboardCache = process.env.NODE_ENV === "production"

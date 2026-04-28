@@ -2,12 +2,12 @@ import { randomUUID } from "crypto"
 import { mkdir, readFile, writeFile } from "fs/promises"
 import path from "path"
 
-import { getPreferredStorageMode } from "@/backend/config/storage-mode"
-import { getDb } from "@/backend/db/connection"
+import { getPreferredStorageMode } from "@backend/config/storage-mode"
+import { getDb } from "@/lib/server-db"
 import {
   canUseLocalFileFallback,
   shouldFallbackToLocalStore,
-} from "@/backend/db/fallback"
+} from "@backend/db/fallback"
 import {
   dashboardProjects,
   PROJECT_METADATA_MAX_LENGTH,

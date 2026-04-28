@@ -3,13 +3,13 @@ import { NextResponse } from "next/server"
 import {
   createMicrosoftAuthorizeUrl,
   createOauthState,
-} from "@/backend/auth/microsoft"
+} from "@backend/auth/microsoft"
 
 import {
   AUTH_STATE_COOKIE,
   createStateCookieValue,
   getAuthCookieOptions,
-} from "@/backend/auth/session"
+} from "@backend/auth/session"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
 
-    // ✅ fallback redirect (default = dashboard)
+    // âœ… fallback redirect (default = dashboard)
     const redirect = searchParams.get("redirect") || "/dashboard"
 
     const state = createOauthState()
@@ -26,14 +26,14 @@ export async function GET(request: Request) {
 
     const response = NextResponse.redirect(authUrl)
 
-    // ✅ existing state cookie (KEEP THIS)
+    // âœ… existing state cookie (KEEP THIS)
     response.cookies.set(
       AUTH_STATE_COOKIE,
       createStateCookieValue(state),
       getAuthCookieOptions(new Date(Date.now() + 10 * 60 * 1000))
     )
 
-    // ✅ NEW: store redirect destination
+    // âœ… NEW: store redirect destination
     response.cookies.set("redirect_after_login", redirect, {
       httpOnly: true,
       secure: true,
