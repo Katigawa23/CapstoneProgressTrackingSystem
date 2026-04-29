@@ -153,7 +153,6 @@ export default function Navbar() {
                     <span className="text-sky-600">Sphere</span>
                   </span>
                 </SheetTitle>
-                <SheetDescription>Browse the landing page sections.</SheetDescription>
               </SheetHeader>
 
               <div className="flex flex-col gap-2 px-4 py-4">
