@@ -4,6 +4,11 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "TrackSphere",
   description: "TrackSphere helps students and advisers manage capstone milestones, collaboration, and project progress in one place.",
+  icons: {
+    icon: "/logoTS.png",
+    shortcut: "/logoTS.png",
+    apple: "/logoTS.png",
+  },
 }
 
 export default function RootLayout({

@@ -14,6 +14,13 @@ export type SubmissionDraft = {
 
 export type OpenTaskTarget = "default" | "comments"
 
+export type CreateSubtaskInput = {
+  title: string
+  description: string
+  startDate?: string
+  dueDate?: string
+}
+
 export type DashboardBoardProps = {
   todos: TodoItem[]
   people: Person[]
@@ -25,7 +32,10 @@ export type DashboardBoardProps = {
   ) => Promise<void>
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
   onTodoUpdate: (todoId: string, updates: Partial<TodoItem>) => void
-  onCreateSubtask: (parentTodo: TodoItem, title: string, description: string) => Promise<void>
+  onCreateSubtask: (
+    parentTodo: TodoItem,
+    input: CreateSubtaskInput
+  ) => Promise<void>
   onUpdateSubtask: (
     subtaskId: string,
     updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">

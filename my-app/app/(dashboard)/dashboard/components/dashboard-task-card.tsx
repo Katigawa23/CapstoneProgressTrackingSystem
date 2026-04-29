@@ -83,14 +83,14 @@ export function DashboardTaskCard({
       : `${remainingSubtasks} child tasks remaining`
 
   return (
-    <div className="relative">
+    <div className="relative pt-2">
       <div
-        className={`pointer-events-none absolute -top-1 left-0 right-0 z-10 transition-opacity ${
+        className={`pointer-events-none absolute left-0 right-0 top-0 z-10 transition-opacity ${
           showDropLine ? "opacity-100" : "opacity-0"
         }`}
       >
-        <div className="relative h-0.5 rounded-full bg-sky-500 dark:bg-sky-400">
-          <span className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-sky-500 bg-white dark:border-sky-400 dark:bg-[#1f1f1f]" />
+        <div className="relative h-1 rounded-full bg-sky-500 dark:bg-sky-400">
+          <span className="absolute -left-1 -top-1 h-3 w-3 rounded-full border-2 border-sky-500 bg-white dark:border-sky-400 dark:bg-[#1f1f1f]" />
         </div>
       </div>
 
@@ -98,7 +98,7 @@ export function DashboardTaskCard({
         role="button"
         tabIndex={0}
         draggable="true"
-        className={`w-full border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-[#343434] dark:bg-[#262626] dark:focus:ring-[#4a4a4a] ${
+        className={`w-full border border-[var(--board-task-border)] bg-[var(--board-task-bg)] p-2.5 text-left shadow-[var(--board-task-shadow)] transition-[background-color,border-color,box-shadow,color,transform] duration-300 hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-[var(--board-task-shadow-hover)] focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-[#4a4a4a] ${
           isSubtask
             ? "cursor-grab border-l-2 border-l-sky-400 active:cursor-grabbing"
             : "cursor-grab active:cursor-grabbing"
@@ -133,6 +133,8 @@ export function DashboardTaskCard({
         }}
         onDragOver={(event) => {
           event.preventDefault()
+          event.dataTransfer.dropEffect = "move"
+          onDragEnterCard?.(todo.id)
         }}
         onDragEnter={() => {
           onDragEnterCard?.(todo.id)
@@ -156,7 +158,7 @@ export function DashboardTaskCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="shrink-0 rounded-sm p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none dark:hover:bg-[#303030] dark:hover:text-slate-200"
+              className="shrink-0 rounded-sm p-1 text-slate-400 transition-[background-color,color] duration-200 hover:bg-slate-100 hover:text-slate-600 focus:outline-none dark:hover:bg-[#303030] dark:hover:text-slate-200"
               type="button"
               aria-label={`Open actions for ${todo.title}`}
               onClick={(event) => event.stopPropagation()}
@@ -262,7 +264,7 @@ export function DashboardTaskCard({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="flex items-center gap-1 rounded-sm transition hover:text-slate-700 dark:hover:text-slate-200"
+            className="flex items-center gap-1 rounded-sm transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-200"
             aria-label={`Open comments for ${todo.title}`}
             onClick={(event) => {
               event.stopPropagation()
@@ -276,7 +278,7 @@ export function DashboardTaskCard({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex cursor-default items-center gap-1 rounded-sm transition hover:text-slate-700 dark:hover:text-slate-200">
+                <div className="flex cursor-default items-center gap-1 rounded-sm transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-200">
                   <GitFork className="h-3 w-3" />
                   <span>{isSubtask ? "Child task" : subtaskCount}</span>
                 </div>
@@ -293,7 +295,7 @@ export function DashboardTaskCard({
         <AssigneeCombobox
           value={todo.assigneeId}
           onChange={(assigneeId) => onAssigneeChange(todo.id, assigneeId)}
-          className="h-5 w-5 rounded-full border-slate-200 bg-transparent p-0 transition hover:scale-105 hover:bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#262626] dark:hover:bg-[#303030]"
+          className="h-5 w-5 rounded-full border-slate-200 bg-transparent p-0 transition-[background-color,border-color,transform] duration-200 hover:scale-105 hover:bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#262626] dark:hover:bg-[#303030]"
           avatarClassName="h-5 w-5"
           fallbackClassName="text-[8px]"
           unassignedIconClassName="h-3 w-3 text-slate-500 dark:text-slate-300"

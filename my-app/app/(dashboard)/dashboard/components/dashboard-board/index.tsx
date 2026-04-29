@@ -35,7 +35,11 @@ import { TaskCommentsPanel } from "./task-comments-panel"
 import { TaskDetailsSection } from "./task-details-section"
 import { TaskSubmissionsSection } from "./task-submissions-section"
 import { TaskSubtasksSection } from "./task-subtasks-section"
-import type { DashboardBoardProps, SubmissionDraft } from "./types"
+import type {
+  CreateSubtaskInput,
+  DashboardBoardProps,
+  SubmissionDraft,
+} from "./types"
 
 export function DashboardBoard({
   todos,
@@ -753,13 +757,18 @@ export function DashboardBoard({
   }, [])
 
   const handleCreateSubtask = React.useCallback(
-    async (title: string) => {
-      if (!selectedTodo || !title.trim()) {
+    async (input: CreateSubtaskInput) => {
+      if (!selectedTodo || !input.title.trim()) {
         return
       }
 
       try {
-        await onCreateSubtask(selectedTodo, title.trim(), "")
+        await onCreateSubtask(selectedTodo, {
+          title: input.title.trim(),
+          description: input.description,
+          startDate: input.startDate,
+          dueDate: input.dueDate,
+        })
       } catch (error) {
         console.error(error)
       }
@@ -857,7 +866,6 @@ export function DashboardBoard({
         <CarouselContent>
           {columns.map((column) => {
             const columnTodos = getColumnTodos(column.id)
-            const hasTodos = columnTodos.length > 0
 
             return (
               <CarouselItem key={column.id}>
@@ -887,8 +895,8 @@ export function DashboardBoard({
             )
           })}
         </CarouselContent>
-        <CarouselPrevious className="left-0 top-1/2 size-6 border-border bg-background/95" />
-        <CarouselNext className="right-0 top-1/2 size-6 border-border bg-background/95" />
+        <CarouselPrevious className="left-0 top-1/2 size-6 border-border bg-background/95 transition-[background-color,border-color,color,box-shadow] duration-300" />
+        <CarouselNext className="right-0 top-1/2 size-6 border-border bg-background/95 transition-[background-color,border-color,color,box-shadow] duration-300" />
       </Carousel>
 
       <div className="hidden min-h-0 flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 xl:grid-cols-4">
@@ -921,7 +929,7 @@ export function DashboardBoard({
 
       <Dialog open={selectedTodo !== null} onOpenChange={handleDialogOpenChange}>
         {selectedTodo ? (
-          <DialogContent className="h-[92vh] max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden border-slate-200 bg-white p-0 dark:border-[#343434] dark:bg-[#1f1f1f] sm:h-[90vh] sm:max-h-[90vh] sm:w-[94vw] sm:max-w-[94vw] lg:h-[88vh] lg:max-h-[88vh] lg:w-[90vw] lg:max-w-[90vw]">
+          <DialogContent className="h-[92vh] max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden border-[var(--board-column-border)] bg-[var(--board-dialog-bg)] p-0 shadow-[var(--board-dialog-shadow)] transition-[background-color,border-color,box-shadow] duration-300 sm:h-[90vh] sm:max-h-[90vh] sm:w-[94vw] sm:max-w-[94vw] lg:h-[88vh] lg:max-h-[88vh] lg:w-[90vw] lg:max-w-[90vw]">
             <DialogHeader className="sr-only">
               <DialogTitle>{selectedTodo.title}</DialogTitle>
             </DialogHeader>
@@ -1073,6 +1081,7 @@ export function DashboardBoard({
                       onSubtaskStatusChange={onStatusChange}
                       onSubtaskAssigneeChange={onAssigneeChange}
                       onEditSubtaskTitle={handleEditSubtaskTitle}
+                      onUpdateSubtask={onUpdateSubtask}
                       onDeleteSubtask={handleDeleteSubtaskRow}
                     />
                   )}

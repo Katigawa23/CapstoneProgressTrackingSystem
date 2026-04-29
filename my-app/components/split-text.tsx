@@ -1,6 +1,6 @@
 "use client"
 
-import { type CSSProperties, useEffect, useState } from "react"
+import { type CSSProperties, useEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -14,6 +14,9 @@ type SplitTextProps = {
   className?: string
   delayStep?: number
   initialDelay?: number
+  triggerOnView?: boolean
+  threshold?: number
+  visible?: boolean
 }
 
 export default function SplitText({
@@ -21,21 +24,56 @@ export default function SplitText({
   className,
   delayStep = 45,
   initialDelay = 80,
+  triggerOnView = false,
+  threshold = 0.2,
+  visible,
 }: SplitTextProps) {
-  const [isVisible, setIsVisible] = useState(false)
+  const ref = useRef<HTMLSpanElement | null>(null)
+  const [isVisibleState, setIsVisibleState] = useState(false)
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setIsVisible(true))
+    if (typeof visible === "boolean") {
+      return
+    }
+
+    if (!triggerOnView) {
+      const frame = requestAnimationFrame(() => setIsVisibleState(true))
+
+      return () => {
+        cancelAnimationFrame(frame)
+      }
+    }
+
+    const element = ref.current
+    if (!element) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisibleState(true)
+          observer.unobserve(element)
+        }
+      },
+      { threshold }
+    )
+
+    observer.observe(element)
 
     return () => {
-      cancelAnimationFrame(frame)
+      observer.disconnect()
     }
-  }, [])
+  }, [threshold, triggerOnView, visible])
+
+  const isVisible = typeof visible === "boolean" ? visible : isVisibleState
 
   let characterIndex = 0
 
   return (
-    <span className={cn("inline-block", className)} aria-label={parts.map((part) => part.text).join("")}>
+    <span
+      ref={ref}
+      className={cn("inline-block", className)}
+      aria-label={parts.map((part) => part.text).join("")}
+    >
       {parts.map((part, partIndex) => (
         <span key={`${part.text}-${partIndex}`} className={cn("inline-block", part.className)}>
           {Array.from(part.text).map((character, charIndex) => {

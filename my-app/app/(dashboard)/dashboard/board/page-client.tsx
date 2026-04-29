@@ -276,7 +276,7 @@ export function DashboardBoardPageClient({
                 : lastMatchingIndex + 1
             })()
           : Math.max(
-              remainingRootTodos.findIndex((todo) => todo.id === targetTodoId) + 1,
+              remainingRootTodos.findIndex((todo) => todo.id === targetTodoId),
               0
             )
 
@@ -574,7 +574,15 @@ export function DashboardBoardPageClient({
   }, [currentUser, fetchTodosForProject, initialProjects, router])
 
   const handleCreateSubtask = React.useCallback(
-    async (parentTodo: TodoItem, title: string, description: string) => {
+    async (
+      parentTodo: TodoItem,
+      input: {
+        title: string
+        description: string
+        startDate?: string
+        dueDate?: string
+      }
+    ) => {
       const selectedProjectId = getSelectedDashboardProjectId()
 
       if (!selectedProjectId) {
@@ -589,10 +597,10 @@ export function DashboardBoardPageClient({
         },
         body: JSON.stringify({
           projectId: selectedProjectId,
-          title,
-          description,
-          startDate: null,
-          dueDate: null,
+          title: input.title,
+          description: input.description,
+          startDate: input.startDate ?? null,
+          dueDate: input.dueDate ?? null,
           status: "todo",
           assigneeId: null,
         }),
