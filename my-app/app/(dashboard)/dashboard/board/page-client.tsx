@@ -690,7 +690,7 @@ export function DashboardBoardPageClient({
         }}
         onManageSprints={() => {}}
       />
-      <div className="min-h-0 w-full md:max-w-[calc(100vw-var(--sidebar-width)-2rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
+      <div className="min-h-0 w-full flex-1 min-w-0">
         <DashboardBoard
           todos={filteredTodos}
           people={projectPeople}

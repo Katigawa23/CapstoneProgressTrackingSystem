@@ -428,13 +428,15 @@ export default function LandingPage() {
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400">
                     <Icon className="h-6 w-6" />
                   </div>
-                  <h3 className="font-semibold">
-                    <SplitText
-                      parts={[{ text: step.title, className: "text-slate-900 dark:text-slate-100" }]}
-                      visible={isVisible}
-                      initialDelay={0}
-                      delayStep={22}
-                    />
+                  <h3
+                    className="font-semibold text-slate-900 transition-all duration-700 dark:text-slate-100"
+                    style={{
+                      transform: isVisible ? "translate3d(0, 0, 0)" : "translate3d(0, 16px, 0)",
+                      opacity: isVisible ? 1 : 0,
+                      filter: isVisible ? "blur(0px)" : "blur(4px)",
+                    }}
+                  >
+                    {step.title}
                   </h3>
                   <p
                     className="mt-2 text-sm text-gray-600 transition-all duration-700 dark:text-slate-300"

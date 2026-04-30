@@ -862,7 +862,7 @@ export function DashboardBoard({
 
   return (
     <>
-      <Carousel opts={{ align: "start" }} className="w-full px-6 md:hidden">
+      <Carousel opts={{ align: "start" }} className="w-full px-2 sm:px-4 md:hidden">
         <CarouselContent>
           {columns.map((column) => {
             const columnTodos = getColumnTodos(column.id)
@@ -899,7 +899,7 @@ export function DashboardBoard({
         <CarouselNext className="right-0 top-1/2 size-6 border-border bg-background/95 transition-[background-color,border-color,color,box-shadow] duration-300" />
       </Carousel>
 
-      <div className="hidden min-h-0 flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 xl:grid-cols-4">
+      <div className="hidden min-h-0 w-full flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 lg:grid-cols-4">
         {columns.map((column) => {
           const columnTodos = getColumnTodos(column.id)
 
