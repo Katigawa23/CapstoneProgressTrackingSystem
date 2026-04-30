@@ -36,6 +36,17 @@ export type DashboardBoardFilter = "none" | "assignee" | "subtask"
 
 type DashboardHeaderProps = {
   people: Person[]
+  activeSprintName?: string | null
+  boardTitle?: string
+  sprints?: Array<{
+    id: string
+    name: string
+    startDate: string
+    endDate: string
+    backlogItemIds?: string[]
+  }>
+  onProjectBoardSelect?: () => void
+  onSprintSelect?: (sprintId: string) => void
   onCreate?: () => void
   onCreateSprint?: () => void
   onManageSprints?: () => void
@@ -47,6 +58,11 @@ type DashboardHeaderProps = {
 
 export function DashboardHeader({
   people,
+  activeSprintName,
+  boardTitle = "Board",
+  sprints = [],
+  onProjectBoardSelect,
+  onSprintSelect,
   onCreate,
   onCreateSprint,
   onManageSprints,
@@ -77,12 +93,31 @@ export function DashboardHeader({
 
   return (
     <div className="space-y-2">
-      <div className="text-[11px] text-muted-foreground">
-        Project / <span className="text-foreground">{projectName}</span>
+      <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+        <span>Project /</span>
+        <button
+          type="button"
+          className="text-foreground transition hover:underline"
+          onClick={onProjectBoardSelect}
+        >
+          {projectName}
+        </button>
+        {activeSprintName ? (
+          <>
+            <span>/</span>
+            <button
+              type="button"
+              className="text-foreground transition hover:underline"
+              onClick={onProjectBoardSelect}
+            >
+              {activeSprintName}
+            </button>
+          </>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="font-display text-xl font-semibold tracking-tight">Board</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight">{boardTitle}</h1>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <div className="flex flex-wrap items-center gap-2">
@@ -129,6 +164,18 @@ export function DashboardHeader({
                     <Plus className="h-4 w-4" />
                     Create Sprint
                   </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onProjectBoardSelect}>
+                    Project Board
+                  </DropdownMenuItem>
+                  {sprints.length > 0 ? <DropdownMenuSeparator /> : null}
+                  {sprints.map((sprint) => (
+                    <DropdownMenuItem
+                      key={sprint.id}
+                      onSelect={() => onSprintSelect?.(sprint.id)}
+                    >
+                      <span className="truncate">{sprint.name}</span>
+                    </DropdownMenuItem>
+                  ))}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={onManageSprints}>
                     Manage Sprints
@@ -138,51 +185,53 @@ export function DashboardHeader({
             </div>
           </div>
 
-          <div className="relative w-full sm:w-[220px]">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="h-8 w-full pl-8 text-xs"
-              placeholder="Search"
-              value={searchValue}
-              onChange={(event) => onSearchChange(event.target.value)}
-            />
-          </div>
+          <div className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
+            <div className="relative min-w-0 flex-1 sm:w-[220px] sm:flex-none">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="h-8 w-full pl-8 text-xs"
+                placeholder="Search"
+                value={searchValue}
+                onChange={(event) => onSearchChange(event.target.value)}
+              />
+            </div>
 
-          <Select
-            value={filterValue}
-            onValueChange={(value) => onFilterChange(value as DashboardBoardFilter)}
-          >
-            <SelectTrigger size="sm" className="h-8 min-w-[92px] px-2 text-xs">
-              <SelectValue placeholder="Filter" />
-            </SelectTrigger>
-            <SelectContent align="end">
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="assignee">Assignee</SelectItem>
-              <SelectItem value="subtask">Subtask</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select
+              value={filterValue}
+              onValueChange={(value) => onFilterChange(value as DashboardBoardFilter)}
+            >
+              <SelectTrigger size="sm" className="h-8 min-w-[84px] shrink-0 px-2 text-xs sm:min-w-[92px]">
+                <SelectValue placeholder="Filter" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="assignee">Assignee</SelectItem>
+                <SelectItem value="subtask">Subtask</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <div className="flex items-center">
-            {visiblePeople.map((person, index) => (
-              <Avatar
-                key={person.name}
-                title={person.name}
-                className={`h-7 w-7 ring-2 ring-background ${
-                  index === 0 ? "" : "-ml-2"
-                }`}
-              >
-                <AvatarImage src={person.src} alt={person.name} />
-                <AvatarFallback className="text-[10px]">
-                  {getInitials(person.name)}
-                </AvatarFallback>
-              </Avatar>
-            ))}
+            <div className="flex shrink-0 items-center">
+              {visiblePeople.map((person, index) => (
+                <Avatar
+                  key={person.name}
+                  title={person.name}
+                  className={`h-7 w-7 ring-2 ring-background ${
+                    index === 0 ? "" : "-ml-2"
+                  }`}
+                >
+                  <AvatarImage src={person.src} alt={person.name} />
+                  <AvatarFallback className="text-[10px]">
+                    {getInitials(person.name)}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
 
-            {hiddenCount > 0 ? (
-              <Avatar className="h-7 w-7 ring-2 ring-background -ml-2" title={`${hiddenCount} more members`}>
-                <AvatarFallback className="text-[10px]">+{hiddenCount}</AvatarFallback>
-              </Avatar>
-            ) : null}
+              {hiddenCount > 0 ? (
+                <Avatar className="h-7 w-7 ring-2 ring-background -ml-2" title={`${hiddenCount} more members`}>
+                  <AvatarFallback className="text-[10px]">+{hiddenCount}</AvatarFallback>
+                </Avatar>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

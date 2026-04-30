@@ -8,10 +8,12 @@ import {
   canUseLocalFileFallback,
   shouldFallbackToLocalStore,
 } from "@backend/db/fallback"
+import { ensureMicrosoftLoginSchema } from "@backend/repositories/microsoft-login-repository"
 
 export type BacklogCommentRow = {
   id: string
   backlogItemId: string
+  authorUserId?: string | null
   author: string
   body: string
   attachments: string[]
@@ -20,6 +22,7 @@ export type BacklogCommentRow = {
 
 type CreateBacklogCommentInput = {
   backlogItemId: string
+  authorUserId?: string | null
   author: string
   body: string
   attachments: string[]
@@ -33,6 +36,7 @@ type UpdateBacklogCommentInput = {
 type BacklogCommentRecord = {
   id: string
   backlog_item_id: string
+  author_user_id: string | null
   author: string
   body: string
   attachments: string[] | null
@@ -69,6 +73,7 @@ function mapRecord(record: BacklogCommentRecord): BacklogCommentRow {
   return {
     id: record.id,
     backlogItemId: record.backlog_item_id,
+    authorUserId: record.author_user_id,
     author: record.author,
     body: record.body,
     attachments: record.attachments ?? [],
@@ -80,6 +85,7 @@ function toRecord(row: BacklogCommentRow): BacklogCommentRecord {
   return {
     id: row.id,
     backlog_item_id: row.backlogItemId,
+    author_user_id: row.authorUserId ?? null,
     author: row.author,
     body: row.body,
     attachments: row.attachments,
@@ -89,21 +95,53 @@ function toRecord(row: BacklogCommentRow): BacklogCommentRecord {
 
 async function ensureCommentSchema() {
   if (!schemaReady) {
-    schemaReady = getDb()
-      .query(`
+    schemaReady = ensureMicrosoftLoginSchema()
+      .then(() =>
+        getDb().query(`
         create table if not exists backlog_comments (
           id uuid primary key,
           backlog_item_id uuid not null references backlog_items(id) on delete cascade,
+          author_user_id text,
           author text not null,
           body text not null default '',
           attachments jsonb not null default '[]'::jsonb,
           created_at timestamptz not null default now()
         );
       `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_comments
+          add column if not exists author_user_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          do $$
+          begin
+            if not exists (
+              select 1
+              from pg_constraint
+              where conname = 'fk_backlog_comments_author_user_id'
+            ) then
+              alter table backlog_comments
+              add constraint fk_backlog_comments_author_user_id
+              foreign key (author_user_id) references microsoft_account_logins(microsoft_user_id)
+              on delete set null;
+            end if;
+          end $$;
+        `)
+      )
       .then(() =>
         getDb().query(`
           create index if not exists backlog_comments_backlog_item_id_idx
           on backlog_comments(backlog_item_id, created_at asc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists backlog_comments_author_user_id_idx
+          on backlog_comments(author_user_id);
         `)
       )
       .then(() => undefined)
@@ -207,6 +245,7 @@ export async function listBacklogComments(backlogItemId: string, ownerUserId: st
         `select
           backlog_comments.id,
           backlog_comments.backlog_item_id,
+          backlog_comments.author_user_id,
           backlog_comments.author,
           backlog_comments.body,
           backlog_comments.attachments,
@@ -246,6 +285,7 @@ export async function createBacklogComment(
         `insert into backlog_comments (
           id,
           backlog_item_id,
+          author_user_id,
           author,
           body,
           attachments
@@ -255,18 +295,20 @@ export async function createBacklogComment(
           $2,
           $3,
           $4,
-          $5::jsonb
+          $5,
+          $6::jsonb
         from backlog_items
         inner join projects
           on projects.id = backlog_items.project_id
         where backlog_items.id = $2
           and (
-            projects.owner_user_id = $6
-            or $6 = any(projects.member_user_ids)
+            projects.owner_user_id = $7
+            or $7 = any(projects.member_user_ids)
           )
         returning
           id,
           backlog_item_id,
+          author_user_id,
           author,
           body,
           attachments,
@@ -274,6 +316,7 @@ export async function createBacklogComment(
         [
           randomUUID(),
           input.backlogItemId,
+          input.authorUserId ?? null,
           input.author,
           input.body,
           JSON.stringify(input.attachments),
@@ -287,6 +330,7 @@ export async function createBacklogComment(
       const comment: BacklogCommentRow = {
         id: randomUUID(),
         backlogItemId: input.backlogItemId,
+        authorUserId: input.authorUserId ?? null,
         author: input.author,
         body: input.body,
         attachments: input.attachments,
@@ -343,6 +387,7 @@ export async function updateBacklogComment(
         returning
           id,
           backlog_item_id,
+          author_user_id,
           author,
           body,
           attachments,

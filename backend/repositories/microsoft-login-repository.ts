@@ -23,7 +23,7 @@ export type RegisteredMicrosoftUser = {
 
 let schemaReady: Promise<void> | null = null
 
-async function ensureMicrosoftLoginSchema() {
+export async function ensureMicrosoftLoginSchema() {
   if (!schemaReady) {
     schemaReady = (async () => {
       try {

@@ -8,6 +8,7 @@ import {
   canUseLocalFileFallback,
   shouldFallbackToLocalStore,
 } from "@backend/db/fallback"
+import { ensureMicrosoftLoginSchema } from "@backend/repositories/microsoft-login-repository"
 import { ensureProjectExists } from "@backend/repositories/project-repository"
 
 export type BacklogRow = {
@@ -235,8 +236,9 @@ function showFallbackWarning(error: unknown) {
 
 async function ensureBacklogSchema() {
   if (!schemaReady) {
-    schemaReady = getDb()
-      .query(`
+    schemaReady = ensureMicrosoftLoginSchema()
+      .then(() =>
+        getDb().query(`
         create table if not exists backlog_items (
           id uuid primary key,
           project_id uuid references projects(id) on delete cascade,
@@ -256,6 +258,7 @@ async function ensureBacklogSchema() {
           updated_at timestamptz not null default now()
         );
       `)
+      )
       .then(() =>
         getDb().query(`
           alter table backlog_items
@@ -318,9 +321,16 @@ async function ensureBacklogSchema() {
       )
       .then(() =>
         getDb().query(`
+          create index if not exists backlog_items_assignee_id_idx
+          on backlog_items(assignee_id);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
           create table if not exists backlog_comments (
             id uuid primary key,
             backlog_item_id uuid not null references backlog_items(id) on delete cascade,
+            author_user_id text,
             author text not null,
             body text not null default '',
             attachments jsonb not null default '[]'::jsonb,
@@ -330,8 +340,20 @@ async function ensureBacklogSchema() {
       )
       .then(() =>
         getDb().query(`
+          alter table backlog_comments
+          add column if not exists author_user_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
           create index if not exists backlog_comments_backlog_item_id_idx
           on backlog_comments(backlog_item_id, created_at asc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists backlog_comments_author_user_id_idx
+          on backlog_comments(author_user_id);
         `)
       )
       .then(() =>
@@ -394,6 +416,23 @@ async function ensureBacklogSchema() {
               alter table backlog_items
               add constraint fk_backlog_items_parent_id
               foreign key (parent_id) references backlog_items(id) on delete cascade;
+            end if;
+          end $$;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          do $$
+          begin
+            if not exists (
+              select 1
+              from pg_constraint
+              where conname = 'fk_backlog_items_assignee_id'
+            ) then
+              alter table backlog_items
+              add constraint fk_backlog_items_assignee_id
+              foreign key (assignee_id) references microsoft_account_logins(microsoft_user_id)
+              on delete set null;
             end if;
           end $$;
         `)

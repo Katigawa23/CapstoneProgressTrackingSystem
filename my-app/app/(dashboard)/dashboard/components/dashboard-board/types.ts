@@ -1,9 +1,4 @@
-import type { ColumnId, DashboardComment, DashboardSubmission, TodoItem } from "../../types"
-
-export type Person = {
-  name: string
-  src: string
-}
+import type { DashboardComment, DashboardSubmission, TodoItem } from "../../types"
 
 export type SubmissionDraft = {
   id: string
@@ -23,7 +18,11 @@ export type CreateSubtaskInput = {
 
 export type DashboardBoardProps = {
   todos: TodoItem[]
-  people: Person[]
+  sprints: Array<{
+    id: string
+    name: string
+    backlogItemIds: string[]
+  }>
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onMoveTodo: (
     todoId: string,
@@ -31,6 +30,7 @@ export type DashboardBoardProps = {
     nextStatus: TodoItem["status"]
   ) => Promise<void>
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
+  onAddToSprint: (todoId: string, sprintId: string) => Promise<void> | void
   onTodoUpdate: (todoId: string, updates: Partial<TodoItem>) => void
   onCreateSubtask: (
     parentTodo: TodoItem,

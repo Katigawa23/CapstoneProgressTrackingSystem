@@ -8,6 +8,7 @@ import {
   canUseLocalFileFallback,
   shouldFallbackToLocalStore,
 } from "@backend/db/fallback"
+import { ensureMicrosoftLoginSchema } from "@backend/repositories/microsoft-login-repository"
 import {
   dashboardProjects,
   PROJECT_METADATA_MAX_LENGTH,
@@ -108,8 +109,9 @@ function showFallbackWarning(error: unknown) {
 
 async function ensureProjectsSchema() {
   if (!schemaReady) {
-    schemaReady = getDb()
-      .query(`
+    schemaReady = ensureMicrosoftLoginSchema()
+      .then(() =>
+        getDb().query(`
         create table if not exists projects (
           id uuid primary key,
           owner_user_id text not null default '',
@@ -125,6 +127,7 @@ async function ensureProjectsSchema() {
           created_at timestamptz not null default now()
         );
       `)
+      )
       .then(() =>
         getDb().query(`
           alter table projects
@@ -153,6 +156,29 @@ async function ensureProjectsSchema() {
         getDb().query(`
           create index if not exists projects_created_at_idx
           on projects(created_at desc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists projects_owner_user_id_idx
+          on projects(owner_user_id);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          do $$
+          begin
+            if not exists (
+              select 1
+              from pg_constraint
+              where conname = 'fk_projects_owner_user_id'
+            ) then
+              alter table projects
+              add constraint fk_projects_owner_user_id
+              foreign key (owner_user_id) references microsoft_account_logins(microsoft_user_id)
+              on delete restrict;
+            end if;
+          end $$;
         `)
       )
       .then(() =>

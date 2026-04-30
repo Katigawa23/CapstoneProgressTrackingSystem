@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
 import { FolderCheck, GitFork } from "lucide-react"
 
 import {
@@ -43,20 +44,16 @@ import type {
 
 export function DashboardBoard({
   todos,
-  people,
+  sprints,
   onStatusChange,
   onMoveTodo,
   onAssigneeChange,
+  onAddToSprint,
   onTodoUpdate,
   onCreateSubtask,
   onUpdateSubtask,
   onDeleteSubtask,
 }: DashboardBoardProps) {
-  const [draggingTodoId, setDraggingTodoId] = React.useState<string | null>(null)
-  const [activeDropColumnId, setActiveDropColumnId] = React.useState<
-    TodoItem["status"] | null
-  >(null)
-  const [activeDropTodoId, setActiveDropTodoId] = React.useState<string | null>(null)
   const [selectedTodo, setSelectedTodo] = React.useState<TodoItem | null>(null)
   const [openTarget, setOpenTarget] = React.useState<"default" | "comments">(
     "default"
@@ -151,83 +148,6 @@ export function DashboardBoard({
       setSelectedTodo(subtask)
     },
     []
-  )
-
-  const handleDragStartTodo = React.useCallback((todoId: string) => {
-    setDraggingTodoId(todoId)
-  }, [])
-
-  const handleDragEndTodo = React.useCallback(() => {
-    setDraggingTodoId(null)
-    setActiveDropColumnId(null)
-    setActiveDropTodoId(null)
-  }, [])
-
-  const handleDragEnterColumn = React.useCallback((columnId: TodoItem["status"]) => {
-    setActiveDropColumnId(columnId)
-    setActiveDropTodoId(null)
-  }, [])
-
-  const handleDragEnterCard = React.useCallback(
-    (todoId: string, columnId: TodoItem["status"]) => {
-      setActiveDropColumnId(columnId)
-      setActiveDropTodoId(todoId)
-    },
-    []
-  )
-
-  const handleDropTodoToColumn = React.useCallback(
-    (columnId: TodoItem["status"]) => {
-      if (!draggingTodoId) {
-        return
-      }
-
-      const draggingTodo = todos.find((todo) => todo.id === draggingTodoId)
-
-      setDraggingTodoId(null)
-      setActiveDropColumnId(null)
-      setActiveDropTodoId(null)
-
-      if (draggingTodo?.parentId) {
-        void onStatusChange(draggingTodoId, columnId)
-        return
-      }
-
-      void onMoveTodo(draggingTodoId, null, columnId)
-    },
-    [draggingTodoId, onMoveTodo, onStatusChange, todos]
-  )
-
-  const handleDropTodoOnCard = React.useCallback(
-    (targetTodoId: string) => {
-      if (!draggingTodoId || draggingTodoId === targetTodoId) {
-        return
-      }
-
-      const draggingTodo = todos.find((todo) => todo.id === draggingTodoId)
-      const targetTodo = todos.find((todo) => todo.id === targetTodoId)
-
-      setDraggingTodoId(null)
-      setActiveDropColumnId(null)
-      setActiveDropTodoId(null)
-
-      if (!draggingTodo || !targetTodo) {
-        return
-      }
-
-      if (draggingTodo.parentId) {
-        void onStatusChange(draggingTodoId, targetTodo.status)
-        return
-      }
-
-      if (targetTodo.parentId) {
-        void onMoveTodo(draggingTodoId, null, targetTodo.status)
-        return
-      }
-
-      void onMoveTodo(draggingTodoId, targetTodoId, targetTodo.status)
-    },
-    [draggingTodoId, onMoveTodo, onStatusChange, todos]
   )
 
   React.useEffect(() => {
@@ -829,6 +749,54 @@ export function DashboardBoard({
     [todos]
   )
 
+  const handleDragEnd = React.useCallback(
+    (result: DropResult) => {
+      const { destination, draggableId } = result
+
+      if (!destination) {
+        return
+      }
+
+      const sourceColumnId = result.source.droppableId as TodoItem["status"]
+      const destinationColumnId = destination.droppableId as TodoItem["status"]
+      const draggedTodo = todos.find((todo) => todo.id === draggableId)
+
+      if (!draggedTodo) {
+        return
+      }
+
+      if (draggedTodo.parentId) {
+        if (draggedTodo.status !== destinationColumnId) {
+          void onStatusChange(draggableId, destinationColumnId)
+        }
+        return
+      }
+
+      const destinationTodos = getColumnTodos(destinationColumnId)
+
+      const isSamePosition =
+        sourceColumnId === destinationColumnId &&
+        result.source.index === destination.index
+
+      if (isSamePosition) {
+        return
+      }
+
+      const reorderedDestinationTodos =
+        sourceColumnId === destinationColumnId
+          ? destinationTodos.filter((todo) => todo.id !== draggableId)
+          : destinationTodos
+
+      const targetTodo =
+        reorderedDestinationTodos
+          .slice(destination.index)
+          .find((todo) => !todo.parentId) ?? null
+
+      void onMoveTodo(draggableId, targetTodo?.id ?? null, destinationColumnId)
+    },
+    [getColumnTodos, onMoveTodo, onStatusChange, todos]
+  )
+
   const selectedTodoIdParts = React.useMemo(() => {
     if (!selectedTodo) {
       return null
@@ -861,34 +829,26 @@ export function DashboardBoard({
   )
 
   return (
-    <>
+    <DragDropContext onDragEnd={handleDragEnd}>
       <Carousel opts={{ align: "start" }} className="w-full px-2 sm:px-4 md:hidden">
-        <CarouselContent>
+        <CarouselContent className="items-stretch">
           {columns.map((column) => {
             const columnTodos = getColumnTodos(column.id)
 
             return (
-              <CarouselItem key={column.id}>
+              <CarouselItem key={column.id} className="h-full">
                 <DashboardColumn
                   column={column}
                   todos={columnTodos}
                   allTodos={todos}
-                  people={people}
-                  activeDropColumnId={activeDropColumnId}
-                  draggingTodoId={draggingTodoId}
-                  activeDropTodoId={activeDropTodoId}
+                  sprints={sprints}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
-                  onDragStartTodo={handleDragStartTodo}
-                  onDragEndTodo={handleDragEndTodo}
-                  onDropTodoToColumn={handleDropTodoToColumn}
-                  onDropTodoOnCard={handleDropTodoOnCard}
-                  onDragEnterColumn={handleDragEnterColumn}
-                  onDragEnterCard={handleDragEnterCard}
+                  onAddToSprint={onAddToSprint}
                   onOpenTask={handleOpenTask}
                   className="h-full"
                   scrollAreaClassName={
-                    "h-[240px] w-full sm:h-[280px] md:h-[340px] xl:h-[420px]"
+                    "h-[calc(100dvh-22rem)] min-h-[360px] w-full sm:h-[calc(100dvh-24rem)] sm:min-h-[420px] md:h-[340px] xl:h-[420px]"
                   }
                 />
               </CarouselItem>
@@ -909,18 +869,10 @@ export function DashboardBoard({
               column={column}
               todos={columnTodos}
               allTodos={todos}
-              people={people}
-              activeDropColumnId={activeDropColumnId}
-              draggingTodoId={draggingTodoId}
-              activeDropTodoId={activeDropTodoId}
+              sprints={sprints}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}
-              onDragStartTodo={handleDragStartTodo}
-              onDragEndTodo={handleDragEndTodo}
-              onDropTodoToColumn={handleDropTodoToColumn}
-              onDropTodoOnCard={handleDropTodoOnCard}
-              onDragEnterColumn={handleDragEnterColumn}
-              onDragEnterCard={handleDragEnterCard}
+              onAddToSprint={onAddToSprint}
               onOpenTask={handleOpenTask}
             />
           )
@@ -1141,6 +1093,6 @@ export function DashboardBoard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </DragDropContext>
   )
 }

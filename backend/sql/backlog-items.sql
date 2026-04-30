@@ -30,6 +30,9 @@ add column if not exists sequence_number integer;
 alter table backlog_items
 add column if not exists order_index integer;
 
+alter table backlog_items
+add column if not exists assignee_id text;
+
 with numbered_items as (
   select
     id,
@@ -87,3 +90,20 @@ begin
     foreign key (parent_id) references backlog_items(id) on delete cascade;
   end if;
 end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'fk_backlog_items_assignee_id'
+  ) then
+    alter table backlog_items
+    add constraint fk_backlog_items_assignee_id
+    foreign key (assignee_id) references microsoft_account_logins(microsoft_user_id)
+    on delete set null;
+  end if;
+end $$;
+
+create index if not exists backlog_items_assignee_id_idx
+  on backlog_items(assignee_id);

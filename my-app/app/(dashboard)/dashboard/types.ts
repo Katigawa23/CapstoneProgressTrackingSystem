@@ -39,6 +39,7 @@ export type BacklogApiItem = {
 export type DashboardComment = {
   id: string
   backlogItemId: string
+  authorUserId?: string | null
   author: string
   body: string
   attachments: string[]

@@ -134,15 +134,17 @@ export function BoardLoadingSkeleton({
         <BoardHeaderStatic />
       )}
 
-      <div className="hidden min-h-0 flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 xl:grid-cols-4">
-        {columns.map((column, index) => (
-          <BoardColumnSkeleton
-            key={column.id}
-            title={column.title}
-            color={column.color}
-            cards={visibleCardCounts[index] ?? 0}
-          />
-        ))}
+      <div className="min-h-0 flex-1 overflow-x-auto">
+        <div className="hidden min-h-0 w-full min-w-0 items-stretch gap-3 md:max-w-[calc(100vw-var(--sidebar-width)-3rem)] md:grid md:grid-cols-2 xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] xl:grid-cols-4 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
+          {columns.map((column, index) => (
+            <BoardColumnSkeleton
+              key={column.id}
+              title={column.title}
+              color={column.color}
+              cards={visibleCardCounts[index] ?? 0}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )

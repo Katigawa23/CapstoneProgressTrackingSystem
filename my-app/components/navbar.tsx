@@ -177,6 +177,13 @@ export default function Navbar() {
                     </Link>
                   )
                 })}
+
+                <div className="mt-2 flex items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Theme</p>                   
+                  </div>
+                  <ThemeSwitch iconOnly />
+                </div>
               </div>
 
             </SheetContent>
@@ -258,7 +265,9 @@ export default function Navbar() {
             </DialogContent>
           </Dialog>
 
-          <ThemeSwitch iconOnly />
+          <div className="hidden lg:block">
+            <ThemeSwitch iconOnly />
+          </div>
         </div>
       </div>
     </header>

@@ -36,6 +36,14 @@ type DashboardBoardPageClientProps = {
   initialItems: BacklogApiItem[]
 }
 
+type SprintSummary = {
+  id: string
+  name: string
+  startDate: string
+  endDate: string
+  backlogItemIds: string[]
+}
+
 export function DashboardBoardPageClient({
   initialProjects,
   initialSelectedProjectId,
@@ -62,6 +70,8 @@ export function DashboardBoardPageClient({
   const [sprintEndDate, setSprintEndDate] = React.useState<Date | undefined>()
   const [sprintScopeItemId, setSprintScopeItemId] = React.useState("")
   const [sprintDescription, setSprintDescription] = React.useState("")
+  const [sprints, setSprints] = React.useState<SprintSummary[]>([])
+  const [selectedSprintId, setSelectedSprintId] = React.useState<string | null>(null)
   const [hasLoadedBoardData, setHasLoadedBoardData] = React.useState(false)
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
   const [searchValue, setSearchValue] = React.useState("")
@@ -71,6 +81,10 @@ export function DashboardBoardPageClient({
     () =>
       initialProjects.find((project) => project.id === selectedProjectId) ?? null,
     [initialProjects, selectedProjectId]
+  )
+  const selectedSprint = React.useMemo(
+    () => sprints.find((sprint) => sprint.id === selectedSprintId) ?? null,
+    [selectedSprintId, sprints]
   )
   const projectPeople = React.useMemo(
     () => {
@@ -128,6 +142,22 @@ export function DashboardBoardPageClient({
     [getCurrentProjectCode]
   )
 
+  const fetchSprintsForProject = React.useCallback(async (projectId: string) => {
+    const response = await fetch(`/api/sprints?projectId=${projectId}`, {
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to load sprints")
+    }
+
+    const data = (await response.json()) as {
+      sprints: SprintSummary[]
+    }
+
+    return data.sprints
+  }, [])
+
   React.useEffect(() => {
     const syncCurrentUser = () => {
       setCurrentUser(readClientAuthSession()?.user ?? null)
@@ -152,6 +182,7 @@ export function DashboardBoardPageClient({
     }
 
     setTodos(mapBacklogItemsToTodos(initialItems, getCurrentProjectCode(initialSelectedProjectId)))
+    setSelectedSprintId(null)
     setHasLoadedBoardData(true)
   }, [
     currentUser,
@@ -551,10 +582,19 @@ export function DashboardBoardPageClient({
       )
 
       try {
-        const mappedTodos = await fetchTodosForProject(savedProjectId)
+        const [mappedTodos, nextSprints] = await Promise.all([
+          fetchTodosForProject(savedProjectId),
+          fetchSprintsForProject(savedProjectId),
+        ])
 
         if (!cancelled) {
           setTodos(mappedTodos)
+          setSprints(nextSprints)
+          setSelectedSprintId((currentSelectedSprintId) =>
+            nextSprints.some((sprint) => sprint.id === currentSelectedSprintId)
+              ? currentSelectedSprintId
+              : null
+          )
           setHasLoadedBoardData(true)
         }
       } catch (error) {
@@ -571,7 +611,7 @@ export function DashboardBoardPageClient({
       cancelled = true
       window.removeEventListener(PROJECT_CHANGE_EVENT, loadTodosForSelectedProject)
     }
-  }, [currentUser, fetchTodosForProject, initialProjects, router])
+  }, [currentUser, fetchSprintsForProject, fetchTodosForProject, initialProjects, router])
 
   const handleCreateSubtask = React.useCallback(
     async (
@@ -619,8 +659,17 @@ export function DashboardBoardPageClient({
 
   const filteredTodos = React.useMemo(() => {
     const normalizedSearch = searchValue.trim().toLowerCase()
+    const sprintBacklogItemIds = new Set(selectedSprint?.backlogItemIds ?? [])
 
     return todos.filter((todo) => {
+      if (
+        selectedSprint &&
+        !sprintBacklogItemIds.has(todo.id) &&
+        !(todo.parentId && sprintBacklogItemIds.has(todo.parentId))
+      ) {
+        return false
+      }
+
       if (filterValue === "subtask" && !todo.parentId) {
         return false
       }
@@ -647,7 +696,7 @@ export function DashboardBoardPageClient({
         value.toLowerCase().includes(normalizedSearch)
       )
     })
-  }, [currentUserAssigneeIds, filterValue, searchValue, todos])
+  }, [currentUserAssigneeIds, filterValue, searchValue, selectedSprint, todos])
 
   const sprintScopeOptions = React.useMemo(
     () =>
@@ -669,15 +718,106 @@ export function DashboardBoardPageClient({
     setSprintDescription("")
   }, [])
 
-  const handleCreateSprint = React.useCallback(() => {
-    setCreateSprintOpen(false)
-    resetCreateSprintForm()
-  }, [resetCreateSprintForm])
+  const handleCreateSprint = React.useCallback(async () => {
+    if (!sprintName.trim() || !sprintStartDate || !sprintEndDate) {
+      return
+    }
+
+    const activeProjectId = getSelectedDashboardProjectId()
+
+    if (!activeProjectId) {
+      router.replace("/dashboard")
+      return
+    }
+
+    try {
+      const response = await fetch("/api/sprints", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId: activeProjectId,
+          name: sprintName.trim(),
+          duration: sprintDuration,
+          startDate: sprintStartDate.toISOString().slice(0, 10),
+          endDate: sprintEndDate.toISOString().slice(0, 10),
+          description: sprintDescription.trim(),
+          backlogItemIds: sprintScopeItemId ? [sprintScopeItemId] : [],
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create sprint")
+      }
+
+      const data = (await response.json()) as {
+        sprint: SprintSummary
+      }
+
+      setSprints((currentSprints) => [data.sprint, ...currentSprints])
+
+      setCreateSprintOpen(false)
+      resetCreateSprintForm()
+    } catch (error) {
+      console.error(error)
+    }
+  }, [
+    resetCreateSprintForm,
+    router,
+    sprintDescription,
+    sprintDuration,
+    sprintEndDate,
+    sprintName,
+    sprintScopeItemId,
+    sprintStartDate,
+  ])
+
+  const handleAddToSprint = React.useCallback(
+    async (todoId: string, sprintId: string) => {
+      try {
+        const response = await fetch(`/api/sprints/${sprintId}/items`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            backlogItemId: todoId,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to add work item to sprint")
+        }
+
+        setSprints((currentSprints) =>
+          currentSprints.map((sprint) =>
+            sprint.id === sprintId && !sprint.backlogItemIds.includes(todoId)
+              ? {
+                  ...sprint,
+                  backlogItemIds: [...sprint.backlogItemIds, todoId],
+                }
+              : sprint
+          )
+        )
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    []
+  )
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
       <DashboardHeader
         people={projectPeople}
+        activeSprintName={selectedSprint?.name ?? null}
+        boardTitle={selectedSprint ? "Sprint" : "Board"}
+        sprints={sprints}
+        onProjectBoardSelect={() => {
+          setSelectedSprintId(null)
+        }}
+        onSprintSelect={setSelectedSprintId}
         searchValue={searchValue}
         onSearchChange={setSearchValue}
         filterValue={filterValue}
@@ -690,18 +830,21 @@ export function DashboardBoardPageClient({
         }}
         onManageSprints={() => {}}
       />
-      <div className="min-h-0 w-full flex-1 min-w-0">
-        <DashboardBoard
-          todos={filteredTodos}
-          people={projectPeople}
-          onStatusChange={handleStatusChange}
-          onMoveTodo={handleMoveTodo}
-          onAssigneeChange={handleAssigneeChange}
-          onTodoUpdate={handleTodoUpdate}
-          onCreateSubtask={handleCreateSubtask}
-          onUpdateSubtask={handleUpdateSubtask}
-          onDeleteSubtask={handleDeleteSubtask}
-        />
+      <div className="min-h-0 w-full min-w-0 flex-1 overflow-x-auto">
+        <div className="min-h-0 w-full min-w-0 md:max-w-[calc(100vw-var(--sidebar-width)-3rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
+          <DashboardBoard
+            todos={filteredTodos}
+            sprints={sprints}
+            onStatusChange={handleStatusChange}
+            onMoveTodo={handleMoveTodo}
+            onAssigneeChange={handleAssigneeChange}
+            onAddToSprint={handleAddToSprint}
+            onTodoUpdate={handleTodoUpdate}
+            onCreateSubtask={handleCreateSubtask}
+            onUpdateSubtask={handleUpdateSubtask}
+            onDeleteSubtask={handleDeleteSubtask}
+          />
+        </div>
       </div>
 
       <CreateWorkItemDialog

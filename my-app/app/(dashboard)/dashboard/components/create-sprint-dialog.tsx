@@ -7,15 +7,6 @@ import { CalendarIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxValue,
-} from "@/components/ui/combobox"
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -75,6 +66,18 @@ function normalizeDate(date: Date) {
   return nextDate
 }
 
+function isSameCalendarDate(left?: Date, right?: Date) {
+  if (!left && !right) {
+    return true
+  }
+
+  if (!left || !right) {
+    return false
+  }
+
+  return normalizeDate(left).getTime() === normalizeDate(right).getTime()
+}
+
 export function CreateSprintDialog({
   open,
   onOpenChange,
@@ -95,9 +98,6 @@ export function CreateSprintDialog({
 }: CreateSprintDialogProps) {
   const [startDateOpen, setStartDateOpen] = React.useState(false)
   const [endDateOpen, setEndDateOpen] = React.useState(false)
-
-  const selectedScope =
-    scopeOptions.find((option) => option.id === scopeItemId) ?? null
 
   React.useEffect(() => {
     if (!open) {
@@ -124,7 +124,11 @@ export function CreateSprintDialog({
       return
     }
 
-    onEndDateChange(addDays(startDate, selectedDuration.days))
+    const nextEndDate = addDays(startDate, selectedDuration.days)
+
+    if (!isSameCalendarDate(endDate, nextEndDate)) {
+      onEndDateChange(nextEndDate)
+    }
   }, [duration, endDate, onEndDateChange, startDate])
 
   return (
@@ -194,7 +198,9 @@ export function CreateSprintDialog({
                     mode="single"
                     selected={startDate}
                     onSelect={(date) => {
-                      onStartDateChange(date)
+                      if (!isSameCalendarDate(startDate, date)) {
+                        onStartDateChange(date)
+                      }
                       setStartDateOpen(false)
                     }}
                     initialFocus
@@ -230,7 +236,9 @@ export function CreateSprintDialog({
                     mode="single"
                     selected={endDate}
                     onSelect={(date) => {
-                      onEndDateChange(date)
+                      if (!isSameCalendarDate(endDate, date)) {
+                        onEndDateChange(date)
+                      }
                       setEndDateOpen(false)
                     }}
                     disabled={(date) =>
@@ -244,31 +252,26 @@ export function CreateSprintDialog({
           </div>
 
           <div className="max-w-[220px] space-y-1">
-            <Label htmlFor="sprint-scope">Scope items</Label>
-            <Combobox
-              value={scopeItemId}
-              onValueChange={(nextValue) => onScopeItemChange(String(nextValue ?? ""))}
+            <Label htmlFor="sprint-scope">Work items</Label>
+            <Select
+              value={scopeItemId || undefined}
+              onValueChange={onScopeItemChange}
             >
-              <ComboboxInput
+              <SelectTrigger
                 id="sprint-scope"
-                placeholder="Select work item"
-                className="w-full [&_[data-slot=input-group]]:rounded-[2px] [&_[data-slot=input-group-button]]:rounded-[2px] [&_input]:rounded-[2px]"
+                disabled={scopeOptions.length === 0}
+                className="h-7 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f]"
               >
-                <ComboboxValue>
-                  {selectedScope?.label ?? ""}
-                </ComboboxValue>
-              </ComboboxInput>
-              <ComboboxContent>
-                <ComboboxList>
-                  <ComboboxEmpty>No work items found.</ComboboxEmpty>
-                  {scopeOptions.map((option) => (
-                    <ComboboxItem key={option.id} value={option.id}>
-                      {option.label}
-                    </ComboboxItem>
-                  ))}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
+                <SelectValue placeholder="Select work item" />
+              </SelectTrigger>
+              <SelectContent>
+                {scopeOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1">
