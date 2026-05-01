@@ -16,11 +16,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Separator } from "@/components/ui/separator"
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -251,12 +249,6 @@ export default function Navbar() {
 
               <div className="mt-4 flex flex-col gap-4">
                 <MicrosoftLoginButton onSuccess={() => setIsLoginOpen(false)} />
-
-                <div className="flex items-center gap-3">
-                  <Separator className="flex-1" />
-                  <span className="text-xs font-medium text-muted-foreground">OR</span>
-                  <Separator className="flex-1" />
-                </div>
 
                 <Button variant="outline" className="w-full font-semibold">
                   Admin Login

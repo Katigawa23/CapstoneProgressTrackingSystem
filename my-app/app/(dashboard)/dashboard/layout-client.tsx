@@ -32,7 +32,7 @@ import {
 import { type DashboardHomeState } from "@/lib/dashboard-home-state"
 import { type DashboardProject } from "@/lib/projects"
 import { RoleProvider } from "@/lib/role-context"
-import { canAccessPath, roleLabels, type UserRole } from "@/lib/rbac"
+import { canAccessPath, isUserRole, roleLabels, type UserRole } from "@/lib/rbac"
 import { BacklogLoadingSkeleton } from "./backlog/backlog-loading-skeleton"
 import { DashboardLoadingState } from "./dashboard-loading-state"
 
@@ -164,7 +164,7 @@ export function DashboardLayoutClient({
     }
   }, [initialAuthSession])
 
-  const role: UserRole = "student"
+  const role: UserRole = isUserRole(session?.user.role) ? session.user.role : "student"
   const hasAccess = canAccessPath(role, pathname)
 
   return (

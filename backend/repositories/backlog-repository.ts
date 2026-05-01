@@ -85,6 +85,14 @@ let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<BacklogStorageMode> | null = null
 let fallbackWarningShown = false
 
+function uppercaseFirstCharacter(value: string) {
+  if (!value) {
+    return value
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
 type RawBacklogRecord = Partial<BacklogRecord> & {
   projectId?: string | null
   parentId?: string | null
@@ -687,6 +695,7 @@ export async function createBacklogItem(
   return withBacklogStore(
     async () => {
       await ensureProjectExists(input.projectId, ownerUserId)
+      const normalizedTitle = uppercaseFirstCharacter(input.title)
 
       const result = await getDb().query<BacklogRecord>(
         `with next_sequence as (
@@ -749,7 +758,7 @@ export async function createBacklogItem(
           randomUUID(),
           input.projectId,
           input.parentId,
-          input.title,
+          normalizedTitle,
           input.description,
           input.startDate,
           input.dueDate,
@@ -820,7 +829,7 @@ export async function createBacklogItem(
         parentId: input.parentId,
         sequenceNumber: nextSequenceNumber,
         orderIndex: nextOrderIndex,
-        title: input.title,
+        title: uppercaseFirstCharacter(input.title),
         description: input.description,
         startDate: input.startDate,
         dueDate: input.dueDate,

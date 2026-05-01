@@ -6,8 +6,12 @@ import { Button } from "@/components/ui/button"
 
 export default function MicrosoftLoginButton({
   onSuccess,
+  href = "/api/auth/microsoft",
+  label = "Login with Microsoft 365",
 }: {
   onSuccess?: () => void
+  href?: string
+  label?: string
 }) {
   return (
     <Button
@@ -19,7 +23,7 @@ export default function MicrosoftLoginButton({
       className="flex w-full items-center justify-center gap-2 font-semibold hover:opacity-90"
       onClick={() => {
         onSuccess?.()
-        window.location.assign("/api/auth/microsoft")
+        window.location.assign(href)
       }}
     >
       <Image
@@ -29,7 +33,7 @@ export default function MicrosoftLoginButton({
         height={20}
         className="mr-1"
       />
-      Login with Microsoft 365
+      {label}
     </Button>
   )
 }

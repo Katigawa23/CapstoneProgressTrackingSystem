@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   BookOpen,
+  ChevronRight,
   History,
   LayoutDashboard,
   Map,
@@ -20,12 +21,21 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuAction,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { Separator } from "@/components/ui/separator"
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog"
 import { ProjectPickerContent } from "@/components/projects/project-picker-content"
@@ -40,10 +50,16 @@ type NavItem = {
   icon?: React.ElementType
   imageSrc?: string
   external?: boolean
+  children?: NavItem[]
 }
 
 const projectItems: NavItem[] = [
-  { title: "Board", href: "/dashboard/board", icon: LayoutDashboard },
+  {
+    title: "Board",
+    href: "/dashboard/board",
+    icon: LayoutDashboard,
+    children: [{ title: "Active Sprint", href: "/dashboard/active-sprint" }],
+  },
   { title: "Roadmap", href: "/dashboard/roadmap", icon: Map },
   { title: "Backlog", href: "/dashboard/backlog", icon: Rows3},
 ]
@@ -79,38 +95,101 @@ function NavList({ items }: { items: NavItem[] }) {
   const pathname = usePathname()
 
   return (
-    <SidebarMenu>  
+    <SidebarMenu>
       {items.map((item) => {
         const active = item.external ? false : pathname === item.href
+        const hasActiveChild =
+          item.children?.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`)) ?? false
         const Icon = item.icon
         const imageAlt = `${item.title} logo`
 
         return (
           <SidebarMenuItem key={item.href}>
-            <SidebarMenuButton
-              asChild
-              isActive={active}
-              tooltip={item.title}
-              className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm dark:text-slate-300 dark:hover:text-sky-400 dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-sky-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
-            >
-              <Link
-                href={item.href}
-                className="flex items-center gap-2"
-                target={item.external ? "_blank" : undefined}
-                rel={item.external ? "noreferrer noopener" : undefined}
+            {item.children?.length ? (
+              <Collapsible
+                defaultOpen={hasActiveChild}
+                className="group/collapsible"
               >
-                {item.imageSrc ? (
-                  <img
-                    src={item.imageSrc}
-                    alt={imageAlt}
-                    className="h-5 w-5 rounded-full object-cover"
-                  />
-                ) : Icon ? (
-                  <Icon className="h-4 w-4" />
-                ) : null}
-                <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
-              </Link>
-            </SidebarMenuButton>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={item.title}
+                  isActive={active}
+                  className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm dark:text-slate-300 dark:hover:text-sky-400 dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-sky-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
+                >
+                  <Link
+                    href={item.href}
+                    className="flex items-center gap-2"
+                    target={item.external ? "_blank" : undefined}
+                    rel={item.external ? "noreferrer noopener" : undefined}
+                  >
+                    {item.imageSrc ? (
+                      <img
+                        src={item.imageSrc}
+                        alt={imageAlt}
+                        className="h-5 w-5 rounded-full object-cover"
+                      />
+                    ) : Icon ? (
+                      <Icon className="h-4 w-4" />
+                    ) : null}
+                    <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuAction
+                    className="text-slate-500 hover:bg-transparent hover:text-blue-700 dark:text-slate-400 dark:hover:bg-transparent dark:hover:text-sky-400 group-data-[collapsible=icon]:hidden"
+                    showOnHover={false}
+                  >
+                    <ChevronRight className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuAction>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-1">
+                  <SidebarMenuSub className="mx-4 mt-1 border-slate-200/90 pl-3 dark:border-slate-800">
+                    {item.children.map((child) => {
+                      const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`)
+
+                      return (
+                        <SidebarMenuSubItem key={child.href}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={childActive}
+                            className="h-8 rounded-lg px-3 text-sm font-normal text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 dark:text-slate-300 dark:hover:text-sky-400 dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-sky-400"
+                          >
+                            <Link href={child.href}>
+                              <span>{child.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </Collapsible>
+            ) : (
+              <SidebarMenuButton
+                asChild
+                isActive={active}
+                tooltip={item.title}
+                className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm dark:text-slate-300 dark:hover:text-sky-400 dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-sky-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
+              >
+                <Link
+                  href={item.href}
+                  className="flex items-center gap-2"
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noreferrer noopener" : undefined}
+                >
+                  {item.imageSrc ? (
+                    <img
+                      src={item.imageSrc}
+                      alt={imageAlt}
+                      className="h-5 w-5 rounded-full object-cover"
+                    />
+                  ) : Icon ? (
+                    <Icon className="h-4 w-4" />
+                  ) : null}
+                  <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
+                </Link>
+              </SidebarMenuButton>
+            )}
           </SidebarMenuItem>
         )
       })}
@@ -119,7 +198,17 @@ function NavList({ items }: { items: NavItem[] }) {
 }
 
 function filterItemsByRole(items: NavItem[], role: UserRole) {
-  return items.filter((item) => item.external || canAccessPath(role, item.href))
+  return items
+    .map((item) => ({
+      ...item,
+      children: item.children?.filter((child) => canAccessPath(role, child.href)),
+    }))
+    .filter(
+      (item) =>
+        item.external ||
+        canAccessPath(role, item.href) ||
+        Boolean(item.children && item.children.length > 0)
+    )
 }
 
 export function AppSidebar({
@@ -137,7 +226,7 @@ export function AppSidebar({
     createProject,
     createProjectOpen,
     handleMemberSearchChange,
-    handleMemberRemove,
+    handleMemberRoleToggle,
     handleMemberSelect,
     memberSearch,
     memberOptions,
@@ -177,9 +266,14 @@ export function AppSidebar({
   const visibleQuickLinkItems = filterItemsByRole(quickLinkItems, role)
   const isProjectPickerPage =
     pathname === "/dashboard" || pathname === "/dashboard/projects"
+  const canCreateProject = role !== "student"
 
   React.useEffect(() => {
     const handleOpenCreateProject = () => {
+      if (!canCreateProject) {
+        return
+      }
+
       setCreateProjectOpen(true)
     }
 
@@ -188,7 +282,7 @@ export function AppSidebar({
     return () => {
       window.removeEventListener("tracksphere-open-create-project", handleOpenCreateProject)
     }
-  }, [setCreateProjectOpen])
+  }, [canCreateProject, setCreateProjectOpen])
 
   return (
     <>
@@ -205,7 +299,7 @@ export function AppSidebar({
         memberOptionsLoading={memberOptionsLoading}
         onCreateProject={createProject}
         onMemberSearchChange={handleMemberSearchChange}
-        onMemberRemove={handleMemberRemove}
+        onMemberRoleToggle={handleMemberRoleToggle}
         onMemberSelect={handleMemberSelect}
         onProjectProgramChange={setProjectProgram}
         onProjectProgramOtherChange={setProjectProgramOther}
@@ -235,8 +329,15 @@ export function AppSidebar({
         <SidebarHeader className="gap-4 px-3 pt-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1">
           <div className="rounded-xl bg-transparent">
             <ProjectSwitcher
-              displayName={isProjectPickerPage ? "Create project" : undefined}
-              onCreateProject={() => setCreateProjectOpen(true)}
+              canCreateProject={canCreateProject}
+              displayName={isProjectPickerPage ? "Choose project" : undefined}
+              onCreateProject={() => {
+                if (!canCreateProject) {
+                  return
+                }
+
+                setCreateProjectOpen(true)
+              }}
               onSelectProject={(projectId) => {
                 selectProject(projectId)
                 router.push("/dashboard/board")

@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       name?: string
       members?: string[]
       advisers?: string[]
+      sprintCreatorUserIds?: string[]
       starred?: boolean
       memberUserIds?: string[]
       program?: string
@@ -55,6 +56,11 @@ export async function POST(request: Request) {
       : []
     const advisers = Array.isArray(body.advisers)
       ? body.advisers.filter((adviser) => typeof adviser === "string" && adviser.trim())
+      : []
+    const sprintCreatorUserIds = Array.isArray(body.sprintCreatorUserIds)
+      ? body.sprintCreatorUserIds.filter(
+          (memberUserId) => typeof memberUserId === "string" && memberUserId.trim()
+        )
       : []
     const memberUserIds = Array.isArray(body.memberUserIds)
       ? body.memberUserIds.filter((memberUserId) => typeof memberUserId === "string" && memberUserId.trim())
@@ -88,6 +94,7 @@ export async function POST(request: Request) {
       name: name.slice(0, PROJECT_TITLE_MAX_LENGTH),
       members,
       advisers,
+      sprintCreatorUserIds,
       starred: body.starred === true,
       memberUserIds,
       program: program.slice(0, PROJECT_METADATA_MAX_LENGTH),

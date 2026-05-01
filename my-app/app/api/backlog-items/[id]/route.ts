@@ -34,26 +34,34 @@ export async function PATCH(
       assigneeId?: string | null
       orderIndex?: number
     }
+    const updates = {
+      ...("parentId" in body
+        ? {
+            parentId:
+              typeof body.parentId === "string" && body.parentId.trim().length > 0
+                ? body.parentId.trim()
+                : null,
+          }
+        : {}),
+      ...(typeof body.title === "string" ? { title: body.title.trim() } : {}),
+      ...(typeof body.description === "string"
+        ? { description: body.description.trim() }
+        : {}),
+      ...("startDate" in body
+        ? { startDate: normalizeOptionalDate(body.startDate) }
+        : {}),
+      ...("dueDate" in body
+        ? { dueDate: normalizeOptionalDate(body.dueDate) }
+        : {}),
+      ...(typeof body.status === "string" ? { status: body.status } : {}),
+      ...(typeof body.checked === "boolean" ? { checked: body.checked } : {}),
+      ...("assigneeId" in body ? { assigneeId: body.assigneeId ?? null } : {}),
+      ...(typeof body.orderIndex === "number" && Number.isFinite(body.orderIndex)
+        ? { orderIndex: body.orderIndex }
+        : {}),
+    }
 
-    const item = await updateBacklogItem(id, user.id, {
-      parentId:
-        "parentId" in body
-          ? typeof body.parentId === "string" && body.parentId.trim().length > 0
-            ? body.parentId.trim()
-            : null
-          : undefined,
-      title: typeof body.title === "string" ? body.title.trim() : undefined,
-      description: typeof body.description === "string" ? body.description.trim() : undefined,
-      startDate: "startDate" in body ? normalizeOptionalDate(body.startDate) : undefined,
-      dueDate: "dueDate" in body ? normalizeOptionalDate(body.dueDate) : undefined,
-      status: body.status,
-      checked: body.checked,
-      assigneeId: body.assigneeId,
-      orderIndex:
-        typeof body.orderIndex === "number" && Number.isFinite(body.orderIndex)
-          ? body.orderIndex
-          : undefined,
-    })
+    const item = await updateBacklogItem(id, user.id, updates)
 
     if (!item) {
       return NextResponse.json(

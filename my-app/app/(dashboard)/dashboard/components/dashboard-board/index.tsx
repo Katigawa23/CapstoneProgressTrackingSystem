@@ -44,6 +44,7 @@ import type {
 
 export function DashboardBoard({
   todos,
+  isSprintView = false,
   sprints,
   onStatusChange,
   onMoveTodo,
@@ -841,6 +842,7 @@ export function DashboardBoard({
                   column={column}
                   todos={columnTodos}
                   allTodos={todos}
+                  isSprintView={isSprintView}
                   sprints={sprints}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
@@ -848,7 +850,9 @@ export function DashboardBoard({
                   onOpenTask={handleOpenTask}
                   className="h-full"
                   scrollAreaClassName={
-                    "h-[calc(100dvh-22rem)] min-h-[360px] w-full sm:h-[calc(100dvh-24rem)] sm:min-h-[420px] md:h-[340px] xl:h-[420px]"
+                    isSprintView
+                      ? "h-[calc(100dvh-24rem)] min-h-[320px] w-full overflow-visible sm:h-[calc(100dvh-26rem)] sm:min-h-[360px] md:h-[300px] xl:h-[360px]"
+                      : "h-[calc(100dvh-22rem)] min-h-[360px] w-full overflow-y-auto sm:h-[calc(100dvh-24rem)] sm:min-h-[420px] md:h-[340px] xl:h-[420px]"
                   }
                 />
               </CarouselItem>
@@ -869,6 +873,7 @@ export function DashboardBoard({
               column={column}
               todos={columnTodos}
               allTodos={todos}
+              isSprintView={isSprintView}
               sprints={sprints}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}

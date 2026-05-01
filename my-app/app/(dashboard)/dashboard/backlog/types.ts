@@ -71,6 +71,30 @@ export function buildAssigneeOptionId(name: string) {
   return slug || "member"
 }
 
+function buildAssigneeOption(
+  name: string,
+  currentUser?: { id?: string | null; name?: string | null; email?: string | null } | null,
+  explicitId?: string | null
+) {
+  const trimmedName = name.trim()
+  const currentUserName = currentUser?.name?.trim() ?? ""
+  const currentUserEmail = currentUser?.email?.trim() ?? ""
+  const currentUserId = currentUser?.id?.trim() ?? ""
+  const isCurrentUser = Boolean(currentUserName) && trimmedName === currentUserName
+
+  return {
+    id: isCurrentUser && currentUserId ? currentUserId : explicitId || buildAssigneeOptionId(trimmedName),
+    name: isCurrentUser ? "Assign to me" : trimmedName,
+    email: isCurrentUser ? currentUserEmail || undefined : undefined,
+    initials: trimmedName
+      .split(/\s+/)
+      .map((part) => part[0] ?? "")
+      .join("")
+      .slice(0, 2)
+      .toUpperCase(),
+  }
+}
+
 export function createAssigneeOptionsFromNames(
   names: string[],
   currentUser?: { id?: string | null; name?: string | null; email?: string | null } | null
@@ -84,26 +108,12 @@ export function createAssigneeOptionsFromNames(
   )
 
   const currentUserName = currentUser?.name?.trim() ?? ""
-  const currentUserEmail = currentUser?.email?.trim() ?? ""
 
   if (currentUserName && !uniqueNames.includes(currentUserName)) {
     uniqueNames.unshift(currentUserName)
   }
 
-  return uniqueNames.map((name) => ({
-    id:
-      name === currentUserName && currentUser?.id?.trim()
-        ? currentUser.id.trim()
-        : buildAssigneeOptionId(name),
-    name,
-    email: name === currentUserName ? currentUserEmail || undefined : undefined,
-    initials: name
-      .split(/\s+/)
-      .map((part) => part[0] ?? "")
-      .join("")
-      .slice(0, 2)
-      .toUpperCase(),
-  }))
+  return uniqueNames.map((name) => buildAssigneeOption(name, currentUser))
 }
 
 export function createAssigneeOptionsFromProject(
@@ -121,7 +131,6 @@ export function createAssigneeOptionsFromProject(
     .filter(Boolean)
   const memberUserIds = (project?.memberUserIds ?? []).map((id) => id.trim())
   const currentUserName = currentUser?.name?.trim() ?? ""
-  const currentUserEmail = currentUser?.email?.trim() ?? ""
   const currentUserId = currentUser?.id?.trim() ?? ""
 
   const options = memberNames.map((name, index) => {
@@ -132,34 +141,20 @@ export function createAssigneeOptionsFromProject(
         ? currentUserId
         : mappedId
 
-    return {
-      id: resolvedId,
-      name,
-      email: currentUserName && name === currentUserName ? currentUserEmail || undefined : undefined,
-      initials: name
-        .split(/\s+/)
-        .map((part) => part[0] ?? "")
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-    }
+    return buildAssigneeOption(name, currentUser, resolvedId)
   })
 
   if (
     currentUserName &&
     !options.some((option) => option.id === currentUserId || option.name === currentUserName)
   ) {
-    options.unshift({
-      id: currentUserId || buildAssigneeOptionId(currentUserName),
-      name: currentUserName,
-      email: currentUserEmail || undefined,
-      initials: currentUserName
-        .split(/\s+/)
-        .map((part) => part[0] ?? "")
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-    })
+    options.unshift(
+      buildAssigneeOption(
+        currentUserName,
+        currentUser,
+        currentUserId || buildAssigneeOptionId(currentUserName)
+      )
+    )
   }
 
   return options

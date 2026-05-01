@@ -7,6 +7,7 @@ type AuthCookieUser = {
   id: string
   name: string
   email: string
+  role: "student" | "adviser" | "admin"
   tenantId: string
   expiresAt: number
 }
@@ -91,12 +92,14 @@ export function createUserCookieValue(user: {
   id: string
   name: string
   email: string
+  role: "student" | "adviser" | "admin"
   tenantId: string
 }) {
   return encodeSignedPayload({
     id: user.id,
     name: user.name,
     email: user.email,
+    role: user.role,
     tenantId: user.tenantId,
     expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
   })
@@ -120,6 +123,7 @@ export function readUserCookieValue(value: string | undefined) {
     typeof payload.id !== "string" ||
     typeof payload.name !== "string" ||
     typeof payload.email !== "string" ||
+    (payload.role !== "student" && payload.role !== "adviser" && payload.role !== "admin") ||
     typeof payload.tenantId !== "string" ||
     typeof payload.expiresAt !== "number" ||
     payload.expiresAt < Date.now()

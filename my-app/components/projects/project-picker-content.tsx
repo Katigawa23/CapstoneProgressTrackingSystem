@@ -31,8 +31,8 @@ export function ProjectPickerContent({
     return (
       <SidebarGroup>
         <SidebarGroupContent>
-          <div className="rounded-xl border border-dashed border-sky-200 bg-white/80 px-3 py-3 text-xs text-slate-500 dark:border-[#3a3a3a] dark:bg-[#242424] dark:text-slate-400 sm:px-4 sm:py-4 sm:text-sm">
-            No projects yet. Create your first project from the project menu above.
+          <div className="rounded-xl border border-dashed border-sky-200 bg-white/80 px-3 py-3 text-xs text-slate-500 dark:border-[#3a3a3a] dark:bg-[#242424] dark:text-slate-400 sm:px-4 sm:py-4 sm:text-sm group-data-[collapsible=icon]:hidden">
+            No projects yet. Wait for your adviser to set up the project workspace.
           </div>
         </SidebarGroupContent>
       </SidebarGroup>

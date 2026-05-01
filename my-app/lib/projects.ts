@@ -42,6 +42,7 @@ export type DashboardProject = {
   name: string
   members: string[]
   advisers: string[]
+  sprintCreatorUserIds: string[]
   starred: boolean
   memberUserIds: string[]
   program: string
@@ -64,6 +65,7 @@ export type CreateDashboardProjectInput = {
   name: string
   members: string[]
   advisers?: string[]
+  sprintCreatorUserIds?: string[]
   memberUserIds?: string[]
   program: string
   yearLevel: string
@@ -122,6 +124,9 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
     name: candidate.name,
     members: candidate.members,
     advisers: isStringArray(candidate.advisers) ? candidate.advisers : [],
+    sprintCreatorUserIds: isStringArray(candidate.sprintCreatorUserIds)
+      ? candidate.sprintCreatorUserIds
+      : [],
     starred: candidate.starred === true,
     memberUserIds: isStringArray(candidate.memberUserIds) ? candidate.memberUserIds : [],
     program: typeof candidate.program === "string" ? candidate.program : "",
@@ -239,6 +244,21 @@ export function getDashboardProject(projectId: string | null | undefined) {
   return findDashboardProject(projectId) ?? getDashboardProjects()[0]
 }
 
+export function canCreateSprintForProject(
+  project: DashboardProject | null | undefined,
+  user: { id?: string; role?: string } | null | undefined
+) {
+  if (!project || !user?.id) {
+    return false
+  }
+
+  if (user.role === "adviser" || user.role === "admin") {
+    return true
+  }
+
+  return project.sprintCreatorUserIds.includes(user.id)
+}
+
 export function getDashboardProjectCode(
   project: Pick<DashboardProject, "projectType"> | null | undefined
 ) {
@@ -344,6 +364,7 @@ export function createDashboardProject({
   name,
   members,
   advisers,
+  sprintCreatorUserIds,
   memberUserIds,
   program,
   yearLevel,
@@ -359,6 +380,7 @@ export function createDashboardProject({
       name: name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
       members,
       advisers: Array.isArray(advisers) ? advisers : [],
+      sprintCreatorUserIds: Array.isArray(sprintCreatorUserIds) ? sprintCreatorUserIds : [],
       starred: false,
       memberUserIds: Array.isArray(memberUserIds) ? memberUserIds : [],
       program: program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),

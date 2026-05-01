@@ -10,6 +10,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
   student: [
     "/dashboard",
     "/dashboard/board",
+    "/dashboard/active-sprint",
     "/dashboard/roadmap",
     "/dashboard/revisions",
     "/dashboard/journal",
@@ -22,6 +23,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
   adviser: [
     "/dashboard",
     "/dashboard/board",
+    "/dashboard/active-sprint",
     "/dashboard/roadmap",
     "/dashboard/backlog",
     "/dashboard/revisions",
@@ -34,6 +36,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
   admin: [
     "/dashboard",
     "/dashboard/board",
+    "/dashboard/active-sprint",
     "/dashboard/roadmap",
     "/dashboard/revisions",
     "/dashboard/journal",

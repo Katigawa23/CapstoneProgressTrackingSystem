@@ -20,6 +20,7 @@ type ProjectRecord = {
   id: string
   owner_user_id: string
   member_user_ids: string[]
+  sprint_creator_user_ids: string[]
   project_name: string
   project_member: string[]
   project_adviser: string[]
@@ -40,6 +41,7 @@ type CreateProjectInput = {
   members: string[]
   advisers?: string[]
   starred?: boolean
+  sprintCreatorUserIds?: string[]
   memberUserIds: string[]
   program: string
   yearLevel: string
@@ -55,6 +57,14 @@ let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<ProjectStorageMode> | null = null
 let fallbackWarningShown = false
 
+function uppercaseFirstCharacter(value: string) {
+  if (!value) {
+    return value
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
 function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
   return {
     id: typeof record.id === "string" ? record.id : randomUUID(),
@@ -64,6 +74,13 @@ function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
         : "",
     member_user_ids: Array.isArray((record as { member_user_ids?: unknown[] }).member_user_ids)
       ? ((record as { member_user_ids?: unknown[] }).member_user_ids ?? []).filter(
+          (memberUserId): memberUserId is string => typeof memberUserId === "string"
+        )
+      : [],
+    sprint_creator_user_ids: Array.isArray(
+      (record as { sprint_creator_user_ids?: unknown[] }).sprint_creator_user_ids
+    )
+      ? ((record as { sprint_creator_user_ids?: unknown[] }).sprint_creator_user_ids ?? []).filter(
           (memberUserId): memberUserId is string => typeof memberUserId === "string"
         )
       : [],
@@ -116,6 +133,7 @@ async function ensureProjectsSchema() {
           id uuid primary key,
           owner_user_id text not null default '',
           member_user_ids text[] not null default '{}',
+          sprint_creator_user_ids text[] not null default '{}',
           project_name text not null,
           project_member text[] not null default '{}',
           project_adviser text[] not null default '{}',
@@ -138,6 +156,12 @@ async function ensureProjectsSchema() {
         getDb().query(`
           alter table projects
           add column if not exists member_user_ids text[] not null default '{}';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists sprint_creator_user_ids text[] not null default '{}';
         `)
       )
       .then(() =>
@@ -356,6 +380,7 @@ function mapRecord(record: ProjectRecord): DashboardProject {
     name: record.project_name,
     members: record.project_member,
     advisers: record.project_adviser,
+    sprintCreatorUserIds: record.sprint_creator_user_ids,
     starred: record.is_starred,
     memberUserIds: record.member_user_ids,
     program: typeof record.program === "string" ? record.program : "",
@@ -374,6 +399,7 @@ function toRecord(project: DashboardProject, ownerUserId: string): ProjectRecord
     id: project.id,
     owner_user_id: ownerUserId,
     member_user_ids: project.memberUserIds,
+    sprint_creator_user_ids: project.sprintCreatorUserIds,
     project_name: project.name,
     project_member: project.members,
     project_adviser: project.advisers,
@@ -392,6 +418,7 @@ async function insertProjectRecord(record: ProjectRecord) {
        id,
        owner_user_id,
        member_user_ids,
+       sprint_creator_user_ids,
        project_name,
        project_member,
        project_adviser,
@@ -402,12 +429,13 @@ async function insertProjectRecord(record: ProjectRecord) {
        project_type,
        created_at
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      on conflict (id) do nothing`,
     [
       record.id,
       record.owner_user_id,
       record.member_user_ids,
+      record.sprint_creator_user_ids,
       record.project_name,
       record.project_member,
       record.project_adviser,
@@ -424,9 +452,12 @@ async function insertProjectRecord(record: ProjectRecord) {
 function normalizeProject(input: CreateProjectInput): DashboardProject {
   return {
     id: randomUUID(),
-    name: input.name.trim().slice(0, PROJECT_TITLE_MAX_LENGTH),
+    name: uppercaseFirstCharacter(input.name.trim()).slice(0, PROJECT_TITLE_MAX_LENGTH),
     members: input.members,
     advisers: Array.isArray(input.advisers) ? input.advisers.filter(Boolean) : [],
+    sprintCreatorUserIds: Array.isArray(input.sprintCreatorUserIds)
+      ? input.sprintCreatorUserIds.filter(Boolean)
+      : [],
     starred: input.starred === true,
     memberUserIds: input.memberUserIds.filter(Boolean),
     program: input.program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
@@ -445,6 +476,7 @@ export async function listProjects(ownerUserId: string) {
            id,
            owner_user_id,
            member_user_ids,
+           sprint_creator_user_ids,
            project_name,
            project_member,
            project_adviser,
@@ -489,6 +521,7 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
            id,
            owner_user_id,
            member_user_ids,
+           sprint_creator_user_ids,
            project_name,
            project_member,
            project_adviser,
@@ -498,11 +531,12 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
            sy_term,
            project_type
          )
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          returning
            id,
            owner_user_id,
            member_user_ids,
+           sprint_creator_user_ids,
            project_name,
            project_member,
            project_adviser,
@@ -516,6 +550,7 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
           project.id,
           ownerUserId,
           input.memberUserIds.filter((memberUserId) => memberUserId !== ownerUserId),
+          (input.sprintCreatorUserIds ?? []).filter((memberUserId) => memberUserId !== ownerUserId),
           project.name,
           project.members,
           project.advisers,
@@ -535,6 +570,9 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
       records.unshift({
         ...toRecord(project, ownerUserId),
         member_user_ids: input.memberUserIds.filter((memberUserId) => memberUserId !== ownerUserId),
+        sprint_creator_user_ids: (input.sprintCreatorUserIds ?? []).filter(
+          (memberUserId) => memberUserId !== ownerUserId
+        ),
       })
       await writeFileRecords(records)
       return project
@@ -561,6 +599,7 @@ export async function updateProjectStarred(
            id,
            owner_user_id,
            member_user_ids,
+           sprint_creator_user_ids,
            project_name,
            project_member,
            project_adviser,
@@ -637,5 +676,50 @@ export async function ensureProjectExists(projectId: string, ownerUserId: string
       await insertProjectRecord(matchingRecord)
     },
     async () => undefined
+  )
+}
+
+export async function canUserCreateSprintInProject(
+  projectId: string,
+  userId: string,
+  userRole: "student" | "adviser" | "admin"
+) {
+  if (userRole === "adviser" || userRole === "admin") {
+    return true
+  }
+
+  return withProjectStore(
+    async () => {
+      const result = await getDb().query<{ can_create_sprint: boolean }>(
+        `select (
+           owner_user_id = $2
+           or $2 = any(sprint_creator_user_ids)
+         ) as can_create_sprint
+         from projects
+         where id = $1
+           and (
+             owner_user_id = $2
+             or $2 = any(member_user_ids)
+           )
+         limit 1`,
+        [projectId, userId]
+      )
+
+      return result.rows[0]?.can_create_sprint === true
+    },
+    async () => {
+      const records = await readFileRecords()
+      const project = records.find(
+        (record) =>
+          record.id === projectId &&
+          (record.owner_user_id === userId || record.member_user_ids.includes(userId))
+      )
+
+      if (!project) {
+        return false
+      }
+
+      return project.owner_user_id === userId || project.sprint_creator_user_ids.includes(userId)
+    }
   )
 }

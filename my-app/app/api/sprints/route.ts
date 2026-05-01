@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { canUserCreateSprintInProject } from "@backend/repositories/project-repository"
 import {
   createSprint,
   listSprints,
@@ -78,6 +79,15 @@ export async function POST(request: Request) {
 
     if (!endDate) {
       return NextResponse.json({ error: "End date is required" }, { status: 400 })
+    }
+
+    const canCreateSprint = await canUserCreateSprintInProject(projectId, user.id, user.role)
+
+    if (!canCreateSprint) {
+      return NextResponse.json(
+        { error: "You do not have permission to create a sprint for this project." },
+        { status: 403 }
+      )
     }
 
     const sprint = await createSprint(

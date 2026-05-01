@@ -2,6 +2,7 @@ create table if not exists sprints (
   id uuid primary key,
   project_id uuid not null references projects(id) on delete cascade,
   name text not null,
+  sequence_number integer not null default 0,
   duration text not null default '',
   start_date date not null,
   end_date date not null,
@@ -20,6 +21,24 @@ add column if not exists description text not null default '';
 alter table sprints
 add column if not exists created_by_user_id text not null default '';
 
+alter table sprints
+add column if not exists sequence_number integer not null default 0;
+
+with ranked_sprints as (
+  select
+    id,
+    row_number() over (
+      partition by project_id
+      order by created_at asc, id asc
+    ) as next_sequence_number
+  from sprints
+)
+update sprints
+set sequence_number = ranked_sprints.next_sequence_number
+from ranked_sprints
+where sprints.id = ranked_sprints.id
+  and sprints.sequence_number = 0;
+
 do $$
 begin
   if not exists (
@@ -36,6 +55,9 @@ end $$;
 
 create index if not exists sprints_project_created_at_idx
   on sprints(project_id, created_at desc);
+
+create unique index if not exists sprints_project_sequence_number_idx
+  on sprints(project_id, sequence_number);
 
 create index if not exists sprints_created_by_user_id_idx
   on sprints(created_by_user_id);

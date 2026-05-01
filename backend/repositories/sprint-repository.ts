@@ -14,6 +14,7 @@ import { ensureProjectExists } from "@backend/repositories/project-repository"
 export type SprintRow = {
   id: string
   projectId: string
+  sequenceNumber: number
   name: string
   duration: string
   startDate: string
@@ -27,6 +28,7 @@ export type SprintRow = {
 type SprintRecord = {
   id: string
   project_id: string
+  sequence_number: number
   name: string
   duration: string
   start_date: string
@@ -42,6 +44,7 @@ type SprintRecordWithItems = SprintRecord & {
 
 type RawSprintRecord = Partial<SprintRecord> & {
   projectId?: string
+  sequenceNumber?: number
   startDate?: string
   endDate?: string
   backlogItemIds?: string[]
@@ -62,10 +65,17 @@ type CreateSprintInput = {
 type SprintStorageMode = "database" | "file"
 
 const sprintsFilePath = path.join(process.cwd(), ".data", "sprints.json")
+const backlogFilePath = path.join(process.cwd(), ".data", "backlog-items.json")
 
 let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<SprintStorageMode> | null = null
 let fallbackWarningShown = false
+
+type RawBacklogRecord = {
+  id?: string
+  status?: string | null
+  checked?: boolean | null
+}
 
 function normalizeSprintRecord(record: RawSprintRecord): SprintRow {
   return {
@@ -76,6 +86,12 @@ function normalizeSprintRecord(record: RawSprintRecord): SprintRow {
         : typeof record.projectId === "string"
         ? record.projectId
         : "",
+    sequenceNumber:
+      typeof record.sequence_number === "number" && Number.isFinite(record.sequence_number)
+        ? record.sequence_number
+        : typeof record.sequenceNumber === "number" && Number.isFinite(record.sequenceNumber)
+        ? record.sequenceNumber
+        : 0,
     name: typeof record.name === "string" ? record.name : "",
     duration: typeof record.duration === "string" ? record.duration : "",
     startDate:
@@ -113,6 +129,7 @@ function mapRecord(record: SprintRecordWithItems): SprintRow {
   return {
     id: record.id,
     projectId: record.project_id,
+    sequenceNumber: record.sequence_number,
     name: record.name,
     duration: record.duration,
     startDate: record.start_date,
@@ -124,6 +141,49 @@ function mapRecord(record: SprintRecordWithItems): SprintRow {
     createdByUserId: record.created_by_user_id,
     createdAt: record.created_at,
   }
+}
+
+function normalizeSprintSequenceNumbers(records: SprintRow[]) {
+  const recordsByProject = new Map<string, SprintRow[]>()
+
+  for (const record of records) {
+    const projectRecords = recordsByProject.get(record.projectId) ?? []
+    projectRecords.push(record)
+    recordsByProject.set(record.projectId, projectRecords)
+  }
+
+  return Array.from(recordsByProject.values()).flatMap((projectRecords) => {
+    const sortedRecords = [...projectRecords].sort(
+      (left, right) =>
+        left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)
+    )
+    const usedSequenceNumbers = new Set<number>()
+    let nextSequenceNumber = 1
+
+    return sortedRecords.map((record) => {
+      const candidateSequenceNumber = record.sequenceNumber
+
+      if (
+        Number.isInteger(candidateSequenceNumber) &&
+        candidateSequenceNumber > 0 &&
+        !usedSequenceNumbers.has(candidateSequenceNumber)
+      ) {
+        usedSequenceNumbers.add(candidateSequenceNumber)
+        nextSequenceNumber = Math.max(nextSequenceNumber, candidateSequenceNumber + 1)
+        return record
+      }
+
+      const normalizedRecord = {
+        ...record,
+        sequenceNumber: nextSequenceNumber,
+      }
+
+      usedSequenceNumbers.add(nextSequenceNumber)
+      nextSequenceNumber += 1
+
+      return normalizedRecord
+    })
+  })
 }
 
 function shouldUseFileFallback(error: unknown) {
@@ -151,6 +211,7 @@ async function ensureSprintSchema() {
           id uuid primary key,
           project_id uuid not null references projects(id) on delete cascade,
           name text not null,
+          sequence_number integer not null default 0,
           duration text not null default '',
           start_date date not null,
           end_date date not null,
@@ -170,6 +231,30 @@ async function ensureSprintSchema() {
       .then(() =>
         getDb().query(`
           alter table sprints
+          add column if not exists sequence_number integer not null default 0;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          with ranked_sprints as (
+            select
+              id,
+              row_number() over (
+                partition by project_id
+                order by created_at asc, id asc
+              ) as next_sequence_number
+            from sprints
+          )
+          update sprints
+          set sequence_number = ranked_sprints.next_sequence_number
+          from ranked_sprints
+          where sprints.id = ranked_sprints.id
+            and sprints.sequence_number = 0;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table sprints
           add column if not exists description text not null default '';
         `)
       )
@@ -183,6 +268,12 @@ async function ensureSprintSchema() {
         getDb().query(`
           create index if not exists sprints_project_created_at_idx
           on sprints(project_id, created_at desc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create unique index if not exists sprints_project_sequence_number_idx
+          on sprints(project_id, sequence_number);
         `)
       )
       .then(() =>
@@ -299,7 +390,7 @@ async function readFileRecords() {
   try {
     const raw = await readFile(sprintsFilePath, "utf8")
     const parsed = JSON.parse(raw) as RawSprintRecord[]
-    return parsed.map(normalizeSprintRecord)
+    return normalizeSprintSequenceNumbers(parsed.map(normalizeSprintRecord))
   } catch (error) {
     const code =
       typeof error === "object" && error && "code" in error
@@ -319,6 +410,51 @@ async function writeFileRecords(records: SprintRow[]) {
   await writeFile(sprintsFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
+async function resetBacklogStatusesInFile(backlogItemIds: string[]) {
+  if (backlogItemIds.length === 0) {
+    return
+  }
+
+  try {
+    const raw = await readFile(backlogFilePath, "utf8")
+    const parsed = JSON.parse(raw)
+
+    if (!Array.isArray(parsed)) {
+      return
+    }
+
+    const targetIds = new Set(backlogItemIds)
+    let hasChanges = false
+    const nextRecords = parsed.map((record) => {
+      if (
+        !record ||
+        typeof record !== "object" ||
+        !("id" in record) ||
+        typeof (record as RawBacklogRecord).id !== "string" ||
+        !targetIds.has((record as RawBacklogRecord).id as string)
+      ) {
+        return record
+      }
+
+      hasChanges = true
+      return {
+        ...record,
+        status: "todo",
+        checked: false,
+      }
+    })
+
+    if (hasChanges) {
+      await mkdir(path.dirname(backlogFilePath), { recursive: true })
+      await writeFile(backlogFilePath, JSON.stringify(nextRecords, null, 2), "utf8")
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error
+    }
+  }
+}
+
 export async function listSprints(projectId: string, ownerUserId: string) {
   return withSprintStore(
     async () => {
@@ -328,6 +464,7 @@ export async function listSprints(projectId: string, ownerUserId: string) {
         `select
           sprints.id,
           sprints.project_id,
+          sprints.sequence_number,
           sprints.name,
           sprints.duration,
           sprints.start_date::text,
@@ -383,12 +520,27 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
 
       try {
         await client.query("begin")
+        await client.query(
+          `select id
+          from projects
+          where id = $1
+          for update`,
+          [input.projectId]
+        )
+        const sequenceResult = await client.query<{ next_sequence_number: number }>(
+          `select coalesce(max(sequence_number), 0) + 1 as next_sequence_number
+          from sprints
+          where project_id = $1`,
+          [input.projectId]
+        )
+        const nextSequenceNumber = sequenceResult.rows[0]?.next_sequence_number ?? 1
 
         const sprintResult = await client.query<SprintRecord>(
           `insert into sprints (
             id,
             project_id,
             name,
+            sequence_number,
             duration,
             start_date,
             end_date,
@@ -403,16 +555,18 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
             $5,
             $6,
             $7,
-            $8
+            $8,
+            $9
           from projects
           where projects.id = $2
             and (
-              projects.owner_user_id = $8
-              or $8 = any(projects.member_user_ids)
+              projects.owner_user_id = $9
+              or $9 = any(projects.member_user_ids)
             )
           returning
             id,
             project_id,
+            sequence_number,
             name,
             duration,
             start_date::text,
@@ -424,6 +578,7 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
             sprintId,
             input.projectId,
             input.name,
+            nextSequenceNumber,
             input.duration,
             input.startDate,
             input.endDate,
@@ -460,6 +615,16 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
           if (relationResult.rowCount !== backlogItemIds.length) {
             throw new Error("One or more work items could not be linked to the sprint")
           }
+
+          await client.query(
+            `update backlog_items
+            set status = 'todo',
+                checked = false,
+                updated_at = now()
+            where project_id = $1
+              and id = any($2::uuid[])`,
+            [input.projectId, backlogItemIds]
+          )
         }
 
         await client.query("commit")
@@ -477,9 +642,14 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
     },
     async () => {
       const records = await readFileRecords()
+      const nextSequenceNumber =
+        records
+          .filter((record) => record.projectId === input.projectId)
+          .reduce((maxValue, record) => Math.max(maxValue, record.sequenceNumber), 0) + 1
       const sprint: SprintRow = {
         id: randomUUID(),
         projectId: input.projectId,
+        sequenceNumber: nextSequenceNumber,
         name: input.name,
         duration: input.duration,
         startDate: input.startDate,
@@ -498,6 +668,7 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
 
       records.unshift(sprint)
       await writeFileRecords(records)
+      await resetBacklogStatusesInFile(sprint.backlogItemIds)
 
       return sprint
     }
@@ -513,28 +684,168 @@ export async function addBacklogItemToSprint(
     async () => {
       await ensureSprintSchema()
 
-      const result = await getDb().query<{ sprint_id: string; backlog_item_id: string }>(
-        `insert into sprint_backlog_items (sprint_id, backlog_item_id)
-        select
-          sprints.id,
-          backlog_items.id
-        from sprints
-        inner join projects
-          on projects.id = sprints.project_id
-        inner join backlog_items
-          on backlog_items.project_id = sprints.project_id
-         and backlog_items.id = $2
-        where sprints.id = $1
-          and (
-            projects.owner_user_id = $3
-            or $3 = any(projects.member_user_ids)
-          )
-        on conflict (sprint_id, backlog_item_id) do nothing
-        returning sprint_id, backlog_item_id`,
-        [sprintId, backlogItemId, ownerUserId]
-      )
+      const client = await getDb().connect()
 
-      return (result.rowCount ?? 0) > 0
+      try {
+        await client.query("begin")
+
+        const sprintLookup = await client.query<{ project_id: string }>(
+          `select sprints.project_id
+          from sprints
+          inner join projects
+            on projects.id = sprints.project_id
+          where sprints.id = $1
+            and (
+              projects.owner_user_id = $2
+              or $2 = any(projects.member_user_ids)
+            )
+          limit 1`,
+          [sprintId, ownerUserId]
+        )
+
+        const projectId = sprintLookup.rows[0]?.project_id
+
+        if (!projectId) {
+          await client.query("rollback")
+          return false
+        }
+
+        await client.query(
+          `delete from sprint_backlog_items
+          using sprints
+          where sprint_backlog_items.sprint_id = sprints.id
+            and sprints.project_id = $1
+            and sprint_backlog_items.backlog_item_id = $2`,
+          [projectId, backlogItemId]
+        )
+
+        const result = await client.query<{ sprint_id: string; backlog_item_id: string }>(
+          `insert into sprint_backlog_items (sprint_id, backlog_item_id)
+          select
+            sprints.id,
+            backlog_items.id
+          from sprints
+          inner join projects
+            on projects.id = sprints.project_id
+          inner join backlog_items
+            on backlog_items.project_id = sprints.project_id
+           and backlog_items.id = $2
+          where sprints.id = $1
+            and (
+              projects.owner_user_id = $3
+              or $3 = any(projects.member_user_ids)
+            )
+          on conflict (sprint_id, backlog_item_id) do nothing
+          returning sprint_id, backlog_item_id`,
+          [sprintId, backlogItemId, ownerUserId]
+        )
+
+        if ((result.rowCount ?? 0) > 0) {
+          await client.query(
+            `update backlog_items
+            set status = 'todo',
+                checked = false,
+                updated_at = now()
+            where project_id = $1
+              and id = $2`,
+            [projectId, backlogItemId]
+          )
+        }
+
+        await client.query("commit")
+        return (result.rowCount ?? 0) > 0
+      } catch (error) {
+        await client.query("rollback")
+        throw error
+      } finally {
+        client.release()
+      }
+    },
+    async () => {
+      const records = await readFileRecords()
+      const sprintIndex = records.findIndex((record) => record.id === sprintId)
+
+      if (sprintIndex === -1) {
+        return false
+      }
+
+      const projectId = records[sprintIndex]?.projectId
+      const nextRecords = records.map((record) =>
+        record.projectId === projectId
+          ? {
+              ...record,
+              backlogItemIds: record.backlogItemIds.filter((id) => id !== backlogItemId),
+            }
+          : record
+      )
+      const currentSprint = records[sprintIndex]
+
+      nextRecords[sprintIndex] = {
+        ...currentSprint,
+        backlogItemIds: [...nextRecords[sprintIndex].backlogItemIds, backlogItemId],
+      }
+
+      await writeFileRecords(nextRecords)
+      await resetBacklogStatusesInFile([backlogItemId])
+      return true
+    }
+  )
+}
+
+export async function removeBacklogItemFromSprint(
+  sprintId: string,
+  backlogItemId: string,
+  ownerUserId: string
+) {
+  return withSprintStore(
+    async () => {
+      await ensureSprintSchema()
+
+      const client = await getDb().connect()
+
+      try {
+        await client.query("begin")
+
+        const sprintLookup = await client.query<{ project_id: string }>(
+          `select sprints.project_id
+          from sprints
+          inner join projects
+            on projects.id = sprints.project_id
+          where sprints.id = $1
+            and (
+              projects.owner_user_id = $2
+              or $2 = any(projects.member_user_ids)
+            )
+          limit 1`,
+          [sprintId, ownerUserId]
+        )
+
+        const projectId = sprintLookup.rows[0]?.project_id
+
+        if (!projectId) {
+          await client.query("rollback")
+          return false
+        }
+
+        const result = await client.query<{ backlog_item_id: string }>(
+          `delete from sprint_backlog_items
+          using sprints
+          where sprint_backlog_items.sprint_id = sprints.id
+            and sprints.id = $1
+            and sprints.project_id = $2
+            and sprint_backlog_items.backlog_item_id = $3
+          returning sprint_backlog_items.backlog_item_id::text`,
+          [sprintId, projectId, backlogItemId]
+        )
+
+        await client.query("commit")
+        return (result.rowCount ?? 0) > 0
+      } catch (error) {
+        await client.query("rollback")
+        throw error
+      } finally {
+        client.release()
+      }
     },
     async () => {
       const records = await readFileRecords()
@@ -545,14 +856,17 @@ export async function addBacklogItemToSprint(
       }
 
       const currentSprint = records[sprintIndex]
+      const nextBacklogItemIds = currentSprint.backlogItemIds.filter(
+        (id) => id !== backlogItemId
+      )
 
-      if (currentSprint.backlogItemIds.includes(backlogItemId)) {
-        return true
+      if (nextBacklogItemIds.length === currentSprint.backlogItemIds.length) {
+        return false
       }
 
       records[sprintIndex] = {
         ...currentSprint,
-        backlogItemIds: [...currentSprint.backlogItemIds, backlogItemId],
+        backlogItemIds: nextBacklogItemIds,
       }
 
       await writeFileRecords(records)

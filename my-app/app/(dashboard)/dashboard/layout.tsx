@@ -29,6 +29,7 @@ export default async function DashboardLayout({
                 id: authenticatedUser.id,
                 name: authenticatedUser.name,
                 email: authenticatedUser.email,
+                role: authenticatedUser.role,
               },
               tenantId: authenticatedUser.tenantId,
               expiresAt: new Date(authenticatedUser.expiresAt).toISOString(),

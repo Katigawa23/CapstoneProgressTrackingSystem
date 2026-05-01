@@ -2,6 +2,7 @@ create table if not exists projects (
   id uuid primary key,
   owner_user_id text not null default '',
   member_user_ids text[] not null default '{}',
+  sprint_creator_user_ids text[] not null default '{}',
   project_name text not null,
   project_member text[] not null default '{}',
   project_adviser text[] not null default '{}',
@@ -18,6 +19,9 @@ add column if not exists owner_user_id text not null default '';
 
 alter table projects
 add column if not exists member_user_ids text[] not null default '{}';
+
+alter table projects
+add column if not exists sprint_creator_user_ids text[] not null default '{}';
 
 alter table projects
 add column if not exists project_adviser text[] not null default '{}';

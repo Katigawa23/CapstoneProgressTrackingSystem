@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 
 import {
+  canCreateSprintForProject,
   cacheDashboardProjects,
   findDashboardProject,
   getDashboardProjectCode,
@@ -34,20 +35,58 @@ type DashboardBoardPageClientProps = {
   initialProjects: DashboardProject[]
   initialSelectedProjectId: string | null
   initialItems: BacklogApiItem[]
+  initialSprintId?: string | null
+  breadcrumbSectionLabel?: string | null
+  onProjectBoardSelectPath?: string
 }
 
 type SprintSummary = {
   id: string
   name: string
+  description: string
   startDate: string
   endDate: string
   backlogItemIds: string[]
+}
+
+function formatSprintCountdown(startDate: string, endDate: string) {
+  const sprintStartDate = new Date(`${startDate}T00:00:00`)
+  const dueDate = new Date(`${endDate}T23:59:59`)
+  const today = new Date()
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const sprintStart = new Date(
+    sprintStartDate.getFullYear(),
+    sprintStartDate.getMonth(),
+    sprintStartDate.getDate()
+  )
+  const dueStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
+  const millisecondsPerDay = 24 * 60 * 60 * 1000
+
+  if (todayStart > dueStart) {
+    const overdueDays =
+      Math.floor((todayStart.getTime() - dueStart.getTime()) / millisecondsPerDay)
+
+    return `${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`
+  }
+
+  const countdownStart = todayStart < sprintStart ? sprintStart : todayStart
+  const differenceInDays =
+    Math.floor((dueStart.getTime() - countdownStart.getTime()) / millisecondsPerDay) + 1
+
+  if (differenceInDays === 0) {
+    return "0 days remaining"
+  }
+
+  return `${differenceInDays} day${differenceInDays === 1 ? "" : "s"} remaining`
 }
 
 export function DashboardBoardPageClient({
   initialProjects,
   initialSelectedProjectId,
   initialItems,
+  initialSprintId = null,
+  breadcrumbSectionLabel = null,
+  onProjectBoardSelectPath = "/dashboard/board",
 }: DashboardBoardPageClientProps) {
   const router = useRouter()
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
@@ -71,7 +110,7 @@ export function DashboardBoardPageClient({
   const [sprintScopeItemId, setSprintScopeItemId] = React.useState("")
   const [sprintDescription, setSprintDescription] = React.useState("")
   const [sprints, setSprints] = React.useState<SprintSummary[]>([])
-  const [selectedSprintId, setSelectedSprintId] = React.useState<string | null>(null)
+  const [selectedSprintId, setSelectedSprintId] = React.useState<string | null>(initialSprintId)
   const [hasLoadedBoardData, setHasLoadedBoardData] = React.useState(false)
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
   const [searchValue, setSearchValue] = React.useState("")
@@ -79,12 +118,18 @@ export function DashboardBoardPageClient({
     React.useState<DashboardBoardFilter>("none")
   const selectedProject = React.useMemo(
     () =>
-      initialProjects.find((project) => project.id === selectedProjectId) ?? null,
+      initialProjects.find((project) => project.id === selectedProjectId) ??
+      findDashboardProject(selectedProjectId) ??
+      null,
     [initialProjects, selectedProjectId]
   )
   const selectedSprint = React.useMemo(
     () => sprints.find((sprint) => sprint.id === selectedSprintId) ?? null,
     [selectedSprintId, sprints]
+  )
+  const canCreateSprint = React.useMemo(
+    () => canCreateSprintForProject(selectedProject, currentUser),
+    [currentUser, selectedProject]
   )
   const projectPeople = React.useMemo(
     () => {
@@ -182,7 +227,7 @@ export function DashboardBoardPageClient({
     }
 
     setTodos(mapBacklogItemsToTodos(initialItems, getCurrentProjectCode(initialSelectedProjectId)))
-    setSelectedSprintId(null)
+    setSelectedSprintId(initialSprintId)
     setHasLoadedBoardData(true)
   }, [
     currentUser,
@@ -190,6 +235,7 @@ export function DashboardBoardPageClient({
     initialItems,
     initialProjects,
     initialSelectedProjectId,
+    initialSprintId,
     selectedProject,
   ])
 
@@ -660,12 +706,23 @@ export function DashboardBoardPageClient({
   const filteredTodos = React.useMemo(() => {
     const normalizedSearch = searchValue.trim().toLowerCase()
     const sprintBacklogItemIds = new Set(selectedSprint?.backlogItemIds ?? [])
+    const allSprintBacklogItemIds = new Set(
+      sprints.flatMap((sprint) => sprint.backlogItemIds)
+    )
 
     return todos.filter((todo) => {
       if (
         selectedSprint &&
         !sprintBacklogItemIds.has(todo.id) &&
         !(todo.parentId && sprintBacklogItemIds.has(todo.parentId))
+      ) {
+        return false
+      }
+
+      if (
+        !selectedSprint &&
+        (allSprintBacklogItemIds.has(todo.id) ||
+          (todo.parentId ? allSprintBacklogItemIds.has(todo.parentId) : false))
       ) {
         return false
       }
@@ -696,7 +753,7 @@ export function DashboardBoardPageClient({
         value.toLowerCase().includes(normalizedSearch)
       )
     })
-  }, [currentUserAssigneeIds, filterValue, searchValue, selectedSprint, todos])
+  }, [currentUserAssigneeIds, filterValue, searchValue, selectedSprint, sprints, todos])
 
   const sprintScopeOptions = React.useMemo(
     () =>
@@ -731,6 +788,10 @@ export function DashboardBoardPageClient({
     }
 
     try {
+      if (!canCreateSprint) {
+        return
+      }
+
       const response = await fetch("/api/sprints", {
         method: "POST",
         headers: {
@@ -756,9 +817,19 @@ export function DashboardBoardPageClient({
       }
 
       setSprints((currentSprints) => [data.sprint, ...currentSprints])
+      if (sprintScopeItemId) {
+        setTodos((currentTodos) =>
+          currentTodos.map((todo) =>
+            todo.id === sprintScopeItemId
+              ? { ...todo, status: "todo", checked: false }
+              : todo
+          )
+        )
+      }
 
       setCreateSprintOpen(false)
       resetCreateSprintForm()
+      router.push(`/dashboard/active-sprint/${data.sprint.id}`)
     } catch (error) {
       console.error(error)
     }
@@ -771,6 +842,7 @@ export function DashboardBoardPageClient({
     sprintName,
     sprintScopeItemId,
     sprintStartDate,
+    canCreateSprint,
   ])
 
   const handleAddToSprint = React.useCallback(
@@ -792,12 +864,22 @@ export function DashboardBoardPageClient({
 
         setSprints((currentSprints) =>
           currentSprints.map((sprint) =>
-            sprint.id === sprintId && !sprint.backlogItemIds.includes(todoId)
+            sprint.id === sprintId
               ? {
                   ...sprint,
-                  backlogItemIds: [...sprint.backlogItemIds, todoId],
+                  backlogItemIds: sprint.backlogItemIds.includes(todoId)
+                    ? sprint.backlogItemIds
+                    : [...sprint.backlogItemIds.filter((id) => id !== todoId), todoId],
                 }
-              : sprint
+              : {
+                  ...sprint,
+                  backlogItemIds: sprint.backlogItemIds.filter((id) => id !== todoId),
+                }
+          )
+        )
+        setTodos((currentTodos) =>
+          currentTodos.map((todo) =>
+            todo.id === todoId ? { ...todo, status: "todo", checked: false } : todo
           )
         )
       } catch (error) {
@@ -811,10 +893,24 @@ export function DashboardBoardPageClient({
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
       <DashboardHeader
         people={projectPeople}
+        breadcrumbSectionLabel={breadcrumbSectionLabel}
         activeSprintName={selectedSprint?.name ?? null}
+        sprintDescription={selectedSprint?.description ?? null}
+        sprintCountdownLabel={
+          selectedSprint
+            ? formatSprintCountdown(selectedSprint.startDate, selectedSprint.endDate)
+            : null
+        }
         boardTitle={selectedSprint ? "Sprint" : "Board"}
+        showCreateButton={!selectedSprint}
+        canCreateSprint={canCreateSprint}
         sprints={sprints}
         onProjectBoardSelect={() => {
+          if (breadcrumbSectionLabel) {
+            router.push(onProjectBoardSelectPath)
+            return
+          }
+
           setSelectedSprintId(null)
         }}
         onSprintSelect={setSelectedSprintId}
@@ -826,6 +922,10 @@ export function DashboardBoardPageClient({
           setCreateOpen(true)
         }}
         onCreateSprint={() => {
+          if (!canCreateSprint) {
+            return
+          }
+
           setCreateSprintOpen(true)
         }}
         onManageSprints={() => {}}
@@ -834,6 +934,7 @@ export function DashboardBoardPageClient({
         <div className="min-h-0 w-full min-w-0 md:max-w-[calc(100vw-var(--sidebar-width)-3rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
           <DashboardBoard
             todos={filteredTodos}
+            isSprintView={Boolean(selectedSprint)}
             sprints={sprints}
             onStatusChange={handleStatusChange}
             onMoveTodo={handleMoveTodo}

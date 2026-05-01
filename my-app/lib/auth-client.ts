@@ -1,5 +1,7 @@
 "use client"
 
+import type { UserRole } from "@/lib/rbac"
+
 export const AUTH_STORAGE_KEY = "tracksphere_auth_session"
 export const DASHBOARD_BOOTSTRAP_KEY = "tracksphere_dashboard_bootstrapped"
 
@@ -10,6 +12,7 @@ export type AuthenticatedUser = {
   id: string
   name: string
   email: string
+  role: UserRole
 }
 
 export type AuthSession = {
@@ -53,6 +56,7 @@ function isAuthSession(value: unknown): value is AuthSession {
     typeof value.user.id === "string" &&
     typeof value.user.name === "string" &&
     typeof value.user.email === "string" &&
+    (value.user.role === "student" || value.user.role === "adviser" || value.user.role === "admin") &&
     typeof value.tenantId === "string" &&
     typeof value.expiresAt === "string"
   )

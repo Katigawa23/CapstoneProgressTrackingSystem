@@ -39,7 +39,7 @@ export default function MicrosoftAuthCompletePage() {
   useEffect(() => {
     const payload = readCompletionPayload()
 
-    if (!payload?.user?.id || !payload.user.email) {
+    if (!payload?.user?.id || !payload.user.email || !payload.user.role) {
       router.replace("/?authError=callback")
       return
     }

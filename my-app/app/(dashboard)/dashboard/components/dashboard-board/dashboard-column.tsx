@@ -12,6 +12,7 @@ type DashboardColumnProps = {
   column: (typeof columns)[number]
   todos: TodoItem[]
   allTodos: TodoItem[]
+  isSprintView?: boolean
   sprints: Array<{
     id: string
     name: string
@@ -29,6 +30,7 @@ export function DashboardColumn({
   column,
   todos,
   allTodos,
+  isSprintView = false,
   sprints,
   onStatusChange,
   onAssigneeChange,
@@ -80,10 +82,11 @@ export function DashboardColumn({
               className={
                 scrollAreaClassName ??
                 `
-                  board-column-scroll h-[240px] w-full overflow-y-auto
-                  sm:h-[280px]
-                  lg:h-[340px]
-                  xl:h-[420px]
+                  board-column-scroll w-full ${
+                    isSprintView
+                      ? "h-[220px] overflow-visible sm:h-[250px] lg:h-[300px] xl:h-[360px]"
+                      : "h-[240px] overflow-y-auto sm:h-[280px] lg:h-[340px] xl:h-[420px]"
+                  }
                 `
               }
             >

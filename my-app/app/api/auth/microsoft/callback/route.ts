@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role,
         tenantId: getMicrosoftTenantId(),
       }),
       getAuthCookieOptions(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))

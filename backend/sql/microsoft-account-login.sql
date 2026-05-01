@@ -18,5 +18,6 @@ create index if not exists microsoft_account_logins_lookup_idx
 insert into microsoft_account_logins (microsoft_user_id, email, name, role, tenant_id)
 values 
   ('5b-ace-94eb5216078d', 'morte.360342@alabang.sti.edu.ph', 'Morte, Kerby Bryan T.', 'student', 'common'),
-  ('7c-def-12fg6327189e', 'nguyen.faculty@alabang.sti.edu.ph', 'Nguyen, Maria Santos', 'faculty', 'common')
+  ('7c-def-12fg6327189e', 'nguyen.faculty@alabang.sti.edu.ph', 'Nguyen, Maria Santos', 'adviser', 'common'),
+  ('test-adviser-001', 'adviser.test@alabang.sti.edu.ph', 'Test Adviser, Faculty', 'adviser', 'common')
 on conflict do nothing;

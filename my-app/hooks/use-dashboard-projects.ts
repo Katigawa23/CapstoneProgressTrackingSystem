@@ -21,6 +21,7 @@ export type ProjectMemberOption = {
   email: string
   name: string
   role: string
+  canCreateSprint: boolean
 }
 
 export function useDashboardProjects({
@@ -173,7 +174,13 @@ export function useDashboardProjects({
         return currentMembers
       }
 
-      return [...currentMembers, member]
+      return [
+        ...currentMembers,
+        {
+          ...member,
+          canCreateSprint: member.role === "adviser",
+        },
+      ]
     })
     setMemberSearch("")
   }, [])
@@ -181,6 +188,19 @@ export function useDashboardProjects({
   const handleMemberRemove = React.useCallback((memberId: string) => {
     setSelectedMembers((currentMembers) =>
       currentMembers.filter((member) => member.id !== memberId)
+    )
+  }, [])
+
+  const handleMemberRoleToggle = React.useCallback((memberId: string, checked: boolean) => {
+    setSelectedMembers((currentMembers) =>
+      currentMembers.map((member) =>
+        member.id === memberId
+          ? {
+              ...member,
+              canCreateSprint: checked,
+            }
+          : member
+      )
     )
   }, [])
 
@@ -212,6 +232,10 @@ export function useDashboardProjects({
       .filter((member) => member.role === "adviser")
       .map((member) => member.name.trim())
       .filter(Boolean)
+    const sprintCreatorUserIds = selectedMembers
+      .filter((member) => member.role === "adviser" || member.canCreateSprint)
+      .map((member) => member.id.trim())
+      .filter(Boolean)
     const memberUserIds = selectedMembers
       .map((member) => member.id.trim())
       .filter(Boolean)
@@ -224,6 +248,7 @@ export function useDashboardProjects({
       name: title,
       members: memberNames,
       advisers: adviserNames,
+      sprintCreatorUserIds,
       memberUserIds,
       program,
       yearLevel,
@@ -263,6 +288,7 @@ export function useDashboardProjects({
     createProjectOpen,
     handleMemberSearchChange,
     handleMemberRemove,
+    handleMemberRoleToggle,
     handleMemberSelect,
     memberSearch,
     memberOptions,

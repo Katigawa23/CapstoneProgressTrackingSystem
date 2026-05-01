@@ -18,6 +18,7 @@ import type { DashboardProject } from "@/lib/projects"
 import { cn } from "@/lib/utils"
 
 type ProjectSwitcherProps = {
+  canCreateProject?: boolean
   displayName?: string
   onCreateProject: () => void
   onSelectProject: (projectId: string) => void
@@ -26,6 +27,7 @@ type ProjectSwitcherProps = {
 }
 
 export function ProjectSwitcher({
+  canCreateProject = true,
   displayName,
   onCreateProject,
   onSelectProject,
@@ -212,20 +214,22 @@ export function ProjectSwitcher({
             <span className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">Browse all projects</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem
-          className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-sky-50 dark:focus:bg-[#2a2a2a]"
-          onSelect={(event) => {
-            event.preventDefault()
-            onCreateProject()
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-600 text-white shadow-sm">
-              <Plus className="h-3.5 w-3.5 text-white" />
+        {canCreateProject ? (
+          <DropdownMenuItem
+            className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-sky-50 dark:focus:bg-[#2a2a2a]"
+            onSelect={(event) => {
+              event.preventDefault()
+              onCreateProject()
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-600 text-white shadow-sm">
+                <Plus className="h-3.5 w-3.5 text-white" />
+              </span>
+              <span className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">Create project</span>
             </span>
-            <span className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">Create project</span>
-          </span>
-        </DropdownMenuItem>
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )

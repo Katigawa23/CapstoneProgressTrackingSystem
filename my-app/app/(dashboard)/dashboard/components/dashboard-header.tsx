@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDown, Plus, Search } from "lucide-react"
+import { ChevronDown, Clock3, Plus, Search } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -36,8 +36,13 @@ export type DashboardBoardFilter = "none" | "assignee" | "subtask"
 
 type DashboardHeaderProps = {
   people: Person[]
+  breadcrumbSectionLabel?: string | null
   activeSprintName?: string | null
+  sprintDescription?: string | null
+  sprintCountdownLabel?: string | null
   boardTitle?: string
+  showCreateButton?: boolean
+  canCreateSprint?: boolean
   sprints?: Array<{
     id: string
     name: string
@@ -58,8 +63,13 @@ type DashboardHeaderProps = {
 
 export function DashboardHeader({
   people,
+  breadcrumbSectionLabel,
   activeSprintName,
+  sprintDescription,
+  sprintCountdownLabel,
   boardTitle = "Board",
+  showCreateButton = true,
+  canCreateSprint = true,
   sprints = [],
   onProjectBoardSelect,
   onSprintSelect,
@@ -102,6 +112,18 @@ export function DashboardHeader({
         >
           {projectName}
         </button>
+        {breadcrumbSectionLabel ? (
+          <>
+            <span>/</span>
+            <button
+              type="button"
+              className="text-foreground transition hover:underline"
+              onClick={onProjectBoardSelect}
+            >
+              {breadcrumbSectionLabel}
+            </button>
+          </>
+        ) : null}
         {activeSprintName ? (
           <>
             <span>/</span>
@@ -116,23 +138,36 @@ export function DashboardHeader({
         ) : null}
       </div>
 
+      {sprintDescription?.trim() ? (
+        <p className="max-w-3xl text-sm text-muted-foreground">{sprintDescription.trim()}</p>
+      ) : null}
+
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-display text-xl font-semibold tracking-tight">{boardTitle}</h1>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              className="min-h-8 self-start hover:opacity-90 sm:self-auto"
-              style={{
-                backgroundColor: "var(--brand-primary-fixed)",
-                color: "var(--brand-primary-fixed-foreground)",
-              }}
-              onClick={onCreate}
-            >
-              Create
-            </Button>
+            {sprintCountdownLabel?.trim() ? (
+              <div className="inline-flex min-h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 shadow-xs dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                <Clock3 className="h-3.5 w-3.5" />
+                <span className="whitespace-nowrap">{sprintCountdownLabel.trim()}</span>
+              </div>
+            ) : null}
+
+            {showCreateButton ? (
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-8 self-start hover:opacity-90 sm:self-auto"
+                style={{
+                  backgroundColor: "var(--brand-primary-fixed)",
+                  color: "var(--brand-primary-fixed-foreground)",
+                }}
+                onClick={onCreate}
+              >
+                Create
+              </Button>
+            ) : null}
 
             <div className="inline-flex items-center overflow-hidden rounded-md border border-slate-200 bg-white shadow-xs dark:border-[#343434] dark:bg-[#262626]">
               <Button
@@ -141,18 +176,19 @@ export function DashboardHeader({
                 variant="ghost"
                 className="min-h-8 rounded-none border-0 px-3 text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-[#303030]"
                 onClick={onCreateSprint}
+                disabled={!canCreateSprint}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Create Sprint
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="min-h-8 rounded-none border-0 border-l border-slate-200 px-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:border-[#343434] dark:text-slate-300 dark:hover:bg-[#303030] dark:hover:text-slate-100"
-                  >
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="min-h-8 rounded-none border-0 border-l border-slate-200 px-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:border-[#343434] dark:text-slate-300 dark:hover:bg-[#303030] dark:hover:text-slate-100"
+                >
                     <ChevronDown className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -160,13 +196,17 @@ export function DashboardHeader({
                   align="end"
                   className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
                 >
-                  <DropdownMenuItem onSelect={onCreateSprint}>
-                    <Plus className="h-4 w-4" />
-                    Create Sprint
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={onProjectBoardSelect}>
-                    Project Board
-                  </DropdownMenuItem>
+                  {canCreateSprint ? (
+                    <DropdownMenuItem onSelect={onCreateSprint}>
+                      <Plus className="h-4 w-4" />
+                      Create Sprint
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem disabled>
+                      <Plus className="h-4 w-4" />
+                      Create Sprint
+                    </DropdownMenuItem>
+                  )}
                   {sprints.length > 0 ? <DropdownMenuSeparator /> : null}
                   {sprints.map((sprint) => (
                     <DropdownMenuItem
@@ -177,6 +217,9 @@ export function DashboardHeader({
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    Complete Sprint
+                  </DropdownMenuItem>
                   <DropdownMenuItem onSelect={onManageSprints}>
                     Manage Sprints
                   </DropdownMenuItem>

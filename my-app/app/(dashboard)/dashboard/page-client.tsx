@@ -82,6 +82,7 @@ export function DashboardPageClient({
   const [projects, setProjects] = React.useState<DashboardProject[]>(initialProjects)
   const [activityItems, setActivityItems] = React.useState(initialActivities)
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
+  const canCreateProject = currentUser?.role !== "student"
   const currentUserAssigneeIds = React.useMemo(() => {
     const ids = new Set<string>()
 
@@ -522,19 +523,21 @@ export function DashboardPageClient({
               <h1 className="font-display text-2xl font-semibold tracking-tight">
                 Choose a project
               </h1>
-              <Button
-                type="button"
-                className="rounded-lg px-5"
-                style={{
-                  backgroundColor: "var(--brand-primary-fixed)",
-                  color: "var(--brand-primary-fixed-foreground)",
-                }}
-                onClick={() => {
-                  window.dispatchEvent(new Event("tracksphere-open-create-project"))
-                }}
-              >
-                Create
-              </Button>
+              {canCreateProject ? (
+                <Button
+                  type="button"
+                  className="rounded-lg px-5"
+                  style={{
+                    backgroundColor: "var(--brand-primary-fixed)",
+                    color: "var(--brand-primary-fixed-foreground)",
+                  }}
+                  onClick={() => {
+                    window.dispatchEvent(new Event("tracksphere-open-create-project"))
+                  }}
+                >
+                  Create
+                </Button>
+              ) : null}
             </div>
             <div className="mt-3 h-px w-full bg-slate-200 dark:bg-slate-800" />
           </div>
@@ -543,7 +546,7 @@ export function DashboardPageClient({
             <div className="rounded-2xl border border-dashed border-border/70 bg-card px-6 py-10 text-center">
               <h2 className="font-display text-lg font-semibold tracking-tight">No projects yet</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Create a new project from the sidebar menu to start your thesis workspace.
+               Wait for your adviser to create the project workspace. Once it’s ready, you can start managing and completing your capstone or thesis work here.
               </p>
             </div>
           ) : null}
@@ -561,63 +564,64 @@ export function DashboardPageClient({
               </Link>
             </div>
 
-            <div className="flex flex-wrap gap-4">
-              {recentProjects.map((project, index) => (
-                <Card
-                  key={project.id}
-                  className="relative flex min-h-[142px] w-[220px] flex-none cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md sm:w-[240px] dark:border-[#343434] dark:bg-[#1f1f1f]"
-                  onClick={() => {
-                    setDashboardProject(project.id)
-                    router.push("/dashboard/board")
-                  }}
-                >
-                  <div className="absolute inset-y-0 left-0 w-1.5 bg-sky-600 dark:bg-sky-500" />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={`More options for ${project.name}`}
-                        className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+            <div className="overflow-x-auto pb-2">
+              <div className="flex min-w-max flex-nowrap gap-4">
+                {recentProjects.map((project, index) => (
+                  <Card
+                    key={project.id}
+                    className="relative flex min-h-[142px] w-[220px] flex-none cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md sm:w-[240px] dark:border-[#343434] dark:bg-[#1f1f1f]"
+                    onClick={() => {
+                      setDashboardProject(project.id)
+                      router.push("/dashboard/board")
+                    }}
+                  >
+                    <div className="absolute inset-y-0 left-0 w-1.5 bg-sky-600 dark:bg-sky-500" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`More options for ${project.name}`}
+                          className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                          }}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
                         onClick={(event) => {
                           event.stopPropagation()
                         }}
                       >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                      }}
-                    >
-                      <DropdownMenuItem
-                        className="cursor-pointer"
-                        onSelect={() => {
-                          void handleToggleStarred(project.id, !project.starred)
-                        }}
-                      >
-                        <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
-                        {project.starred ? "Remove from starred" : "Add to starred"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer">
-                        <Pencil className="h-4 w-4" />
-                        Edit project
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer">
-                        <Archive className="h-4 w-4" />
-                        Archive project
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive" className="cursor-pointer">
-                        <Trash2 className="h-4 w-4" />
-                        Delete Project
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onSelect={() => {
+                            void handleToggleStarred(project.id, !project.starred)
+                          }}
+                        >
+                          <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
+                          {project.starred ? "Remove from starred" : "Add to starred"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer">
+                          <Pencil className="h-4 w-4" />
+                          Edit project
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer">
+                          <Archive className="h-4 w-4" />
+                          Archive project
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" className="cursor-pointer">
+                          <Trash2 className="h-4 w-4" />
+                          Delete Project
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
-                  <CardHeader className="flex-1 space-y-3 px-4 pb-3 pt-3.5">
+                    <CardHeader className="flex-1 space-y-3 px-4 pb-3 pt-3.5">
                     <div className="space-y-1">
                       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                         {projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, index)}
@@ -672,42 +676,45 @@ export function DashboardPageClient({
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                  </CardHeader>
-                </Card>
-              ))}
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
             </div>
           </section>
 
           <Tabs defaultValue="worked-on" className="border-t border-slate-200 pt-4 dark:border-slate-800">
-            <TabsList
-              variant="line"
-              className="h-auto flex-wrap justify-start gap-6 rounded-none p-0 text-sm"
-            >
-              <TabsTrigger
-                value="worked-on"
-                className="px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+            <div className="overflow-x-auto">
+              <TabsList
+                variant="line"
+                className="flex h-auto min-w-max flex-nowrap justify-start gap-6 rounded-none p-0 text-sm"
               >
-                Worked on
-              </TabsTrigger>
-              <TabsTrigger
-                value="assigned-to-me"
-                className="px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-              >
-                Assigned to me
-              </TabsTrigger>
-              <TabsTrigger
-                value="viewed"
-                className="px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-              >
-                Viewed
-              </TabsTrigger>
-              <TabsTrigger
-                value="starred"
-                className="px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-              >
-                Starred
-              </TabsTrigger>
-            </TabsList>
+                <TabsTrigger
+                  value="worked-on"
+                  className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+                >
+                  Worked on
+                </TabsTrigger>
+                <TabsTrigger
+                  value="assigned-to-me"
+                  className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+                >
+                  Assigned to me
+                </TabsTrigger>
+                <TabsTrigger
+                  value="viewed"
+                  className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+                >
+                  Viewed
+                </TabsTrigger>
+                <TabsTrigger
+                  value="starred"
+                  className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+                >
+                  Starred
+                </TabsTrigger>
+              </TabsList>
+            </div>
             <div className="mt-[-4px] h-px w-full bg-slate-200 dark:bg-slate-800" />
 
             <TabsContent value="worked-on">{renderActivityContent(workedOnActivities)}</TabsContent>
