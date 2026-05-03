@@ -49,6 +49,13 @@ type SprintSummary = {
   backlogItemIds: string[]
 }
 
+function normalizeProjectPersonName(name: string) {
+  return name
+    .trim()
+    .replace(/\s*\((student|faculty|adviser)\)\s*$/i, "")
+    .replace(/\s+/g, " ")
+}
+
 function formatSprintCountdown(startDate: string, endDate: string) {
   const sprintStartDate = new Date(`${startDate}T00:00:00`)
   const dueDate = new Date(`${endDate}T23:59:59`)
@@ -133,17 +140,35 @@ export function DashboardBoardPageClient({
   )
   const projectPeople = React.useMemo(
     () => {
-      const memberNames = new Set(
-        (selectedProject?.members ?? [])
-          .map((member) => member.trim())
-          .filter(Boolean)
-      )
+      const peopleByName = new Map<string, string>()
 
-      if (currentUser?.name?.trim()) {
-        memberNames.add(currentUser.name.trim())
+      for (const member of selectedProject?.members ?? []) {
+        const cleanedMemberName = normalizeProjectPersonName(member)
+
+        if (!cleanedMemberName) {
+          continue
+        }
+
+        const normalizedMemberKey = cleanedMemberName.toLowerCase()
+
+        if (!peopleByName.has(normalizedMemberKey)) {
+          peopleByName.set(normalizedMemberKey, cleanedMemberName)
+        }
       }
 
-      return Array.from(memberNames).map((member) => ({ name: member, src: "" }))
+      if (currentUser?.name?.trim()) {
+        const cleanedCurrentUserName = normalizeProjectPersonName(currentUser.name)
+
+        if (cleanedCurrentUserName) {
+          const normalizedCurrentUserKey = cleanedCurrentUserName.toLowerCase()
+
+          if (!peopleByName.has(normalizedCurrentUserKey)) {
+            peopleByName.set(normalizedCurrentUserKey, cleanedCurrentUserName)
+          }
+        }
+      }
+
+      return Array.from(peopleByName.values()).map((member) => ({ name: member, src: "" }))
     },
     [currentUser, selectedProject]
   )

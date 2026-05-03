@@ -4,7 +4,7 @@ export type MicrosoftUser = {
   id: string
   name: string
   email: string
-  role: "student" | "adviser"
+  role: "student" | "faculty"
 }
 
 const ALLOWED_MICROSOFT_EMAIL_DOMAIN = "alabang.sti.edu.ph"
@@ -162,15 +162,24 @@ function parseJwtPayload<T>(token: string) {
   ) as T
 }
 
-function determineRoleFromEmail(email: string): "student" | "adviser" {
-  const lowerEmail = email.toLowerCase()
-  
-  // If email contains 'faculty' or 'adviser' or 'professor', assign faculty role
-  if (lowerEmail.includes("faculty") || lowerEmail.includes("adviser") || lowerEmail.includes("professor") || lowerEmail.includes("prof")) {
-    return "adviser"
+export function normalizeMicrosoftRole(role: string | null | undefined): "student" | "faculty" {
+  const normalizedRole = role?.trim().toLowerCase()
+
+  if (normalizedRole === "faculty" || normalizedRole === "adviser") {
+    return "faculty"
   }
-  
-  // Default to student role
+
+  return "student"
+}
+
+function determineRoleFromName(name: string): "student" | "faculty" {
+  const trimmedName = name.trim()
+  const match = trimmedName.match(/\((student|faculty|adviser)\)\s*$/i)
+
+  if (match) {
+    return normalizeMicrosoftRole(match[1])
+  }
+
   return "student"
 }
 
@@ -196,7 +205,7 @@ function getUserFromIdToken(idToken: string): MicrosoftUser {
     id,
     email,
     name: claims.name ?? email,
-    role: determineRoleFromEmail(email),
+    role: determineRoleFromName(claims.name ?? email),
   }
 }
 

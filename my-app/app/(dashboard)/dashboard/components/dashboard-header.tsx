@@ -32,6 +32,14 @@ type Person = {
   src: string
 }
 
+function normalizePersonName(name: string) {
+  return name
+    .trim()
+    .replace(/\s*\((student|faculty|adviser)\)\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+}
+
 export type DashboardBoardFilter = "none" | "assignee" | "subtask"
 
 type DashboardHeaderProps = {
@@ -82,8 +90,22 @@ export function DashboardHeader({
   onFilterChange,
 }: DashboardHeaderProps) {
   const [projectName, setProjectName] = React.useState("No project selected")
-  const visiblePeople = people.slice(0, 3)
-  const hiddenCount = Math.max(people.length - visiblePeople.length, 0)
+  const uniquePeople = React.useMemo(() => {
+    const seenNames = new Set<string>()
+
+    return people.filter((person) => {
+      const normalizedName = normalizePersonName(person.name)
+
+      if (!normalizedName || seenNames.has(normalizedName)) {
+        return false
+      }
+
+      seenNames.add(normalizedName)
+      return true
+    })
+  }, [people])
+  const visiblePeople = uniquePeople.slice(0, 3)
+  const hiddenCount = Math.max(uniquePeople.length - visiblePeople.length, 0)
 
   React.useEffect(() => {
     const syncProject = () => {

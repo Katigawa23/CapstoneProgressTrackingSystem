@@ -42,6 +42,8 @@ import type {
   SubmissionDraft,
 } from "./types"
 
+const MAX_SUBMISSION_FILE_SIZE_BYTES = 200 * 1024 * 1024
+
 export function DashboardBoard({
   todos,
   isSprintView = false,
@@ -84,6 +86,9 @@ export function DashboardBoard({
   >({})
   const [isEmptySubmissionAlertOpen, setIsEmptySubmissionAlertOpen] =
     React.useState(false)
+  const [submissionAlertDescription, setSubmissionAlertDescription] = React.useState(
+    "There is no content!"
+  )
   const [isLoadingComments, setIsLoadingComments] = React.useState(false)
   const [isLoadingSubmissions, setIsLoadingSubmissions] = React.useState(false)
   const [isUploadingSubmission, setIsUploadingSubmission] = React.useState(false)
@@ -299,42 +304,6 @@ export function DashboardBoard({
     []
   )
 
-  const handleSubmissionAttach = React.useCallback(
-    (todoId: string, files: FileList | null) => {
-      if (!files || files.length === 0) {
-        return
-      }
-
-      const nextDrafts = Array.from(files).map((file) => ({
-        id: crypto.randomUUID(),
-        file,
-        progress: 12,
-        status: "pending" as const,
-      }))
-
-      setSubmissionDrafts((current) => ({
-        ...current,
-        [todoId]: [...(current[todoId] ?? []), ...nextDrafts],
-      }))
-      setIsSubmissionActionsOpen((current) => ({
-        ...current,
-        [todoId]: true,
-      }))
-
-      window.setTimeout(() => {
-        setSubmissionDrafts((current) => ({
-          ...current,
-          [todoId]: (current[todoId] ?? []).map((draft) =>
-            nextDrafts.some((item) => item.id === draft.id)
-              ? { ...draft, progress: 100 }
-              : draft
-          ),
-        }))
-      }, 250)
-    },
-    []
-  )
-
   const uploadSubmissionFile = React.useCallback(
     (todoId: string, draft: SubmissionDraft) =>
       new Promise<DashboardSubmission>((resolve, reject) => {
@@ -436,6 +405,84 @@ export function DashboardBoard({
     []
   )
 
+  const handleSubmissionAttach = React.useCallback(
+    (todoId: string, files: FileList | null) => {
+      if (!files || files.length === 0) {
+        return
+      }
+
+      const oversizedFile = Array.from(files).find(
+        (file) => file.size > MAX_SUBMISSION_FILE_SIZE_BYTES
+      )
+
+      if (oversizedFile) {
+        setSubmissionAlertDescription(
+          "Please choose a file that is 200 MB or smaller."
+        )
+        setIsEmptySubmissionAlertOpen(true)
+        return
+      }
+
+      const nextDrafts = Array.from(files).map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+        progress: 12,
+        status: "pending" as const,
+      }))
+
+      setSubmissionDrafts((current) => ({
+        ...current,
+        [todoId]: [...(current[todoId] ?? []), ...nextDrafts],
+      }))
+
+      void (async () => {
+        setIsUploadingSubmission(true)
+        let uploadSucceeded = false
+
+        try {
+          const uploadedSubmissions: DashboardSubmission[] = []
+
+          for (const draft of nextDrafts) {
+            const uploadedSubmission = await uploadSubmissionFile(todoId, draft)
+            uploadedSubmissions.push(uploadedSubmission)
+          }
+
+          setSubmissionThreads((current) => ({
+            ...current,
+            [todoId]: [...uploadedSubmissions.reverse(), ...(current[todoId] ?? [])],
+          }))
+          uploadSucceeded = true
+        } catch (error) {
+          console.error(error)
+          setSubmissionDrafts((current) => ({
+            ...current,
+            [todoId]: (current[todoId] ?? []).map((draft) =>
+              nextDrafts.some((item) => item.id === draft.id) && draft.status === "uploading"
+                ? { ...draft, status: "error" }
+                : draft
+            ),
+          }))
+        } finally {
+          if (!uploadSucceeded) {
+            setIsUploadingSubmission(false)
+            return
+          }
+
+          window.setTimeout(() => {
+            setSubmissionDrafts((current) => ({
+              ...current,
+              [todoId]: (current[todoId] ?? []).filter(
+                (draft) => !nextDrafts.some((item) => item.id === draft.id)
+              ),
+            }))
+            setIsUploadingSubmission(false)
+          }, 500)
+        }
+      })()
+    },
+    [uploadSubmissionFile]
+  )
+
   const handleSubmissionDraftRemove = React.useCallback(
     (todoId: string, draftId: string) => {
       setSubmissionDrafts((current) => ({
@@ -451,6 +498,7 @@ export function DashboardBoard({
       const selectedFiles = submissionDrafts[todoId] ?? []
 
       if (selectedFiles.length === 0) {
+        setSubmissionAlertDescription("There is no content!")
         setIsEmptySubmissionAlertOpen(true)
         return
       }
@@ -675,6 +723,7 @@ export function DashboardBoard({
     setIsEditingComments(false)
     setEditingCommentId(null)
     setIsEmptySubmissionAlertOpen(false)
+    setSubmissionAlertDescription("There is no content!")
   }, [])
 
   const handleCreateSubtask = React.useCallback(
@@ -731,22 +780,8 @@ export function DashboardBoard({
   const getColumnTodos = React.useCallback(
     (columnId: TodoItem["status"]) =>
       todos
-        .filter((todo) => todo.status === columnId)
-        .sort((left, right) => {
-          if (left.parentId === right.parentId) {
-            return left.orderIndex - right.orderIndex
-          }
-
-          if (!left.parentId && right.parentId) {
-            return -1
-          }
-
-          if (left.parentId && !right.parentId) {
-            return 1
-          }
-
-          return left.displayId.localeCompare(right.displayId)
-        }),
+        .filter((todo) => todo.status === columnId && !todo.parentId)
+        .sort((left, right) => left.orderIndex - right.orderIndex),
     [todos]
   )
 
@@ -1085,7 +1120,7 @@ export function DashboardBoard({
         <AlertDialogContent size="sm">
           <AlertDialogHeader className="place-items-start text-left">
             <AlertDialogTitle>Alert</AlertDialogTitle>
-            <AlertDialogDescription>There is no content!</AlertDialogDescription>
+            <AlertDialogDescription>{submissionAlertDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="justify-start sm:justify-start">
             <AlertDialogAction

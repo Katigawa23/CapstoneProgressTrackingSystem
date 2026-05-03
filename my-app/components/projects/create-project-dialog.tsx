@@ -88,13 +88,13 @@ type SelectWithCustomInputProps = {
 }
 
 function getMemberRoleLabel(role: string) {
-  return role === "student" ? "Student" : "Adviser"
+  return role === "student" ? "Student" : "Faculty"
 }
 
 function getMemberDisplayName(name: string) {
   return name
     .trim()
-    .replace(/\s*\((student|adviser)\)\s*$/i, "")
+    .replace(/\s*\((student|faculty|adviser)\)\s*$/i, "")
 }
 
 function SelectWithCustomInput({
@@ -472,7 +472,7 @@ export function CreateProjectDialog({
                             onCheckedChange={(checked) =>
                               onMemberRoleToggle(member.id, checked)
                             }
-                            disabled={member.role === "adviser"}
+                            disabled={member.role === "faculty"}
                             aria-label={`Toggle sprint access for ${getMemberDisplayName(member.name)}`}
                           />
                         </div>

@@ -682,9 +682,9 @@ export async function ensureProjectExists(projectId: string, ownerUserId: string
 export async function canUserCreateSprintInProject(
   projectId: string,
   userId: string,
-  userRole: "student" | "adviser" | "admin"
+  userRole: "student" | "faculty" | "admin"
 ) {
-  if (userRole === "adviser" || userRole === "admin") {
+  if (userRole === "faculty" || userRole === "admin") {
     return true
   }
 

@@ -83,7 +83,7 @@ function SubtaskGlyph() {
 }
 
 const subtaskGridClass =
-  "grid grid-cols-[minmax(0,1.2fr)_72px_72px_92px_118px_60px] items-center gap-x-3"
+  "grid grid-cols-[minmax(0,1.2fr)_68px_68px_84px_108px_52px] items-center gap-x-2.5"
 
 export function TaskSubtasksSection({
   checklist,
@@ -222,22 +222,29 @@ export function TaskSubtasksSection({
       className="mt-4 space-y-3"
     >
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 text-left text-slate-900 transition hover:text-slate-700 dark:text-[#f1f2f4] dark:hover:text-white"
-              aria-label={`${isExpanded ? "Collapse" : "Expand"} subtasks`}
-            >
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 transition-transform ${
-                  isExpanded ? "rotate-0" : "-rotate-90"
-                }`}
-              />
-              <span className="text-[15px] font-semibold">Subtasks</span>
-            </button>
-          </CollapsibleTrigger>
+        <div className="flex w-full items-start justify-between gap-3">
+          <div className="space-y-1">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 text-left text-slate-900 transition hover:text-slate-700 dark:text-[#f1f2f4] dark:hover:text-white"
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} subtasks`}
+              >
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 transition-transform ${
+                    isExpanded ? "rotate-0" : "-rotate-90"
+                  }`}
+                />
+                <span className="text-[15px] font-semibold">Subtasks</span>
+              </button>
+            </CollapsibleTrigger>
 
+            {isExpanded ? (
+              <p className="pl-6 text-sm text-slate-500 dark:text-[#9fadbc]">
+                Break this task into smaller steps and manage them here.
+              </p>
+            ) : null}
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -289,7 +296,7 @@ export function TaskSubtasksSection({
       <CollapsibleContent>
         <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#454f59] dark:bg-[#1d2125]">
           <div
-            className={`${subtaskGridClass} border-b border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-medium text-slate-500 dark:border-[#2b3138] dark:bg-[#1d2125] dark:text-[#9fadbc]`}
+            className={`${subtaskGridClass} border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-500 dark:border-[#2b3138] dark:bg-[#1d2125] dark:text-[#9fadbc]`}
           >
             <span>Work</span>
             <span className="text-center">Start</span>
@@ -311,7 +318,7 @@ export function TaskSubtasksSection({
                 return (
                   <div
                     key={subtask.id}
-                    className={`${subtaskGridClass} bg-white px-3 py-2.5 transition-colors hover:bg-slate-50 dark:bg-[#1f1f23] dark:hover:bg-[#24292f]`}
+                    className={`${subtaskGridClass} bg-white px-3 py-2 transition-colors hover:bg-slate-50 dark:bg-[#1f1f23] dark:hover:bg-[#24292f]`}
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <SubtaskGlyph />
@@ -333,11 +340,11 @@ export function TaskSubtasksSection({
                               }
                             }}
                             autoFocus
-                            className="h-9 border-blue-300 bg-white text-sm text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
+                            className="h-8 border-blue-300 bg-white text-[13px] text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
                           />
                           <button
                             type="button"
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
                             aria-label="Save subtask title"
                             title="Save"
                             onMouseDown={(event) => event.preventDefault()}
@@ -349,7 +356,7 @@ export function TaskSubtasksSection({
                       ) : (
                         <button
                           type="button"
-                          className="truncate text-left text-sm text-slate-900 transition hover:text-blue-600 dark:text-[#dee4ea] dark:hover:text-[#8ab4ff]"
+                          className="truncate text-left text-[13px] text-slate-900 transition hover:text-blue-600 dark:text-[#dee4ea] dark:hover:text-[#8ab4ff]"
                           onClick={() => onOpenSubtask(subtask)}
                           title={`Open ${subtask.title}`}
                         >
@@ -370,7 +377,7 @@ export function TaskSubtasksSection({
                             type="button"
                             variant="outline"
                             className={cn(
-                              "h-8 w-8 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
+                              "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
                               subtask.startDate
                                 ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
                                 : ""
@@ -419,7 +426,7 @@ export function TaskSubtasksSection({
                             variant="outline"
                             disabled={!subtask.startDate}
                             className={cn(
-                              "h-8 w-8 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
+                              "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
                               subtask.deadline
                                 ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
                                 : ""
@@ -467,8 +474,8 @@ export function TaskSubtasksSection({
                         onChange={(assigneeId) =>
                           onSubtaskAssigneeChange(subtask.id, assigneeId)
                         }
-                        className="h-6 w-6 rounded-full border-slate-200 bg-transparent p-0 hover:bg-slate-100 dark:border-[#4c525a] dark:bg-[#3b3f45] dark:hover:bg-[#4a4f57]"
-                        avatarClassName="h-6 w-6"
+                        className="h-5.5 w-5.5 rounded-full border-slate-200 bg-transparent p-0 hover:bg-slate-100 dark:border-[#4c525a] dark:bg-[#3b3f45] dark:hover:bg-[#4a4f57]"
+                        avatarClassName="h-5.5 w-5.5"
                         fallbackClassName="bg-slate-100 text-[10px] font-medium text-slate-600 dark:bg-[#3b3f45] dark:text-[#dee4ea]"
                         unassignedIconClassName="text-slate-500 dark:text-[#dee4ea]"
                         contentClassName="dark:border-[#454f59] dark:bg-[#1d2125]"
@@ -484,7 +491,7 @@ export function TaskSubtasksSection({
                             nextStatus as TodoItem["status"]
                           )
                         }
-                        className="h-6 min-w-[88px] rounded-[2px] px-2 text-[11px] font-semibold uppercase tracking-[0.04em]"
+                        className="h-5.5 min-w-[80px] rounded-[2px] px-1.5 text-[10px] font-semibold uppercase tracking-[0.04em]"
                         contentClassName="dark:border-[#454f59] dark:bg-[#1d2125]"
                       />
                     </div>
@@ -492,7 +499,7 @@ export function TaskSubtasksSection({
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-[#9fadbc] dark:hover:bg-[#2c333a] dark:hover:text-[#dee4ea]"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-[#9fadbc] dark:hover:bg-[#2c333a] dark:hover:text-[#dee4ea]"
                         aria-label={`Edit ${subtask.title}`}
                         title="Edit"
                         onClick={() => {
@@ -504,7 +511,7 @@ export function TaskSubtasksSection({
                       </button>
                       <button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-[#9fadbc] dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-[#9fadbc] dark:hover:bg-red-950/30 dark:hover:text-red-400"
                         aria-label={`Delete ${subtask.title}`}
                         title="Delete"
                         onClick={() => void onDeleteSubtask(subtask)}
@@ -520,7 +527,7 @@ export function TaskSubtasksSection({
 
           {isCreatingSubtask ? (
             <div
-              className={`${subtaskGridClass} border-t border-slate-200 bg-white px-3 py-2.5 dark:border-[#2b3138] dark:bg-[#1f1f23]`}
+              className={`${subtaskGridClass} border-t border-slate-200 bg-white px-3 py-2 dark:border-[#2b3138] dark:bg-[#1f1f23]`}
             >
               <div className="flex min-w-0 items-center gap-2">
                 <SubtaskGlyph />
@@ -545,7 +552,7 @@ export function TaskSubtasksSection({
                     }}
                     autoFocus
                     placeholder="Create subtask title"
-                    className="h-9 w-full min-w-0 border-blue-300 bg-white text-sm text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
+                    className="h-8 w-full min-w-0 border-blue-300 bg-white text-[13px] text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
                   />
                 </div>
               </div>
@@ -557,7 +564,7 @@ export function TaskSubtasksSection({
                       type="button"
                       variant="outline"
                       className={cn(
-                        "h-9 w-9 rounded-[2px] border-slate-200 bg-white p-0 text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#dee4ea]",
+                        "h-8 w-8 rounded-[2px] border-slate-200 bg-white p-0 text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#dee4ea]",
                         newSubtaskStartDate
                           ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
                           : "text-slate-500 dark:text-[#9fadbc]"
@@ -615,7 +622,7 @@ export function TaskSubtasksSection({
                       variant="outline"
                       disabled={!newSubtaskStartDate}
                       className={cn(
-                        "h-9 w-9 rounded-[2px] border-slate-200 bg-white p-0 text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#dee4ea]",
+                        "h-8 w-8 rounded-[2px] border-slate-200 bg-white p-0 text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#dee4ea]",
                         newSubtaskDueDate
                           ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
                           : "text-slate-500 dark:text-[#9fadbc]"
@@ -666,7 +673,7 @@ export function TaskSubtasksSection({
               <div className="flex justify-end">
                 <button
                   type="button"
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
                   aria-label="Create subtask"
                   title="Create"
                   onMouseDown={(event) => event.preventDefault()}

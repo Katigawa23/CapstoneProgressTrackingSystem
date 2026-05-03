@@ -4,7 +4,7 @@ import { readAuthenticatedUser } from "@/lib/server-auth"
 import { readDashboardHomeStateFromCookieStore } from "@/lib/dashboard-home-state"
 import { PROJECT_COOKIE_KEY } from "@/lib/projects"
 
-import { DashboardLayoutClient } from "./layout-client"
+import { DashboardLayoutShell } from "./layout-shell"
 import { getDashboardProjectsData } from "./data"
 
 export default async function DashboardLayout({
@@ -21,7 +21,7 @@ export default async function DashboardLayout({
     initialProjects.find((project) => project.id === selectedProjectId) ?? initialProjects[0] ?? null
 
   return (
-    <DashboardLayoutClient
+    <DashboardLayoutShell
       initialAuthSession={
         authenticatedUser?.id
           ? {
@@ -41,6 +41,6 @@ export default async function DashboardLayout({
       initialTeam={initialTeam}
     >
       {children}
-    </DashboardLayoutClient>
+    </DashboardLayoutShell>
   )
 }

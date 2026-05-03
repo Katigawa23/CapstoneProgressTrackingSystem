@@ -73,12 +73,11 @@ export function DashboardTaskCard({
   const [completedSubtasksRaw = "0", totalSubtasksRaw = "0"] = todo.checklist.split("/")
   const completedSubtasks = Number.parseInt(completedSubtasksRaw, 10) || 0
   const subtaskCount = Number.parseInt(totalSubtasksRaw, 10) || 0
-  const remainingSubtasks = Math.max(subtaskCount - completedSubtasks, 0)
   const isSubtask = Boolean(todo.parentId)
   const subtaskTooltipLabel =
-    remainingSubtasks === 1
-      ? "1 child task remaining"
-      : `${remainingSubtasks} child tasks remaining`
+    subtaskCount === 1
+      ? `${completedSubtasks}/${subtaskCount} subtask remaining`
+      : `${completedSubtasks}/${subtaskCount} subtasks remaining`
 
   return (
     <div className="relative pt-1">

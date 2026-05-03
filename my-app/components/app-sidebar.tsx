@@ -72,7 +72,7 @@ const documentationItems: NavItem[] = [
 
 const groupItems: NavItem[] = [
   { title: "Members", href: "/dashboard/members", icon: Users },
-  { title: "Advisers", href: "/dashboard/adviser", icon: Users },
+  { title: "Faculty", href: "/dashboard/adviser", icon: Users },
 ]
 
 const quickLinkItems: NavItem[] = [

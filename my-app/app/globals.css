@@ -228,3 +228,39 @@
   border: 2px solid transparent;
   background-clip: padding-box;
 }
+
+.custom-loader {
+  width: var(--custom-loader-size);
+  height: var(--custom-loader-size);
+  color: var(--custom-loader-color);
+  background:
+    linear-gradient(currentColor 0 0),
+    linear-gradient(currentColor 0 0),
+    linear-gradient(currentColor 0 0),
+    linear-gradient(currentColor 0 0);
+  background-size: var(--custom-loader-block-size) var(--custom-loader-block-size);
+  background-repeat: no-repeat;
+  animation: custom-loader-sh5 3s infinite cubic-bezier(0.3, 1, 0, 1);
+}
+
+@keyframes custom-loader-sh5 {
+  0% {
+    background-position: 0 0, 100% 0, 100% 100%, 0 100%;
+  }
+
+  33% {
+    background-position: 0 0, 100% 0, 100% 100%, 0 100%;
+    width: var(--custom-loader-expanded-size);
+    height: var(--custom-loader-expanded-size);
+  }
+
+  66% {
+    background-position: 100% 0, 100% 100%, 0 100%, 0 0;
+    width: var(--custom-loader-expanded-size);
+    height: var(--custom-loader-expanded-size);
+  }
+
+  100% {
+    background-position: 100% 0, 100% 100%, 0 100%, 0 0;
+  }
+}

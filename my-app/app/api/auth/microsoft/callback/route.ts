@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 import {
   getMicrosoftTenantId,
+  normalizeMicrosoftRole,
   redeemMicrosoftCode,
 } from "@backend/auth/microsoft"
 
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic"
 
 function createCompletionUrl(
   request: NextRequest,
-  user: { id: string; name: string; email: string; role: "student" | "adviser" }
+  user: { id: string; name: string; email: string; role: "student" | "faculty" }
 ) {
   const payload = Buffer.from(
     JSON.stringify({
@@ -64,8 +65,8 @@ export async function GET(request: NextRequest) {
 
     // âœ… Check database for stored role (for testing: if admin edited role in DB, use it)
     const storedRole = await getStoredUserRole(user.id)
-    if (storedRole && (storedRole === "student" || storedRole === "adviser")) {
-      user.role = storedRole as "student" | "adviser"
+    if (storedRole) {
+      user.role = normalizeMicrosoftRole(storedRole)
     }
 
     // âœ… SAVE TO DATABASE

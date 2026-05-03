@@ -178,7 +178,7 @@ export function useDashboardProjects({
         ...currentMembers,
         {
           ...member,
-          canCreateSprint: member.role === "adviser",
+          canCreateSprint: member.role === "faculty",
         },
       ]
     })
@@ -229,11 +229,11 @@ export function useDashboardProjects({
       .map((member) => member.name.trim())
       .filter(Boolean)
     const adviserNames = selectedMembers
-      .filter((member) => member.role === "adviser")
+      .filter((member) => member.role === "faculty")
       .map((member) => member.name.trim())
       .filter(Boolean)
     const sprintCreatorUserIds = selectedMembers
-      .filter((member) => member.role === "adviser" || member.canCreateSprint)
+      .filter((member) => member.role === "faculty" || member.canCreateSprint)
       .map((member) => member.id.trim())
       .filter(Boolean)
     const memberUserIds = selectedMembers

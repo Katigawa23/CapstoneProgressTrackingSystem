@@ -111,7 +111,7 @@ export async function getStoredUserRole(userId: string): Promise<string | null> 
   return result.rows[0]?.role ?? null
 }
 
-export async function updateUserRole(userId: string, newRole: "student" | "adviser"): Promise<boolean> {
+export async function updateUserRole(userId: string, newRole: "student" | "faculty"): Promise<boolean> {
   await ensureMicrosoftLoginSchema()
 
   const result = await getDb().query(

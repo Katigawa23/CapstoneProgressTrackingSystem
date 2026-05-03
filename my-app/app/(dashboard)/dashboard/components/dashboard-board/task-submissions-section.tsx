@@ -7,10 +7,8 @@ import {
   Eye,
   FileText,
   ImageIcon,
-  Paperclip,
   Trash2,
   Upload,
-  X,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -211,31 +209,28 @@ function AttachmentListSkeleton() {
 
 export function TaskSubmissionsSection({
   selectedTodo,
-  isSubmissionActionsOpen,
   submissionDrafts,
   submissionThreads,
   isLoadingSubmissions,
   isUploadingSubmission,
   submissionInputRef,
-  onSubmissionActionsOpenChange,
   onSubmissionAttach,
-  onSubmissionUpload,
   onSubmissionDraftRemove,
   onSubmissionDelete,
 }: TaskSubmissionsSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
 
   React.useEffect(() => {
-    if (isSubmissionActionsOpen) {
+    if (submissionDrafts.length > 0) {
       setIsExpanded(true)
     }
-  }, [isSubmissionActionsOpen])
+  }, [submissionDrafts.length])
 
   return (
     <Collapsible
       open={isExpanded}
       onOpenChange={(nextOpen) => {
-        if (isSubmissionActionsOpen && !nextOpen) {
+        if (isUploadingSubmission && !nextOpen) {
           return
         }
 
@@ -264,7 +259,7 @@ export function TaskSubmissionsSection({
           </CollapsibleTrigger>
           {isExpanded ? (
             <p className="pl-6 text-sm text-slate-500 dark:text-slate-400">
-              Upload files or images for this task.
+              Select files to upload. Max total size 200 MB.
             </p>
           ) : null}
         </div>
@@ -281,116 +276,63 @@ export function TaskSubmissionsSection({
             <Ellipsis className="h-4 w-4" />
           </Button>
 
-          {isSubmissionActionsOpen ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="gap-2 rounded-[2px] text-slate-700 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-200 dark:hover:bg-[#303030]"
-              onClick={() => onSubmissionActionsOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
-              <span>Cancel</span>
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 w-9 rounded-[2px] p-0 hover:opacity-90"
-              style={{
-                backgroundColor: "var(--brand-primary-fixed)",
-                color: "var(--brand-primary-fixed-foreground)",
-              }}
-              disabled={isUploadingSubmission || isLoadingSubmissions}
-              onClick={() => {
-                setIsExpanded(true)
-                onSubmissionActionsOpenChange(true)
-              }}
-              aria-label={
-                submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
-              }
-              title={
-                submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
-              }
-            >
-              <Upload className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 w-9 rounded-[2px] p-0 hover:opacity-90"
+            style={{
+              backgroundColor: "var(--brand-primary-fixed)",
+              color: "var(--brand-primary-fixed-foreground)",
+            }}
+            disabled={isUploadingSubmission || isLoadingSubmissions}
+            onClick={() => {
+              setIsExpanded(true)
+              submissionInputRef.current?.click()
+            }}
+            aria-label={
+              submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
+            }
+            title={
+              submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
+            }
+          >
+            <Upload className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       <CollapsibleContent className="space-y-2">
-
-        {isSubmissionActionsOpen || submissionDrafts.length > 0 ? (
-          <>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="min-h-9 gap-2"
-                disabled={isUploadingSubmission}
-                onClick={() => submissionInputRef.current?.click()}
+        {submissionDrafts.length > 0 ? (
+          <div className="space-y-2">
+            {submissionDrafts.map((draft) => (
+              <div
+                key={draft.id}
+                className="relative overflow-hidden rounded-[2px] border border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-950/20"
               >
-                <Paperclip className="h-4 w-4" />
-                Add attachment
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="min-h-9 gap-2"
-                disabled={isUploadingSubmission}
-                onClick={() => void onSubmissionUpload(selectedTodo.id)}
-              >
-                <Upload className="h-4 w-4" />
-                {isUploadingSubmission ? "Submitting..." : "Submit for checking"}
-              </Button>
-            </div>
-            {submissionDrafts.length > 0 ? (
-              <div className="space-y-2">
-                {submissionDrafts.map((draft) => (
-                  <div
-                    key={draft.id}
-                    className="relative overflow-hidden rounded-[2px] border border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-950/20"
-                  >
-                    <Progress
-                      value={draft.progress}
-                      className="absolute inset-0 h-full rounded-none border-0 bg-transparent [&_[data-slot=progress-indicator]]:bg-sky-400"
-                    />
-                    <div className="relative z-10 flex items-center gap-2 px-3 py-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3 text-xs text-slate-800 dark:text-slate-200">
-                          <p className="truncate font-medium">
-                            {draft.file.name} ({formatSubmissionSize(draft.file.size)})
-                          </p>
-                          <span className="shrink-0 font-medium text-sky-900 dark:text-sky-300">
-                            {draft.progress}%
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="rounded-full p-0.5 text-sky-900 transition hover:bg-white/40 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300 dark:hover:bg-sky-900/40"
-                        disabled={draft.status === "uploading"}
-                        onClick={() => onSubmissionDraftRemove(selectedTodo.id, draft.id)}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                    {draft.status === "error" ? (
-                      <p className="relative z-10 px-3 pb-2 text-xs text-red-600">
-                        Upload failed. Try submitting again.
+                <Progress
+                  value={draft.progress}
+                  className="absolute inset-0 h-full rounded-none border-0 bg-transparent [&_[data-slot=progress-indicator]]:bg-sky-400"
+                />
+                <div className="relative z-10 flex items-center gap-2 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3 text-xs text-slate-800 dark:text-slate-200">
+                      <p className="truncate font-medium">
+                        {draft.file.name} ({formatSubmissionSize(draft.file.size)})
                       </p>
-                    ) : null}
+                      <span className="shrink-0 font-medium text-sky-900 dark:text-sky-300">
+                        {draft.progress}%
+                      </span>
+                    </div>
                   </div>
-                ))}
+                </div>
+                {draft.status === "error" ? (
+                  <p className="relative z-10 px-3 pb-2 text-xs text-red-600">
+                    Upload failed. Try again by clicking upload.
+                  </p>
+                ) : null}
               </div>
-            ) : (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Add one or more files, then submit them for checking.
-              </p>
-            )}
-          </>
+            ))}
+          </div>
         ) : null}
 
         <input
@@ -405,11 +347,9 @@ export function TaskSubmissionsSection({
           }}
         />
 
-        {!isSubmissionActionsOpen && submissionDrafts.length === 0 && isLoadingSubmissions ? (
+        {submissionDrafts.length === 0 && isLoadingSubmissions ? (
           <AttachmentListSkeleton />
-        ) : !isSubmissionActionsOpen &&
-          submissionDrafts.length === 0 &&
-          submissionThreads.length > 0 ? (
+        ) : submissionDrafts.length === 0 && submissionThreads.length > 0 ? (
           <AttachmentList
             submissions={submissionThreads}
             backlogItemId={selectedTodo.id}

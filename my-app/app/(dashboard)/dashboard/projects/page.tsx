@@ -236,7 +236,7 @@ export default function DashboardProjectsPage() {
                   <th className="px-3 py-2 font-semibold">Key</th>
                   <th className="px-3 py-2 font-semibold">Type</th>
                   <th className="px-3 py-2 font-semibold">Member</th>
-                  <th className="px-3 py-2 font-semibold">Adviser</th>
+                  <th className="px-3 py-2 font-semibold">Faculty</th>
                 </tr>
               </thead>
               <tbody>
@@ -275,7 +275,7 @@ export default function DashboardProjectsPage() {
                           <ProjectPeopleIndicator emptyLabel="Members" people={project.members} />
                         </td>
                         <td className="px-3 py-2.5">
-                          <ProjectPeopleIndicator emptyLabel="Advisers" people={project.advisers} />
+                          <ProjectPeopleIndicator emptyLabel="Faculty" people={project.advisers} />
                         </td>
                       </tr>
                     )

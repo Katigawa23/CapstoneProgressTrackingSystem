@@ -1,8 +1,8 @@
-export type UserRole = "student" | "adviser" | "admin"
+export type UserRole = "student" | "faculty" | "admin"
 
 export const roleLabels: Record<UserRole, string> = {
   student: "Student",
-  adviser: "Adviser",
+  faculty: "Faculty",
   admin: "Admin",
 }
 
@@ -20,7 +20,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     "/dashboard/members",
     "/dashboard/adviser",
   ],
-  adviser: [
+  faculty: [
     "/dashboard",
     "/dashboard/board",
     "/dashboard/active-sprint",
@@ -49,7 +49,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
 }
 
 export function isUserRole(value: string | null | undefined): value is UserRole {
-  return value === "student" || value === "adviser" || value === "admin"
+  return value === "student" || value === "faculty" || value === "admin"
 }
 
 export function canAccessPath(role: UserRole, pathname: string): boolean {

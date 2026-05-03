@@ -56,7 +56,7 @@ function isAuthSession(value: unknown): value is AuthSession {
     typeof value.user.id === "string" &&
     typeof value.user.name === "string" &&
     typeof value.user.email === "string" &&
-    (value.user.role === "student" || value.user.role === "adviser" || value.user.role === "admin") &&
+    (value.user.role === "student" || value.user.role === "faculty" || value.user.role === "admin") &&
     typeof value.tenantId === "string" &&
     typeof value.expiresAt === "string"
   )

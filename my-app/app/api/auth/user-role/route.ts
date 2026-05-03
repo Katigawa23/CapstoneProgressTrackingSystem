@@ -53,9 +53,9 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { role } = body as { role?: string }
 
-    if (!role || (role !== "student" && role !== "adviser")) {
+    if (!role || (role !== "student" && role !== "faculty")) {
       return NextResponse.json(
-        { error: "Invalid role. Must be 'student' or 'adviser'" },
+        { error: "Invalid role. Must be 'student' or 'faculty'" },
         { status: 400 }
       )
     }

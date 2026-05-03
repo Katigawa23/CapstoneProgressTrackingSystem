@@ -524,7 +524,7 @@ export default function LandingPage() {
             <p>
               {"(c)"} {new Date().getFullYear()} TrackSphere
             </p>
-            <p>Built for STI College Alabang students and advisers.</p>
+            <p>Built for STI College Alabang.</p>
           </div>
         </div>
       </footer>

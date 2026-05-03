@@ -252,7 +252,7 @@ export function canCreateSprintForProject(
     return false
   }
 
-  if (user.role === "adviser" || user.role === "admin") {
+  if (user.role === "faculty" || user.role === "admin") {
     return true
   }
 
