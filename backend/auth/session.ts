@@ -7,9 +7,21 @@ type AuthCookieUser = {
   id: string
   name: string
   email: string
-  role: "student" | "adviser" | "admin"
+  role: "student" | "faculty" | "admin"
   tenantId: string
   expiresAt: number
+}
+
+function normalizeAuthCookieRole(role: unknown): AuthCookieUser["role"] | null {
+  if (role === "student" || role === "faculty" || role === "admin") {
+    return role
+  }
+
+  if (role === "adviser") {
+    return "faculty"
+  }
+
+  return null
 }
 
 function getSessionSecret() {
@@ -92,7 +104,7 @@ export function createUserCookieValue(user: {
   id: string
   name: string
   email: string
-  role: "student" | "adviser" | "admin"
+  role: "student" | "faculty" | "admin"
   tenantId: string
 }) {
   return encodeSignedPayload({
@@ -117,13 +129,14 @@ export function readStateCookieValue(value: string | undefined) {
 
 export function readUserCookieValue(value: string | undefined) {
   const payload = decodeSignedPayload<AuthCookieUser>(value)
+  const normalizedRole = normalizeAuthCookieRole(payload?.role)
 
   if (
     !payload ||
     typeof payload.id !== "string" ||
     typeof payload.name !== "string" ||
     typeof payload.email !== "string" ||
-    (payload.role !== "student" && payload.role !== "adviser" && payload.role !== "admin") ||
+    !normalizedRole ||
     typeof payload.tenantId !== "string" ||
     typeof payload.expiresAt !== "number" ||
     payload.expiresAt < Date.now()
@@ -131,7 +144,10 @@ export function readUserCookieValue(value: string | undefined) {
     return null
   }
 
-  return payload
+  return {
+    ...payload,
+    role: normalizedRole,
+  }
 }
 
 export function getAuthCookieOptions(expires?: Date) {

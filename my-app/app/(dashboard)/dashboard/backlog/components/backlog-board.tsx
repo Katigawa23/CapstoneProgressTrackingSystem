@@ -103,7 +103,7 @@ export function BacklogBoard({
       options?: {
         hasChildren?: boolean
         isChildrenExpanded?: boolean
-        onToggleChildren?: (() => void) | null
+        onToggleChildren?: () => void
       }
     ) => (
       <div
@@ -315,7 +315,7 @@ export function BacklogBoard({
 
                                     return next
                                   })
-                              : null,
+                              : undefined,
                           })}
                           {hasChildren && isChildrenExpanded
                             ? childItems.map((childItem) => (
