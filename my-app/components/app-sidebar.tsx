@@ -4,13 +4,14 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
+  Archive,
   BookOpen,
   ChevronRight,
-  History,
   LayoutDashboard,
   Map,
   Milestone,
   Rows3,
+  Trash2,
   Users,
 } from "lucide-react"
 import {
@@ -42,7 +43,7 @@ import { ProjectPickerContent } from "@/components/projects/project-picker-conte
 import { ProjectSwitcher } from "@/components/projects/project-switcher"
 import { getDashboardProjectCollections, type DashboardProject } from "@/lib/projects"
 import { useDashboardProjects } from "@/hooks/use-dashboard-projects"
-import { canAccessPath, type UserRole } from "@/lib/rbac"
+import { canAccessPath, canCreateProject, type UserRole } from "@/lib/rbac"
 
 type NavItem = {
   title: string
@@ -67,7 +68,8 @@ const projectItems: NavItem[] = [
 const documentationItems: NavItem[] = [
   { title: "Weekly Journal", href: "/dashboard/journal", icon: BookOpen },
   { title: "Milestones", href: "/dashboard/milestones", icon: Milestone },
-  { title: "History", href: "/dashboard/history", icon: History },
+  { title: "Archive", href: "/dashboard/archive", icon: Archive },
+  { title: "Recycle Bin", href: "/dashboard/recycle-bin", icon: Trash2 },
 ]
 
 const groupItems: NavItem[] = [
@@ -266,11 +268,11 @@ export function AppSidebar({
   const visibleQuickLinkItems = filterItemsByRole(quickLinkItems, role)
   const isProjectPickerPage =
     pathname === "/dashboard" || pathname === "/dashboard/projects"
-  const canCreateProject = role !== "student"
+  const canCreateProjectAccess = canCreateProject(role)
 
   React.useEffect(() => {
     const handleOpenCreateProject = () => {
-      if (!canCreateProject) {
+      if (!canCreateProjectAccess) {
         return
       }
 
@@ -282,7 +284,7 @@ export function AppSidebar({
     return () => {
       window.removeEventListener("tracksphere-open-create-project", handleOpenCreateProject)
     }
-  }, [canCreateProject, setCreateProjectOpen])
+  }, [canCreateProjectAccess, setCreateProjectOpen])
 
   return (
     <>
@@ -329,10 +331,10 @@ export function AppSidebar({
         <SidebarHeader className="gap-4 px-3 pt-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1">
           <div className="rounded-xl bg-transparent">
             <ProjectSwitcher
-              canCreateProject={canCreateProject}
+              canCreateProject={canCreateProjectAccess}
               displayName={isProjectPickerPage ? "Choose project" : undefined}
               onCreateProject={() => {
-                if (!canCreateProject) {
+                if (!canCreateProjectAccess) {
                   return
                 }
 

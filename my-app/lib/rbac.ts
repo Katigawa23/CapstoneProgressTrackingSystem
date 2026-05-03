@@ -16,7 +16,8 @@ export const rolePermissions: Record<UserRole, string[]> = {
     "/dashboard/journal",
     "/dashboard/milestones",
     "/dashboard/backlog",
-    "/dashboard/history",
+    "/dashboard/archive",
+    "/dashboard/recycle-bin",
     "/dashboard/members",
     "/dashboard/adviser",
   ],
@@ -29,7 +30,8 @@ export const rolePermissions: Record<UserRole, string[]> = {
     "/dashboard/revisions",
     "/dashboard/journal",
     "/dashboard/milestones",
-    "/dashboard/history",
+    "/dashboard/archive",
+    "/dashboard/recycle-bin",
     "/dashboard/members",
     "/dashboard/adviser",
   ],
@@ -42,7 +44,8 @@ export const rolePermissions: Record<UserRole, string[]> = {
     "/dashboard/journal",
     "/dashboard/milestones",
     "/dashboard/backlog",
-    "/dashboard/history",
+    "/dashboard/archive",
+    "/dashboard/recycle-bin",
     "/dashboard/members",
     "/dashboard/adviser",
   ],
@@ -62,4 +65,8 @@ export function canAccessPath(role: UserRole, pathname: string): boolean {
 
     return normalizedPath.startsWith(`${allowedPath}/`)
   })
+}
+
+export function canCreateProject(role: UserRole) {
+  return role === "faculty" || role === "admin"
 }

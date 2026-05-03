@@ -6,6 +6,7 @@ import {
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
 } from "@/lib/projects"
+import { canCreateProject, isUserRole } from "@/lib/rbac"
 import {
   createProject,
   listProjects,
@@ -33,6 +34,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const user = await requireAuthenticatedUser()
+
+    if (!isUserRole(user.role) || !canCreateProject(user.role)) {
+      return NextResponse.json(
+        { error: "You do not have permission to create a project." },
+        { status: 403 }
+      )
+    }
+
     const body = (await request.json()) as {
       name?: string
       members?: string[]
@@ -40,6 +49,11 @@ export async function POST(request: Request) {
       sprintCreatorUserIds?: string[]
       starred?: boolean
       memberUserIds?: string[]
+      memberAccess?: Array<{
+        userId?: string
+        role?: string
+        canCreateSprint?: boolean
+      }>
       program?: string
       yearLevel?: string
       syTerm?: string
@@ -64,6 +78,15 @@ export async function POST(request: Request) {
       : []
     const memberUserIds = Array.isArray(body.memberUserIds)
       ? body.memberUserIds.filter((memberUserId) => typeof memberUserId === "string" && memberUserId.trim())
+      : []
+    const memberAccess = Array.isArray(body.memberAccess)
+      ? body.memberAccess
+          .map((member) => ({
+            userId: typeof member.userId === "string" ? member.userId.trim() : "",
+            role: typeof member.role === "string" ? member.role.trim().toLowerCase() : "",
+            canCreateSprint: member.canCreateSprint === true,
+          }))
+          .filter((member) => member.userId.length > 0)
       : []
 
     if (!name) {
@@ -97,6 +120,7 @@ export async function POST(request: Request) {
       sprintCreatorUserIds,
       starred: body.starred === true,
       memberUserIds,
+      memberAccess,
       program: program.slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.slice(0, PROJECT_METADATA_MAX_LENGTH),
       syTerm: syTerm.slice(0, PROJECT_METADATA_MAX_LENGTH),

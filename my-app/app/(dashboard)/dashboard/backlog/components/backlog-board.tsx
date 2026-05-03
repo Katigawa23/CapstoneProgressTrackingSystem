@@ -45,6 +45,9 @@ export function BacklogBoard({
   onOpenCreate,
 }: BacklogBoardProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
+  const [expandedParentIds, setExpandedParentIds] = React.useState<Set<string>>(
+    () => new Set()
+  )
   const checkedItemsCount = items.filter((item) => item.checked).length
   const allItemsChecked = items.length > 0 && checkedItemsCount === items.length
   const hasPartiallyCheckedItems = checkedItemsCount > 0 && checkedItemsCount < items.length
@@ -79,10 +82,29 @@ export function BacklogBoard({
     [items, rootItemIds]
   )
 
+  React.useEffect(() => {
+    setExpandedParentIds((current) => {
+      const next = new Set<string>()
+
+      for (const item of rootItems) {
+        if (childItemsByParentId.has(item.id) && current.has(item.id)) {
+          next.add(item.id)
+        }
+      }
+
+      return next
+    })
+  }, [childItemsByParentId, rootItems])
+
   const renderItemRow = React.useCallback(
     (
       item: WorkItem,
-      dragHandleProps?: DraggableProvidedDragHandleProps | null
+      dragHandleProps?: DraggableProvidedDragHandleProps | null,
+      options?: {
+        hasChildren?: boolean
+        isChildrenExpanded?: boolean
+        onToggleChildren?: (() => void) | null
+      }
     ) => (
       <div
         className={cn(
@@ -100,6 +122,29 @@ export function BacklogBoard({
             >
               <GripVertical className="h-3.5 w-3.5" />
             </button>
+          ) : null}
+
+          {!item.parentId && options?.hasChildren ? (
+            <button
+              type="button"
+              onClick={options.onToggleChildren}
+              className="flex h-5 w-4 shrink-0 items-center justify-center text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+              aria-expanded={options.isChildrenExpanded}
+              aria-label={
+                options.isChildrenExpanded
+                  ? `Collapse subtasks for ${item.title}`
+                  : `Expand subtasks for ${item.title}`
+              }
+            >
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform",
+                  options.isChildrenExpanded ? "" : "-rotate-90"
+                )}
+              />
+            </button>
+          ) : !item.parentId ? (
+            <span className="h-5 w-4 shrink-0" aria-hidden="true" />
           ) : null}
 
           <Checkbox
@@ -239,6 +284,8 @@ export function BacklogBoard({
               >
                 {rootItems.map((item, index) => {
                   const childItems = childItemsByParentId.get(item.id) ?? []
+                  const hasChildren = childItems.length > 0
+                  const isChildrenExpanded = expandedParentIds.has(item.id)
 
                   return (
                     <Draggable key={item.id} draggableId={item.id} index={index}>
@@ -252,12 +299,31 @@ export function BacklogBoard({
                           )}
                           style={draggableProvided.draggableProps.style}
                         >
-                          {renderItemRow(item, draggableProvided.dragHandleProps)}
-                          {childItems.map((childItem) => (
-                            <div key={childItem.id}>
-                              {renderItemRow(childItem)}
-                            </div>
-                          ))}
+                          {renderItemRow(item, draggableProvided.dragHandleProps, {
+                            hasChildren,
+                            isChildrenExpanded,
+                            onToggleChildren: hasChildren
+                              ? () =>
+                                  setExpandedParentIds((current) => {
+                                    const next = new Set(current)
+
+                                    if (next.has(item.id)) {
+                                      next.delete(item.id)
+                                    } else {
+                                      next.add(item.id)
+                                    }
+
+                                    return next
+                                  })
+                              : null,
+                          })}
+                          {hasChildren && isChildrenExpanded
+                            ? childItems.map((childItem) => (
+                                <div key={childItem.id}>
+                                  {renderItemRow(childItem)}
+                                </div>
+                              ))
+                            : null}
                         </div>
                       )}
                     </Draggable>

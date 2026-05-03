@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 
 import { columns } from "../../constants"
@@ -36,6 +37,7 @@ import { TaskCommentsPanel } from "./task-comments-panel"
 import { TaskDetailsSection } from "./task-details-section"
 import { TaskSubmissionsSection } from "./task-submissions-section"
 import { TaskSubtasksSection } from "./task-subtasks-section"
+import { TaskWebLinksSection } from "./task-web-links-section"
 import type {
   CreateSubtaskInput,
   DashboardBoardProps,
@@ -74,6 +76,9 @@ export function DashboardBoard({
   )
   const [commentThreads, setCommentThreads] = React.useState<
     Record<string, DashboardComment[]>
+  >({})
+  const [taskWebLinks, setTaskWebLinks] = React.useState<
+    Record<string, Array<{ url: string; label: string }>>
   >({})
   const [submissionThreads, setSubmissionThreads] = React.useState<
     Record<string, DashboardSubmission[]>
@@ -746,6 +751,40 @@ export function DashboardBoard({
     [onCreateSubtask, selectedTodo]
   )
 
+  const handleAddWebLink = React.useCallback((
+    todoId: string,
+    value: { url: string; label: string }
+  ) => {
+    setTaskWebLinks((current) => {
+      const currentLinks = current[todoId] ?? []
+
+      if (
+        currentLinks.some(
+          (link) => link.url === value.url && link.label === value.label
+        )
+      ) {
+        return current
+      }
+
+      return {
+        ...current,
+        [todoId]: [...currentLinks, value],
+      }
+    })
+  }, [])
+
+  const handleRemoveWebLink = React.useCallback((
+    todoId: string,
+    value: { url: string; label: string }
+  ) => {
+    setTaskWebLinks((current) => ({
+      ...current,
+      [todoId]: (current[todoId] ?? []).filter(
+        (link) => !(link.url === value.url && link.label === value.label)
+      ),
+    }))
+  }, [])
+
   const handleEditSubtaskTitle = React.useCallback(
     async (subtask: TodoItem, nextTitle: string) => {
       try {
@@ -1037,6 +1076,7 @@ export function DashboardBoard({
                         }}
                         onAssetAttach={handleAssetAttach}
                       />
+                      <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
                     </>
                   ) : null}
 
@@ -1061,21 +1101,33 @@ export function DashboardBoard({
                     onSubmissionDraftRemove={handleSubmissionDraftRemove}
                     onSubmissionDelete={handleSubmissionDelete}
                   />
+                  <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
+
+                  <TaskWebLinksSection
+                    links={taskWebLinks[selectedTodo.id] ?? []}
+                    onAddLink={(value) => handleAddWebLink(selectedTodo.id, value)}
+                    onRemoveLink={(value) =>
+                      handleRemoveWebLink(selectedTodo.id, value)
+                    }
+                  />
 
                   {selectedTodo.parentId ||
                   (isSubmissionActionsOpen[selectedTodo.id] ?? false) ||
                   isUploadingSubmission ? null : (
-                    <TaskSubtasksSection
-                      checklist={selectedTodo.checklist}
-                      subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
-                      onAddSubtask={handleCreateSubtask}
-                      onOpenSubtask={handleOpenSubtask}
-                      onSubtaskStatusChange={onStatusChange}
-                      onSubtaskAssigneeChange={onAssigneeChange}
-                      onEditSubtaskTitle={handleEditSubtaskTitle}
-                      onUpdateSubtask={onUpdateSubtask}
-                      onDeleteSubtask={handleDeleteSubtaskRow}
-                    />
+                    <>
+                      <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
+                      <TaskSubtasksSection
+                        checklist={selectedTodo.checklist}
+                        subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
+                        onAddSubtask={handleCreateSubtask}
+                        onOpenSubtask={handleOpenSubtask}
+                        onSubtaskStatusChange={onStatusChange}
+                        onSubtaskAssigneeChange={onAssigneeChange}
+                        onEditSubtaskTitle={handleEditSubtaskTitle}
+                        onUpdateSubtask={onUpdateSubtask}
+                        onDeleteSubtask={handleDeleteSubtaskRow}
+                      />
+                    </>
                   )}
                 </ScrollArea>
               </div>

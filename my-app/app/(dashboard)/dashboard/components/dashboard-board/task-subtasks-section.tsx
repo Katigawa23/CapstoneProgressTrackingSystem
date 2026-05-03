@@ -12,6 +12,15 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Popover,
@@ -26,6 +35,7 @@ import {
 } from "@/components/ui/collapsible"
 
 import { cn } from "@/lib/utils"
+import { readClientAuthSession } from "@/lib/auth-client"
 import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
 import type { TodoItem } from "../../types"
@@ -85,6 +95,15 @@ function SubtaskGlyph() {
 const subtaskGridClass =
   "grid grid-cols-[minmax(0,1.2fr)_68px_68px_84px_108px_52px] items-center gap-x-2.5"
 
+type SubtaskSortMode =
+  | "default"
+  | "title-asc"
+  | "title-desc"
+  | "created-oldest"
+  | "created-newest"
+
+type SubtaskStatusFilter = "all" | TodoItem["status"]
+
 export function TaskSubtasksSection({
   checklist,
   subtasks,
@@ -111,6 +130,14 @@ export function TaskSubtasksSection({
   const [openDueDateSubtaskId, setOpenDueDateSubtaskId] = React.useState<
     string | null
   >(null)
+  const [sortMode, setSortMode] = React.useState<SubtaskSortMode>("default")
+  const [statusFilter, setStatusFilter] = React.useState<SubtaskStatusFilter>("all")
+  const createSubtaskRowRef = React.useRef<HTMLDivElement | null>(null)
+  const editSubtaskRowRef = React.useRef<HTMLDivElement | null>(null)
+  const currentUserId = React.useMemo(
+    () => readClientAuthSession()?.user?.id?.trim() ?? null,
+    []
+  )
 
   const progress = React.useMemo(
     () => parseChecklistProgress(checklist, subtasks.length),
@@ -118,6 +145,74 @@ export function TaskSubtasksSection({
   )
   const completionPercent =
     progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
+  const visibleSubtasks = React.useMemo(() => {
+    const filteredSubtasks =
+      statusFilter === "all"
+        ? subtasks
+        : subtasks.filter((subtask) => subtask.status === statusFilter)
+    const nextSubtasks = [...filteredSubtasks]
+
+    switch (sortMode) {
+      case "title-asc":
+        return nextSubtasks.sort((left, right) =>
+          left.title.localeCompare(right.title)
+        )
+      case "title-desc":
+        return nextSubtasks.sort((left, right) =>
+          right.title.localeCompare(left.title)
+        )
+      case "created-oldest":
+        return nextSubtasks.sort((left, right) => left.orderIndex - right.orderIndex)
+      case "created-newest":
+        return nextSubtasks.sort((left, right) => right.orderIndex - left.orderIndex)
+      default:
+        return nextSubtasks
+    }
+  }, [sortMode, statusFilter, subtasks])
+
+  React.useEffect(() => {
+    if (!isCreatingSubtask) {
+      return
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!createSubtaskRowRef.current?.contains(event.target as Node)) {
+        setIsCreatingSubtask(false)
+        setNewSubtaskTitle("")
+        setNewSubtaskStartDate(undefined)
+        setNewSubtaskDueDate(undefined)
+        setIsStartDateOpen(false)
+        setIsDueDateOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown)
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown)
+    }
+  }, [isCreatingSubtask])
+
+  React.useEffect(() => {
+    if (!editingSubtaskId) {
+      return
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!editSubtaskRowRef.current?.contains(event.target as Node)) {
+        setEditingSubtaskId(null)
+        setEditingTitle("")
+        setOpenStartDateSubtaskId(null)
+        setOpenDueDateSubtaskId(null)
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown)
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown)
+    }
+  }, [editingSubtaskId])
 
   const commitTitleEdit = React.useCallback(
     async (subtask: TodoItem) => {
@@ -141,6 +236,8 @@ export function TaskSubtasksSection({
 
   const handleSubtaskStartDateChange = React.useCallback(
     async (subtask: TodoItem, nextDate?: Date) => {
+      setOpenStartDateSubtaskId(null)
+
       const nextStartDate = nextDate ? nextDate.toISOString().slice(0, 10) : ""
       const currentDueDate = subtask.deadline || ""
       const nextDueDate =
@@ -158,7 +255,6 @@ export function TaskSubtasksSection({
           deadline: nextDueDate,
         })
       } finally {
-        setOpenStartDateSubtaskId(null)
         if (!nextDate) {
           setOpenDueDateSubtaskId(null)
         }
@@ -169,16 +265,14 @@ export function TaskSubtasksSection({
 
   const handleSubtaskDueDateChange = React.useCallback(
     async (subtask: TodoItem, nextDate?: Date) => {
-      try {
-        await onUpdateSubtask(subtask.id, {
-          title: subtask.title,
-          description: subtask.description,
-          startDate: subtask.startDate,
-          deadline: nextDate ? nextDate.toISOString().slice(0, 10) : "",
-        })
-      } finally {
-        setOpenDueDateSubtaskId(null)
-      }
+      setOpenDueDateSubtaskId(null)
+
+      await onUpdateSubtask(subtask.id, {
+        title: subtask.title,
+        description: subtask.description,
+        startDate: subtask.startDate,
+        deadline: nextDate ? nextDate.toISOString().slice(0, 10) : "",
+      })
     },
     [onUpdateSubtask]
   )
@@ -215,6 +309,16 @@ export function TaskSubtasksSection({
     }
   }, [newSubtaskDueDate, newSubtaskStartDate, newSubtaskTitle, onAddSubtask])
 
+  const handleAssignAllToMe = React.useCallback(() => {
+    if (!currentUserId) {
+      return
+    }
+
+    for (const subtask of subtasks) {
+      onSubtaskAssigneeChange(subtask.id, currentUserId)
+    }
+  }, [currentUserId, onSubtaskAssigneeChange, subtasks])
+
   return (
     <Collapsible
       open={isExpanded}
@@ -236,6 +340,9 @@ export function TaskSubtasksSection({
                   }`}
                 />
                 <span className="text-[15px] font-semibold">Subtasks</span>
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-[#343434] dark:text-slate-300">
+                  {subtasks.length}
+                </span>
               </button>
             </CollapsibleTrigger>
 
@@ -246,14 +353,68 @@ export function TaskSubtasksSection({
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-[2px] border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc] dark:hover:bg-[#24292f] dark:hover:text-[#dee4ea]"
-              aria-label="More subtask actions"
-              title="More"
-            >
-              <Ellipsis className="h-4 w-4" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-[2px] border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc] dark:hover:bg-[#24292f] dark:hover:text-[#dee4ea]"
+                  aria-label="More subtask actions"
+                  title="More"
+                >
+                  <Ellipsis className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+              >
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Sort</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                    <DropdownMenuItem
+                      disabled={!currentUserId || subtasks.length === 0}
+                      onSelect={handleAssignAllToMe}
+                    >
+                      Assign to me
+                    </DropdownMenuItem>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                        <DropdownMenuItem onSelect={() => setStatusFilter("all")}>
+                          All
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setStatusFilter("todo")}>
+                          To do
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setStatusFilter("inprogress")}>
+                          In progress
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setStatusFilter("revision")}>
+                          Revision
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setStatusFilter("completed")}>
+                          Completed
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>Date created</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-44 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                        <DropdownMenuItem onSelect={() => setSortMode("created-oldest")}>
+                          Oldest to newest
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setSortMode("created-newest")}>
+                          Newest to oldest
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setSortMode("default")}>
+                          Default order
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <button
               type="button"
@@ -314,20 +475,22 @@ export function TaskSubtasksSection({
             )
           ) : (
             <div className="divide-y divide-slate-200 dark:divide-[#2b3138]">
-              {subtasks.map((subtask) => {
+              {visibleSubtasks.map((subtask) => {
+                const isEditingCurrentSubtask = editingSubtaskId === subtask.id
+
                 return (
                   <div
                     key={subtask.id}
+                    ref={isEditingCurrentSubtask ? editSubtaskRowRef : null}
                     className={`${subtaskGridClass} bg-white px-3 py-2 transition-colors hover:bg-slate-50 dark:bg-[#1f1f23] dark:hover:bg-[#24292f]`}
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <SubtaskGlyph />
-                      {editingSubtaskId === subtask.id ? (
+                      {isEditingCurrentSubtask ? (
                         <div className="flex min-w-0 items-center gap-2">
                           <Input
                             value={editingTitle}
                             onChange={(event) => setEditingTitle(event.target.value)}
-                            onBlur={() => void commitTitleEdit(subtask)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter") {
                                 event.preventDefault()
@@ -366,106 +529,118 @@ export function TaskSubtasksSection({
                     </div>
 
                     <div className="flex justify-center">
-                      <Popover
-                        open={openStartDateSubtaskId === subtask.id}
-                        onOpenChange={(nextOpen) =>
-                          setOpenStartDateSubtaskId(nextOpen ? subtask.id : null)
-                        }
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
-                              subtask.startDate
-                                ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
-                                : ""
-                            )}
-                            aria-label={
-                              subtask.startDate
-                                ? `Start date ${formatDeadline(subtask.startDate)}`
-                                : `Set start date for ${subtask.title}`
-                            }
-                            title={
-                              subtask.startDate
-                                ? `Start date: ${formatDeadline(subtask.startDate)}`
-                                : "Set start date"
-                            }
-                          >
-                            <CalendarIcon className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="w-auto border-slate-200 bg-white p-0 dark:border-[#454f59] dark:bg-[#1d2125]"
-                          align="center"
+                      {subtask.startDate && !isEditingCurrentSubtask ? (
+                        <span className="text-[11px] text-slate-600 dark:text-[#dee4ea]">
+                          {formatDeadline(subtask.startDate)}
+                        </span>
+                      ) : (
+                        <Popover
+                          open={openStartDateSubtaskId === subtask.id}
+                          onOpenChange={(nextOpen) =>
+                            setOpenStartDateSubtaskId(nextOpen ? subtask.id : null)
+                          }
                         >
-                          <Calendar
-                            mode="single"
-                            selected={
-                              subtask.startDate ? new Date(subtask.startDate) : undefined
-                            }
-                            onSelect={(date) => void handleSubtaskStartDateChange(subtask, date)}
-                            disabled={isPastDate}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={cn(
+                                "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
+                                subtask.startDate
+                                  ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
+                                  : ""
+                              )}
+                              aria-label={
+                                subtask.startDate
+                                  ? `Start date ${formatDeadline(subtask.startDate)}`
+                                  : `Set start date for ${subtask.title}`
+                              }
+                              title={
+                                subtask.startDate
+                                  ? `Start date: ${formatDeadline(subtask.startDate)}`
+                                  : "Set start date"
+                              }
+                            >
+                              <CalendarIcon className="h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="w-auto border-slate-200 bg-white p-0 dark:border-[#454f59] dark:bg-[#1d2125]"
+                            align="center"
+                          >
+                            <Calendar
+                              mode="single"
+                              selected={
+                                subtask.startDate ? new Date(subtask.startDate) : undefined
+                              }
+                              onSelect={(date) => void handleSubtaskStartDateChange(subtask, date)}
+                              disabled={isPastDate}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </div>
 
                     <div className="flex justify-center">
-                      <Popover
-                        open={openDueDateSubtaskId === subtask.id}
-                        onOpenChange={(nextOpen) =>
-                          setOpenDueDateSubtaskId(nextOpen ? subtask.id : null)
-                        }
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={!subtask.startDate}
-                            className={cn(
-                              "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
-                              subtask.deadline
-                                ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
-                                : ""
-                            )}
-                            aria-label={
-                              subtask.deadline
-                                ? `Due date ${formatDeadline(subtask.deadline)}`
-                                : subtask.startDate
-                                ? `Set due date for ${subtask.title}`
-                                : `Set start date first for ${subtask.title}`
-                            }
-                            title={
-                              subtask.deadline
-                                ? `Due date: ${formatDeadline(subtask.deadline)}`
-                                : subtask.startDate
-                                ? "Set due date"
-                                : "Set start date first"
-                            }
-                          >
-                            <CalendarIcon className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="w-auto border-slate-200 bg-white p-0 dark:border-[#454f59] dark:bg-[#1d2125]"
-                          align="center"
+                      {subtask.deadline && !isEditingCurrentSubtask ? (
+                        <span className="text-[11px] text-slate-600 dark:text-[#dee4ea]">
+                          {formatDeadline(subtask.deadline)}
+                        </span>
+                      ) : (
+                        <Popover
+                          open={openDueDateSubtaskId === subtask.id}
+                          onOpenChange={(nextOpen) =>
+                            setOpenDueDateSubtaskId(nextOpen ? subtask.id : null)
+                          }
                         >
-                          <Calendar
-                            mode="single"
-                            selected={subtask.deadline ? new Date(subtask.deadline) : undefined}
-                            onSelect={(date) => void handleSubtaskDueDateChange(subtask, date)}
-                            disabled={(date) =>
-                              subtask.startDate
-                                ? normalizeDate(date) < normalizeDate(new Date(subtask.startDate))
-                                : false
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={!subtask.startDate}
+                              className={cn(
+                                "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
+                                subtask.deadline
+                                  ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
+                                  : ""
+                              )}
+                              aria-label={
+                                subtask.deadline
+                                  ? `Due date ${formatDeadline(subtask.deadline)}`
+                                  : subtask.startDate
+                                  ? `Set due date for ${subtask.title}`
+                                  : `Set start date first for ${subtask.title}`
+                              }
+                              title={
+                                subtask.deadline
+                                  ? `Due date: ${formatDeadline(subtask.deadline)}`
+                                  : subtask.startDate
+                                  ? "Set due date"
+                                  : "Set start date first"
+                              }
+                            >
+                              <CalendarIcon className="h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="w-auto border-slate-200 bg-white p-0 dark:border-[#454f59] dark:bg-[#1d2125]"
+                            align="center"
+                          >
+                            <Calendar
+                              mode="single"
+                              selected={subtask.deadline ? new Date(subtask.deadline) : undefined}
+                              onSelect={(date) => void handleSubtaskDueDateChange(subtask, date)}
+                              disabled={(date) =>
+                                subtask.startDate
+                                  ? normalizeDate(date) < normalizeDate(new Date(subtask.startDate))
+                                  : false
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </div>
 
                     <div className="flex justify-center">
@@ -527,6 +702,7 @@ export function TaskSubtasksSection({
 
           {isCreatingSubtask ? (
             <div
+              ref={createSubtaskRowRef}
               className={`${subtaskGridClass} border-t border-slate-200 bg-white px-3 py-2 dark:border-[#2b3138] dark:bg-[#1f1f23]`}
             >
               <div className="flex min-w-0 items-center gap-2">
@@ -557,115 +733,9 @@ export function TaskSubtasksSection({
                 </div>
               </div>
 
-              <div className="flex justify-center">
-                <Popover open={isStartDateOpen} onOpenChange={setIsStartDateOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        "h-8 w-8 rounded-[2px] border-slate-200 bg-white p-0 text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#dee4ea]",
-                        newSubtaskStartDate
-                          ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
-                          : "text-slate-500 dark:text-[#9fadbc]"
-                      )}
-                      aria-label={
-                        newSubtaskStartDate
-                          ? `Start date ${format(newSubtaskStartDate, "MMM d, yyyy")}`
-                          : "Select start date"
-                      }
-                      title={
-                        newSubtaskStartDate
-                          ? `Start date: ${format(newSubtaskStartDate, "MMM d, yyyy")}`
-                          : "Select start date"
-                      }
-                    >
-                      <CalendarIcon className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="w-auto border-slate-200 bg-white p-0 dark:border-[#454f59] dark:bg-[#1d2125]"
-                    align="start"
-                  >
-                    <Calendar
-                      mode="single"
-                      selected={newSubtaskStartDate}
-                      onSelect={(date) => {
-                        setNewSubtaskStartDate(date)
+              <div />
 
-                        if (
-                          date &&
-                          newSubtaskDueDate &&
-                          normalizeDate(newSubtaskDueDate) < normalizeDate(date)
-                        ) {
-                          setNewSubtaskDueDate(undefined)
-                        }
-
-                        if (!date) {
-                          setNewSubtaskDueDate(undefined)
-                        }
-
-                        setIsStartDateOpen(false)
-                      }}
-                      disabled={isPastDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="flex justify-center">
-                <Popover open={isDueDateOpen} onOpenChange={setIsDueDateOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={!newSubtaskStartDate}
-                      className={cn(
-                        "h-8 w-8 rounded-[2px] border-slate-200 bg-white p-0 text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#dee4ea]",
-                        newSubtaskDueDate
-                          ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
-                          : "text-slate-500 dark:text-[#9fadbc]"
-                      )}
-                      aria-label={
-                        newSubtaskDueDate
-                          ? `Due date ${format(newSubtaskDueDate, "MMM d, yyyy")}`
-                          : newSubtaskStartDate
-                          ? "Select due date"
-                          : "Select start date first"
-                      }
-                      title={
-                        newSubtaskDueDate
-                          ? `Due date: ${format(newSubtaskDueDate, "MMM d, yyyy")}`
-                          : newSubtaskStartDate
-                          ? "Select due date"
-                          : "Select start date first"
-                      }
-                    >
-                      <CalendarIcon className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="w-auto border-slate-200 bg-white p-0 dark:border-[#454f59] dark:bg-[#1d2125]"
-                    align="start"
-                  >
-                    <Calendar
-                      mode="single"
-                      selected={newSubtaskDueDate}
-                      onSelect={(date) => {
-                        setNewSubtaskDueDate(date)
-                        setIsDueDateOpen(false)
-                      }}
-                      disabled={(date) =>
-                        newSubtaskStartDate
-                          ? normalizeDate(date) < normalizeDate(newSubtaskStartDate)
-                          : false
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+              <div />
 
               <div className="h-9" />
               <div className="h-9" />

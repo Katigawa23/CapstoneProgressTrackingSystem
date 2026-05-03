@@ -106,7 +106,7 @@ function getMicrosoftScopes() {
 function getAppBaseUrl(request: Request) {
   const appUrl = process.env.APP_URL
 
-  // ✅ Always use APP_URL if set
+  // Always use APP_URL if set
   if (appUrl && appUrl.trim() !== "") {
     return appUrl.replace(/\/+$/, "")
   }

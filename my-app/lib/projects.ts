@@ -52,6 +52,12 @@ export type DashboardProject = {
   createdAt: string
 }
 
+export type ProjectMemberAccessInput = {
+  userId: string
+  role: string
+  canCreateSprint: boolean
+}
+
 export type DashboardProjectCollection = {
   label: string
   items: DashboardProject[]
@@ -67,6 +73,7 @@ export type CreateDashboardProjectInput = {
   advisers?: string[]
   sprintCreatorUserIds?: string[]
   memberUserIds?: string[]
+  memberAccess?: ProjectMemberAccessInput[]
   program: string
   yearLevel: string
   syTerm: string
@@ -366,6 +373,7 @@ export function createDashboardProject({
   advisers,
   sprintCreatorUserIds,
   memberUserIds,
+  memberAccess,
   program,
   yearLevel,
   syTerm,
@@ -383,6 +391,7 @@ export function createDashboardProject({
       sprintCreatorUserIds: Array.isArray(sprintCreatorUserIds) ? sprintCreatorUserIds : [],
       starred: false,
       memberUserIds: Array.isArray(memberUserIds) ? memberUserIds : [],
+      memberAccess: Array.isArray(memberAccess) ? memberAccess : [],
       program: program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       syTerm: syTerm.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),

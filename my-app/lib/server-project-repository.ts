@@ -43,10 +43,22 @@ type CreateProjectInput = {
   starred?: boolean
   sprintCreatorUserIds?: string[]
   memberUserIds: string[]
+  memberAccess?: Array<{
+    userId: string
+    role: string
+    canCreateSprint: boolean
+  }>
   program: string
   yearLevel: string
   syTerm: string
   projectType: string
+}
+
+type ProjectMemberAccessRecord = {
+  project_id: string
+  member_user_id: string
+  member_role: string
+  can_create_sprint: boolean
 }
 
 type ProjectStorageMode = "database" | "file"
@@ -148,6 +160,18 @@ async function ensureProjectsSchema() {
       )
       .then(() =>
         getDb().query(`
+        create table if not exists project_member_access (
+          project_id uuid not null references projects(id) on delete cascade,
+          member_user_id text not null references microsoft_account_logins(microsoft_user_id) on delete cascade,
+          member_role text not null default 'student',
+          can_create_sprint boolean not null default false,
+          created_at timestamptz not null default now(),
+          primary key (project_id, member_user_id)
+        );
+      `)
+      )
+      .then(() =>
+        getDb().query(`
           alter table projects
           add column if not exists owner_user_id text not null default '';
         `)
@@ -174,6 +198,30 @@ async function ensureProjectsSchema() {
         getDb().query(`
           alter table projects
           add column if not exists is_starred boolean not null default false;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table project_member_access
+          add column if not exists member_role text not null default 'student';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table project_member_access
+          add column if not exists can_create_sprint boolean not null default false;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists project_member_access_member_user_id_idx
+          on project_member_access(member_user_id);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists project_member_access_project_id_idx
+          on project_member_access(project_id);
         `)
       )
       .then(() =>
@@ -253,6 +301,27 @@ async function ensureProjectsSchema() {
               alter table projects rename column members to project_member;
             end if;
           end $$;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          insert into project_member_access (
+            project_id,
+            member_user_id,
+            member_role,
+            can_create_sprint
+          )
+          select
+            p.id,
+            login.microsoft_user_id,
+            'student',
+            login.microsoft_user_id = any(p.sprint_creator_user_ids)
+          from projects p
+          cross join unnest(p.member_user_ids) as member_user_id
+          inner join microsoft_account_logins login
+            on login.microsoft_user_id = member_user_id
+          on conflict (project_id, member_user_id) do update
+          set can_create_sprint = excluded.can_create_sprint;
         `)
       )
       .then(() =>
@@ -562,6 +631,12 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
         ]
       )
 
+      await insertProjectMemberAccessRecords(
+        project.id,
+        ownerUserId,
+        Array.isArray(input.memberAccess) ? input.memberAccess : []
+      )
+
       return mapRecord(result.rows[0])
     },
     async () => {
@@ -640,6 +715,66 @@ export async function updateProjectStarred(
   )
 }
 
+async function insertProjectMemberAccessRecords(
+  projectId: string,
+  ownerUserId: string,
+  memberAccess: Array<{
+    userId: string
+    role: string
+    canCreateSprint: boolean
+  }>
+) {
+  const normalizedAccess = memberAccess
+    .map((member) => ({
+      userId: member.userId.trim(),
+      role:
+        member.role === "faculty" || member.role === "admin" || member.role === "student"
+          ? member.role
+          : "student",
+      canCreateSprint:
+        member.role === "faculty" || member.role === "admin"
+          ? true
+          : member.canCreateSprint === true,
+    }))
+    .filter((member) => member.userId.length > 0 && member.userId !== ownerUserId)
+
+  if (normalizedAccess.length === 0) {
+    return
+  }
+
+  const placeholders = normalizedAccess
+    .map((_, index) => `($1, $${index * 3 + 2}, $${index * 3 + 3}, $${index * 3 + 4})`)
+    .join(", ")
+  const parameters: Array<string | boolean> = [projectId]
+
+  for (const member of normalizedAccess) {
+    parameters.push(member.userId, member.role, member.canCreateSprint)
+  }
+
+  await getDb().query<ProjectMemberAccessRecord>(
+    `insert into project_member_access (
+       project_id,
+       member_user_id,
+       member_role,
+       can_create_sprint
+     )
+     select
+       incoming.project_id,
+       login.microsoft_user_id,
+       incoming.member_role,
+       incoming.can_create_sprint
+     from (
+       values ${placeholders}
+     ) as incoming(project_id, member_user_id, member_role, can_create_sprint)
+     inner join microsoft_account_logins login
+       on login.microsoft_user_id = incoming.member_user_id
+     on conflict (project_id, member_user_id) do update
+     set member_role = excluded.member_role,
+         can_create_sprint = excluded.can_create_sprint`,
+    parameters
+  )
+}
+
 export async function ensureProjectExists(projectId: string, ownerUserId: string) {
   return withProjectStore(
     async () => {
@@ -692,14 +827,17 @@ export async function canUserCreateSprintInProject(
     async () => {
       const result = await getDb().query<{ can_create_sprint: boolean }>(
         `select (
-           owner_user_id = $2
-           or $2 = any(sprint_creator_user_ids)
+           p.owner_user_id = $2
+           or coalesce(pma.can_create_sprint, false)
          ) as can_create_sprint
-         from projects
-         where id = $1
+         from projects p
+         left join project_member_access pma
+           on pma.project_id = p.id
+          and pma.member_user_id = $2
+         where p.id = $1
            and (
-             owner_user_id = $2
-             or $2 = any(member_user_ids)
+             p.owner_user_id = $2
+             or $2 = any(p.member_user_ids)
            )
          limit 1`,
         [projectId, userId]

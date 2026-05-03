@@ -74,6 +74,8 @@ export function DashboardTaskCard({
   const completedSubtasks = Number.parseInt(completedSubtasksRaw, 10) || 0
   const subtaskCount = Number.parseInt(totalSubtasksRaw, 10) || 0
   const isSubtask = Boolean(todo.parentId)
+  const statusDotColor =
+    columns.find((column) => column.id === todo.status)?.color ?? "bg-slate-400"
   const subtaskTooltipLabel =
     subtaskCount === 1
       ? `${completedSubtasks}/${subtaskCount} subtask remaining`
@@ -106,8 +108,13 @@ export function DashboardTaskCard({
         }}
       >
       <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-        {isSubtask ? <GitFork className="h-3.5 w-3.5" /> : <FolderKanban className="h-3.5 w-3.5" />}
-        <span title={isSubtask ? "Child task" : "Parent task"}>{todo.displayId}</span>
+        <span className="flex items-center gap-1.5" title={isSubtask ? "Child task" : "Parent task"}>
+          <span
+            aria-hidden="true"
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDotColor}`}
+          />
+          <span>{todo.displayId}</span>
+        </span>
       </div>
 
       <div className="mb-1.5 flex items-start justify-between gap-2">

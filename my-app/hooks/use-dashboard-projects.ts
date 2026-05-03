@@ -239,6 +239,13 @@ export function useDashboardProjects({
     const memberUserIds = selectedMembers
       .map((member) => member.id.trim())
       .filter(Boolean)
+    const memberAccess = selectedMembers
+      .map((member) => ({
+        userId: member.id.trim(),
+        role: member.role,
+        canCreateSprint: member.role === "faculty" || member.canCreateSprint,
+      }))
+      .filter((member) => member.userId)
 
     if (!title || !program || !yearLevel || !syTerm || !resolvedProjectType || memberNames.length === 0) {
       return null
@@ -250,6 +257,7 @@ export function useDashboardProjects({
       advisers: adviserNames,
       sprintCreatorUserIds,
       memberUserIds,
+      memberAccess,
       program,
       yearLevel,
       syTerm,

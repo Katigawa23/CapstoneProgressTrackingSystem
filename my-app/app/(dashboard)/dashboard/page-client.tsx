@@ -44,6 +44,7 @@ import {
   subscribeToAuthChange,
   type AuthenticatedUser,
 } from "@/lib/auth-client"
+import { canCreateProject as canCreateProjectForRole, isUserRole } from "@/lib/rbac"
 import {
   subscribeToDashboardActivitySync,
 } from "@/lib/dashboard-activity-sync"
@@ -82,7 +83,10 @@ export function DashboardPageClient({
   const [projects, setProjects] = React.useState<DashboardProject[]>(initialProjects)
   const [activityItems, setActivityItems] = React.useState(initialActivities)
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
-  const canCreateProject = currentUser?.role !== "student"
+  const canCreateProject =
+    currentUser?.role && isUserRole(currentUser.role)
+      ? canCreateProjectForRole(currentUser.role)
+      : false
   const currentUserAssigneeIds = React.useMemo(() => {
     const ids = new Set<string>()
 
