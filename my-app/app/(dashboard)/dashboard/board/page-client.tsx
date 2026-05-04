@@ -106,16 +106,20 @@ export function DashboardBoardPageClient({
   }, [])
   const [createOpen, setCreateOpen] = React.useState(false)
   const [createTitle, setCreateTitle] = React.useState("")
+  const [createTaskError, setCreateTaskError] = React.useState<string | null>(null)
   const [createStartDate, setCreateStartDate] = React.useState<Date | undefined>()
   const [createDueDate, setCreateDueDate] = React.useState<Date | undefined>()
   const [createDescription, setCreateDescription] = React.useState("")
+  const [isCreatingTask, setIsCreatingTask] = React.useState(false)
   const [createSprintOpen, setCreateSprintOpen] = React.useState(false)
   const [sprintName, setSprintName] = React.useState("")
+  const [createSprintError, setCreateSprintError] = React.useState<string | null>(null)
   const [sprintDuration, setSprintDuration] = React.useState("2-weeks")
   const [sprintStartDate, setSprintStartDate] = React.useState<Date | undefined>()
   const [sprintEndDate, setSprintEndDate] = React.useState<Date | undefined>()
   const [sprintScopeItemId, setSprintScopeItemId] = React.useState("")
   const [sprintDescription, setSprintDescription] = React.useState("")
+  const [isCreatingSprint, setIsCreatingSprint] = React.useState(false)
   const [sprints, setSprints] = React.useState<SprintSummary[]>([])
   const [selectedSprintId, setSelectedSprintId] = React.useState<string | null>(initialSprintId)
   const [hasLoadedBoardData, setHasLoadedBoardData] = React.useState(false)
@@ -123,6 +127,8 @@ export function DashboardBoardPageClient({
   const [searchValue, setSearchValue] = React.useState("")
   const [filterValue, setFilterValue] =
     React.useState<DashboardBoardFilter>("none")
+  const [isCreatingSubtask, setIsCreatingSubtask] = React.useState(false)
+  const [createSubtaskError, setCreateSubtaskError] = React.useState<string | null>(null)
   const selectedProject = React.useMemo(
     () =>
       initialProjects.find((project) => project.id === selectedProjectId) ??
@@ -584,13 +590,14 @@ export function DashboardBoardPageClient({
 
   const resetCreateForm = () => {
     setCreateTitle("")
+    setCreateTaskError(null)
     setCreateStartDate(undefined)
     setCreateDueDate(undefined)
     setCreateDescription("")
   }
 
   const handleCreateItem = async () => {
-    if (!createTitle.trim()) return
+    if (isCreatingTask || !createTitle.trim()) return
 
     const selectedProjectId = getSelectedDashboardProjectId()
 
@@ -600,6 +607,7 @@ export function DashboardBoardPageClient({
     }
 
     try {
+      setIsCreatingTask(true)
       const response = await fetch("/api/backlog-items", {
         method: "POST",
         headers: {
@@ -618,7 +626,8 @@ export function DashboardBoardPageClient({
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create backlog item")
+        const data = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(data?.error || "Failed to create backlog item")
       }
 
       const data = (await response.json()) as { item: BacklogApiItem }
@@ -630,7 +639,11 @@ export function DashboardBoardPageClient({
       resetCreateForm()
       setCreateOpen(false)
     } catch (error) {
-      console.error(error)
+      setCreateTaskError(
+        error instanceof Error ? error.message : "Failed to create backlog item"
+      )
+    } finally {
+      setIsCreatingTask(false)
     }
   }
 
@@ -694,6 +707,10 @@ export function DashboardBoardPageClient({
         dueDate?: string
       }
     ) => {
+      if (isCreatingSubtask) {
+        return
+      }
+
       const selectedProjectId = getSelectedDashboardProjectId()
 
       if (!selectedProjectId) {
@@ -701,31 +718,43 @@ export function DashboardBoardPageClient({
         return
       }
 
-      const response = await fetch(`/api/backlog-items/${parentTodo.id}/subtasks`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectId: selectedProjectId,
-          title: input.title,
-          description: input.description,
-          startDate: input.startDate ?? null,
-          dueDate: input.dueDate ?? null,
-          status: "todo",
-          assigneeId: null,
-        }),
-      })
+      try {
+        setIsCreatingSubtask(true)
+        setCreateSubtaskError(null)
+        const response = await fetch(`/api/backlog-items/${parentTodo.id}/subtasks`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            projectId: selectedProjectId,
+            title: input.title,
+            description: input.description,
+            startDate: input.startDate ?? null,
+            dueDate: input.dueDate ?? null,
+            status: "todo",
+            assigneeId: null,
+          }),
+        })
 
-      if (!response.ok) {
-        throw new Error("Failed to create subtask")
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as { error?: string } | null
+          throw new Error(data?.error || "Failed to create subtask")
+        }
+
+        const refreshedTodos = await fetchTodosForProject(selectedProjectId)
+        setTodos(refreshedTodos)
+        setHasLoadedBoardData(true)
+      } catch (error) {
+        setCreateSubtaskError(
+          error instanceof Error ? error.message : "Failed to create subtask"
+        )
+        throw error
+      } finally {
+        setIsCreatingSubtask(false)
       }
-
-      const refreshedTodos = await fetchTodosForProject(selectedProjectId)
-      setTodos(refreshedTodos)
-      setHasLoadedBoardData(true)
     },
-    [fetchTodosForProject, router]
+    [fetchTodosForProject, isCreatingSubtask, router]
   )
 
   const filteredTodos = React.useMemo(() => {
@@ -793,6 +822,7 @@ export function DashboardBoardPageClient({
 
   const resetCreateSprintForm = React.useCallback(() => {
     setSprintName("")
+    setCreateSprintError(null)
     setSprintDuration("2-weeks")
     setSprintStartDate(undefined)
     setSprintEndDate(undefined)
@@ -801,7 +831,7 @@ export function DashboardBoardPageClient({
   }, [])
 
   const handleCreateSprint = React.useCallback(async () => {
-    if (!sprintName.trim() || !sprintStartDate || !sprintEndDate) {
+    if (isCreatingSprint || !sprintName.trim() || !sprintStartDate || !sprintEndDate) {
       return
     }
 
@@ -817,6 +847,7 @@ export function DashboardBoardPageClient({
         return
       }
 
+      setIsCreatingSprint(true)
       const response = await fetch("/api/sprints", {
         method: "POST",
         headers: {
@@ -834,7 +865,8 @@ export function DashboardBoardPageClient({
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create sprint")
+        const data = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(data?.error || "Failed to create sprint")
       }
 
       const data = (await response.json()) as {
@@ -856,9 +888,14 @@ export function DashboardBoardPageClient({
       resetCreateSprintForm()
       router.push(`/dashboard/active-sprint/${data.sprint.id}`)
     } catch (error) {
-      console.error(error)
+      setCreateSprintError(
+        error instanceof Error ? error.message : "Failed to create sprint"
+      )
+    } finally {
+      setIsCreatingSprint(false)
     }
   }, [
+    isCreatingSprint,
     resetCreateSprintForm,
     router,
     sprintDescription,
@@ -967,6 +1004,9 @@ export function DashboardBoardPageClient({
             onAddToSprint={handleAddToSprint}
             onTodoUpdate={handleTodoUpdate}
             onCreateSubtask={handleCreateSubtask}
+            isCreatingSubtask={isCreatingSubtask}
+            createSubtaskError={createSubtaskError}
+            onCreateSubtaskInputChange={() => setCreateSubtaskError(null)}
             onUpdateSubtask={handleUpdateSubtask}
             onDeleteSubtask={handleDeleteSubtask}
           />
@@ -982,13 +1022,18 @@ export function DashboardBoardPageClient({
           }
         }}
         title={createTitle}
+        titleError={createTaskError}
         startDate={createStartDate}
         dueDate={createDueDate}
         description={createDescription}
-        onTitleChange={setCreateTitle}
+        onTitleChange={(value) => {
+          setCreateTaskError(null)
+          setCreateTitle(value)
+        }}
         onStartDateChange={setCreateStartDate}
         onDueDateChange={setCreateDueDate}
         onDescriptionChange={setCreateDescription}
+        isSubmitting={isCreatingTask}
         onAddItem={handleCreateItem}
       />
 
@@ -1001,18 +1046,23 @@ export function DashboardBoardPageClient({
           }
         }}
         sprintName={sprintName}
+        sprintNameError={createSprintError}
         duration={sprintDuration}
         startDate={sprintStartDate}
         endDate={sprintEndDate}
         scopeItemId={sprintScopeItemId}
         description={sprintDescription}
         scopeOptions={sprintScopeOptions}
-        onSprintNameChange={setSprintName}
+        onSprintNameChange={(value) => {
+          setCreateSprintError(null)
+          setSprintName(value)
+        }}
         onDurationChange={setSprintDuration}
         onStartDateChange={setSprintStartDate}
         onEndDateChange={setSprintEndDate}
         onScopeItemChange={setSprintScopeItemId}
         onDescriptionChange={setSprintDescription}
+        isSubmitting={isCreatingSprint}
         onCreateSprint={handleCreateSprint}
       />
     </div>

@@ -1,3 +1,5 @@
+import { hasEmoji, stripEmoji } from "@/lib/text-validation"
+
 export const PROJECT_STORAGE_KEY = "dashboard-project"
 export const PROJECT_COOKIE_KEY = "dashboard-project"
 export const PROJECTS_COOKIE_KEY = "dashboard-projects"
@@ -78,6 +80,14 @@ export type CreateDashboardProjectInput = {
   yearLevel: string
   syTerm: string
   projectType: string
+}
+
+export function stripEmojiFromProjectTitle(value: string) {
+  return stripEmoji(value)
+}
+
+export function hasEmojiInProjectTitle(value: string) {
+  return hasEmoji(value)
 }
 
 export const dashboardProjects: DashboardProject[] = []
@@ -399,7 +409,8 @@ export function createDashboardProject({
     }),
   }).then(async (response) => {
     if (!response.ok) {
-      throw new Error("Failed to create project")
+      const data = (await response.json().catch(() => null)) as { error?: string } | null
+      throw new Error(data?.error || "Failed to create project")
     }
 
     const data = (await response.json()) as { project: DashboardProject }

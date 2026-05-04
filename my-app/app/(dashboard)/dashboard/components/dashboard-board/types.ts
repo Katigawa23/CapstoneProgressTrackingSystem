@@ -37,6 +37,9 @@ export type DashboardBoardProps = {
     parentTodo: TodoItem,
     input: CreateSubtaskInput
   ) => Promise<void>
+  isCreatingSubtask?: boolean
+  createSubtaskError?: string | null
+  onCreateSubtaskInputChange?: () => void
   onUpdateSubtask: (
     subtaskId: string,
     updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">

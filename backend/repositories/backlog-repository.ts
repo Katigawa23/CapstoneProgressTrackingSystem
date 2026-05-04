@@ -85,12 +85,25 @@ let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<BacklogStorageMode> | null = null
 let fallbackWarningShown = false
 
+export class BacklogItemNameConflictError extends Error {
+  constructor(itemName: string, itemType: "task" | "subtask") {
+    super(
+      `${itemType === "subtask" ? "Subtask" : "Task"} "${itemName}" already exists.`
+    )
+    this.name = "BacklogItemNameConflictError"
+  }
+}
+
 function uppercaseFirstCharacter(value: string) {
   if (!value) {
     return value
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+function normalizeItemNameForComparison(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase()
 }
 
 type RawBacklogRecord = Partial<BacklogRecord> & {
@@ -696,6 +709,31 @@ export async function createBacklogItem(
     async () => {
       await ensureProjectExists(input.projectId, ownerUserId)
       const normalizedTitle = uppercaseFirstCharacter(input.title)
+      const normalizedComparableTitle = normalizeItemNameForComparison(normalizedTitle)
+      const duplicateType = input.parentId ? "subtask" : "task"
+
+      const duplicateResult = await getDb().query<{ id: string }>(
+        `select backlog_items.id
+         from backlog_items
+         inner join projects
+           on projects.id = backlog_items.project_id
+         where backlog_items.project_id = $1
+           and (
+             ($2::uuid is null and backlog_items.parent_id is null)
+             or backlog_items.parent_id = $2::uuid
+           )
+           and lower(regexp_replace(btrim(backlog_items.title), '\s+', ' ', 'g')) = $3
+           and (
+             projects.owner_user_id = $4
+             or $4 = any(projects.member_user_ids)
+           )
+         limit 1`,
+        [input.projectId, input.parentId, normalizedComparableTitle, ownerUserId]
+      )
+
+      if ((duplicateResult.rowCount ?? 0) > 0) {
+        throw new BacklogItemNameConflictError(normalizedTitle, duplicateType)
+      }
 
       const result = await getDb().query<BacklogRecord>(
         `with next_sequence as (
@@ -808,6 +846,22 @@ export async function createBacklogItem(
     },
     async () => {
       const records = await readFileRecords()
+      const normalizedTitle = uppercaseFirstCharacter(input.title)
+      const normalizedComparableTitle = normalizeItemNameForComparison(normalizedTitle)
+      const duplicateRecord = records.find(
+        (record) =>
+          record.project_id === input.projectId &&
+          record.parent_id === input.parentId &&
+          normalizeItemNameForComparison(record.title) === normalizedComparableTitle
+      )
+
+      if (duplicateRecord) {
+        throw new BacklogItemNameConflictError(
+          normalizedTitle,
+          input.parentId ? "subtask" : "task"
+        )
+      }
+
       const nextSequenceNumber =
         records
           .filter((record) => record.project_id === input.projectId)
@@ -829,7 +883,7 @@ export async function createBacklogItem(
         parentId: input.parentId,
         sequenceNumber: nextSequenceNumber,
         orderIndex: nextOrderIndex,
-        title: uppercaseFirstCharacter(input.title),
+        title: normalizedTitle,
         description: input.description,
         startDate: input.startDate,
         dueDate: input.dueDate,

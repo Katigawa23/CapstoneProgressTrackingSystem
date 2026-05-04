@@ -56,6 +56,9 @@ export function DashboardBoard({
   onAddToSprint,
   onTodoUpdate,
   onCreateSubtask,
+  isCreatingSubtask = false,
+  createSubtaskError = null,
+  onCreateSubtaskInputChange,
   onUpdateSubtask,
   onDeleteSubtask,
 }: DashboardBoardProps) {
@@ -745,7 +748,7 @@ export function DashboardBoard({
           dueDate: input.dueDate,
         })
       } catch (error) {
-        console.error(error)
+        throw error
       }
     },
     [onCreateSubtask, selectedTodo]
@@ -1119,6 +1122,9 @@ export function DashboardBoard({
                       <TaskSubtasksSection
                         checklist={selectedTodo.checklist}
                         subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
+                        isSubmittingSubtask={isCreatingSubtask}
+                        createSubtaskError={createSubtaskError}
+                        onCreateSubtaskInputChange={onCreateSubtaskInputChange}
                         onAddSubtask={handleCreateSubtask}
                         onOpenSubtask={handleOpenSubtask}
                         onSubtaskStatusChange={onStatusChange}

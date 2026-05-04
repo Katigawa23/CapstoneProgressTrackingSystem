@@ -71,10 +71,21 @@ let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<SprintStorageMode> | null = null
 let fallbackWarningShown = false
 
+export class SprintNameConflictError extends Error {
+  constructor(sprintName: string) {
+    super(`Sprint "${sprintName}" already exists.`)
+    this.name = "SprintNameConflictError"
+  }
+}
+
 type RawBacklogRecord = {
   id?: string
   status?: string | null
   checked?: boolean | null
+}
+
+function normalizeSprintNameForComparison(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase()
 }
 
 function normalizeSprintRecord(record: RawSprintRecord): SprintRow {
@@ -507,6 +518,25 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
   return withSprintStore(
     async () => {
       await ensureProjectExists(input.projectId, ownerUserId)
+      const normalizedComparableName = normalizeSprintNameForComparison(input.name)
+      const duplicateResult = await getDb().query<{ id: string }>(
+        `select sprints.id
+         from sprints
+         inner join projects
+           on projects.id = sprints.project_id
+         where sprints.project_id = $1
+           and lower(regexp_replace(btrim(sprints.name), '\s+', ' ', 'g')) = $2
+           and (
+             projects.owner_user_id = $3
+             or $3 = any(projects.member_user_ids)
+           )
+         limit 1`,
+        [input.projectId, normalizedComparableName, ownerUserId]
+      )
+
+      if ((duplicateResult.rowCount ?? 0) > 0) {
+        throw new SprintNameConflictError(input.name)
+      }
 
       const sprintId = randomUUID()
       const backlogItemIds = Array.from(
@@ -642,6 +672,17 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
     },
     async () => {
       const records = await readFileRecords()
+      const normalizedComparableName = normalizeSprintNameForComparison(input.name)
+      const duplicateRecord = records.find(
+        (record) =>
+          record.projectId === input.projectId &&
+          normalizeSprintNameForComparison(record.name) === normalizedComparableName
+      )
+
+      if (duplicateRecord) {
+        throw new SprintNameConflictError(input.name)
+      }
+
       const nextSequenceNumber =
         records
           .filter((record) => record.projectId === input.projectId)

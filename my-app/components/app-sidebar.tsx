@@ -227,9 +227,12 @@ export function AppSidebar({
   const {
     createProject,
     createProjectOpen,
+    createProjectError,
     handleMemberSearchChange,
     handleMemberRoleToggle,
     handleMemberSelect,
+    handleProjectTitleChange,
+    isCreatingProject,
     memberSearch,
     memberOptions,
     memberOptionsLoading,
@@ -251,7 +254,6 @@ export function AppSidebar({
     setProjectProgramOther,
     setProjectSyTerm,
     setProjectSyTermOther,
-    setProjectTitle,
     setProjectType,
     setProjectTypeOther,
     setProjectYearLevel,
@@ -307,11 +309,13 @@ export function AppSidebar({
         onProjectProgramOtherChange={setProjectProgramOther}
         onProjectSyTermChange={setProjectSyTerm}
         onProjectSyTermOtherChange={setProjectSyTermOther}
-        onProjectTitleChange={setProjectTitle}
+        onProjectTitleChange={handleProjectTitleChange}
         onProjectTypeChange={setProjectType}
         onProjectTypeOtherChange={setProjectTypeOther}
         onProjectYearLevelChange={setProjectYearLevel}
         onProjectYearLevelOtherChange={setProjectYearLevelOther}
+        titleError={createProjectError}
+        isSubmitting={isCreatingProject}
         projectProgram={projectProgram}
         projectProgramOther={projectProgramOther}
         projectSyTerm={projectSyTerm}

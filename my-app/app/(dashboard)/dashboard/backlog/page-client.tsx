@@ -124,9 +124,11 @@ export function BacklogPageClient({
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [title, setTitle] = React.useState("")
+  const [createTaskError, setCreateTaskError] = React.useState<string | null>(null)
   const [startDate, setStartDate] = React.useState<Date | undefined>()
   const [dueDate, setDueDate] = React.useState<Date | undefined>()
   const [description, setDescription] = React.useState("")
+  const [isCreatingTask, setIsCreatingTask] = React.useState(false)
   const [boardSearchValue, setBoardSearchValue] = React.useState("")
   const [boardFilterValue, setBoardFilterValue] =
     React.useState<BacklogSectionFilter>("none")
@@ -136,11 +138,13 @@ export function BacklogPageClient({
   const [selectedSprintId, setSelectedSprintId] = React.useState<string | null>(null)
   const [createSprintOpen, setCreateSprintOpen] = React.useState(false)
   const [sprintName, setSprintName] = React.useState("")
+  const [createSprintError, setCreateSprintError] = React.useState<string | null>(null)
   const [sprintDuration, setSprintDuration] = React.useState("2-weeks")
   const [sprintStartDate, setSprintStartDate] = React.useState<Date | undefined>()
   const [sprintEndDate, setSprintEndDate] = React.useState<Date | undefined>()
   const [sprintScopeItemId, setSprintScopeItemId] = React.useState("")
   const [sprintDescription, setSprintDescription] = React.useState("")
+  const [isCreatingSprint, setIsCreatingSprint] = React.useState(false)
 
   const [items, setItems] = React.useState<WorkItem[]>([])
   const [sprints, setSprints] = React.useState<SprintSummary[]>([])
@@ -323,6 +327,7 @@ export function BacklogPageClient({
 
   const resetForm = () => {
     setTitle("")
+    setCreateTaskError(null)
     setStartDate(undefined)
     setDueDate(undefined)
     setDescription("")
@@ -330,6 +335,7 @@ export function BacklogPageClient({
 
   const resetCreateSprintForm = React.useCallback(() => {
     setSprintName("")
+    setCreateSprintError(null)
     setSprintDuration("2-weeks")
     setSprintStartDate(undefined)
     setSprintEndDate(undefined)
@@ -338,7 +344,7 @@ export function BacklogPageClient({
   }, [])
 
   const handleAddItem = async () => {
-    if (!title.trim()) return
+    if (isCreatingTask || !title.trim()) return
 
     const selectedProjectId = getSelectedDashboardProjectId()
     const selectedProject = findDashboardProject(selectedProjectId)
@@ -349,6 +355,7 @@ export function BacklogPageClient({
     }
 
     try {
+      setIsCreatingTask(true)
       const response = await fetch("/api/backlog-items", {
         method: "POST",
         headers: {
@@ -366,7 +373,8 @@ export function BacklogPageClient({
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create backlog item")
+        const data = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(data?.error || "Failed to create backlog item")
       }
 
       const data = (await response.json()) as { item: BacklogApiItem }
@@ -376,7 +384,11 @@ export function BacklogPageClient({
       resetForm()
       setOpen(false)
     } catch (error) {
-      console.error(error)
+      setCreateTaskError(
+        error instanceof Error ? error.message : "Failed to create backlog item"
+      )
+    } finally {
+      setIsCreatingTask(false)
     }
   }
 
@@ -919,7 +931,7 @@ export function BacklogPageClient({
   )
 
   const handleCreateSprint = React.useCallback(async () => {
-    if (!sprintName.trim() || !sprintStartDate || !sprintEndDate) {
+    if (isCreatingSprint || !sprintName.trim() || !sprintStartDate || !sprintEndDate) {
       return
     }
 
@@ -935,6 +947,7 @@ export function BacklogPageClient({
         return
       }
 
+      setIsCreatingSprint(true)
       const response = await fetch("/api/sprints", {
         method: "POST",
         headers: {
@@ -952,7 +965,8 @@ export function BacklogPageClient({
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create sprint")
+        const data = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(data?.error || "Failed to create sprint")
       }
 
       const data = (await response.json()) as {
@@ -973,9 +987,14 @@ export function BacklogPageClient({
       setCreateSprintOpen(false)
       resetCreateSprintForm()
     } catch (error) {
-      console.error(error)
+      setCreateSprintError(
+        error instanceof Error ? error.message : "Failed to create sprint"
+      )
+    } finally {
+      setIsCreatingSprint(false)
     }
   }, [
+    isCreatingSprint,
     resetCreateSprintForm,
     router,
     sprintDescription,
@@ -1064,13 +1083,18 @@ export function BacklogPageClient({
         open={open}
         onOpenChange={setOpen}
         title={title}
+        titleError={createTaskError}
         startDate={startDate}
         dueDate={dueDate}
         description={description}
-        onTitleChange={setTitle}
+        onTitleChange={(value) => {
+          setCreateTaskError(null)
+          setTitle(value)
+        }}
         onStartDateChange={setStartDate}
         onDueDateChange={setDueDate}
         onDescriptionChange={setDescription}
+        isSubmitting={isCreatingTask}
         onAddItem={handleAddItem}
       />
 
@@ -1097,18 +1121,23 @@ export function BacklogPageClient({
           }
         }}
         sprintName={sprintName}
+        sprintNameError={createSprintError}
         duration={sprintDuration}
         startDate={sprintStartDate}
         endDate={sprintEndDate}
         scopeItemId={sprintScopeItemId}
         description={sprintDescription}
         scopeOptions={sprintScopeOptions}
-        onSprintNameChange={setSprintName}
+        onSprintNameChange={(value) => {
+          setCreateSprintError(null)
+          setSprintName(value)
+        }}
         onDurationChange={setSprintDuration}
         onStartDateChange={setSprintStartDate}
         onEndDateChange={setSprintEndDate}
         onScopeItemChange={setSprintScopeItemId}
         onDescriptionChange={setSprintDescription}
+        isSubmitting={isCreatingSprint}
         onCreateSprint={handleCreateSprint}
       />
     </div>

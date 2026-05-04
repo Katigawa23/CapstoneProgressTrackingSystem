@@ -20,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { LoadingScreen } from "@/components/ui/loading-screen"
 import { Textarea } from "@/components/ui/textarea"
 
 type CreateWorkItemDialogProps = {
@@ -29,10 +30,12 @@ type CreateWorkItemDialogProps = {
   startDate?: Date
   dueDate?: Date
   description: string
+  titleError?: string | null
   onTitleChange: (value: string) => void
   onStartDateChange: (value: Date | undefined) => void
   onDueDateChange: (value: Date | undefined) => void
   onDescriptionChange: (value: string) => void
+  isSubmitting?: boolean
   onAddItem: () => void
   mode?: "task" | "subtask"
 }
@@ -44,10 +47,12 @@ export function CreateWorkItemDialog({
   startDate,
   dueDate,
   description,
+  titleError = null,
   onTitleChange,
   onStartDateChange,
   onDueDateChange,
   onDescriptionChange,
+  isSubmitting = false,
   onAddItem,
   mode = "task",
 }: CreateWorkItemDialogProps) {
@@ -90,6 +95,9 @@ export function CreateWorkItemDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-[2px] border-slate-200 bg-white px-5 py-4 text-slate-900 dark:border-[#343434] dark:bg-[#171717] dark:text-slate-100 sm:max-w-md">
+        {isSubmitting ? (
+          <LoadingScreen label={isSubtaskMode ? "Creating subtask..." : "Creating task..."} />
+        ) : null}
         <DialogHeader className="border-b border-slate-200 pb-2 dark:border-[#343434]">
           <DialogTitle className="font-display text-left tracking-tight text-slate-900 dark:text-slate-100">
             {isSubtaskMode ? "Create new subtask." : "Create new task."}
@@ -108,6 +116,9 @@ export function CreateWorkItemDialog({
               placeholder="Enter task title"
               className="h-8 rounded-[2px] border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-500 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
             />
+            {titleError ? (
+              <p className="text-xs text-red-500">{titleError}</p>
+            ) : null}
           </div>
 
           {isSubtaskMode ? null : (
@@ -212,6 +223,7 @@ export function CreateWorkItemDialog({
               variant="outline"
               size="sm"
               className="h-8 min-w-24 rounded-[2px] border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
+              disabled={isSubmitting}
               onClick={() => onOpenChange(false)}
             >
               Cancel
@@ -225,7 +237,7 @@ export function CreateWorkItemDialog({
               size="sm"
               className="h-8 min-w-24 rounded-[2px] px-3 text-sm hover:opacity-90"
               onClick={onAddItem}
-              disabled={!title.trim()}
+              disabled={isSubmitting || !title.trim()}
             >
               {isSubtaskMode ? "Add subtask" : "Add item"}
             </Button>

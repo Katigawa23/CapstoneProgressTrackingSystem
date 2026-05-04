@@ -2,7 +2,9 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { stripEmoji } from "@/lib/text-validation"
 import {
+  BacklogItemNameConflictError,
   createBacklogItem,
   listBacklogItems,
   updateBacklogItem,
@@ -72,7 +74,8 @@ export async function POST(request: Request) {
       assigneeId?: string | null
     }
 
-    const title = body.title?.trim()
+    const rawTitle = body.title?.trim()
+    const title = rawTitle ? stripEmoji(rawTitle).trim() : rawTitle
     const projectId = body.projectId?.trim()
     const requestedParentId =
       typeof body.parentId === "string" && body.parentId.trim().length > 0
@@ -122,6 +125,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ item: nextItem ?? item }, { status: 201 })
   } catch (error) {
+    if (error instanceof BacklogItemNameConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+
     console.error("Failed to create backlog item", error)
     return NextResponse.json(
       { error: "Failed to create backlog item" },

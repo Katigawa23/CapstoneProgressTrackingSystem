@@ -5,10 +5,12 @@ import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
+  stripEmojiFromProjectTitle,
 } from "@/lib/projects"
 import { canCreateProject, isUserRole } from "@/lib/rbac"
 import {
   createProject,
+  ProjectNameConflictError,
   listProjects,
   updateProjectStarred,
 } from "@backend/repositories/project-repository"
@@ -60,7 +62,8 @@ export async function POST(request: Request) {
       projectType?: string
     }
 
-    const name = body.name?.trim()
+    const rawName = body.name?.trim()
+    const name = rawName ? stripEmojiFromProjectTitle(rawName).trim() : rawName
     const program = body.program?.trim()
     const yearLevel = body.yearLevel?.trim()
     const syTerm = body.syTerm?.trim()
@@ -133,6 +136,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ project }, { status: 201 })
   } catch (error) {
+    if (error instanceof ProjectNameConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+
     console.error("Failed to create project", error)
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 })
   }

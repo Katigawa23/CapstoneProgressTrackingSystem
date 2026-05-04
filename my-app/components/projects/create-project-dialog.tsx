@@ -34,6 +34,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { LoadingScreen } from "@/components/ui/loading-screen"
 import {
   OTHER_PROJECT_OPTION,
   PROJECT_PROGRAM_OPTIONS,
@@ -62,6 +63,8 @@ type CreateProjectDialogProps = {
   onProjectTypeOtherChange: (value: string) => void
   onProjectYearLevelChange: (value: string) => void
   onProjectYearLevelOtherChange: (value: string) => void
+  titleError?: string | null
+  isSubmitting?: boolean
   open: boolean
   projectProgram: string
   projectProgramOther: string
@@ -175,6 +178,8 @@ export function CreateProjectDialog({
   onProjectTypeOtherChange,
   onProjectYearLevelChange,
   onProjectYearLevelOtherChange,
+  titleError = null,
+  isSubmitting = false,
   open,
   projectProgram,
   projectProgramOther,
@@ -228,6 +233,9 @@ export function CreateProjectDialog({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (isSubmitting) {
+      return
+    }
     await onCreateProject()
   }
 
@@ -244,6 +252,7 @@ export function CreateProjectDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-visible rounded-[2px] border-border/70 bg-white px-5 py-4 dark:border-[#343434] dark:bg-[#171717] sm:max-w-xl">
+        {isSubmitting ? <LoadingScreen label="Creating project..." /> : null}
         <div className="border-b border-border/70 pb-2 dark:border-[#343434]">
           <DialogHeader className="gap-2 text-left">
             <DialogTitle className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
@@ -266,6 +275,9 @@ export function CreateProjectDialog({
                 placeholder="Capstone Progress Tracker"
                 className="h-8 rounded-[2px] border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
               />
+              {titleError ? (
+                <p className="text-xs text-red-500">{titleError}</p>
+              ) : null}
               <p className="text-xs text-muted-foreground mt-0.5">
                 {projectTitle.length}/{PROJECT_TITLE_MAX_LENGTH}
               </p>
@@ -490,6 +502,7 @@ export function CreateProjectDialog({
               variant="outline"
               size="sm"
               className="h-8 min-w-24 rounded-[2px]"
+              disabled={isSubmitting}
               onClick={() => onOpenChange(false)}
             >
               Cancel
@@ -503,6 +516,7 @@ export function CreateProjectDialog({
               }}
               className="h-8 min-w-24 rounded-[2px] gap-2 hover:opacity-90"
               disabled={
+                isSubmitting ||
                 !projectTitle.trim() ||
                 !isProgramComplete ||
                 !isYearLevelComplete ||

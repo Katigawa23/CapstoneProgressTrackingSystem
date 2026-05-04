@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { LoadingScreen } from "@/components/ui/loading-screen"
 import {
   Popover,
   PopoverContent,
@@ -45,6 +46,9 @@ import type { CreateSubtaskInput } from "./types"
 type TaskSubtasksSectionProps = {
   checklist: string
   subtasks: TodoItem[]
+  isSubmittingSubtask?: boolean
+  createSubtaskError?: string | null
+  onCreateSubtaskInputChange?: () => void
   onAddSubtask: (input: CreateSubtaskInput) => void | Promise<void>
   onOpenSubtask: (subtask: TodoItem) => void
   onSubtaskStatusChange: (subtaskId: string, nextStatus: TodoItem["status"]) => void
@@ -107,6 +111,9 @@ type SubtaskStatusFilter = "all" | TodoItem["status"]
 export function TaskSubtasksSection({
   checklist,
   subtasks,
+  isSubmittingSubtask = false,
+  createSubtaskError = null,
+  onCreateSubtaskInputChange,
   onAddSubtask,
   onOpenSubtask,
   onSubtaskStatusChange,
@@ -278,6 +285,10 @@ export function TaskSubtasksSection({
   )
 
   const commitNewSubtask = React.useCallback(async () => {
+    if (isSubmittingSubtask) {
+      return
+    }
+
     const nextTitle = newSubtaskTitle.trim()
 
     if (!nextTitle) {
@@ -307,7 +318,7 @@ export function TaskSubtasksSection({
       setIsStartDateOpen(false)
       setIsDueDateOpen(false)
     }
-  }, [newSubtaskDueDate, newSubtaskStartDate, newSubtaskTitle, onAddSubtask])
+  }, [isSubmittingSubtask, newSubtaskDueDate, newSubtaskStartDate, newSubtaskTitle, onAddSubtask])
 
   const handleAssignAllToMe = React.useCallback(() => {
     if (!currentUserId) {
@@ -325,6 +336,7 @@ export function TaskSubtasksSection({
       onOpenChange={setIsExpanded}
       className="mt-4 space-y-3"
     >
+      {isSubmittingSubtask ? <LoadingScreen label="Creating subtask..." /> : null}
       <div className="space-y-3">
         <div className="flex w-full items-start justify-between gap-3">
           <div className="space-y-1">
@@ -710,7 +722,10 @@ export function TaskSubtasksSection({
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <Input
                     value={newSubtaskTitle}
-                    onChange={(event) => setNewSubtaskTitle(event.target.value)}
+                    onChange={(event) => {
+                      setNewSubtaskTitle(event.target.value)
+                      onCreateSubtaskInputChange?.()
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault()
@@ -730,6 +745,9 @@ export function TaskSubtasksSection({
                     placeholder="Create subtask title"
                     className="h-8 w-full min-w-0 border-blue-300 bg-white text-[13px] text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
                   />
+                  {createSubtaskError ? (
+                    <p className="text-xs text-red-500">{createSubtaskError}</p>
+                  ) : null}
                 </div>
               </div>
 
@@ -746,6 +764,7 @@ export function TaskSubtasksSection({
                   className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
                   aria-label="Create subtask"
                   title="Create"
+                  disabled={isSubmittingSubtask}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => void commitNewSubtask()}
                 >

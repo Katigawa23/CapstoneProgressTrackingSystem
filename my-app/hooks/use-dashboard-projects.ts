@@ -47,6 +47,8 @@ export function useDashboardProjects({
   const [memberOptions, setMemberOptions] = React.useState<ProjectMemberOption[]>([])
   const [memberOptionsLoading, setMemberOptionsLoading] = React.useState(false)
   const [selectedMembers, setSelectedMembers] = React.useState<ProjectMemberOption[]>([])
+  const [isCreatingProject, setIsCreatingProject] = React.useState(false)
+  const [createProjectError, setCreateProjectError] = React.useState<string | null>(null)
   const latestMemberRequestId = React.useRef(0)
 
   const syncProjectState = React.useCallback(() => {
@@ -109,6 +111,7 @@ export function useDashboardProjects({
     setMemberSearch("")
     setMemberOptions([])
     setSelectedMembers([])
+    setCreateProjectError(null)
   }, [])
 
   React.useEffect(() => {
@@ -204,6 +207,11 @@ export function useDashboardProjects({
     )
   }, [])
 
+  const handleProjectTitleChange = React.useCallback((value: string) => {
+    setCreateProjectError(null)
+    setProjectTitle(value)
+  }, [])
+
   const selectProject = React.useCallback(
     (projectId: string) => {
       const nextProject = projects.find((project) => project.id === projectId) ?? null
@@ -215,6 +223,10 @@ export function useDashboardProjects({
   )
 
   const createProject = React.useCallback(async () => {
+    if (isCreatingProject) {
+      return null
+    }
+
     const title = projectTitle.trim()
     const program =
       (projectProgram === OTHER_PROJECT_OPTION ? projectProgramOther : projectProgram).trim()
@@ -251,18 +263,31 @@ export function useDashboardProjects({
       return null
     }
 
-    const nextProject = await createDashboardProject({
-      name: title,
-      members: memberNames,
-      advisers: adviserNames,
-      sprintCreatorUserIds,
-      memberUserIds,
-      memberAccess,
-      program,
-      yearLevel,
-      syTerm,
-      projectType: resolvedProjectType,
-    })
+    let nextProject: DashboardProject
+
+    try {
+      setIsCreatingProject(true)
+      setCreateProjectError(null)
+      nextProject = await createDashboardProject({
+        name: title,
+        members: memberNames,
+        advisers: adviserNames,
+        sprintCreatorUserIds,
+        memberUserIds,
+        memberAccess,
+        program,
+        yearLevel,
+        syTerm,
+        projectType: resolvedProjectType,
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create project"
+      setCreateProjectError(message)
+      return null
+    } finally {
+      setIsCreatingProject(false)
+    }
 
     setDashboardProject(nextProject.id)
     const nextProjects = [
@@ -294,10 +319,13 @@ export function useDashboardProjects({
   return {
     createProject,
     createProjectOpen,
+    createProjectError,
+    isCreatingProject,
     handleMemberSearchChange,
     handleMemberRemove,
     handleMemberRoleToggle,
     handleMemberSelect,
+    handleProjectTitleChange,
     memberSearch,
     memberOptions,
     memberOptionsLoading,
@@ -319,7 +347,6 @@ export function useDashboardProjects({
     setProjectProgramOther,
     setProjectSyTerm,
     setProjectSyTermOther,
-    setProjectTitle,
     setProjectType,
     setProjectTypeOther,
     setProjectYearLevel,

@@ -69,12 +69,23 @@ let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<ProjectStorageMode> | null = null
 let fallbackWarningShown = false
 
+export class ProjectNameConflictError extends Error {
+  constructor(projectName: string) {
+    super(`Project "${projectName}" already exists.`)
+    this.name = "ProjectNameConflictError"
+  }
+}
+
 function uppercaseFirstCharacter(value: string) {
   if (!value) {
     return value
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+function normalizeProjectNameForComparison(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase()
 }
 
 function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
@@ -584,6 +595,19 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
   return withProjectStore(
     async () => {
       const project = normalizeProject(input)
+      const normalizedProjectName = normalizeProjectNameForComparison(project.name)
+
+      const existingProjectResult = await getDb().query<{ id: string }>(
+        `select id
+         from projects
+         where lower(regexp_replace(btrim(project_name), '\s+', ' ', 'g')) = $1
+         limit 1`,
+        [normalizedProjectName]
+      )
+
+      if ((existingProjectResult.rowCount ?? 0) > 0) {
+        throw new ProjectNameConflictError(project.name)
+      }
 
       const result = await getDb().query<ProjectRecord>(
         `insert into projects (
@@ -642,6 +666,17 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
     async () => {
       const project = normalizeProject(input)
       const records = await readFileRecords()
+      const normalizedProjectName = normalizeProjectNameForComparison(project.name)
+
+      const duplicateProject = records.find(
+        (record) =>
+          normalizeProjectNameForComparison(record.project_name) === normalizedProjectName
+      )
+
+      if (duplicateProject) {
+        throw new ProjectNameConflictError(project.name)
+      }
+
       records.unshift({
         ...toRecord(project, ownerUserId),
         member_user_ids: input.memberUserIds.filter((memberUserId) => memberUserId !== ownerUserId),

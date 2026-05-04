@@ -2,10 +2,12 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { stripEmoji } from "@/lib/text-validation"
 import { canUserCreateSprintInProject } from "@backend/repositories/project-repository"
 import {
   createSprint,
   listSprints,
+  SprintNameConflictError,
 } from "@backend/repositories/sprint-repository"
 
 function normalizeRequiredDate(value: unknown) {
@@ -57,7 +59,8 @@ export async function POST(request: Request) {
     }
 
     const projectId = body.projectId?.trim()
-    const name = body.name?.trim()
+    const rawName = body.name?.trim()
+    const name = rawName ? stripEmoji(rawName).trim() : rawName
     const duration = body.duration?.trim() ?? ""
     const startDate = normalizeRequiredDate(body.startDate)
     const endDate = normalizeRequiredDate(body.endDate)
@@ -107,6 +110,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ sprint }, { status: 201 })
   } catch (error) {
+    if (error instanceof SprintNameConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+
     console.error("Failed to create sprint", error)
     return NextResponse.json({ error: "Failed to create sprint" }, { status: 500 })
   }

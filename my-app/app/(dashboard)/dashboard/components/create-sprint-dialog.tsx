@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { LoadingScreen } from "@/components/ui/loading-screen"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
@@ -43,6 +44,7 @@ type CreateSprintDialogProps = {
   endDate?: Date
   scopeItemId: string
   description: string
+  sprintNameError?: string | null
   scopeOptions: SprintScopeOption[]
   onSprintNameChange: (value: string) => void
   onDurationChange: (value: string) => void
@@ -50,6 +52,7 @@ type CreateSprintDialogProps = {
   onEndDateChange: (value: Date | undefined) => void
   onScopeItemChange: (value: string) => void
   onDescriptionChange: (value: string) => void
+  isSubmitting?: boolean
   onCreateSprint: () => void
 }
 
@@ -87,6 +90,7 @@ export function CreateSprintDialog({
   endDate,
   scopeItemId,
   description,
+  sprintNameError = null,
   scopeOptions,
   onSprintNameChange,
   onDurationChange,
@@ -94,6 +98,7 @@ export function CreateSprintDialog({
   onEndDateChange,
   onScopeItemChange,
   onDescriptionChange,
+  isSubmitting = false,
   onCreateSprint,
 }: CreateSprintDialogProps) {
   const [startDateOpen, setStartDateOpen] = React.useState(false)
@@ -134,6 +139,7 @@ export function CreateSprintDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-[2px] border-slate-200 bg-white px-5 py-4 text-slate-900 dark:border-[#343434] dark:bg-[#171717] dark:text-slate-100 sm:max-w-md">
+        {isSubmitting ? <LoadingScreen label="Creating sprint..." /> : null}
         <DialogHeader className="border-b border-slate-200 pb-2 dark:border-[#343434]">
           <DialogTitle className="font-display text-left tracking-tight text-slate-900 dark:text-slate-100">
             Start Sprint
@@ -152,6 +158,9 @@ export function CreateSprintDialog({
               placeholder="Sprint 13"
               className="h-7 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f]"
             />
+            {sprintNameError ? (
+              <p className="text-xs text-red-500">{sprintNameError}</p>
+            ) : null}
           </div>
 
           <div className="max-w-[200px] space-y-1">
@@ -287,11 +296,12 @@ export function CreateSprintDialog({
         </div>
 
         <div className="flex justify-end gap-2 border-t border-slate-200 pt-2.5 dark:border-[#343434]">
-          <Button
+            <Button
             type="button"
             variant="outline"
             size="sm"
             className="h-7 min-w-18 rounded-[2px] border-slate-200 bg-white px-3 text-sm dark:border-[#343434] dark:bg-[#1f1f1f]"
+            disabled={isSubmitting}
             onClick={() => onOpenChange(false)}
           >
             Cancel
@@ -305,7 +315,7 @@ export function CreateSprintDialog({
             }}
             className="h-7 min-w-18 rounded-[2px] px-3 text-sm hover:opacity-90"
             onClick={onCreateSprint}
-            disabled={!sprintName.trim()}
+            disabled={isSubmitting || !sprintName.trim()}
           >
             Start
           </Button>

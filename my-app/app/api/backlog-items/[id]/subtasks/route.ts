@@ -2,7 +2,9 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { stripEmoji } from "@/lib/text-validation"
 import {
+  BacklogItemNameConflictError,
   createBacklogItem,
   updateBacklogItem,
 } from "@backend/repositories/backlog-repository"
@@ -41,7 +43,8 @@ export async function POST(
       assigneeId?: string | null
     }
 
-    const title = body.title?.trim()
+    const rawTitle = body.title?.trim()
+    const title = rawTitle ? stripEmoji(rawTitle).trim() : rawTitle
     const projectId = body.projectId?.trim()
     const normalizedParentId = parentId.trim()
     const status =
@@ -98,6 +101,10 @@ export async function POST(
 
     return NextResponse.json({ item: persistedItem }, { status: 201 })
   } catch (error) {
+    if (error instanceof BacklogItemNameConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+
     console.error("Failed to create subtask", error)
     return NextResponse.json(
       { error: "Failed to create subtask" },
