@@ -55,3 +55,11 @@ export type DashboardSubmission = {
   fileSize: number
   uploadedAt: string
 }
+
+export type DashboardWebLink = {
+  id: string
+  backlogItemId: string
+  url: string
+  label: string
+  uploadedAt: string
+}

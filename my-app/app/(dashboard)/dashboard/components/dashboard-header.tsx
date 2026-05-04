@@ -58,7 +58,9 @@ type DashboardHeaderProps = {
     endDate: string
     backlogItemIds?: string[]
   }>
-  onProjectBoardSelect?: () => void
+  onProjectSelect?: () => void
+  onBreadcrumbSectionSelect?: () => void
+  onActiveSprintSelect?: () => void
   onSprintSelect?: (sprintId: string) => void
   onCreate?: () => void
   onCreateSprint?: () => void
@@ -79,7 +81,9 @@ export function DashboardHeader({
   showCreateButton = true,
   canCreateSprint = true,
   sprints = [],
-  onProjectBoardSelect,
+  onProjectSelect,
+  onBreadcrumbSectionSelect,
+  onActiveSprintSelect,
   onSprintSelect,
   onCreate,
   onCreateSprint,
@@ -130,7 +134,7 @@ export function DashboardHeader({
         <button
           type="button"
           className="text-foreground transition hover:underline"
-          onClick={onProjectBoardSelect}
+          onClick={onProjectSelect}
         >
           {projectName}
         </button>
@@ -140,7 +144,7 @@ export function DashboardHeader({
             <button
               type="button"
               className="text-foreground transition hover:underline"
-              onClick={onProjectBoardSelect}
+              onClick={onBreadcrumbSectionSelect}
             >
               {breadcrumbSectionLabel}
             </button>
@@ -152,7 +156,7 @@ export function DashboardHeader({
             <button
               type="button"
               className="text-foreground transition hover:underline"
-              onClick={onProjectBoardSelect}
+              onClick={onActiveSprintSelect}
             >
               {activeSprintName}
             </button>

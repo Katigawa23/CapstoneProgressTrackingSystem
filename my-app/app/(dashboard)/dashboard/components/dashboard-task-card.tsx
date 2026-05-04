@@ -45,6 +45,8 @@ type DashboardTaskCardProps = {
   todo: TodoItem
   parentTaskTitle?: string | null
   isDragging?: boolean
+  isSprintView?: boolean
+  currentSprintId?: string | null
   sprints: Array<{
     id: string
     name: string
@@ -53,6 +55,7 @@ type DashboardTaskCardProps = {
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
   onAddToSprint: (todoId: string, sprintId: string) => Promise<void> | void
+  onMoveToBoard: (todoId: string, sprintId: string) => Promise<void> | void
   onOpen: (todo: TodoItem, target?: "default" | "comments") => void
   draggableProvided?: DraggableProvided
   dragSnapshot?: DraggableStateSnapshot
@@ -62,10 +65,13 @@ export function DashboardTaskCard({
   todo,
   parentTaskTitle,
   isDragging = false,
+  isSprintView = false,
+  currentSprintId = null,
   sprints,
   onStatusChange,
   onAssigneeChange,
   onAddToSprint,
+  onMoveToBoard,
   onOpen,
   draggableProvided,
   dragSnapshot,
@@ -80,6 +86,17 @@ export function DashboardTaskCard({
     subtaskCount === 1
       ? `${completedSubtasks}/${subtaskCount} subtask remaining`
       : `${completedSubtasks}/${subtaskCount} subtasks remaining`
+  const availableTargetSprints = React.useMemo(
+    () =>
+      sprints.filter((sprint) => {
+        if (sprint.id === currentSprintId) {
+          return false
+        }
+
+        return !sprint.backlogItemIds.includes(todo.id)
+      }),
+    [currentSprintId, sprints, todo.id]
+  )
 
   return (
     <div className="relative pt-1">
@@ -141,22 +158,17 @@ export function DashboardTaskCard({
             <DropdownMenuSub>
               <DropdownMenuSubTrigger disabled={Boolean(todo.parentId)}>
                 <FolderKanban className="h-4 w-4" />
-                Add to Sprint
+                Move to Sprint
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
-                {sprints.length === 0 ? (
+                {availableTargetSprints.length === 0 ? (
                   <DropdownMenuItem disabled>
-                    No sprints yet
+                    {isSprintView ? "No other sprints" : "No sprints yet"}
                   </DropdownMenuItem>
                 ) : (
-                  sprints.map((sprint) => (
+                  availableTargetSprints.map((sprint) => (
                     <DropdownMenuItem
                       key={sprint.id}
-                      className={
-                        sprint.backlogItemIds.includes(todo.id)
-                          ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
-                          : undefined
-                      }
                       onSelect={() => void onAddToSprint(todo.id, sprint.id)}
                     >
                       {sprint.name}
@@ -165,6 +177,14 @@ export function DashboardTaskCard({
                 )}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            {isSprintView && currentSprintId ? (
+              <DropdownMenuItem
+                onSelect={() => void onMoveToBoard(todo.id, currentSprintId)}
+              >
+                <FolderKanban className="h-4 w-4" />
+                Move to Board
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <PencilLine className="h-4 w-4" />

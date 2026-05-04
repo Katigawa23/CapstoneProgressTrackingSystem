@@ -7,6 +7,7 @@ import {
   listBacklogItemsWithStats,
   listProjectBacklogActivities,
 } from "@backend/repositories/backlog-repository"
+import { listSprints } from "@backend/repositories/sprint-repository"
 import { PROJECT_COOKIE_KEY, type DashboardProject } from "@/lib/projects"
 
 const useDashboardCache = process.env.NODE_ENV === "production"
@@ -40,6 +41,15 @@ const getCachedProjectActivities = unstable_cache(
   }
 )
 
+const getCachedSprints = unstable_cache(
+  async (projectId: string, userId: string) => listSprints(projectId, userId),
+  ["dashboard-sprints"],
+  {
+    revalidate: 60,
+    tags: ["sprints", "backlog-items"],
+  }
+)
+
 export async function getDashboardProjectsData() {
   const user = await readAuthenticatedUser()
 
@@ -62,6 +72,7 @@ export async function getSelectedProjectData() {
       projects: [],
       selectedProject: null,
       items: [],
+      sprints: [],
     }
   }
 
@@ -84,10 +95,19 @@ export async function getSelectedProjectData() {
       )
     : []
 
+  const sprints = selectedProject
+    ? await (
+        useDashboardCache
+          ? getCachedSprints(selectedProject.id, user.id)
+          : listSprints(selectedProject.id, user.id)
+      )
+    : []
+
   return {
     projects,
     selectedProject,
     items,
+    sprints,
   }
 }
 

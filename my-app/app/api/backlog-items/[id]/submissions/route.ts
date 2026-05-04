@@ -10,7 +10,7 @@ import {
   createBacklogSubmission,
   deleteBacklogSubmission,
   listBacklogSubmissions,
-} from "@backend/repositories/backlog-submission-repository"
+} from "@backend/repositories/backlog-attachment-repository"
 
 export const runtime = "nodejs"
 

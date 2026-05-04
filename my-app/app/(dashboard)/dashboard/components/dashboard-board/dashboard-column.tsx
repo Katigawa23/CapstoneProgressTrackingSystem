@@ -13,6 +13,7 @@ type DashboardColumnProps = {
   todos: TodoItem[]
   allTodos: TodoItem[]
   isSprintView?: boolean
+  currentSprintId?: string | null
   sprints: Array<{
     id: string
     name: string
@@ -21,6 +22,7 @@ type DashboardColumnProps = {
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
   onAddToSprint: (todoId: string, sprintId: string) => Promise<void> | void
+  onMoveToBoard: (todoId: string, sprintId: string) => Promise<void> | void
   onOpenTask: (todo: TodoItem, target?: OpenTaskTarget) => void
   className?: string
   scrollAreaClassName?: string
@@ -31,10 +33,12 @@ export function DashboardColumn({
   todos,
   allTodos,
   isSprintView = false,
+  currentSprintId = null,
   sprints,
   onStatusChange,
   onAssigneeChange,
   onAddToSprint,
+  onMoveToBoard,
   onOpenTask,
   className = "",
   scrollAreaClassName,
@@ -103,9 +107,12 @@ export function DashboardColumn({
                         }
                         isDragging={dragSnapshot.isDragging}
                         sprints={sprints}
+                        isSprintView={isSprintView}
+                        currentSprintId={currentSprintId}
                         onStatusChange={onStatusChange}
                         onAssigneeChange={onAssigneeChange}
                         onAddToSprint={onAddToSprint}
+                        onMoveToBoard={onMoveToBoard}
                         onOpen={onOpenTask}
                         draggableProvided={draggableProvided}
                         dragSnapshot={dragSnapshot}

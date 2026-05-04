@@ -19,6 +19,7 @@ export type CreateSubtaskInput = {
 export type DashboardBoardProps = {
   todos: TodoItem[]
   isSprintView?: boolean
+  currentSprintId?: string | null
   sprints: Array<{
     id: string
     name: string
@@ -32,6 +33,7 @@ export type DashboardBoardProps = {
   ) => Promise<void>
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
   onAddToSprint: (todoId: string, sprintId: string) => Promise<void> | void
+  onMoveToBoard: (todoId: string, sprintId: string) => Promise<void> | void
   onTodoUpdate: (todoId: string, updates: Partial<TodoItem>) => void
   onCreateSubtask: (
     parentTodo: TodoItem,

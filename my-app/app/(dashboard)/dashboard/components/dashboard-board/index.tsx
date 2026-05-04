@@ -31,11 +31,16 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 
 import { columns } from "../../constants"
-import type { DashboardComment, DashboardSubmission, TodoItem } from "../../types"
+import type {
+  DashboardComment,
+  DashboardSubmission,
+  DashboardWebLink,
+  TodoItem,
+} from "../../types"
 import { DashboardColumn } from "./dashboard-column"
 import { TaskCommentsPanel } from "./task-comments-panel"
 import { TaskDetailsSection } from "./task-details-section"
-import { TaskSubmissionsSection } from "./task-submissions-section"
+import { TaskSubmissionsSection } from "./task-attachment-section"
 import { TaskSubtasksSection } from "./task-subtasks-section"
 import { TaskWebLinksSection } from "./task-web-links-section"
 import type {
@@ -49,11 +54,13 @@ const MAX_SUBMISSION_FILE_SIZE_BYTES = 200 * 1024 * 1024
 export function DashboardBoard({
   todos,
   isSprintView = false,
+  currentSprintId = null,
   sprints,
   onStatusChange,
   onMoveTodo,
   onAssigneeChange,
   onAddToSprint,
+  onMoveToBoard,
   onTodoUpdate,
   onCreateSubtask,
   isCreatingSubtask = false,
@@ -81,7 +88,7 @@ export function DashboardBoard({
     Record<string, DashboardComment[]>
   >({})
   const [taskWebLinks, setTaskWebLinks] = React.useState<
-    Record<string, Array<{ url: string; label: string }>>
+    Record<string, DashboardWebLink[]>
   >({})
   const [submissionThreads, setSubmissionThreads] = React.useState<
     Record<string, DashboardSubmission[]>
@@ -138,7 +145,11 @@ export function DashboardBoard({
       return
     }
 
-    if (!(selectedTodoId in commentThreads) || !(selectedTodoId in submissionThreads)) {
+    if (
+      !(selectedTodoId in commentThreads) ||
+      !(selectedTodoId in submissionThreads) ||
+      !(selectedTodoId in taskWebLinks)
+    ) {
       return
     }
 
@@ -146,7 +157,7 @@ export function DashboardBoard({
       ...current,
       [selectedTodoId]: true,
     }))
-  }, [commentThreads, loadedTaskIds, selectedTodoId, submissionThreads])
+  }, [commentThreads, loadedTaskIds, selectedTodoId, submissionThreads, taskWebLinks])
 
   const handleOpenTask = React.useCallback(
     (todo: TodoItem, target: "default" | "comments" = "default") => {
@@ -267,6 +278,52 @@ export function DashboardBoard({
       cancelled = true
     }
   }, [selectedTodoId, submissionThreads])
+
+  React.useEffect(() => {
+    if (!selectedTodoId) {
+      return
+    }
+
+    const todoId = selectedTodoId
+
+    if (todoId in taskWebLinks) {
+      return
+    }
+
+    let cancelled = false
+
+    async function loadWebLinks() {
+      try {
+        const response = await fetch(`/api/backlog-items/${todoId}/links`, {
+          cache: "no-store",
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to load web links")
+        }
+
+        const data = (await response.json()) as {
+          links: DashboardWebLink[]
+        }
+
+        if (!cancelled) {
+          setTaskWebLinks((current) => ({
+            ...current,
+            [todoId]: data.links,
+          }))
+          onTodoUpdate(todoId, { links: data.links.length })
+        }
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    void loadWebLinks()
+
+    return () => {
+      cancelled = true
+    }
+  }, [onTodoUpdate, selectedTodoId, taskWebLinks])
 
   const handleDescriptionSave = React.useCallback(() => {
     if (!selectedTodo) {
@@ -754,39 +811,82 @@ export function DashboardBoard({
     [onCreateSubtask, selectedTodo]
   )
 
-  const handleAddWebLink = React.useCallback((
-    todoId: string,
-    value: { url: string; label: string }
-  ) => {
-    setTaskWebLinks((current) => {
-      const currentLinks = current[todoId] ?? []
+  const handleAddWebLink = React.useCallback(
+    async (todoId: string, value: { url: string; label: string }) => {
+      try {
+        const response = await fetch(`/api/backlog-items/${todoId}/links`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(value),
+        })
 
-      if (
-        currentLinks.some(
-          (link) => link.url === value.url && link.label === value.label
+        if (!response.ok) {
+          throw new Error("Failed to save web link")
+        }
+
+        const data = (await response.json()) as { link: DashboardWebLink }
+
+        setTaskWebLinks((current) => {
+          const currentLinks = current[todoId] ?? []
+
+          if (
+            currentLinks.some(
+              (link) =>
+                link.url === data.link.url && link.label === data.link.label
+            )
+          ) {
+            return current
+          }
+
+          const nextLinks = [data.link, ...currentLinks]
+          onTodoUpdate(todoId, { links: nextLinks.length })
+
+          return {
+            ...current,
+            [todoId]: nextLinks,
+          }
+        })
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    [onTodoUpdate]
+  )
+
+  const handleRemoveWebLink = React.useCallback(
+    async (todoId: string, value: { id: string; url: string; label: string }) => {
+      try {
+        const response = await fetch(
+          `/api/backlog-items/${todoId}/links?linkId=${encodeURIComponent(value.id)}`,
+          {
+            method: "DELETE",
+          }
         )
-      ) {
-        return current
-      }
 
-      return {
-        ...current,
-        [todoId]: [...currentLinks, value],
-      }
-    })
-  }, [])
+        if (!response.ok) {
+          throw new Error("Failed to delete web link")
+        }
 
-  const handleRemoveWebLink = React.useCallback((
-    todoId: string,
-    value: { url: string; label: string }
-  ) => {
-    setTaskWebLinks((current) => ({
-      ...current,
-      [todoId]: (current[todoId] ?? []).filter(
-        (link) => !(link.url === value.url && link.label === value.label)
-      ),
-    }))
-  }, [])
+        setTaskWebLinks((current) => {
+          const nextLinks = (current[todoId] ?? []).filter(
+            (link) => link.id !== value.id
+          )
+
+          onTodoUpdate(todoId, { links: nextLinks.length })
+
+          return {
+            ...current,
+            [todoId]: nextLinks,
+          }
+        })
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    [onTodoUpdate]
+  )
 
   const handleEditSubtaskTitle = React.useCallback(
     async (subtask: TodoItem, nextTitle: string) => {
@@ -920,10 +1020,12 @@ export function DashboardBoard({
                   todos={columnTodos}
                   allTodos={todos}
                   isSprintView={isSprintView}
+                  currentSprintId={currentSprintId}
                   sprints={sprints}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
                   onAddToSprint={onAddToSprint}
+                  onMoveToBoard={onMoveToBoard}
                   onOpenTask={handleOpenTask}
                   className="h-full"
                   scrollAreaClassName={
@@ -951,10 +1053,12 @@ export function DashboardBoard({
               todos={columnTodos}
               allTodos={todos}
               isSprintView={isSprintView}
+              currentSprintId={currentSprintId}
               sprints={sprints}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}
               onAddToSprint={onAddToSprint}
+              onMoveToBoard={onMoveToBoard}
               onOpenTask={handleOpenTask}
             />
           )

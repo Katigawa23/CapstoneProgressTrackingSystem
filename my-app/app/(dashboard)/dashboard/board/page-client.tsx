@@ -35,6 +35,7 @@ type DashboardBoardPageClientProps = {
   initialProjects: DashboardProject[]
   initialSelectedProjectId: string | null
   initialItems: BacklogApiItem[]
+  initialSprints: SprintSummary[]
   initialSprintId?: string | null
   breadcrumbSectionLabel?: string | null
   onProjectBoardSelectPath?: string
@@ -91,6 +92,7 @@ export function DashboardBoardPageClient({
   initialProjects,
   initialSelectedProjectId,
   initialItems,
+  initialSprints,
   initialSprintId = null,
   breadcrumbSectionLabel = null,
   onProjectBoardSelectPath = "/dashboard/board",
@@ -258,6 +260,7 @@ export function DashboardBoardPageClient({
     }
 
     setTodos(mapBacklogItemsToTodos(initialItems, getCurrentProjectCode(initialSelectedProjectId)))
+    setSprints(initialSprints)
     setSelectedSprintId(initialSprintId)
     setHasLoadedBoardData(true)
   }, [
@@ -265,6 +268,7 @@ export function DashboardBoardPageClient({
     getCurrentProjectCode,
     initialItems,
     initialProjects,
+    initialSprints,
     initialSelectedProjectId,
     initialSprintId,
     selectedProject,
@@ -951,6 +955,40 @@ export function DashboardBoardPageClient({
     []
   )
 
+  const handleMoveToBoard = React.useCallback(
+    async (todoId: string, sprintId: string) => {
+      try {
+        const response = await fetch(`/api/sprints/${sprintId}/items`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            backlogItemId: todoId,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to move work item to board")
+        }
+
+        setSprints((currentSprints) =>
+          currentSprints.map((sprint) =>
+            sprint.id === sprintId
+              ? {
+                  ...sprint,
+                  backlogItemIds: sprint.backlogItemIds.filter((id) => id !== todoId),
+                }
+              : sprint
+          )
+        )
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    []
+  )
+
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
       <DashboardHeader
@@ -967,15 +1005,31 @@ export function DashboardBoardPageClient({
         showCreateButton={!selectedSprint}
         canCreateSprint={canCreateSprint}
         sprints={sprints}
-        onProjectBoardSelect={() => {
-          if (breadcrumbSectionLabel) {
-            router.push(onProjectBoardSelectPath)
+        onProjectSelect={() => {
+          router.push("/dashboard/board")
+        }}
+        onBreadcrumbSectionSelect={() => {
+          if (!breadcrumbSectionLabel) {
             return
           }
 
-          setSelectedSprintId(null)
+          router.push(onProjectBoardSelectPath)
         }}
-        onSprintSelect={setSelectedSprintId}
+        onActiveSprintSelect={() => {
+          if (!selectedSprint?.id) {
+            return
+          }
+
+          router.push(`/dashboard/active-sprint/${selectedSprint.id}`)
+        }}
+        onSprintSelect={(sprintId) => {
+          if (breadcrumbSectionLabel) {
+            router.push(`/dashboard/active-sprint/${sprintId}`)
+            return
+          }
+
+          setSelectedSprintId(sprintId)
+        }}
         searchValue={searchValue}
         onSearchChange={setSearchValue}
         filterValue={filterValue}
@@ -997,11 +1051,13 @@ export function DashboardBoardPageClient({
           <DashboardBoard
             todos={filteredTodos}
             isSprintView={Boolean(selectedSprint)}
+            currentSprintId={selectedSprint?.id ?? null}
             sprints={sprints}
             onStatusChange={handleStatusChange}
             onMoveTodo={handleMoveTodo}
             onAssigneeChange={handleAssigneeChange}
             onAddToSprint={handleAddToSprint}
+            onMoveToBoard={handleMoveToBoard}
             onTodoUpdate={handleTodoUpdate}
             onCreateSubtask={handleCreateSubtask}
             isCreatingSubtask={isCreatingSubtask}

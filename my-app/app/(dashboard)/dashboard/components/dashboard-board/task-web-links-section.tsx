@@ -12,11 +12,12 @@ import { Input } from "@/components/ui/input"
 
 type TaskWebLinksSectionProps = {
   links: Array<{
+    id: string
     url: string
     label: string
   }>
-  onAddLink: (value: { url: string; label: string }) => void
-  onRemoveLink: (value: { url: string; label: string }) => void
+  onAddLink: (value: { url: string; label: string }) => void | Promise<void>
+  onRemoveLink: (value: { id: string; url: string; label: string }) => void | Promise<void>
 }
 
 function normalizeUrl(value: string) {
@@ -244,7 +245,7 @@ export function TaskWebLinksSection({
             <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
               {links.map((link) => (
                 <div
-                  key={`${link.url}-${link.label}`}
+                  key={link.id}
                   className="flex items-center gap-2.5 px-2.5 py-1.5 transition-colors hover:bg-slate-50 dark:hover:bg-[#2c2c2c]"
                 >
                   <a
@@ -290,7 +291,7 @@ export function TaskWebLinksSection({
                     className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                     aria-label={`Remove ${link.label || link.url}`}
                     title="Delete"
-                    onClick={() => onRemoveLink(link)}
+                    onClick={() => void onRemoveLink(link)}
                   >
                     <X className="h-3 w-3" />
                   </button>

@@ -32,6 +32,11 @@ type ProjectRecord = {
   created_at: string
 }
 
+type ProjectStarredPreferenceRecord = {
+  project_id: string
+  user_id: string
+}
+
 type RawProjectRecord = Partial<ProjectRecord> & {
   project_description?: string
 }
@@ -64,6 +69,11 @@ type ProjectMemberAccessRecord = {
 type ProjectStorageMode = "database" | "file"
 
 const projectsFilePath = path.join(process.cwd(), ".data", "projects.json")
+const projectStarredPreferencesFilePath = path.join(
+  process.cwd(),
+  ".data",
+  "project-starred-preferences.json"
+)
 
 let schemaReady: Promise<void> | null = null
 let storageModePromise: Promise<ProjectStorageMode> | null = null
@@ -183,6 +193,16 @@ async function ensureProjectsSchema() {
       )
       .then(() =>
         getDb().query(`
+        create table if not exists project_starred_preferences (
+          project_id uuid not null references projects(id) on delete cascade,
+          user_id text not null references microsoft_account_logins(microsoft_user_id) on delete cascade,
+          created_at timestamptz not null default now(),
+          primary key (project_id, user_id)
+        );
+      `)
+      )
+      .then(() =>
+        getDb().query(`
           alter table projects
           add column if not exists owner_user_id text not null default '';
         `)
@@ -237,8 +257,24 @@ async function ensureProjectsSchema() {
       )
       .then(() =>
         getDb().query(`
+          create index if not exists project_starred_preferences_user_id_idx
+          on project_starred_preferences(user_id, created_at desc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
           create index if not exists projects_created_at_idx
           on projects(created_at desc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          insert into project_starred_preferences (project_id, user_id)
+          select id, owner_user_id
+          from projects
+          where is_starred = true
+            and owner_user_id <> ''
+          on conflict (project_id, user_id) do nothing;
         `)
       )
       .then(() =>
@@ -454,6 +490,49 @@ async function writeFileRecords(records: ProjectRecord[]) {
   await writeFile(projectsFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
+async function readFileStarredPreferences() {
+  try {
+    const raw = await readFile(projectStarredPreferencesFilePath, "utf8")
+    const parsed = JSON.parse(raw) as unknown
+
+    if (!Array.isArray(parsed)) {
+      return [] as ProjectStarredPreferenceRecord[]
+    }
+
+    return parsed.filter(
+      (record): record is ProjectStarredPreferenceRecord =>
+        Boolean(
+          record &&
+            typeof record === "object" &&
+            "project_id" in record &&
+            "user_id" in record &&
+            typeof (record as { project_id?: unknown }).project_id === "string" &&
+            typeof (record as { user_id?: unknown }).user_id === "string"
+        )
+    )
+  } catch (error) {
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String(error.code)
+        : null
+
+    if (code === "ENOENT") {
+      return []
+    }
+
+    throw error
+  }
+}
+
+async function writeFileStarredPreferences(records: ProjectStarredPreferenceRecord[]) {
+  await mkdir(path.dirname(projectStarredPreferencesFilePath), { recursive: true })
+  await writeFile(
+    projectStarredPreferencesFilePath,
+    JSON.stringify(records, null, 2),
+    "utf8"
+  )
+}
+
 function mapRecord(record: ProjectRecord): DashboardProject {
   return {
     id: record.id,
@@ -553,23 +632,26 @@ export async function listProjects(ownerUserId: string) {
     async () => {
       const result = await getDb().query<ProjectRecord>(
         `select
-           id,
-           owner_user_id,
-           member_user_ids,
-           sprint_creator_user_ids,
-           project_name,
-           project_member,
-           project_adviser,
-           is_starred,
-           program,
-           year_level,
-           sy_term,
-           project_type,
-           created_at
+           projects.id,
+           projects.owner_user_id,
+           projects.member_user_ids,
+           projects.sprint_creator_user_ids,
+           projects.project_name,
+           projects.project_member,
+           projects.project_adviser,
+           (project_starred_preferences.project_id is not null) as is_starred,
+           projects.program,
+           projects.year_level,
+           projects.sy_term,
+           projects.project_type,
+           projects.created_at
          from projects
+         left join project_starred_preferences
+           on project_starred_preferences.project_id = projects.id
+          and project_starred_preferences.user_id = $1
          where owner_user_id = $1
             or $1 = any(member_user_ids)
-         order by created_at desc`,
+         order by projects.created_at desc`,
         [ownerUserId]
       )
 
@@ -577,6 +659,13 @@ export async function listProjects(ownerUserId: string) {
     },
     async () => {
       const records = await readFileRecords()
+      const starredPreferences = await readFileStarredPreferences()
+      const starredProjectIds = new Set(
+        starredPreferences
+          .filter((record) => record.user_id === ownerUserId)
+          .map((record) => record.project_id)
+      )
+
       return [
         ...dashboardProjects,
         ...records
@@ -585,7 +674,12 @@ export async function listProjects(ownerUserId: string) {
               record.owner_user_id === ownerUserId ||
               record.member_user_ids.includes(ownerUserId)
           )
-          .map(mapRecord),
+          .map((record) =>
+            mapRecord({
+              ...record,
+              is_starred: starredProjectIds.has(record.id),
+            })
+          ),
       ]
     }
   )
@@ -697,36 +791,66 @@ export async function updateProjectStarred(
 ) {
   return withProjectStore(
     async () => {
-      const result = await getDb().query<ProjectRecord>(
-        `update projects
-         set is_starred = $3
+      const accessResult = await getDb().query<{ id: string }>(
+        `select id
+         from projects
          where id = $1
            and (
              owner_user_id = $2
              or $2 = any(member_user_ids)
            )
-         returning
-           id,
-           owner_user_id,
-           member_user_ids,
-           sprint_creator_user_ids,
-           project_name,
-           project_member,
-           project_adviser,
-           is_starred,
-           program,
-           year_level,
-           sy_term,
-           project_type,
-           created_at`,
-        [projectId, ownerUserId, starred]
+         limit 1`,
+        [projectId, ownerUserId]
+      )
+
+      if ((accessResult.rowCount ?? 0) === 0) {
+        return null
+      }
+
+      if (starred) {
+        await getDb().query(
+          `insert into project_starred_preferences (project_id, user_id)
+           values ($1, $2)
+           on conflict (project_id, user_id) do nothing`,
+          [projectId, ownerUserId]
+        )
+      } else {
+        await getDb().query(
+          `delete from project_starred_preferences
+           where project_id = $1
+             and user_id = $2`,
+          [projectId, ownerUserId]
+        )
+      }
+
+      const result = await getDb().query<ProjectRecord>(
+        `select
+           projects.id,
+           projects.owner_user_id,
+           projects.member_user_ids,
+           projects.sprint_creator_user_ids,
+           projects.project_name,
+           projects.project_member,
+           projects.project_adviser,
+           (project_starred_preferences.project_id is not null) as is_starred,
+           projects.program,
+           projects.year_level,
+           projects.sy_term,
+           projects.project_type,
+           projects.created_at
+         from projects
+         left join project_starred_preferences
+           on project_starred_preferences.project_id = projects.id
+          and project_starred_preferences.user_id = $2
+         where projects.id = $1`,
+        [projectId, ownerUserId]
       )
 
       return result.rows[0] ? mapRecord(result.rows[0]) : null
     },
     async () => {
       const records = await readFileRecords()
-      const recordIndex = records.findIndex(
+      const matchingRecord = records.find(
         (record) =>
           record.id === projectId &&
           (
@@ -735,17 +859,31 @@ export async function updateProjectStarred(
           )
       )
 
-      if (recordIndex < 0) {
+      if (!matchingRecord) {
         return null
       }
 
-      records[recordIndex] = {
-        ...records[recordIndex],
-        is_starred: starred,
-      }
+      const preferences = await readFileStarredPreferences()
+      const nextPreferences = starred
+        ? preferences.some(
+            (record) =>
+              record.project_id === projectId && record.user_id === ownerUserId
+          )
+          ? preferences
+          : [...preferences, { project_id: projectId, user_id: ownerUserId }]
+        : preferences.filter(
+            (record) =>
+              !(
+                record.project_id === projectId && record.user_id === ownerUserId
+              )
+          )
 
-      await writeFileRecords(records)
-      return mapRecord(records[recordIndex])
+      await writeFileStarredPreferences(nextPreferences)
+
+      return mapRecord({
+        ...matchingRecord,
+        is_starred: starred,
+      })
     }
   )
 }

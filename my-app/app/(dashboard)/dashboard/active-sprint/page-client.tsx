@@ -372,8 +372,11 @@ export function ActiveSprintPageClient({
         showCreateButton={false}
         canCreateSprint={canCreateSprint}
         sprints={sprints}
-        onProjectBoardSelect={() => {
+        onProjectSelect={() => {
           router.push("/dashboard/board")
+        }}
+        onBreadcrumbSectionSelect={() => {
+          router.push("/dashboard/active-sprint")
         }}
         onSprintSelect={(sprintId) => {
           router.push(`/dashboard/active-sprint/${sprintId}`)

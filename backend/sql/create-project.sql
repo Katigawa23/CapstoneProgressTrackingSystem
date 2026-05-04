@@ -57,3 +57,13 @@ end $$;
 
 create index if not exists projects_owner_user_id_idx
   on projects(owner_user_id);
+
+create table if not exists project_starred_preferences (
+  project_id uuid not null references projects(id) on delete cascade,
+  user_id text not null references microsoft_account_logins(microsoft_user_id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (project_id, user_id)
+);
+
+create index if not exists project_starred_preferences_user_id_idx
+  on project_starred_preferences(user_id, created_at desc);

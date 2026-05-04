@@ -10,13 +10,14 @@ export default async function ActiveSprintBoardPage({
   params: Promise<{ sprintId: string }>
 }) {
   const { sprintId } = await params
-  const { projects, selectedProject, items } = await getSelectedProjectData()
+  const { projects, selectedProject, items, sprints } = await getSelectedProjectData()
 
   return (
     <DashboardBoardPageClient
       initialProjects={projects}
       initialSelectedProjectId={selectedProject?.id ?? null}
       initialItems={items}
+      initialSprints={sprints}
       initialSprintId={sprintId}
       breadcrumbSectionLabel="Active Sprint"
       onProjectBoardSelectPath="/dashboard/active-sprint"
