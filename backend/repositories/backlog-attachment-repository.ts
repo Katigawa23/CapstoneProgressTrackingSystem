@@ -287,7 +287,7 @@ async function withSubmissionStore<T>(
   }
 }
 
-async function readFileRecords() {
+async function readFileRecords(): Promise<BacklogSubmissionRecord[]> {
   try {
     const raw = await readFile(submissionsFilePath, "utf8")
     return JSON.parse(raw) as BacklogSubmissionRecord[]
@@ -304,11 +304,13 @@ async function readFileRecords() {
           Omit<BacklogSubmissionRecord, "attachment_type" | "link_label">
         >
 
-        return legacyRecords.map((record) => ({
-          ...record,
-          attachment_type: "file",
-          link_label: "",
-        }))
+        return legacyRecords.map(
+          (record): BacklogSubmissionRecord => ({
+            ...record,
+            attachment_type: "file",
+            link_label: "",
+          })
+        )
       } catch (legacyError) {
         const legacyCode =
           typeof legacyError === "object" && legacyError && "code" in legacyError
