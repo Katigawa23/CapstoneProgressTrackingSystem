@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDown, Clock3, Plus, Search } from "lucide-react"
+import { ChevronDown, Clock3, Filter, Plus, Search } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -13,13 +13,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   getDashboardProject,
   getSelectedDashboardProjectId,
@@ -42,10 +35,14 @@ function normalizePersonName(name: string) {
 
 export type DashboardBoardFilter = "none" | "assignee" | "subtask"
 
+const activeHeaderFilterItemClassName =
+  "bg-blue-50 text-blue-700 data-[highlighted]:bg-blue-100 data-[highlighted]:text-blue-800 dark:bg-blue-500/20 dark:text-blue-200 dark:data-[highlighted]:bg-blue-500/30 dark:data-[highlighted]:text-blue-100"
+
 type DashboardHeaderProps = {
   people: Person[]
   breadcrumbSectionLabel?: string | null
   activeSprintName?: string | null
+  showFilter?: boolean
   sprintDescription?: string | null
   sprintCountdownLabel?: string | null
   boardTitle?: string
@@ -75,6 +72,7 @@ export function DashboardHeader({
   people,
   breadcrumbSectionLabel,
   activeSprintName,
+  showFilter = true,
   sprintDescription,
   sprintCountdownLabel,
   boardTitle = "Board",
@@ -94,6 +92,8 @@ export function DashboardHeader({
   onFilterChange,
 }: DashboardHeaderProps) {
   const [projectName, setProjectName] = React.useState("No project selected")
+  const hasActiveFilters = filterValue !== "none"
+  const activeFilterCount = hasActiveFilters ? 1 : 0
   const uniquePeople = React.useMemo(() => {
     const seenNames = new Set<string>()
 
@@ -265,19 +265,55 @@ export function DashboardHeader({
               />
             </div>
 
-            <Select
-              value={filterValue}
-              onValueChange={(value) => onFilterChange(value as DashboardBoardFilter)}
-            >
-              <SelectTrigger size="sm" className="h-8 min-w-[84px] shrink-0 px-2 text-xs sm:min-w-[92px]">
-                <SelectValue placeholder="Filter" />
-              </SelectTrigger>
-              <SelectContent align="end">
-                <SelectItem value="none">None</SelectItem>
-                <SelectItem value="assignee">Assignee</SelectItem>
-                <SelectItem value="subtask">Subtask</SelectItem>
-              </SelectContent>
-            </Select>
+            {showFilter ? (
+              <div className="flex shrink-0 items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-300 dark:hover:bg-[#303030] dark:hover:text-slate-100"
+                      aria-label="Filter board items"
+                      title="Filter"
+                    >
+                      <Filter className="h-3.5 w-3.5" />
+                      <span>Filter</span>
+                      {hasActiveFilters ? (
+                        <span className="inline-flex min-w-5 items-center justify-center rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-200">
+                          {activeFilterCount}
+                        </span>
+                      ) : null}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                  >
+                    <DropdownMenuItem
+                      className={
+                        filterValue === "assignee"
+                          ? activeHeaderFilterItemClassName
+                          : undefined
+                      }
+                      onSelect={() =>
+                        onFilterChange(filterValue === "assignee" ? "none" : "assignee")
+                      }
+                    >
+                      Assign to me
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {hasActiveFilters ? (
+                  <button
+                    type="button"
+                    className="text-xs text-slate-500 transition hover:text-slate-900 dark:text-[#9fadbc] dark:hover:text-[#dee4ea]"
+                    onClick={() => onFilterChange("none")}
+                  >
+                    Clear filters
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="flex shrink-0 items-center">
               {visiblePeople.map((person, index) => (

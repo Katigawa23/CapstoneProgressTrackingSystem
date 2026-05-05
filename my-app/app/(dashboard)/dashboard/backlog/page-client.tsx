@@ -617,17 +617,18 @@ export function BacklogPageClient({
       filterValue: BacklogSectionFilter
     ) => {
       const normalizedSearch = searchValue.trim().toLowerCase()
+      const currentUserId = currentUser?.id?.trim() ?? ""
 
       return sectionItems.filter((item) => {
-        if (filterValue === "task" && item.parentId) {
+        if (filterValue === "assignee" && (!currentUserId || item.assigneeId !== currentUserId)) {
           return false
         }
 
-        if (filterValue === "subtask" && !item.parentId) {
-          return false
-        }
-
-        if (filterValue === "completed" && item.status !== "completed") {
+        if (
+          filterValue !== "none" &&
+          filterValue !== "assignee" &&
+          item.status !== filterValue
+        ) {
           return false
         }
 
@@ -640,7 +641,7 @@ export function BacklogPageClient({
         )
       })
     },
-    []
+    [currentUser]
   )
 
   const filteredBoardItems = React.useMemo(

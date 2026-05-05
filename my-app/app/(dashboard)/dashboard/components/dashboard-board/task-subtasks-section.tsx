@@ -5,7 +5,7 @@ import {
   CalendarIcon,
   ChevronDown,
   CornerDownLeft,
-  Ellipsis,
+  Filter,
   Pencil,
   Plus,
   Trash2,
@@ -35,8 +35,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 
-import { cn } from "@/lib/utils"
 import { readClientAuthSession } from "@/lib/auth-client"
+import { cn } from "@/lib/utils"
 import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
 import type { TodoItem } from "../../types"
@@ -99,14 +99,13 @@ function SubtaskGlyph() {
 const subtaskGridClass =
   "grid grid-cols-[minmax(0,1.2fr)_68px_68px_84px_108px_52px] items-center gap-x-2.5"
 
-type SubtaskSortMode =
-  | "default"
-  | "title-asc"
-  | "title-desc"
-  | "created-oldest"
-  | "created-newest"
-
 type SubtaskStatusFilter = "all" | TodoItem["status"]
+type SubtaskAssigneeFilter = "all" | "me"
+
+const activeAssigneeFilterItemClassName =
+  "bg-blue-50 text-blue-700 data-[highlighted]:bg-blue-100 data-[highlighted]:text-blue-800 dark:bg-blue-500/20 dark:text-blue-200 dark:data-[highlighted]:bg-blue-500/30 dark:data-[highlighted]:text-blue-100"
+const activeStatusFilterItemClassName =
+  "bg-slate-100 text-slate-900 data-[highlighted]:bg-slate-200 data-[highlighted]:text-slate-950 dark:bg-[#303030] dark:text-slate-100 dark:data-[highlighted]:bg-[#3a3a3a] dark:data-[highlighted]:text-white"
 
 export function TaskSubtasksSection({
   checklist,
@@ -137,8 +136,9 @@ export function TaskSubtasksSection({
   const [openDueDateSubtaskId, setOpenDueDateSubtaskId] = React.useState<
     string | null
   >(null)
-  const [sortMode, setSortMode] = React.useState<SubtaskSortMode>("default")
   const [statusFilter, setStatusFilter] = React.useState<SubtaskStatusFilter>("all")
+  const [assigneeFilter, setAssigneeFilter] =
+    React.useState<SubtaskAssigneeFilter>("all")
   const createSubtaskRowRef = React.useRef<HTMLDivElement | null>(null)
   const editSubtaskRowRef = React.useRef<HTMLDivElement | null>(null)
   const currentUserId = React.useMemo(
@@ -152,30 +152,19 @@ export function TaskSubtasksSection({
   )
   const completionPercent =
     progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
+  const activeFilterCount =
+    (assigneeFilter === "me" ? 1 : 0) + (statusFilter === "all" ? 0 : 1)
+  const hasActiveFilters = activeFilterCount > 0
   const visibleSubtasks = React.useMemo(() => {
-    const filteredSubtasks =
-      statusFilter === "all"
-        ? subtasks
-        : subtasks.filter((subtask) => subtask.status === statusFilter)
-    const nextSubtasks = [...filteredSubtasks]
+    const filteredByAssignee =
+      assigneeFilter === "me" && currentUserId
+        ? subtasks.filter((subtask) => subtask.assigneeId === currentUserId)
+        : subtasks
 
-    switch (sortMode) {
-      case "title-asc":
-        return nextSubtasks.sort((left, right) =>
-          left.title.localeCompare(right.title)
-        )
-      case "title-desc":
-        return nextSubtasks.sort((left, right) =>
-          right.title.localeCompare(left.title)
-        )
-      case "created-oldest":
-        return nextSubtasks.sort((left, right) => left.orderIndex - right.orderIndex)
-      case "created-newest":
-        return nextSubtasks.sort((left, right) => right.orderIndex - left.orderIndex)
-      default:
-        return nextSubtasks
-    }
-  }, [sortMode, statusFilter, subtasks])
+    return statusFilter === "all"
+      ? filteredByAssignee
+      : filteredByAssignee.filter((subtask) => subtask.status === statusFilter)
+  }, [assigneeFilter, currentUserId, statusFilter, subtasks])
 
   React.useEffect(() => {
     if (!isCreatingSubtask) {
@@ -320,15 +309,14 @@ export function TaskSubtasksSection({
     }
   }, [isSubmittingSubtask, newSubtaskDueDate, newSubtaskStartDate, newSubtaskTitle, onAddSubtask])
 
-  const handleAssignAllToMe = React.useCallback(() => {
-    if (!currentUserId) {
-      return
-    }
+  const toggleAssignToMeFilter = React.useCallback(() => {
+    setAssigneeFilter((current) => (current === "me" ? "all" : "me"))
+  }, [])
 
-    for (const subtask of subtasks) {
-      onSubtaskAssigneeChange(subtask.id, currentUserId)
-    }
-  }, [currentUserId, onSubtaskAssigneeChange, subtasks])
+  const clearFilters = React.useCallback(() => {
+    setAssigneeFilter("all")
+    setStatusFilter("all")
+  }, [])
 
   return (
     <Collapsible
@@ -369,65 +357,108 @@ export function TaskSubtasksSection({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-[2px] border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc] dark:hover:bg-[#24292f] dark:hover:text-[#dee4ea]"
-                  aria-label="More subtask actions"
-                  title="More"
+                  className="inline-flex h-9 items-center gap-2 rounded-[2px] border border-slate-200 bg-white px-3 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc] dark:hover:bg-[#24292f] dark:hover:text-[#dee4ea]"
+                  aria-label="Filter subtasks"
+                  title="Filter"
                 >
-                  <Ellipsis className="h-4 w-4" />
+                  <Filter className="h-4 w-4" />
+                  <span>Filter</span>
+                  {hasActiveFilters ? (
+                    <span className="inline-flex min-w-5 items-center justify-center rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-200">
+                      {activeFilterCount}
+                    </span>
+                  ) : null}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
                 className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
               >
+                <DropdownMenuItem
+                  disabled={!currentUserId}
+                  className={
+                    assigneeFilter === "me"
+                      ? activeAssigneeFilterItemClassName
+                      : undefined
+                  }
+                  onSelect={toggleAssignToMeFilter}
+                >
+                  Assign to me
+                </DropdownMenuItem>
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Sort</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                  <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
                     <DropdownMenuItem
-                      disabled={!currentUserId || subtasks.length === 0}
-                      onSelect={handleAssignAllToMe}
+                      className={
+                        statusFilter === "all"
+                          ? activeStatusFilterItemClassName
+                          : undefined
+                      }
+                      onSelect={() => setStatusFilter("all")}
                     >
-                      Assign to me
+                      All
                     </DropdownMenuItem>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
-                        <DropdownMenuItem onSelect={() => setStatusFilter("all")}>
-                          All
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setStatusFilter("todo")}>
-                          To do
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setStatusFilter("inprogress")}>
-                          In progress
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setStatusFilter("revision")}>
-                          Revision
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setStatusFilter("completed")}>
-                          Completed
-                        </DropdownMenuItem>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>Date created</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="w-44 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
-                        <DropdownMenuItem onSelect={() => setSortMode("created-oldest")}>
-                          Oldest to newest
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setSortMode("created-newest")}>
-                          Newest to oldest
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setSortMode("default")}>
-                          Default order
-                        </DropdownMenuItem>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
+                    <DropdownMenuItem
+                      className={cn(
+                        "gap-2",
+                        statusFilter === "todo"
+                          ? activeStatusFilterItemClassName
+                          : undefined
+                      )}
+                      onSelect={() => setStatusFilter("todo")}
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                      To do
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className={cn(
+                        "gap-2",
+                        statusFilter === "inprogress"
+                          ? activeStatusFilterItemClassName
+                          : undefined
+                      )}
+                      onSelect={() => setStatusFilter("inprogress")}
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+                      In progress
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className={cn(
+                        "gap-2",
+                        statusFilter === "revision"
+                          ? activeStatusFilterItemClassName
+                          : undefined
+                      )}
+                      onSelect={() => setStatusFilter("revision")}
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+                      Revision
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className={cn(
+                        "gap-2",
+                        statusFilter === "completed"
+                          ? activeStatusFilterItemClassName
+                          : undefined
+                      )}
+                      onSelect={() => setStatusFilter("completed")}
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                      Completed
+                    </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               </DropdownMenuContent>
             </DropdownMenu>
-
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                className="text-sm text-slate-500 transition hover:text-slate-900 dark:text-[#9fadbc] dark:hover:text-[#dee4ea]"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            ) : null}
             <button
               type="button"
               className="inline-flex h-9 w-9 items-center justify-center rounded-[2px] transition hover:opacity-90"

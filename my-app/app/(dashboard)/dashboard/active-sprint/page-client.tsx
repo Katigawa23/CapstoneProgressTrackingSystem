@@ -366,6 +366,7 @@ export function ActiveSprintPageClient({
         people={projectPeople}
         breadcrumbSectionLabel="Active Sprint"
         activeSprintName={null}
+        showFilter={false}
         sprintDescription={selectedSprint?.description ?? null}
         sprintCountdownLabel={null}
         boardTitle="Active Sprint"

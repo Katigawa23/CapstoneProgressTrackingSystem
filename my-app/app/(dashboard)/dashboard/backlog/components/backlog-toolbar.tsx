@@ -1,4 +1,4 @@
-import { ChevronDown, Plus, Search } from "lucide-react"
+import { ChevronDown, Filter, Plus, Search } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -7,17 +7,25 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 
-export type BacklogSectionFilter = "none" | "task" | "subtask" | "completed"
+export type BacklogSectionFilter =
+  | "none"
+  | "assignee"
+  | "todo"
+  | "inprogress"
+  | "revision"
+  | "completed"
+
+const activeFilterItemClassName =
+  "bg-blue-50 text-blue-700 data-[highlighted]:bg-blue-100 data-[highlighted]:text-blue-800 dark:bg-blue-500/20 dark:text-blue-200 dark:data-[highlighted]:bg-blue-500/30 dark:data-[highlighted]:text-blue-100"
+const activeStatusFilterItemClassName =
+  "bg-slate-100 text-slate-900 data-[highlighted]:bg-slate-200 data-[highlighted]:text-slate-950 dark:bg-[#303030] dark:text-slate-100 dark:data-[highlighted]:bg-[#3a3a3a] dark:data-[highlighted]:text-white"
 
 type BacklogToolbarProps = {
   title: string
@@ -53,6 +61,9 @@ export function BacklogToolbar({
   onCreateSprint,
   onSprintSelect,
 }: BacklogToolbarProps) {
+  const hasActiveFilters = filterValue !== "none"
+  const activeFilterCount = hasActiveFilters ? 1 : 0
+
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <h1 className="font-display text-xl font-semibold tracking-tight text-black dark:text-slate-100">
@@ -134,20 +145,110 @@ export function BacklogToolbar({
           />
         </div>
 
-        <Select
-          value={filterValue}
-          onValueChange={(value) => onFilterChange(value as BacklogSectionFilter)}
-        >
-          <SelectTrigger className="w-[120px] border-black/20 text-black dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100">
-            <SelectValue placeholder="Filter" />
-          </SelectTrigger>
-          <SelectContent align="end">
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="task">Task</SelectItem>
-            <SelectItem value="subtask">Subtask</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex shrink-0 items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-black/20 bg-white px-3 text-xs text-black shadow-xs transition hover:bg-slate-50 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:hover:bg-[#303030]"
+                aria-label="Filter backlog items"
+                title="Filter"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                <span>Filter</span>
+                {hasActiveFilters ? (
+                  <span className="inline-flex min-w-5 items-center justify-center rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-200">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+            >
+              <DropdownMenuItem
+                className={
+                  filterValue === "assignee" ? activeFilterItemClassName : undefined
+                }
+                onSelect={() =>
+                  onFilterChange(filterValue === "assignee" ? "none" : "assignee")
+                }
+              >
+                Assign to me
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                  <DropdownMenuItem
+                    className={
+                      filterValue === "none" ? activeStatusFilterItemClassName : undefined
+                    }
+                    onSelect={() => onFilterChange("none")}
+                  >
+                    All
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className={cn(
+                      "gap-2",
+                      filterValue === "todo" ? activeStatusFilterItemClassName : undefined
+                    )}
+                    onSelect={() => onFilterChange("todo")}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                    To do
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className={cn(
+                      "gap-2",
+                      filterValue === "inprogress"
+                        ? activeStatusFilterItemClassName
+                        : undefined
+                    )}
+                    onSelect={() => onFilterChange("inprogress")}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+                    In progress
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className={cn(
+                      "gap-2",
+                      filterValue === "revision"
+                        ? activeStatusFilterItemClassName
+                        : undefined
+                    )}
+                    onSelect={() => onFilterChange("revision")}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+                    Revision
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className={cn(
+                      "gap-2",
+                      filterValue === "completed"
+                        ? activeStatusFilterItemClassName
+                        : undefined
+                    )}
+                    onSelect={() => onFilterChange("completed")}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                    Completed
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              className="text-sm text-slate-500 transition hover:text-slate-900 dark:text-[#9fadbc] dark:hover:text-[#dee4ea]"
+              onClick={() => onFilterChange("none")}
+            >
+              Clear filters
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   )
