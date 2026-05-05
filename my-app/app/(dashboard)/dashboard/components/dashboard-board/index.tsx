@@ -827,32 +827,28 @@ export function DashboardBoard({
         }
 
         const data = (await response.json()) as { link: DashboardWebLink }
+        const currentLinks = taskWebLinks[todoId] ?? []
 
-        setTaskWebLinks((current) => {
-          const currentLinks = current[todoId] ?? []
+        if (
+          currentLinks.some(
+            (link) => link.url === data.link.url && link.label === data.link.label
+          )
+        ) {
+          return
+        }
 
-          if (
-            currentLinks.some(
-              (link) =>
-                link.url === data.link.url && link.label === data.link.label
-            )
-          ) {
-            return current
-          }
+        const nextLinks = [data.link, ...currentLinks]
 
-          const nextLinks = [data.link, ...currentLinks]
-          onTodoUpdate(todoId, { links: nextLinks.length })
-
-          return {
-            ...current,
-            [todoId]: nextLinks,
-          }
-        })
+        setTaskWebLinks((current) => ({
+          ...current,
+          [todoId]: nextLinks,
+        }))
+        onTodoUpdate(todoId, { links: nextLinks.length })
       } catch (error) {
         console.error(error)
       }
     },
-    [onTodoUpdate]
+    [onTodoUpdate, taskWebLinks]
   )
 
   const handleRemoveWebLink = React.useCallback(
@@ -868,24 +864,20 @@ export function DashboardBoard({
         if (!response.ok) {
           throw new Error("Failed to delete web link")
         }
+        const nextLinks = (taskWebLinks[todoId] ?? []).filter(
+          (link) => link.id !== value.id
+        )
 
-        setTaskWebLinks((current) => {
-          const nextLinks = (current[todoId] ?? []).filter(
-            (link) => link.id !== value.id
-          )
-
-          onTodoUpdate(todoId, { links: nextLinks.length })
-
-          return {
-            ...current,
-            [todoId]: nextLinks,
-          }
-        })
+        setTaskWebLinks((current) => ({
+          ...current,
+          [todoId]: nextLinks,
+        }))
+        onTodoUpdate(todoId, { links: nextLinks.length })
       } catch (error) {
         console.error(error)
       }
     },
-    [onTodoUpdate]
+    [onTodoUpdate, taskWebLinks]
   )
 
   const handleEditSubtaskTitle = React.useCallback(
