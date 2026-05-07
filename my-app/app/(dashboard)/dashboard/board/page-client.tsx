@@ -16,6 +16,7 @@ import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } 
 import { broadcastDashboardActivitySync } from "@/lib/dashboard-activity-sync"
 import { writeDashboardBoardState } from "@/lib/dashboard-board-state"
 import { DashboardBoard } from "../components/dashboard-board"
+import { getTrustedTodayDayNumber, parseDateStringToDayNumber } from "@/lib/trusted-time"
 import {
   DashboardHeader,
   type DashboardBoardFilter,
@@ -29,7 +30,7 @@ import {
   setAssigneeOptions,
 } from "../backlog/types"
 import type { BacklogApiItem, TodoItem } from "../types"
-import { mapBacklogItemsToTodos } from "../utils"
+import { buildSubtaskDisplayId, mapBacklogItemsToTodos } from "../utils"
 
 type DashboardBoardPageClientProps = {
   initialProjects: DashboardProject[]
@@ -58,28 +59,26 @@ function normalizeProjectPersonName(name: string) {
 }
 
 function formatSprintCountdown(startDate: string, endDate: string) {
-  const sprintStartDate = new Date(`${startDate}T00:00:00`)
-  const dueDate = new Date(`${endDate}T23:59:59`)
-  const today = new Date()
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const sprintStart = new Date(
-    sprintStartDate.getFullYear(),
-    sprintStartDate.getMonth(),
-    sprintStartDate.getDate()
-  )
-  const dueStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
-  const millisecondsPerDay = 24 * 60 * 60 * 1000
+  const sprintStartDay = parseDateStringToDayNumber(startDate)
+  const dueDay = parseDateStringToDayNumber(endDate)
+  const todayDay = getTrustedTodayDayNumber()
 
-  if (todayStart > dueStart) {
-    const overdueDays =
-      Math.floor((todayStart.getTime() - dueStart.getTime()) / millisecondsPerDay)
+  if (
+    Number.isNaN(sprintStartDay) ||
+    Number.isNaN(dueDay) ||
+    Number.isNaN(todayDay)
+  ) {
+    return "0 days remaining"
+  }
+
+  if (todayDay > dueDay) {
+    const overdueDays = todayDay - dueDay
 
     return `${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`
   }
 
-  const countdownStart = todayStart < sprintStart ? sprintStart : todayStart
-  const differenceInDays =
-    Math.floor((dueStart.getTime() - countdownStart.getTime()) / millisecondsPerDay) + 1
+  const countdownStartDay = Math.max(todayDay, sprintStartDay)
+  const differenceInDays = dueDay - countdownStartDay + 1
 
   if (differenceInDays === 0) {
     return "0 days remaining"
@@ -746,8 +745,45 @@ export function DashboardBoardPageClient({
           throw new Error(data?.error || "Failed to create subtask")
         }
 
-        const refreshedTodos = await fetchTodosForProject(selectedProjectId)
-        setTodos(refreshedTodos)
+        const data = (await response.json()) as { item: BacklogApiItem }
+
+        setTodos((currentTodos) => {
+          const currentSiblingCount = currentTodos.filter(
+            (todo) => todo.parentId === parentTodo.id
+          ).length
+          const createdSubtask: TodoItem = {
+            id: data.item.id,
+            displayId: buildSubtaskDisplayId(parentTodo.displayId, currentSiblingCount + 1),
+            orderIndex: data.item.orderIndex,
+            parentId: parentTodo.id,
+            title: data.item.title,
+            description: data.item.description,
+            assignee: "",
+            assigneeId: data.item.assigneeId ?? null,
+            startDate: data.item.startDate ?? "",
+            deadline: data.item.dueDate ?? "",
+            status: data.item.status === "inprogress" || data.item.status === "revision" || data.item.status === "completed"
+              ? data.item.status
+              : "todo",
+            checked: data.item.checked,
+            comments: data.item.commentCount ?? 0,
+            links: 0,
+            checklist: "0/0",
+            priority:
+              data.item.status === "revision"
+                ? "High"
+                : data.item.status === "completed"
+                ? "Low"
+                : "Medium",
+          }
+          const nextTodos = [...currentTodos, createdSubtask]
+
+          return nextTodos.map((todo) =>
+            todo.id === parentTodo.id
+              ? { ...todo, checklist: buildChecklist(nextTodos, parentTodo.id) }
+              : todo
+          )
+        })
         setHasLoadedBoardData(true)
       } catch (error) {
         setCreateSubtaskError(
@@ -758,7 +794,7 @@ export function DashboardBoardPageClient({
         setIsCreatingSubtask(false)
       }
     },
-    [fetchTodosForProject, isCreatingSubtask, router]
+    [buildChecklist, isCreatingSubtask, router]
   )
 
   const filteredTodos = React.useMemo(() => {

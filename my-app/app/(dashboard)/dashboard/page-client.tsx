@@ -44,6 +44,11 @@ import {
   subscribeToAuthChange,
   type AuthenticatedUser,
 } from "@/lib/auth-client"
+import {
+  formatTrustedDate,
+  getTrustedCurrentYear,
+  getTrustedNowDate,
+} from "@/lib/trusted-time"
 import { canCreateProject as canCreateProjectForRole, isUserRole } from "@/lib/rbac"
 import {
   subscribeToDashboardActivitySync,
@@ -138,7 +143,7 @@ export function DashboardPageClient({
   }, [])
 
   const getProjectDisplayId = React.useCallback((projectType: string, index: number) => {
-    const year = new Date().getFullYear()
+    const year = getTrustedCurrentYear()
     return `${getProjectTypeCode(projectType)}-${year}${String(index + 1).padStart(3, "0")}`
   }, [getProjectTypeCode])
 
@@ -385,7 +390,7 @@ export function DashboardPageClient({
   }, [recentProjects.length, workedOnActivities.length])
 
   const oneMonthAgo = React.useMemo(() => {
-    const date = new Date()
+    const date = getTrustedNowDate()
     date.setMonth(date.getMonth() - 1)
     return date
   }, [])
@@ -399,17 +404,7 @@ export function DashboardPageClient({
   )
 
   const formatActivityDate = React.useCallback((value: string) => {
-    const date = new Date(value)
-
-    if (Number.isNaN(date.getTime())) {
-      return value
-    }
-
-    return new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(date)
+    return formatTrustedDate(value)
   }, [])
 
   const renderActivityContent = React.useCallback(

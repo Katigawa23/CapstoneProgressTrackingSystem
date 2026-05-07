@@ -1,7 +1,6 @@
 import { cookies } from "next/headers"
 
 import { readAuthenticatedUser } from "@/lib/server-auth"
-import { readDashboardHomeStateFromCookieStore } from "@/lib/dashboard-home-state"
 import { PROJECT_COOKIE_KEY } from "@/lib/projects"
 
 import { DashboardLayoutShell } from "./layout-shell"
@@ -14,7 +13,6 @@ export default async function DashboardLayout({
 }) {
   const cookieStore = await cookies()
   const authenticatedUser = await readAuthenticatedUser()
-  const initialDashboardHomeState = readDashboardHomeStateFromCookieStore(cookieStore)
   const initialProjects = await getDashboardProjectsData()
   const selectedProjectId = cookieStore.get(PROJECT_COOKIE_KEY)?.value ?? null
   const initialTeam =
@@ -36,7 +34,6 @@ export default async function DashboardLayout({
             }
           : null
       }
-      initialDashboardHomeState={initialDashboardHomeState}
       initialProjects={initialProjects}
       initialTeam={initialTeam}
     >

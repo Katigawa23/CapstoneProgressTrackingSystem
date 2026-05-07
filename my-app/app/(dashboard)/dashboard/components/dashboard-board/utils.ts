@@ -1,8 +1,10 @@
+import { formatTrustedDateTime, getTrustedNowMs } from "@/lib/trusted-time"
+
 export function formatCommentTime(createdAt: string) {
   const createdAtTime = new Date(createdAt).getTime()
   const minutesAgo = Math.max(
     0,
-    Math.floor((Date.now() - createdAtTime) / (1000 * 60))
+    Math.floor((getTrustedNowMs() - createdAtTime) / (1000 * 60))
   )
 
   if (minutesAgo < 1) {
@@ -22,19 +24,11 @@ export function formatCommentTime(createdAt: string) {
 }
 
 export function formatSubmissionTime(uploadedAt: string) {
-  const uploadedDate = new Date(uploadedAt)
-
-  if (Number.isNaN(uploadedDate.getTime())) {
+  if (Number.isNaN(new Date(uploadedAt).getTime())) {
     return "Uploaded recently"
   }
 
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(uploadedDate)
+  return formatTrustedDateTime(uploadedAt)
 }
 
 export function formatSubmissionSize(fileSize: number) {

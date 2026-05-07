@@ -1,21 +1,12 @@
 import type { BacklogApiItem, ColumnId, TodoItem } from "./types"
 import { getAssigneeOption } from "./backlog/types"
+import { formatTrustedDate } from "@/lib/trusted-time"
 
 const fallbackDescription =
   "Write a 1000-word article discussing the latest advancements and trends."
 
 export function formatDeadline(dateString: string) {
-  if (!dateString) return "No deadline"
-
-  const date = new Date(dateString)
-
-  if (Number.isNaN(date.getTime())) return dateString
-
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date)
+  return formatTrustedDate(dateString)
 }
 
 export function getInitials(name: string) {

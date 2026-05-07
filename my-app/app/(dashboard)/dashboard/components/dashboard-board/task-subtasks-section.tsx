@@ -22,7 +22,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { LoadingScreen } from "@/components/ui/loading-screen"
 import {
   Popover,
   PopoverContent,
@@ -36,6 +35,7 @@ import {
 } from "@/components/ui/collapsible"
 
 import { readClientAuthSession } from "@/lib/auth-client"
+import { getLocalDateString, getTrustedTodayDateString } from "@/lib/trusted-time"
 import { cn } from "@/lib/utils"
 import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
@@ -68,9 +68,7 @@ function normalizeDate(date: Date) {
 }
 
 function isPastDate(date: Date) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return normalizeDate(date) < today
+  return getLocalDateString(date) < getTrustedTodayDateString()
 }
 
 function parseChecklistProgress(checklist: string, fallbackTotal: number) {
@@ -324,7 +322,6 @@ export function TaskSubtasksSection({
       onOpenChange={setIsExpanded}
       className="mt-4 space-y-3"
     >
-      {isSubmittingSubtask ? <LoadingScreen label="Creating subtask..." /> : null}
       <div className="space-y-3">
         <div className="flex w-full items-start justify-between gap-3">
           <div className="space-y-1">
@@ -794,12 +791,16 @@ export function TaskSubtasksSection({
                   type="button"
                   className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
                   aria-label="Create subtask"
-                  title="Create"
+                  title={isSubmittingSubtask ? "Creating subtask" : "Create"}
                   disabled={isSubmittingSubtask}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => void commitNewSubtask()}
                 >
-                  <CornerDownLeft className="h-4 w-4" />
+                  {isSubmittingSubtask ? (
+                    <span className="text-[10px] font-semibold">...</span>
+                  ) : (
+                    <CornerDownLeft className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>

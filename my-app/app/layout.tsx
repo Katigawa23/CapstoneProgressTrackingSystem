@@ -16,6 +16,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // eslint-disable-next-line react-hooks/purity
+  const trustedServerNowMs = Date.now()
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -47,6 +50,22 @@ export default function RootLayout({
                   var isDark = storedTheme === "dark" || (!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches);
                   document.documentElement.classList.toggle("dark", isDark);
                   document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+                } catch (error) {}
+              })();
+            `,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  window.__TRACKSPHERE_TIME_SYNC__ = {
+                    serverNowMs: ${trustedServerNowMs},
+                    performanceNowMs:
+                      typeof window.performance?.now === "function" ? window.performance.now() : 0,
+                    timeZone: "Asia/Singapore"
+                  };
                 } catch (error) {}
               })();
             `,

@@ -26,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { LoadingScreen } from "@/components/ui/loading-screen"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
@@ -139,7 +138,6 @@ export function CreateSprintDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-[2px] border-slate-200 bg-white px-5 py-4 text-slate-900 dark:border-[#343434] dark:bg-[#171717] dark:text-slate-100 sm:max-w-md">
-        {isSubmitting ? <LoadingScreen label="Creating sprint..." /> : null}
         <DialogHeader className="border-b border-slate-200 pb-2 dark:border-[#343434]">
           <DialogTitle className="font-display text-left tracking-tight text-slate-900 dark:text-slate-100">
             Start Sprint
@@ -317,7 +315,7 @@ export function CreateSprintDialog({
             onClick={onCreateSprint}
             disabled={isSubmitting || !sprintName.trim()}
           >
-            Start
+            {isSubmitting ? "Starting..." : "Start"}
           </Button>
         </div>
       </DialogContent>

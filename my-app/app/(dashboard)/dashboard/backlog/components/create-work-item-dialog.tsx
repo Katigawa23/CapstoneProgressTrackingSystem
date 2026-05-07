@@ -4,6 +4,7 @@ import * as React from "react"
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 
+import { getLocalDateString, getTrustedTodayDateString } from "@/lib/trusted-time"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -20,7 +21,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { LoadingScreen } from "@/components/ui/loading-screen"
 import { Textarea } from "@/components/ui/textarea"
 
 type CreateWorkItemDialogProps = {
@@ -66,9 +66,7 @@ export function CreateWorkItemDialog({
   }
 
   const isPastDate = (date: Date) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return date < today
+    return getLocalDateString(date) < getTrustedTodayDateString()
   }
 
   const isBeforeStartDate = (date: Date) => {
@@ -95,9 +93,6 @@ export function CreateWorkItemDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-[2px] border-slate-200 bg-white px-5 py-4 text-slate-900 dark:border-[#343434] dark:bg-[#171717] dark:text-slate-100 sm:max-w-md">
-        {isSubmitting ? (
-          <LoadingScreen label={isSubtaskMode ? "Creating subtask..." : "Creating task..."} />
-        ) : null}
         <DialogHeader className="border-b border-slate-200 pb-2 dark:border-[#343434]">
           <DialogTitle className="font-display text-left tracking-tight text-slate-900 dark:text-slate-100">
             {isSubtaskMode ? "Create new subtask." : "Create new task."}
@@ -235,15 +230,21 @@ export function CreateWorkItemDialog({
                 color: "var(--brand-primary-fixed-foreground)",
               }}
               size="sm"
-              className="h-8 min-w-24 rounded-[2px] px-3 text-sm hover:opacity-90"
-              onClick={onAddItem}
-              disabled={isSubmitting || !title.trim()}
-            >
-              {isSubtaskMode ? "Add subtask" : "Add item"}
-            </Button>
-          </div>
+            className="h-8 min-w-24 rounded-[2px] px-3 text-sm hover:opacity-90"
+            onClick={onAddItem}
+            disabled={isSubmitting || !title.trim()}
+          >
+            {isSubmitting
+              ? isSubtaskMode
+                ? "Creating..."
+                : "Adding..."
+              : isSubtaskMode
+              ? "Add subtask"
+              : "Add item"}
+          </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </DialogContent>
+  </Dialog>
   )
 }

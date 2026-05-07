@@ -4,6 +4,7 @@ import * as React from "react"
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 
+import { getLocalDateString, getTrustedTodayDateString } from "@/lib/trusted-time"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -36,9 +37,7 @@ type EditWorkItemDialogProps = {
 }
 
 function isPastDate(date: Date): boolean {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return date < today
+  return getLocalDateString(date) < getTrustedTodayDateString()
 }
 
 export function EditWorkItemDialog({

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/collapsible"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
+import { formatTrustedDateTime } from "@/lib/trusted-time"
 
 import type { DashboardSubmission, TodoItem } from "../../types"
 import type { SubmissionDraft } from "./types"
@@ -40,19 +41,11 @@ type TaskSubmissionsSectionProps = {
 }
 
 function formatAttachmentDate(uploadedAt: string) {
-  const uploadedDate = new Date(uploadedAt)
-
-  if (Number.isNaN(uploadedDate.getTime())) {
+  if (Number.isNaN(new Date(uploadedAt).getTime())) {
     return "Recently added"
   }
 
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(uploadedDate)
+  return formatTrustedDateTime(uploadedAt)
 }
 
 function FilePreviewTile({

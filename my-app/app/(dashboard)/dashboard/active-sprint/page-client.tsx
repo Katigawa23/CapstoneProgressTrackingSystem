@@ -14,6 +14,7 @@ import {
   type DashboardProject,
 } from "@/lib/projects"
 import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
+import { getTrustedTodayDayNumber, parseDateStringToDayNumber } from "@/lib/trusted-time"
 import { DashboardHeader, type DashboardBoardFilter } from "../components/dashboard-header"
 import { CreateSprintDialog } from "../components/create-sprint-dialog"
 import type { BacklogApiItem, TodoItem } from "../types"
@@ -41,28 +42,26 @@ function formatSprintKey(sequenceNumber: number) {
 }
 
 function formatSprintDue(startDate: string, endDate: string) {
-  const sprintStartDate = new Date(`${startDate}T00:00:00`)
-  const dueDate = new Date(`${endDate}T23:59:59`)
-  const today = new Date()
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const sprintStart = new Date(
-    sprintStartDate.getFullYear(),
-    sprintStartDate.getMonth(),
-    sprintStartDate.getDate()
-  )
-  const dueStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
-  const millisecondsPerDay = 24 * 60 * 60 * 1000
+  const sprintStartDay = parseDateStringToDayNumber(startDate)
+  const dueDay = parseDateStringToDayNumber(endDate)
+  const todayDay = getTrustedTodayDayNumber()
 
-  if (todayStart > dueStart) {
-    const overdueDays =
-      Math.floor((todayStart.getTime() - dueStart.getTime()) / millisecondsPerDay)
+  if (
+    Number.isNaN(sprintStartDay) ||
+    Number.isNaN(dueDay) ||
+    Number.isNaN(todayDay)
+  ) {
+    return "0 days remaining"
+  }
+
+  if (todayDay > dueDay) {
+    const overdueDays = todayDay - dueDay
 
     return `${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`
   }
 
-  const countdownStart = todayStart < sprintStart ? sprintStart : todayStart
-  const differenceInDays =
-    Math.floor((dueStart.getTime() - countdownStart.getTime()) / millisecondsPerDay) + 1
+  const countdownStartDay = Math.max(todayDay, sprintStartDay)
+  const differenceInDays = dueDay - countdownStartDay + 1
 
   if (differenceInDays === 0) {
     return "0 days remaining"

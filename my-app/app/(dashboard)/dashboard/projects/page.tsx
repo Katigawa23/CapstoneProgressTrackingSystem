@@ -19,6 +19,7 @@ import {
   refreshDashboardProjects,
   setDashboardProject,
 } from "@/lib/projects"
+import { getTrustedCurrentYear } from "@/lib/trusted-time"
 
 function sortProjects(projects: DashboardProject[]) {
   return [...projects].sort((left, right) => {
@@ -100,7 +101,7 @@ function getProjectTypeCode(projectType: string) {
 }
 
 function getProjectDisplayId(projectType: string, index: number) {
-  const year = new Date().getFullYear()
+  const year = getTrustedCurrentYear()
   return `${getProjectTypeCode(projectType)}-${year}${String(index + 1).padStart(3, "0")}`
 }
 

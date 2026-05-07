@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
-import { CustomLoader } from "@/components/ui/custom-loader"
+import { PageLoader } from "@/components/ui/page-loader"
 import { saveClientAuthSession, type AuthenticatedUser } from "@/lib/auth-client"
 
 type CompletionPayload = {
@@ -11,7 +11,6 @@ type CompletionPayload = {
   tenantId: string
 }
 
-const LOGIN_REDIRECT_DELAY_MS = 2500
 const STATUS_MESSAGES = [
   "Initializing system...",
   "Preparing dashboard...",
@@ -63,7 +62,7 @@ export default function MicrosoftAuthCompletePage() {
     const timeoutId = window.setTimeout(() => {
       router.replace(result.redirect)
       router.refresh()
-    }, LOGIN_REDIRECT_DELAY_MS)
+    }, 150)
 
     return () => {
       window.clearTimeout(timeoutId)
@@ -84,21 +83,10 @@ export default function MicrosoftAuthCompletePage() {
   }, [])
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(51,127,221,0.16),_transparent_45%),linear-gradient(180deg,_#f8fbff_0%,_#eef4ff_100%)] px-6 dark:bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_40%),linear-gradient(180deg,_#171717_0%,_#101828_100%)]">
-      <div className="flex w-full max-w-sm flex-col items-center gap-8 rounded-3xl border border-sky-100/80 bg-white/90 px-8 py-10 text-center shadow-[0_24px_80px_rgba(15,23,42,0.14)] backdrop-blur dark:border-slate-800 dark:bg-[#111827]/85 dark:shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-        <div className="space-y-2">
-          <h1 className="font-display text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-            Almost there...
-          </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-300">
-            Your dashboard is being prepared.
-          </p>
-        </div>
-        <CustomLoader size={80} color="#337FDD" aria-hidden="true" />
-        <p className="min-h-5 text-sm font-medium text-sky-700 dark:text-sky-300">
-          {statusMessage}
-        </p>
-      </div>
-    </main>
+    <PageLoader
+      title="Almost there..."
+      description="Your dashboard is being prepared."
+      message={statusMessage}
+    />
   )
 }
