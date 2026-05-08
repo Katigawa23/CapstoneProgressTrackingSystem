@@ -15,19 +15,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import type { DashboardWebLink } from "../../types"
 
 type TaskWebLinksSectionProps = {
-  links: Array<{
-    id: string
-    uploadedByUserId?: string | null
-    url: string
-    label: string
-  }>
+  links: DashboardWebLink[]
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
   onAddLink: (value: { url: string; label: string }) => void | Promise<void>
   onRemoveLink: (value: { id: string; url: string; label: string }) => void | Promise<void>
-  onArchiveLink: (value: { id: string; url: string; label: string }) => void | Promise<void>
+  onArchiveLink: (value: DashboardWebLink) => void | Promise<void>
 }
 
 function normalizeUrl(value: string) {
