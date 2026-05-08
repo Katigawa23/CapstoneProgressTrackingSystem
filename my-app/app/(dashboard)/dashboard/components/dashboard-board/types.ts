@@ -18,6 +18,9 @@ export type CreateSubtaskInput = {
 
 export type DashboardBoardProps = {
   todos: TodoItem[]
+  currentUserId?: string | null
+  creatorNamesById?: Record<string, string>
+  canManageOtherProjectResources?: boolean
   isSprintView?: boolean
   currentSprintId?: string | null
   sprints: Array<{

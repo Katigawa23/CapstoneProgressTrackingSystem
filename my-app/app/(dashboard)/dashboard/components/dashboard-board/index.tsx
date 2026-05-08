@@ -53,6 +53,9 @@ const MAX_SUBMISSION_FILE_SIZE_BYTES = 200 * 1024 * 1024
 
 export function DashboardBoard({
   todos,
+  currentUserId = null,
+  creatorNamesById = {},
+  canManageOtherProjectResources = false,
   isSprintView = false,
   currentSprintId = null,
   sprints,
@@ -1181,6 +1184,8 @@ export function DashboardBoard({
 
                   <TaskSubmissionsSection
                     selectedTodo={selectedTodo}
+                    currentUserId={currentUserId}
+                    canManageOtherProjectResources={canManageOtherProjectResources}
                     isSubmissionActionsOpen={
                       isSubmissionActionsOpen[selectedTodo.id] ?? false
                     }
@@ -1204,6 +1209,8 @@ export function DashboardBoard({
 
                   <TaskWebLinksSection
                     links={taskWebLinks[selectedTodo.id] ?? []}
+                    currentUserId={currentUserId}
+                    canManageOtherProjectResources={canManageOtherProjectResources}
                     onAddLink={(value) => handleAddWebLink(selectedTodo.id, value)}
                     onRemoveLink={(value) =>
                       handleRemoveWebLink(selectedTodo.id, value)
@@ -1218,6 +1225,8 @@ export function DashboardBoard({
                       <TaskSubtasksSection
                         checklist={selectedTodo.checklist}
                         subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
+                        currentUserId={currentUserId}
+                        canManageOtherProjectResources={canManageOtherProjectResources}
                         isSubmittingSubtask={isCreatingSubtask}
                         createSubtaskError={createSubtaskError}
                         onCreateSubtaskInputChange={onCreateSubtaskInputChange}
@@ -1236,6 +1245,8 @@ export function DashboardBoard({
 
               <TaskCommentsPanel
                 selectedTodo={selectedTodo}
+                currentUserId={currentUserId}
+                creatorNamesById={creatorNamesById}
                 comments={commentThreads[selectedTodo.id] ?? []}
                 isLoadingComments={isLoadingComments}
                 isEditingComments={isEditingComments}

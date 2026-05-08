@@ -5,6 +5,7 @@ export type TodoItem = {
   displayId: string
   orderIndex: number
   parentId?: string | null
+  createdByUserId?: string | null
   title: string
   description: string
   assignee: string
@@ -25,6 +26,7 @@ export type BacklogApiItem = {
   orderIndex: number
   projectId?: string
   parentId?: string | null
+  createdByUserId?: string | null
   title: string
   description: string
   startDate: string | null
@@ -49,6 +51,7 @@ export type DashboardComment = {
 export type DashboardSubmission = {
   id: string
   backlogItemId: string
+  uploadedByUserId?: string | null
   fileName: string
   fileUrl: string
   fileType: string
@@ -59,6 +62,7 @@ export type DashboardSubmission = {
 export type DashboardWebLink = {
   id: string
   backlogItemId: string
+  uploadedByUserId?: string | null
   url: string
   label: string
   uploadedAt: string

@@ -108,6 +108,7 @@ export function mapBacklogItemsToTodos(
         displayId,
         orderIndex: item.orderIndex,
         parentId: normalizedParentId,
+        createdByUserId: item.createdByUserId ?? null,
         title: item.title,
         description:
           item.description || (normalizedParentId ? "" : fallbackDescription),

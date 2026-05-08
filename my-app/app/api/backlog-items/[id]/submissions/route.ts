@@ -130,7 +130,12 @@ export async function DELETE(
       )
     }
 
-    const deletedSubmission = await deleteBacklogSubmission(id, submissionId, user.id)
+    const deletedSubmission = await deleteBacklogSubmission(
+      id,
+      submissionId,
+      user.id,
+      user.role
+    )
 
     if (!deletedSubmission) {
       return NextResponse.json(

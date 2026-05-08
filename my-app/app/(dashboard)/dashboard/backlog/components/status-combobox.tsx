@@ -22,6 +22,7 @@ import { getStatusOption, statusOptions } from "../types"
 type StatusComboboxProps = {
   value: string
   onChange: (value: string) => void
+  disabled?: boolean
   className?: string
   contentClassName?: string
 }
@@ -29,6 +30,7 @@ type StatusComboboxProps = {
 export function StatusCombobox({
   value,
   onChange,
+  disabled = false,
   className,
   contentClassName,
 }: StatusComboboxProps) {
@@ -37,15 +39,25 @@ export function StatusCombobox({
   const selectedOption = getStatusOption(value)
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (disabled) {
+          return
+        }
+
+        setOpen(nextOpen)
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
           role="combobox"
           aria-controls={listId}
           aria-expanded={open}
+          disabled={disabled}
           className={cn(
-            "inline-flex h-6 min-w-[95px] items-center justify-between rounded border px-1.5 text-[11px] font-medium shadow-none outline-none transition-none focus:outline-none focus:ring-0 active:scale-100",
+            "inline-flex h-6 min-w-[95px] items-center justify-between rounded border px-1.5 text-[11px] font-medium shadow-none outline-none transition-none focus:outline-none focus:ring-0 active:scale-100 disabled:cursor-not-allowed disabled:opacity-60",
             selectedOption.color,
             className
           )}
@@ -65,6 +77,10 @@ export function StatusCombobox({
                   key={option.value}
                   value={option.value}
                   onSelect={(currentValue) => {
+                    if (disabled) {
+                      return
+                    }
+
                     onChange(currentValue)
                     setOpen(false)
                   }}

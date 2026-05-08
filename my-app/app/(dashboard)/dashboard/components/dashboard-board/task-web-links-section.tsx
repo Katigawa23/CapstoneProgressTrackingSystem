@@ -13,9 +13,12 @@ import { Input } from "@/components/ui/input"
 type TaskWebLinksSectionProps = {
   links: Array<{
     id: string
+    uploadedByUserId?: string | null
     url: string
     label: string
   }>
+  currentUserId?: string | null
+  canManageOtherProjectResources?: boolean
   onAddLink: (value: { url: string; label: string }) => void | Promise<void>
   onRemoveLink: (value: { id: string; url: string; label: string }) => void | Promise<void>
 }
@@ -53,6 +56,8 @@ function getFaviconUrl(value: string) {
 
 export function TaskWebLinksSection({
   links,
+  currentUserId = null,
+  canManageOtherProjectResources = false,
   onAddLink,
   onRemoveLink,
 }: TaskWebLinksSectionProps) {
@@ -288,7 +293,14 @@ export function TaskWebLinksSection({
                   </a>
                   <button
                     type="button"
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                    disabled={
+                      !Boolean(currentUserId?.trim()) ||
+                      !(
+                        link.uploadedByUserId === currentUserId?.trim() ||
+                        canManageOtherProjectResources
+                      )
+                    }
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                     aria-label={`Remove ${link.label || link.url}`}
                     title="Delete"
                     onClick={() => void onRemoveLink(link)}

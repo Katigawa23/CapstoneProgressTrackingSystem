@@ -12,6 +12,7 @@ import {
 export type BacklogSubmissionRow = {
   id: string
   backlogItemId: string
+  uploadedByUserId: string | null
   fileName: string
   fileUrl: string
   fileType: string
@@ -22,6 +23,7 @@ export type BacklogSubmissionRow = {
 export type BacklogWebLinkRow = {
   id: string
   backlogItemId: string
+  uploadedByUserId: string | null
   url: string
   label: string
   uploadedAt: string
@@ -38,6 +40,7 @@ type CreateBacklogSubmissionInput = {
 type BacklogSubmissionRecord = {
   id: string
   backlog_item_id: string
+  uploaded_by_user_id: string | null
   attachment_type: "file" | "link"
   file_name: string
   file_url: string
@@ -91,6 +94,7 @@ function mapRecord(record: BacklogSubmissionRecord): BacklogSubmissionRow {
   return {
     id: record.id,
     backlogItemId: record.backlog_item_id,
+    uploadedByUserId: record.uploaded_by_user_id,
     fileName: record.file_name,
     fileUrl: record.file_url,
     fileType: record.file_type,
@@ -103,6 +107,7 @@ function mapWebLinkRecord(record: BacklogSubmissionRecord): BacklogWebLinkRow {
   return {
     id: record.id,
     backlogItemId: record.backlog_item_id,
+    uploadedByUserId: record.uploaded_by_user_id,
     url: record.file_url,
     label: record.link_label,
     uploadedAt: record.uploaded_at,
@@ -113,6 +118,7 @@ function toRecord(row: BacklogSubmissionRow): BacklogSubmissionRecord {
   return {
     id: row.id,
     backlog_item_id: row.backlogItemId,
+    uploaded_by_user_id: row.uploadedByUserId ?? null,
     attachment_type: "file",
     file_name: row.fileName,
     file_url: row.fileUrl,
@@ -127,6 +133,7 @@ function toWebLinkRecord(row: BacklogWebLinkRow): BacklogSubmissionRecord {
   return {
     id: row.id,
     backlog_item_id: row.backlogItemId,
+    uploaded_by_user_id: row.uploadedByUserId ?? null,
     attachment_type: "link",
     file_name: row.label || row.url,
     file_url: row.url,
@@ -144,6 +151,7 @@ async function ensureSubmissionSchema() {
         create table if not exists backlog_attachment (
           id uuid primary key,
           backlog_item_id uuid not null references backlog_items(id) on delete cascade,
+          uploaded_by_user_id text,
           attachment_type text not null default 'file' check (
             attachment_type in ('file', 'link')
           ),
@@ -155,6 +163,12 @@ async function ensureSubmissionSchema() {
           uploaded_at timestamptz not null default now()
         );
       `)
+      .then(() =>
+        getDb().query(`
+          alter table backlog_attachment
+          add column if not exists uploaded_by_user_id text;
+        `)
+      )
       .then(() =>
         getDb().query(`
           alter table backlog_attachment
@@ -180,6 +194,7 @@ async function ensureSubmissionSchema() {
               insert into backlog_attachment (
                 id,
                 backlog_item_id,
+                uploaded_by_user_id,
                 attachment_type,
                 file_name,
                 file_url,
@@ -191,6 +206,7 @@ async function ensureSubmissionSchema() {
               select
                 backlog_submissions.id,
                 backlog_submissions.backlog_item_id,
+                null,
                 'file',
                 backlog_submissions.file_name,
                 backlog_submissions.file_url,
@@ -208,6 +224,12 @@ async function ensureSubmissionSchema() {
         getDb().query(`
           create index if not exists backlog_attachment_backlog_item_id_idx
           on backlog_attachment(backlog_item_id, uploaded_at desc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists backlog_attachment_uploaded_by_user_id_idx
+          on backlog_attachment(uploaded_by_user_id);
         `)
       )
       .then(() =>
@@ -334,6 +356,14 @@ async function writeFileRecords(records: BacklogSubmissionRecord[]) {
   await writeFile(submissionsFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
+async function canManageOtherProjectAttachments(
+  _backlogItemId: string,
+  _userId: string,
+  userRole: "student" | "faculty" | "admin"
+) {
+  return userRole === "faculty" || userRole === "admin"
+}
+
 export async function listBacklogSubmissions(
   backlogItemId: string,
   ownerUserId: string
@@ -344,6 +374,7 @@ export async function listBacklogSubmissions(
         `select
           backlog_attachment.id,
           backlog_attachment.backlog_item_id,
+          backlog_attachment.uploaded_by_user_id,
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
@@ -392,6 +423,7 @@ export async function createBacklogSubmission(
         `insert into backlog_attachment (
           id,
           backlog_item_id,
+          uploaded_by_user_id,
           attachment_type,
           file_name,
           file_url,
@@ -407,18 +439,20 @@ export async function createBacklogSubmission(
           $5,
           $6,
           $7,
-          $8
+          $8,
+          $9
         from backlog_items
         inner join projects
           on projects.id = backlog_items.project_id
         where backlog_items.id = $2
           and (
-            projects.owner_user_id = $9
-            or $9 = any(projects.member_user_ids)
+            projects.owner_user_id = $10
+            or $10 = any(projects.member_user_ids)
           )
         returning
           id,
           backlog_item_id,
+          uploaded_by_user_id,
           attachment_type,
           file_name,
           file_url,
@@ -426,17 +460,18 @@ export async function createBacklogSubmission(
           file_size,
           link_label,
           uploaded_at`,
-        [
-          randomUUID(),
-          input.backlogItemId,
-          "file",
-          input.fileName,
-          input.fileUrl,
-          input.fileType,
-          input.fileSize,
-          "",
-          ownerUserId,
-        ]
+          [
+            randomUUID(),
+            input.backlogItemId,
+            ownerUserId,
+            "file",
+            input.fileName,
+            input.fileUrl,
+            input.fileType,
+            input.fileSize,
+            "",
+            ownerUserId,
+          ]
       )
 
       return result.rows[0] ? mapRecord(result.rows[0]) : null
@@ -445,6 +480,7 @@ export async function createBacklogSubmission(
       const submission: BacklogSubmissionRow = {
         id: randomUUID(),
         backlogItemId: input.backlogItemId,
+        uploadedByUserId: ownerUserId,
         fileName: input.fileName,
         fileUrl: input.fileUrl,
         fileType: input.fileType,
@@ -464,33 +500,48 @@ export async function createBacklogSubmission(
 export async function deleteBacklogSubmission(
   backlogItemId: string,
   submissionId: string,
-  ownerUserId: string
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin"
 ) {
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
         `delete from backlog_attachment
-        where id = $1 and backlog_item_id = $2
-          and attachment_type = 'file'
-          and backlog_item_id in (
-            select backlog_items.id
+        where backlog_attachment.id = $1
+          and backlog_attachment.backlog_item_id = $2
+          and backlog_attachment.attachment_type = 'file'
+          and exists (
+            select 1
             from backlog_items
             inner join projects
               on projects.id = backlog_items.project_id
-            where projects.owner_user_id = $3
-              or $3 = any(projects.member_user_ids)
+            left join project_member_access
+              on project_member_access.project_id = projects.id
+             and project_member_access.member_user_id = $3
+            where backlog_items.id = backlog_attachment.backlog_item_id
+              and (
+                projects.owner_user_id = $3
+                or $3 = any(projects.member_user_ids)
+              )
+              and (
+                backlog_attachment.uploaded_by_user_id = $3
+                or projects.owner_user_id = $3
+                or $4 in ('faculty', 'admin')
+                or coalesce(project_member_access.can_create_sprint, false)
+              )
           )
         returning
-          id,
-          backlog_item_id,
-          attachment_type,
-          file_name,
-          file_url,
-          file_type,
-          file_size,
-          link_label,
-          uploaded_at`,
-        [submissionId, backlogItemId, ownerUserId]
+          backlog_attachment.id,
+          backlog_attachment.backlog_item_id,
+          backlog_attachment.uploaded_by_user_id,
+          backlog_attachment.attachment_type,
+          backlog_attachment.file_name,
+          backlog_attachment.file_url,
+          backlog_attachment.file_type,
+          backlog_attachment.file_size,
+          backlog_attachment.link_label,
+          backlog_attachment.uploaded_at`,
+        [submissionId, backlogItemId, ownerUserId, ownerUserRole]
       )
 
       return result.rows[0] ? mapRecord(result.rows[0]) : null
@@ -505,6 +556,17 @@ export async function deleteBacklogSubmission(
       )
 
       if (recordIndex < 0) {
+        return null
+      }
+
+      if (
+        records[recordIndex].uploaded_by_user_id !== ownerUserId &&
+        !(await canManageOtherProjectAttachments(
+          backlogItemId,
+          ownerUserId,
+          ownerUserRole
+        ))
+      ) {
         return null
       }
 
@@ -526,6 +588,7 @@ export async function listBacklogWebLinks(
         `select
           backlog_attachment.id,
           backlog_attachment.backlog_item_id,
+          backlog_attachment.uploaded_by_user_id,
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
@@ -574,6 +637,7 @@ export async function createBacklogWebLink(
         `insert into backlog_attachment (
           id,
           backlog_item_id,
+          uploaded_by_user_id,
           attachment_type,
           file_name,
           file_url,
@@ -589,18 +653,20 @@ export async function createBacklogWebLink(
           $5,
           $6,
           $7,
-          $8
+          $8,
+          $9
         from backlog_items
         inner join projects
           on projects.id = backlog_items.project_id
         where backlog_items.id = $2
           and (
-            projects.owner_user_id = $9
-            or $9 = any(projects.member_user_ids)
+            projects.owner_user_id = $10
+            or $10 = any(projects.member_user_ids)
           )
         returning
           id,
           backlog_item_id,
+          uploaded_by_user_id,
           attachment_type,
           file_name,
           file_url,
@@ -608,17 +674,18 @@ export async function createBacklogWebLink(
           file_size,
           link_label,
           uploaded_at`,
-        [
-          randomUUID(),
-          input.backlogItemId,
-          "link",
-          input.label || input.url,
-          input.url,
-          "text/uri-list",
-          0,
-          input.label,
-          ownerUserId,
-        ]
+          [
+            randomUUID(),
+            input.backlogItemId,
+            ownerUserId,
+            "link",
+            input.label || input.url,
+            input.url,
+            "text/uri-list",
+            0,
+            input.label,
+            ownerUserId,
+          ]
       )
 
       return result.rows[0] ? mapWebLinkRecord(result.rows[0]) : null
@@ -627,6 +694,7 @@ export async function createBacklogWebLink(
       const link: BacklogWebLinkRow = {
         id: randomUUID(),
         backlogItemId: input.backlogItemId,
+        uploadedByUserId: ownerUserId,
         url: input.url,
         label: input.label,
         uploadedAt: new Date().toISOString(),
@@ -644,33 +712,48 @@ export async function createBacklogWebLink(
 export async function deleteBacklogWebLink(
   backlogItemId: string,
   linkId: string,
-  ownerUserId: string
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin"
 ) {
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
         `delete from backlog_attachment
-        where id = $1 and backlog_item_id = $2
-          and attachment_type = 'link'
-          and backlog_item_id in (
-            select backlog_items.id
+        where backlog_attachment.id = $1
+          and backlog_attachment.backlog_item_id = $2
+          and backlog_attachment.attachment_type = 'link'
+          and exists (
+            select 1
             from backlog_items
             inner join projects
               on projects.id = backlog_items.project_id
-            where projects.owner_user_id = $3
-              or $3 = any(projects.member_user_ids)
+            left join project_member_access
+              on project_member_access.project_id = projects.id
+             and project_member_access.member_user_id = $3
+            where backlog_items.id = backlog_attachment.backlog_item_id
+              and (
+                projects.owner_user_id = $3
+                or $3 = any(projects.member_user_ids)
+              )
+              and (
+                backlog_attachment.uploaded_by_user_id = $3
+                or projects.owner_user_id = $3
+                or $4 in ('faculty', 'admin')
+                or coalesce(project_member_access.can_create_sprint, false)
+              )
           )
         returning
-          id,
-          backlog_item_id,
-          attachment_type,
-          file_name,
-          file_url,
-          file_type,
-          file_size,
-          link_label,
-          uploaded_at`,
-        [linkId, backlogItemId, ownerUserId]
+          backlog_attachment.id,
+          backlog_attachment.backlog_item_id,
+          backlog_attachment.uploaded_by_user_id,
+          backlog_attachment.attachment_type,
+          backlog_attachment.file_name,
+          backlog_attachment.file_url,
+          backlog_attachment.file_type,
+          backlog_attachment.file_size,
+          backlog_attachment.link_label,
+          backlog_attachment.uploaded_at`,
+        [linkId, backlogItemId, ownerUserId, ownerUserRole]
       )
 
       return result.rows[0] ? mapWebLinkRecord(result.rows[0]) : null
@@ -685,6 +768,17 @@ export async function deleteBacklogWebLink(
       )
 
       if (recordIndex < 0) {
+        return null
+      }
+
+      if (
+        records[recordIndex].uploaded_by_user_id !== ownerUserId &&
+        !(await canManageOtherProjectAttachments(
+          backlogItemId,
+          ownerUserId,
+          ownerUserRole
+        ))
+      ) {
         return null
       }
 

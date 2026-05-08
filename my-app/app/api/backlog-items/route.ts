@@ -117,7 +117,7 @@ export async function POST(request: Request) {
       requestedParentId && item.parentId !== requestedParentId
         ? await updateBacklogItem(item.id, user.id, {
             parentId: requestedParentId,
-          })
+          }, user.role)
         : item
 
     revalidateTag("backlog-items", "max")

@@ -192,6 +192,26 @@ export function DashboardBoardPageClient({
 
     return ids
   }, [currentUser])
+  const creatorNamesById = React.useMemo(() => {
+    const namesById: Record<string, string> = {}
+    const memberUserIds = selectedProject?.memberUserIds ?? []
+    const memberNames = selectedProject?.members ?? []
+
+    memberUserIds.forEach((userId, index) => {
+      const normalizedUserId = userId.trim()
+      const normalizedName = memberNames[index]?.trim() ?? ""
+
+      if (normalizedUserId && normalizedName) {
+        namesById[normalizedUserId] = normalizedName
+      }
+    })
+
+    if (currentUser?.id?.trim() && currentUser.name?.trim()) {
+      namesById[currentUser.id.trim()] = currentUser.name.trim()
+    }
+
+    return namesById
+  }, [currentUser, selectedProject])
 
   const buildChecklist = React.useCallback((items: TodoItem[], parentId: string) => {
     const subtasks = items.filter((item) => item.parentId === parentId)
@@ -756,6 +776,7 @@ export function DashboardBoardPageClient({
             displayId: buildSubtaskDisplayId(parentTodo.displayId, currentSiblingCount + 1),
             orderIndex: data.item.orderIndex,
             parentId: parentTodo.id,
+            createdByUserId: data.item.createdByUserId ?? currentUser?.id ?? null,
             title: data.item.title,
             description: data.item.description,
             assignee: "",
@@ -794,7 +815,7 @@ export function DashboardBoardPageClient({
         setIsCreatingSubtask(false)
       }
     },
-    [buildChecklist, isCreatingSubtask, router]
+    [buildChecklist, currentUser?.id, isCreatingSubtask, router]
   )
 
   const filteredTodos = React.useMemo(() => {
@@ -1086,6 +1107,9 @@ export function DashboardBoardPageClient({
         <div className="min-h-0 w-full min-w-0 md:max-w-[calc(100vw-var(--sidebar-width)-3rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
           <DashboardBoard
             todos={filteredTodos}
+            currentUserId={currentUser?.id ?? null}
+            creatorNamesById={creatorNamesById}
+            canManageOtherProjectResources={canCreateSprint}
             isSprintView={Boolean(selectedSprint)}
             currentSprintId={selectedSprint?.id ?? null}
             sprints={sprints}

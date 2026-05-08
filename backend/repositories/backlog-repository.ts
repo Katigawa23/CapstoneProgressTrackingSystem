@@ -9,7 +9,10 @@ import {
   shouldFallbackToLocalStore,
 } from "@backend/db/fallback"
 import { ensureMicrosoftLoginSchema } from "@backend/repositories/microsoft-login-repository"
-import { ensureProjectExists } from "@backend/repositories/project-repository"
+import {
+  canUserCreateSprintInProject,
+  ensureProjectExists,
+} from "@backend/repositories/project-repository"
 
 export type BacklogRow = {
   id: string
@@ -17,6 +20,7 @@ export type BacklogRow = {
   parentId: string | null
   sequenceNumber: number
   orderIndex: number
+  createdByUserId: string | null
   title: string
   description: string
   startDate: string | null
@@ -58,6 +62,7 @@ type BacklogRecord = {
   parent_id: string | null
   sequence_number: number
   order_index: number
+  created_by_user_id: string | null
   title: string
   description: string
   start_date: string | null
@@ -111,6 +116,7 @@ type RawBacklogRecord = Partial<BacklogRecord> & {
   parentId?: string | null
   sequenceNumber?: number | null
   orderIndex?: number | null
+  createdByUserId?: string | null
   startDate?: string | null
   dueDate?: string | null
   assigneeId?: string | null
@@ -157,6 +163,7 @@ function mapRecord(record: BacklogRecordWithStats): BacklogRow {
     parentId: record.parent_id,
     sequenceNumber: record.sequence_number,
     orderIndex: record.order_index,
+    createdByUserId: record.created_by_user_id,
     title: record.title,
     description: record.description,
     startDate: record.start_date,
@@ -181,6 +188,7 @@ function toRecord(input: BacklogRow): BacklogRecord {
     parent_id: input.parentId,
     sequence_number: input.sequenceNumber,
     order_index: input.orderIndex,
+    created_by_user_id: input.createdByUserId ?? null,
     title: input.title,
     description: input.description,
     start_date: input.startDate,
@@ -213,6 +221,11 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
     "sequenceNumber"
   )
   const orderIndex = readNumberAlias(record, "order_index", "orderIndex")
+  const createdByUserId = readStringAlias(
+    record,
+    "created_by_user_id",
+    "createdByUserId"
+  )
   const startDate = readStringAlias(record, "start_date", "startDate")
   const dueDate = readStringAlias(record, "due_date", "dueDate")
   const assigneeId = readStringAlias(record, "assignee_id", "assigneeId")
@@ -226,6 +239,7 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
       sequenceNumber ?? 1,
     order_index:
       orderIndex ?? 1,
+    created_by_user_id: createdByUserId,
     title: typeof record.title === "string" ? record.title : "",
     description: typeof record.description === "string" ? record.description : "",
     start_date: startDate,
@@ -266,6 +280,7 @@ async function ensureBacklogSchema() {
           parent_id uuid references backlog_items(id) on delete cascade,
           sequence_number integer,
           order_index integer,
+          created_by_user_id text,
           title text not null,
           description text not null default '',
           start_date date,
@@ -279,6 +294,12 @@ async function ensureBacklogSchema() {
           updated_at timestamptz not null default now()
         );
       `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists created_by_user_id text;
+        `)
       )
       .then(() =>
         getDb().query(`
@@ -326,6 +347,12 @@ async function ensureBacklogSchema() {
         getDb().query(`
           create index if not exists backlog_items_project_order_idx
           on backlog_items(project_id, order_index asc, created_at asc);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists backlog_items_created_by_user_id_idx
+          on backlog_items(created_by_user_id);
         `)
       )
       .then(() =>
@@ -577,6 +604,7 @@ export async function listBacklogItemsWithStats(
           backlog_items.parent_id,
           backlog_items.sequence_number,
           backlog_items.order_index,
+          backlog_items.created_by_user_id,
           backlog_items.title,
           backlog_items.description,
           backlog_items.start_date,
@@ -647,6 +675,7 @@ export async function listProjectBacklogActivities(
           backlog_items.parent_id,
           backlog_items.sequence_number,
           backlog_items.order_index,
+          backlog_items.created_by_user_id,
           backlog_items.title,
           backlog_items.description,
           backlog_items.start_date,
@@ -751,6 +780,7 @@ export async function createBacklogItem(
           parent_id,
           sequence_number,
           order_index,
+          created_by_user_id,
           title,
           description,
           start_date,
@@ -771,12 +801,13 @@ export async function createBacklogItem(
           $7,
           $8,
           $9,
-          $10
+          $10,
+          $11
         from next_sequence, next_order, projects
         where projects.id = $2
           and (
-            projects.owner_user_id = $11
-            or $11 = any(projects.member_user_ids)
+            projects.owner_user_id = $12
+            or $12 = any(projects.member_user_ids)
           )
         returning
           id,
@@ -784,6 +815,7 @@ export async function createBacklogItem(
           parent_id,
           sequence_number,
           order_index,
+          created_by_user_id,
           title,
           description,
           start_date,
@@ -796,15 +828,16 @@ export async function createBacklogItem(
           randomUUID(),
           input.projectId,
           input.parentId,
+          ownerUserId,
           normalizedTitle,
           input.description,
           input.startDate,
-          input.dueDate,
-          input.status,
-          input.checked,
-          input.assigneeId,
-          ownerUserId,
-        ]
+            input.dueDate,
+            input.status,
+            input.checked,
+            input.assigneeId,
+            ownerUserId,
+          ]
       )
 
       if (!result.rows[0]) {
@@ -826,6 +859,7 @@ export async function createBacklogItem(
             parent_id,
             sequence_number,
             order_index,
+            created_by_user_id,
             title,
             description,
             start_date,
@@ -883,6 +917,7 @@ export async function createBacklogItem(
         parentId: input.parentId,
         sequenceNumber: nextSequenceNumber,
         orderIndex: nextOrderIndex,
+        createdByUserId: ownerUserId,
         title: normalizedTitle,
         description: input.description,
         startDate: input.startDate,
@@ -904,7 +939,8 @@ export async function createBacklogItem(
 export async function updateBacklogItem(
   id: string,
   ownerUserId: string,
-  input: UpdateBacklogItemInput
+  input: UpdateBacklogItemInput,
+  ownerUserRole: "student" | "faculty" | "admin" = "student"
 ) {
   return withBacklogStore(
     async () => {
@@ -966,12 +1002,22 @@ export async function updateBacklogItem(
       const result = await getDb().query<BacklogRecord>(
         `update backlog_items
         set ${fields.join(", ")}
-        where id = $${values.length}
-          and project_id in (
-            select id
-            from projects
-            where owner_user_id = $${values.length + 1}
-              or $${values.length + 1} = any(member_user_ids)
+        from projects
+        left join project_member_access
+          on project_member_access.project_id = projects.id
+         and project_member_access.member_user_id = $${values.length + 2}
+        where backlog_items.id = $${values.length}
+          and projects.id = backlog_items.project_id
+          and (
+            projects.owner_user_id = $${values.length + 1}
+            or $${values.length + 1} = any(projects.member_user_ids)
+          )
+          and (
+            backlog_items.parent_id is null
+            or backlog_items.created_by_user_id = $${values.length + 1}
+            or projects.owner_user_id = $${values.length + 1}
+            or $${values.length + 2} in ('faculty', 'admin')
+            or coalesce(project_member_access.can_create_sprint, false)
           )
         returning
           id,
@@ -979,6 +1025,7 @@ export async function updateBacklogItem(
           parent_id,
           sequence_number,
           order_index,
+          created_by_user_id,
           title,
           description,
           start_date,
@@ -987,7 +1034,7 @@ export async function updateBacklogItem(
           checked,
           assignee_id,
           created_at`,
-        [...values, ownerUserId]
+        [...values, ownerUserId, ownerUserRole]
       )
 
       return result.rows[0] ? mapRecord(result.rows[0]) : null
@@ -1005,6 +1052,20 @@ export async function updateBacklogItem(
       }
 
       const current = mapRecord(records[index])
+      const canManageOthers = await canUserCreateSprintInProject(
+        current.projectId,
+        ownerUserId,
+        ownerUserRole
+      ).catch(() => ownerUserRole === "faculty" || ownerUserRole === "admin")
+
+      if (
+        current.parentId !== null &&
+        current.createdByUserId !== ownerUserId &&
+        !canManageOthers
+      ) {
+        return null
+      }
+
       const next: BacklogRow = {
         ...current,
         title: typeof input.title === "string" ? input.title : current.title,
@@ -1035,26 +1096,60 @@ export async function updateBacklogItem(
   )
 }
 
-export async function deleteBacklogItem(id: string, ownerUserId: string) {
+export async function deleteBacklogItem(
+  id: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin" = "student"
+) {
   return withBacklogStore(
     async () => {
       const result = await getDb().query<{ id: string }>(
         `delete from backlog_items
-        where id = $1
-          and project_id in (
-            select id
-            from projects
-            where owner_user_id = $2
-              or $2 = any(member_user_ids)
+        using projects
+        left join project_member_access
+          on project_member_access.project_id = projects.id
+         and project_member_access.member_user_id = $2
+        where backlog_items.id = $1
+          and projects.id = backlog_items.project_id
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
           )
-        returning id`,
-        [id, ownerUserId]
+          and (
+            backlog_items.parent_id is null
+            or backlog_items.created_by_user_id = $2
+            or projects.owner_user_id = $2
+            or $3 in ('faculty', 'admin')
+            or coalesce(project_member_access.can_create_sprint, false)
+          )
+        returning backlog_items.id`,
+        [id, ownerUserId, ownerUserRole]
       )
 
       return (result.rowCount ?? 0) > 0
     },
     async () => {
       const records = await readFileRecords()
+      const targetRecord = records.find((record) => record.id === id)
+
+      if (!targetRecord) {
+        return false
+      }
+
+      const canManageOthers = await canUserCreateSprintInProject(
+        targetRecord.project_id,
+        ownerUserId,
+        ownerUserRole
+      ).catch(() => ownerUserRole === "faculty" || ownerUserRole === "admin")
+
+      if (
+        targetRecord.parent_id !== null &&
+        targetRecord.created_by_user_id !== ownerUserId &&
+        !canManageOthers
+      ) {
+        return false
+      }
+
       const nextRecords = records.filter(
         (record) => record.id !== id && record.parent_id !== id
       )

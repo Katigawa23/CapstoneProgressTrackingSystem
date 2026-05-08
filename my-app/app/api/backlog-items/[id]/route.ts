@@ -61,7 +61,7 @@ export async function PATCH(
         : {}),
     }
 
-    const item = await updateBacklogItem(id, user.id, updates)
+    const item = await updateBacklogItem(id, user.id, updates, user.role)
 
     if (!item) {
       return NextResponse.json(
@@ -90,7 +90,7 @@ export async function DELETE(
   try {
     const user = await requireAuthenticatedUser()
     const { id } = await params
-    const deleted = await deleteBacklogItem(id, user.id)
+    const deleted = await deleteBacklogItem(id, user.id, user.role)
 
     if (!deleted) {
       return NextResponse.json(

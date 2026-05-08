@@ -70,33 +70,33 @@ const featureCards = [
 const howItWorksSteps = [
   {
     icon: FolderPlus,
-    title: "1. Create Project",
-    description: "Start your capstone or thesis and define your goals.",
+    title: "1. STI College Alabang",
+    description: "Sign in securely using your STI College Alabang Microsoft 365 account to access TrackSphere and your assigned projects.",
   },
   {
     icon: BarChart3,
-    title: "2. Track Progress",
-    description: "Update tasks and monitor milestones.",
+    title: "2. Create Project",
+    description: "Projects are created and managed by advisers. Students can wait for their adviser to assign or add them to a project group.",
   },
   {
     icon: MessagesSquare,
-    title: "3. Collaborate",
-    description: "Work with advisers and improve your project.",
+    title: "3. Manage Workflow",
+    description: "Organize tasks, update statuses, and manage project activities through boards, backlogs, and sprint workflows.",
   },
   {
     icon: ClipboardList,
-    title: "4. Organize Tasks",
-    description: "Build a backlog of work items and prepare tasks before execution starts.",
+    title: "4. Collaborate",
+    description: "Communicate with group members and advisers through shared tasks, comments, updates, and project discussions.",
   },
   {
     icon: LayoutGrid,
-    title: "5. Manage Workflow",
-    description: "Move tasks through kanban board stages to keep the project workflow visible.",
+    title: "5. Track Your Progress",
+    description: "Monitor completed tasks, ongoing activities, submissions, and project milestones in one centralized workspace",
   },
   {
     icon: Target,
     title: "6. Reach Milestones",
-    description: "Stay focused on deliverables and timelines until each milestone is completed.",
+    description: "Stay on schedule by completing deliverables, meeting deadlines, and progressing through each project phase successfully.",
   },
 ]
 
@@ -470,15 +470,12 @@ export default function LandingPage() {
         </ScrollReveal>
         <ScrollReveal className="mx-auto mt-6 max-w-3xl" delay={40}>
           <p className="text-base leading-8 text-slate-600 dark:text-slate-300 sm:text-lg">
-            TrackSphere helps students and advisers keep projects organized, visible, and moving
-            with a clearer and more structured workflow.
+TrackSphere is a web-based capstone and thesis project tracking and evaluation system developed for STI College Alabang. It provides students, and advisers with a centralized platform for managing tasks, monitoring milestones, tracking submissions, and organizing project progress.
           </p>
         </ScrollReveal>
         <ScrollReveal className="mx-auto mt-5 max-w-3xl" delay={120}>
           <p className="text-base leading-8 text-slate-500 dark:text-slate-400">
-            It brings tasks, milestones, updates, and collaboration into one simple workspace.
-            With a clearer view of progress, teams stay focused while advisers can guide each
-            project more smoothly.
+            By combining collaboration, task management, and progress monitoring tools in one workspace, TrackSphere helps improve communication, maintain organization, and support a more efficient and structured capstone and thesis workflow.
           </p>
         </ScrollReveal>
       </section>

@@ -34,7 +34,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 
-import { readClientAuthSession } from "@/lib/auth-client"
 import { getLocalDateString, getTrustedTodayDateString } from "@/lib/trusted-time"
 import { cn } from "@/lib/utils"
 import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
@@ -46,6 +45,8 @@ import type { CreateSubtaskInput } from "./types"
 type TaskSubtasksSectionProps = {
   checklist: string
   subtasks: TodoItem[]
+  currentUserId?: string | null
+  canManageOtherProjectResources?: boolean
   isSubmittingSubtask?: boolean
   createSubtaskError?: string | null
   onCreateSubtaskInputChange?: () => void
@@ -108,6 +109,8 @@ const activeStatusFilterItemClassName =
 export function TaskSubtasksSection({
   checklist,
   subtasks,
+  currentUserId = null,
+  canManageOtherProjectResources = false,
   isSubmittingSubtask = false,
   createSubtaskError = null,
   onCreateSubtaskInputChange,
@@ -139,10 +142,7 @@ export function TaskSubtasksSection({
     React.useState<SubtaskAssigneeFilter>("all")
   const createSubtaskRowRef = React.useRef<HTMLDivElement | null>(null)
   const editSubtaskRowRef = React.useRef<HTMLDivElement | null>(null)
-  const currentUserId = React.useMemo(
-    () => readClientAuthSession()?.user?.id?.trim() ?? null,
-    []
-  )
+  const normalizedCurrentUserId = currentUserId?.trim() ?? ""
 
   const progress = React.useMemo(
     () => parseChecklistProgress(checklist, subtasks.length),
@@ -155,14 +155,14 @@ export function TaskSubtasksSection({
   const hasActiveFilters = activeFilterCount > 0
   const visibleSubtasks = React.useMemo(() => {
     const filteredByAssignee =
-      assigneeFilter === "me" && currentUserId
-        ? subtasks.filter((subtask) => subtask.assigneeId === currentUserId)
+      assigneeFilter === "me" && normalizedCurrentUserId
+        ? subtasks.filter((subtask) => subtask.assigneeId === normalizedCurrentUserId)
         : subtasks
 
     return statusFilter === "all"
       ? filteredByAssignee
       : filteredByAssignee.filter((subtask) => subtask.status === statusFilter)
-  }, [assigneeFilter, currentUserId, statusFilter, subtasks])
+  }, [assigneeFilter, normalizedCurrentUserId, statusFilter, subtasks])
 
   React.useEffect(() => {
     if (!isCreatingSubtask) {
@@ -372,7 +372,7 @@ export function TaskSubtasksSection({
                 className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
               >
                 <DropdownMenuItem
-                  disabled={!currentUserId}
+                  disabled={!normalizedCurrentUserId}
                   className={
                     assigneeFilter === "me"
                       ? activeAssigneeFilterItemClassName
@@ -517,6 +517,12 @@ export function TaskSubtasksSection({
             <div className="divide-y divide-slate-200 dark:divide-[#2b3138]">
               {visibleSubtasks.map((subtask) => {
                 const isEditingCurrentSubtask = editingSubtaskId === subtask.id
+                const canManageSubtask =
+                  Boolean(normalizedCurrentUserId) &&
+                  (
+                    subtask.createdByUserId === normalizedCurrentUserId ||
+                    canManageOtherProjectResources
+                  )
 
                 return (
                   <div
@@ -547,6 +553,7 @@ export function TaskSubtasksSection({
                           />
                           <button
                             type="button"
+                            disabled={!canManageSubtask}
                             className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
                             aria-label="Save subtask title"
                             title="Save"
@@ -584,6 +591,7 @@ export function TaskSubtasksSection({
                             <Button
                               type="button"
                               variant="outline"
+                              disabled={!canManageSubtask}
                               className={cn(
                                 "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
                                 subtask.startDate
@@ -614,7 +622,7 @@ export function TaskSubtasksSection({
                                 subtask.startDate ? new Date(subtask.startDate) : undefined
                               }
                               onSelect={(date) => void handleSubtaskStartDateChange(subtask, date)}
-                              disabled={isPastDate}
+                              disabled={(date) => !canManageSubtask || isPastDate(date)}
                               initialFocus
                             />
                           </PopoverContent>
@@ -638,7 +646,7 @@ export function TaskSubtasksSection({
                             <Button
                               type="button"
                               variant="outline"
-                              disabled={!subtask.startDate}
+                              disabled={!subtask.startDate || !canManageSubtask}
                               className={cn(
                                 "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
                                 subtask.deadline
@@ -672,9 +680,10 @@ export function TaskSubtasksSection({
                               selected={subtask.deadline ? new Date(subtask.deadline) : undefined}
                               onSelect={(date) => void handleSubtaskDueDateChange(subtask, date)}
                               disabled={(date) =>
-                                subtask.startDate
+                                !canManageSubtask ||
+                                (subtask.startDate
                                   ? normalizeDate(date) < normalizeDate(new Date(subtask.startDate))
-                                  : false
+                                  : false)
                               }
                               initialFocus
                             />
@@ -686,6 +695,7 @@ export function TaskSubtasksSection({
                     <div className="flex justify-center">
                       <AssigneeCombobox
                         value={subtask.assigneeId}
+                        disabled={!canManageSubtask}
                         onChange={(assigneeId) =>
                           onSubtaskAssigneeChange(subtask.id, assigneeId)
                         }
@@ -700,6 +710,7 @@ export function TaskSubtasksSection({
                     <div className="flex justify-center">
                       <StatusCombobox
                         value={subtask.status}
+                        disabled={!canManageSubtask}
                         onChange={(nextStatus) =>
                           onSubtaskStatusChange(
                             subtask.id,
@@ -714,6 +725,7 @@ export function TaskSubtasksSection({
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
+                        disabled={!canManageSubtask}
                         className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-[#9fadbc] dark:hover:bg-[#2c333a] dark:hover:text-[#dee4ea]"
                         aria-label={`Edit ${subtask.title}`}
                         title="Edit"
@@ -726,6 +738,7 @@ export function TaskSubtasksSection({
                       </button>
                       <button
                         type="button"
+                        disabled={!canManageSubtask}
                         className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-[#9fadbc] dark:hover:bg-red-950/30 dark:hover:text-red-400"
                         aria-label={`Delete ${subtask.title}`}
                         title="Delete"

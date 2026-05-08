@@ -87,7 +87,7 @@ export async function POST(
         ? createdItem
         : await updateBacklogItem(createdItem.id, user.id, {
             parentId: normalizedParentId,
-          })
+          }, user.role)
 
     if (!persistedItem || persistedItem.parentId !== normalizedParentId) {
       return NextResponse.json(

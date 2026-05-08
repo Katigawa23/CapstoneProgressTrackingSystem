@@ -29,6 +29,7 @@ import { assigneeOptions, getAssigneeOption } from "../types"
 type AssigneeComboboxProps = {
   value?: string | null
   onChange: (value: string | null) => void
+  disabled?: boolean
   className?: string
   contentClassName?: string
   avatarClassName?: string
@@ -39,6 +40,7 @@ type AssigneeComboboxProps = {
 export function AssigneeCombobox({
   value,
   onChange,
+  disabled = false,
   className,
   contentClassName,
   avatarClassName,
@@ -49,13 +51,26 @@ export function AssigneeCombobox({
   const selectedAssignee = getAssigneeOption(value)
   const handleTriggerClick = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
+      if (disabled) {
+        event.preventDefault()
+      }
+
       event.stopPropagation()
     },
-    []
+    [disabled]
   )
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (disabled) {
+          return
+        }
+
+        setOpen(nextOpen)
+      }}
+    >
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -64,8 +79,9 @@ export function AssigneeCombobox({
                 type="button"
                 variant="ghost"
                 size="icon"
+                disabled={disabled}
                 className={cn(
-                  "h-7 w-7 rounded-full border border-slate-200 bg-white p-0 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700",
+                  "h-7 w-7 rounded-full border border-slate-200 bg-white p-0 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60",
                   className
                 )}
                 onClick={handleTriggerClick}
@@ -112,6 +128,10 @@ export function AssigneeCombobox({
               <CommandItem
                 value="unassigned"
                 onSelect={() => {
+                  if (disabled) {
+                    return
+                  }
+
                   onChange(null)
                   setOpen(false)
                 }}
@@ -139,6 +159,10 @@ export function AssigneeCombobox({
                   key={option.id}
                   value={option.name}
                   onSelect={() => {
+                    if (disabled) {
+                      return
+                    }
+
                     onChange(option.id)
                     setOpen(false)
                   }}

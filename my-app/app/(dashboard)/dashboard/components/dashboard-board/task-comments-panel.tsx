@@ -25,6 +25,8 @@ import { formatCommentTime } from "./utils"
 
 type TaskCommentsPanelProps = {
   selectedTodo: TodoItem
+  currentUserId?: string | null
+  creatorNamesById?: Record<string, string>
   comments: DashboardComment[]
   isLoadingComments: boolean
   isEditingComments: boolean
@@ -49,6 +51,8 @@ function escapeRegExp(value: string) {
 
 export function TaskCommentsPanel({
   selectedTodo,
+  currentUserId = null,
+  creatorNamesById = {},
   comments,
   isLoadingComments,
   isEditingComments,
@@ -67,6 +71,15 @@ export function TaskCommentsPanel({
   onStatusChange,
 }: TaskCommentsPanelProps) {
   const selectedAssignee = getAssigneeOption(selectedTodo.assigneeId)
+  const normalizedCurrentUserId = currentUserId?.trim() ?? ""
+  const createdByUserId = selectedTodo.createdByUserId?.trim() ?? ""
+  const createdByLabel = (() => {
+    if (!createdByUserId) {
+      return "Not available"
+    }
+
+    return creatorNamesById[createdByUserId] ?? createdByUserId
+  })()
   const knownMentionNames = Array.from(
     new Set(
       comments
@@ -93,7 +106,7 @@ export function TaskCommentsPanel({
       label: "Assignee",
       value: selectedAssignee?.name ?? "Unassigned",
     },
-    { label: "Created by", value: "Not available" },
+    { label: "Created by", value: createdByLabel },
   ]
 
   const renderCommentSkeleton = () => (
@@ -226,6 +239,32 @@ export function TaskCommentsPanel({
                       </Tooltip>
                     </TooltipProvider>
                   </div>
+                ) : item.label === "Created by" ? (
+                  <div className="mt-1 flex min-w-0 items-center gap-2">
+                    {createdByUserId ? (
+                      <Avatar className="h-7 w-7 shrink-0 cursor-default">
+                        <AvatarFallback className="text-[9px]">
+                          {getInitials(item.value)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div className="flex h-7 w-7 shrink-0 cursor-default items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-500 dark:border-[#4a4a4a] dark:bg-[#262626] dark:text-slate-300">
+                        -
+                      </div>
+                    )}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="min-w-0 truncate whitespace-nowrap text-xs text-slate-800 dark:text-slate-200">
+                            {item.value}
+                          </p>
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={6}>
+                          <p className="text-xs font-medium">{item.value}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 ) : (
                   <p className="mt-0.5 truncate text-xs text-slate-800 dark:text-slate-200">
                     {item.value}
@@ -250,8 +289,13 @@ export function TaskCommentsPanel({
                   ))}
                 </>
               ) : comments.length > 0 ? (
-                comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-3">
+                comments.map((comment) => {
+                  const canManageComment =
+                    Boolean(normalizedCurrentUserId) &&
+                    comment.authorUserId === normalizedCurrentUserId
+
+                  return (
+                    <div key={comment.id} className="flex gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
                       {getInitials(comment.author || "Unknown User")}
                     </div>
@@ -269,16 +313,21 @@ export function TaskCommentsPanel({
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="ml-auto rounded-[2px] p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-[#303030] dark:hover:text-slate-200"
+                              disabled={!canManageComment}
+                              className="ml-auto rounded-[2px] p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-[#303030] dark:hover:text-slate-200"
                             >
                               <Ellipsis className="h-4 w-4" />
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-32">
-                            <DropdownMenuItem onSelect={() => onEditComment(comment)}>
+                            <DropdownMenuItem
+                              disabled={!canManageComment}
+                              onSelect={() => onEditComment(comment)}
+                            >
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              disabled={!canManageComment}
                               variant="destructive"
                               onSelect={() => void onDeleteComment(comment)}
                             >
@@ -324,7 +373,8 @@ export function TaskCommentsPanel({
                       </div>
                     </div>
                   </div>
-                ))
+                  )
+                })
               ) : (
                 <p className="text-sm text-slate-500 dark:text-slate-400">No comments yet.</p>
               )}

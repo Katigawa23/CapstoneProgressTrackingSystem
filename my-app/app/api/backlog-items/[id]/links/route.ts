@@ -90,7 +90,12 @@ export async function DELETE(
       return NextResponse.json({ error: "linkId is required" }, { status: 400 })
     }
 
-    const deletedLink = await deleteBacklogWebLink(id, linkId, user.id)
+    const deletedLink = await deleteBacklogWebLink(
+      id,
+      linkId,
+      user.id,
+      user.role
+    )
 
     if (!deletedLink) {
       return NextResponse.json({ error: "Link not found" }, { status: 404 })

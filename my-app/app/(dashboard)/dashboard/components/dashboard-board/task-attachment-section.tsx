@@ -27,6 +27,8 @@ import { formatSubmissionSize } from "./utils"
 
 type TaskSubmissionsSectionProps = {
   selectedTodo: TodoItem
+  currentUserId?: string | null
+  canManageOtherProjectResources?: boolean
   isSubmissionActionsOpen: boolean
   submissionDrafts: SubmissionDraft[]
   submissionThreads: DashboardSubmission[]
@@ -83,10 +85,14 @@ function FilePreviewTile({
 function AttachmentList({
   submissions,
   backlogItemId,
+  currentUserId,
+  canManageOtherProjectResources,
   onSubmissionDelete,
 }: {
   submissions: DashboardSubmission[]
   backlogItemId: string
+  currentUserId?: string | null
+  canManageOtherProjectResources?: boolean
   onSubmissionDelete: (todoId: string, submissionId: string) => void | Promise<void>
 }) {
   return (
@@ -101,7 +107,15 @@ function AttachmentList({
           </div>
 
           <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
-            {submissions.map((submission) => (
+            {submissions.map((submission) => {
+              const canDeleteSubmission =
+                Boolean(currentUserId?.trim()) &&
+                (
+                  submission.uploadedByUserId === currentUserId?.trim() ||
+                  canManageOtherProjectResources === true
+                )
+
+              return (
               <div
                 key={submission.id}
                 className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 rounded-[2px] px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-[#2c2c2c]"
@@ -143,7 +157,8 @@ function AttachmentList({
                   </a>
                   <button
                     type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                    disabled={!canDeleteSubmission}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                     aria-label={`Delete ${submission.fileName}`}
                     title="Delete"
                     onClick={() =>
@@ -154,7 +169,8 @@ function AttachmentList({
                   </button>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>
@@ -202,6 +218,8 @@ function AttachmentListSkeleton() {
 
 export function TaskSubmissionsSection({
   selectedTodo,
+  currentUserId = null,
+  canManageOtherProjectResources = false,
   submissionDrafts,
   submissionThreads,
   isLoadingSubmissions,
@@ -346,6 +364,8 @@ export function TaskSubmissionsSection({
           <AttachmentList
             submissions={submissionThreads}
             backlogItemId={selectedTodo.id}
+            currentUserId={currentUserId}
+            canManageOtherProjectResources={canManageOtherProjectResources}
             onSubmissionDelete={onSubmissionDelete}
           />
         ) : null}
