@@ -1,10 +1,10 @@
 import * as React from "react"
-import { format } from "date-fns"
-
 import {
+  Archive,
   CalendarIcon,
   ChevronDown,
   CornerDownLeft,
+  Ellipsis,
   Filter,
   Pencil,
   Plus,
@@ -60,6 +60,7 @@ type TaskSubtasksSectionProps = {
     updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">
   ) => void | Promise<void>
   onDeleteSubtask: (subtask: TodoItem) => void | Promise<void>
+  onArchiveSubtask: (subtask: TodoItem) => void | Promise<void>
 }
 
 function normalizeDate(date: Date) {
@@ -121,6 +122,7 @@ export function TaskSubtasksSection({
   onEditSubtaskTitle,
   onUpdateSubtask,
   onDeleteSubtask,
+  onArchiveSubtask,
 }: TaskSubtasksSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
   const [editingSubtaskId, setEditingSubtaskId] = React.useState<string | null>(null)
@@ -129,8 +131,6 @@ export function TaskSubtasksSection({
   const [newSubtaskTitle, setNewSubtaskTitle] = React.useState("")
   const [newSubtaskStartDate, setNewSubtaskStartDate] = React.useState<Date>()
   const [newSubtaskDueDate, setNewSubtaskDueDate] = React.useState<Date>()
-  const [isStartDateOpen, setIsStartDateOpen] = React.useState(false)
-  const [isDueDateOpen, setIsDueDateOpen] = React.useState(false)
   const [openStartDateSubtaskId, setOpenStartDateSubtaskId] = React.useState<
     string | null
   >(null)
@@ -175,8 +175,6 @@ export function TaskSubtasksSection({
         setNewSubtaskTitle("")
         setNewSubtaskStartDate(undefined)
         setNewSubtaskDueDate(undefined)
-        setIsStartDateOpen(false)
-        setIsDueDateOpen(false)
       }
     }
 
@@ -302,8 +300,6 @@ export function TaskSubtasksSection({
       setNewSubtaskTitle("")
       setNewSubtaskStartDate(undefined)
       setNewSubtaskDueDate(undefined)
-      setIsStartDateOpen(false)
-      setIsDueDateOpen(false)
     }
   }, [isSubmittingSubtask, newSubtaskDueDate, newSubtaskStartDate, newSubtaskTitle, onAddSubtask])
 
@@ -523,6 +519,8 @@ export function TaskSubtasksSection({
                     subtask.createdByUserId === normalizedCurrentUserId ||
                     canManageOtherProjectResources
                   )
+                const canUpdateSubtaskFields = Boolean(normalizedCurrentUserId)
+                const canDeleteSubtask = canManageSubtask
 
                 return (
                   <div
@@ -554,7 +552,7 @@ export function TaskSubtasksSection({
                           <button
                             type="button"
                             disabled={!canManageSubtask}
-                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90"
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label="Save subtask title"
                             title="Save"
                             onMouseDown={(event) => event.preventDefault()}
@@ -591,7 +589,7 @@ export function TaskSubtasksSection({
                             <Button
                               type="button"
                               variant="outline"
-                              disabled={!canManageSubtask}
+                              disabled={!canUpdateSubtaskFields}
                               className={cn(
                                 "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
                                 subtask.startDate
@@ -622,7 +620,7 @@ export function TaskSubtasksSection({
                                 subtask.startDate ? new Date(subtask.startDate) : undefined
                               }
                               onSelect={(date) => void handleSubtaskStartDateChange(subtask, date)}
-                              disabled={(date) => !canManageSubtask || isPastDate(date)}
+                              disabled={(date) => !canUpdateSubtaskFields || isPastDate(date)}
                               initialFocus
                             />
                           </PopoverContent>
@@ -646,7 +644,7 @@ export function TaskSubtasksSection({
                             <Button
                               type="button"
                               variant="outline"
-                              disabled={!subtask.startDate || !canManageSubtask}
+                              disabled={!subtask.startDate || !canUpdateSubtaskFields}
                               className={cn(
                                 "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
                                 subtask.deadline
@@ -680,7 +678,7 @@ export function TaskSubtasksSection({
                               selected={subtask.deadline ? new Date(subtask.deadline) : undefined}
                               onSelect={(date) => void handleSubtaskDueDateChange(subtask, date)}
                               disabled={(date) =>
-                                !canManageSubtask ||
+                                !canUpdateSubtaskFields ||
                                 (subtask.startDate
                                   ? normalizeDate(date) < normalizeDate(new Date(subtask.startDate))
                                   : false)
@@ -695,7 +693,7 @@ export function TaskSubtasksSection({
                     <div className="flex justify-center">
                       <AssigneeCombobox
                         value={subtask.assigneeId}
-                        disabled={!canManageSubtask}
+                        disabled={!canUpdateSubtaskFields}
                         onChange={(assigneeId) =>
                           onSubtaskAssigneeChange(subtask.id, assigneeId)
                         }
@@ -710,7 +708,7 @@ export function TaskSubtasksSection({
                     <div className="flex justify-center">
                       <StatusCombobox
                         value={subtask.status}
-                        disabled={!canManageSubtask}
+                        disabled={!canUpdateSubtaskFields}
                         onChange={(nextStatus) =>
                           onSubtaskStatusChange(
                             subtask.id,
@@ -722,30 +720,46 @@ export function TaskSubtasksSection({
                       />
                     </div>
 
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        disabled={!canManageSubtask}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-[#9fadbc] dark:hover:bg-[#2c333a] dark:hover:text-[#dee4ea]"
-                        aria-label={`Edit ${subtask.title}`}
-                        title="Edit"
-                        onClick={() => {
-                          setEditingSubtaskId(subtask.id)
-                          setEditingTitle(subtask.title)
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!canManageSubtask}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-[#9fadbc] dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                        aria-label={`Delete ${subtask.title}`}
-                        title="Delete"
-                        onClick={() => void onDeleteSubtask(subtask)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                    <div className="flex items-center justify-end">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-[#9fadbc] dark:hover:bg-[#2c333a] dark:hover:text-[#dee4ea]"
+                            aria-label={`Open actions for ${subtask.title}`}
+                            title="Actions"
+                          >
+                            <Ellipsis className="h-3.5 w-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                        >
+                          <DropdownMenuItem
+                            disabled={!canManageSubtask}
+                            onSelect={() => {
+                              setEditingSubtaskId(subtask.id)
+                              setEditingTitle(subtask.title)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => void onArchiveSubtask(subtask)}>
+                            <Archive className="h-4 w-4" />
+                            Archive
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!canDeleteSubtask}
+                            className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
+                            onSelect={() => void onDeleteSubtask(subtask)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 )
@@ -778,8 +792,6 @@ export function TaskSubtasksSection({
                         setNewSubtaskTitle("")
                         setNewSubtaskStartDate(undefined)
                         setNewSubtaskDueDate(undefined)
-                        setIsStartDateOpen(false)
-                        setIsDueDateOpen(false)
                       }
                     }}
                     autoFocus

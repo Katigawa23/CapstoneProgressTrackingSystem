@@ -13,9 +13,10 @@ export async function GET(request: Request) {
       tenantId: user.tenantId,
       query,
     })
+    const filteredUsers = users.filter((registeredUser) => registeredUser.id !== user.id)
 
     return NextResponse.json(
-      { users },
+      { users: filteredUsers },
       {
         headers: {
           "Cache-Control": "no-store, max-age=0",

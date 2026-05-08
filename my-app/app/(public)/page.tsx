@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { BarChart3, CheckCircle2, ClipboardList, Clock3, FolderPlus, LayoutGrid, MessagesSquare, Target, Users } from "lucide-react"
+import { BarChart3, Building2, CheckCircle2, ClipboardCheck, ClipboardList, Clock3, FolderPlus, KanbanSquare, LayoutGrid, Target, Users } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import AnimatedContent from "@/components/animated-content"
@@ -69,32 +69,32 @@ const featureCards = [
 
 const howItWorksSteps = [
   {
-    icon: FolderPlus,
+    icon: Building2,
     title: "1. STI College Alabang",
     description: "Sign in securely using your STI College Alabang Microsoft 365 account to access TrackSphere and your assigned projects.",
   },
   {
-    icon: BarChart3,
+    icon: FolderPlus,
     title: "2. Create Project",
     description: "Projects are created and managed by advisers. Students can wait for their adviser to assign or add them to a project group.",
   },
   {
-    icon: MessagesSquare,
+    icon: KanbanSquare,
     title: "3. Manage Workflow",
     description: "Organize tasks, update statuses, and manage project activities through boards, backlogs, and sprint workflows.",
   },
   {
-    icon: ClipboardList,
+    icon: Users,
     title: "4. Collaborate",
     description: "Communicate with group members and advisers through shared tasks, comments, updates, and project discussions.",
   },
   {
-    icon: LayoutGrid,
+    icon: BarChart3,
     title: "5. Track Your Progress",
     description: "Monitor completed tasks, ongoing activities, submissions, and project milestones in one centralized workspace",
   },
   {
-    icon: Target,
+    icon: ClipboardCheck,
     title: "6. Reach Milestones",
     description: "Stay on schedule by completing deliverables, meeting deadlines, and progressing through each project phase successfully.",
   },

@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
-import { FolderCheck, GitFork } from "lucide-react"
+import { AlertTriangle, FolderCheck, GitFork } from "lucide-react"
 
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -71,6 +72,7 @@ export function DashboardBoard({
   onCreateSubtaskInputChange,
   onUpdateSubtask,
   onDeleteSubtask,
+  onArchiveTodo,
 }: DashboardBoardProps) {
   const [selectedTodo, setSelectedTodo] = React.useState<TodoItem | null>(null)
   const [openTarget, setOpenTarget] = React.useState<"default" | "comments">(
@@ -111,6 +113,15 @@ export function DashboardBoard({
   const [isLoadingSubmissions, setIsLoadingSubmissions] = React.useState(false)
   const [isUploadingSubmission, setIsUploadingSubmission] = React.useState(false)
   const [loadedTaskIds, setLoadedTaskIds] = React.useState<Record<string, true>>({})
+  const [pendingArchiveTodo, setPendingArchiveTodo] = React.useState<TodoItem | null>(null)
+  const [pendingArchiveSubmission, setPendingArchiveSubmission] = React.useState<{
+    todoId: string
+    submission: DashboardSubmission
+  } | null>(null)
+  const [pendingArchiveLink, setPendingArchiveLink] = React.useState<{
+    todoId: string
+    link: DashboardWebLink
+  } | null>(null)
 
   const imageInputRef = React.useRef<HTMLInputElement | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -253,7 +264,20 @@ export function DashboardBoard({
         )
 
         if (!response.ok) {
-          throw new Error("Failed to load submissions")
+          let errorDetail = `HTTP ${response.status}`
+          let errorCode = "UNKNOWN"
+          
+          try {
+            const errorData = await response.json()
+            errorCode = errorData.code || "UNKNOWN"
+            errorDetail = errorData.details ? `${errorCode}: ${errorData.details}` : errorData.error || errorDetail
+          } catch (parseError) {
+            // Response is not JSON, use generic error
+          }
+          
+          const fullError = `Failed to load submissions - ${errorDetail}`
+          console.error(`[${todoId}] ${fullError}`, { status: response.status, code: errorCode })
+          throw new Error(fullError)
         }
 
         const data = (await response.json()) as {
@@ -267,7 +291,8 @@ export function DashboardBoard({
           }))
         }
       } catch (error) {
-        console.error(error)
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        console.error(`Error loading submissions for task ${todoId}: ${errorMsg}`)
       } finally {
         if (!cancelled) {
           setIsLoadingSubmissions(false)
@@ -302,7 +327,20 @@ export function DashboardBoard({
         })
 
         if (!response.ok) {
-          throw new Error("Failed to load web links")
+          let errorDetail = `HTTP ${response.status}`
+          let errorCode = "UNKNOWN"
+          
+          try {
+            const errorData = await response.json()
+            errorCode = errorData.code || "UNKNOWN"
+            errorDetail = errorData.details ? `${errorCode}: ${errorData.details}` : errorData.error || errorDetail
+          } catch (parseError) {
+            // Response is not JSON, use generic error
+          }
+          
+          const fullError = `Failed to load web links - ${errorDetail}`
+          console.error(`[${todoId}] ${fullError}`, { status: response.status, code: errorCode })
+          throw new Error(fullError)
         }
 
         const data = (await response.json()) as {
@@ -317,7 +355,8 @@ export function DashboardBoard({
           onTodoUpdate(todoId, { links: data.links.length })
         }
       } catch (error) {
-        console.error(error)
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        console.error(`Error loading web links for task ${todoId}: ${errorMsg}`)
       }
     }
 
@@ -914,6 +953,115 @@ export function DashboardBoard({
     [onDeleteSubtask, selectedTodo]
   )
 
+  const handleArchiveTodoRequest = React.useCallback((todo: TodoItem) => {
+    setPendingArchiveTodo(todo)
+  }, [])
+
+  const handleArchiveSubmissionRequest = React.useCallback(
+    (todoId: string, submission: DashboardSubmission) => {
+      setPendingArchiveSubmission({ todoId, submission })
+    },
+    []
+  )
+
+  const handleArchiveLinkRequest = React.useCallback(
+    (todoId: string, link: DashboardWebLink) => {
+      setPendingArchiveLink({ todoId, link })
+    },
+    []
+  )
+
+  const handleConfirmArchiveTodo = React.useCallback(async () => {
+    if (!pendingArchiveTodo) {
+      return
+    }
+
+    try {
+      await onArchiveTodo(pendingArchiveTodo)
+
+      if (selectedTodo?.id === pendingArchiveTodo.id) {
+        setSelectedTodo(null)
+      }
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setPendingArchiveTodo(null)
+    }
+  }, [onArchiveTodo, pendingArchiveTodo, selectedTodo])
+
+  const handleConfirmArchiveSubmission = React.useCallback(async () => {
+    if (!pendingArchiveSubmission) {
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `/api/backlog-items/${pendingArchiveSubmission.todoId}/submissions/archive?submissionId=${encodeURIComponent(pendingArchiveSubmission.submission.id)}`,
+        { method: "POST" }
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to archive attachment")
+      }
+
+      setSubmissionThreads((current) => ({
+        ...current,
+        [pendingArchiveSubmission.todoId]: (current[pendingArchiveSubmission.todoId] ?? []).filter(
+          (submission) => submission.id !== pendingArchiveSubmission.submission.id
+        ),
+      }))
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setPendingArchiveSubmission(null)
+    }
+  }, [pendingArchiveSubmission])
+
+  const handleConfirmArchiveLink = React.useCallback(async () => {
+    if (!pendingArchiveLink) {
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `/api/backlog-items/${pendingArchiveLink.todoId}/links/archive?linkId=${encodeURIComponent(pendingArchiveLink.link.id)}`,
+        { method: "POST" }
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to archive web link")
+      }
+
+      setTaskWebLinks((current) => ({
+        ...current,
+        [pendingArchiveLink.todoId]: (current[pendingArchiveLink.todoId] ?? []).filter(
+          (link) => link.id !== pendingArchiveLink.link.id
+        ),
+      }))
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setPendingArchiveLink(null)
+    }
+  }, [pendingArchiveLink])
+
+  const canManageSelectedTodo = React.useMemo(() => {
+    if (!selectedTodo) {
+      return false
+    }
+
+    if (!selectedTodo.parentId) {
+      return true
+    }
+
+    const normalizedCurrentUserId = currentUserId?.trim() ?? ""
+
+    return Boolean(normalizedCurrentUserId) && (
+      selectedTodo.createdByUserId === normalizedCurrentUserId ||
+      canManageOtherProjectResources
+    )
+  }, [canManageOtherProjectResources, currentUserId, selectedTodo])
+
   const getColumnTodos = React.useCallback(
     (columnId: TodoItem["status"]) =>
       todos
@@ -1022,6 +1170,7 @@ export function DashboardBoard({
                   onAddToSprint={onAddToSprint}
                   onMoveToBoard={onMoveToBoard}
                   onOpenTask={handleOpenTask}
+                  onArchiveTask={handleArchiveTodoRequest}
                   className="h-full"
                   scrollAreaClassName={
                     isSprintView
@@ -1055,6 +1204,7 @@ export function DashboardBoard({
               onAddToSprint={onAddToSprint}
               onMoveToBoard={onMoveToBoard}
               onOpenTask={handleOpenTask}
+              onArchiveTask={handleArchiveTodoRequest}
             />
           )
         })}
@@ -1204,6 +1354,7 @@ export function DashboardBoard({
                     onSubmissionUpload={handleSubmissionUpload}
                     onSubmissionDraftRemove={handleSubmissionDraftRemove}
                     onSubmissionDelete={handleSubmissionDelete}
+                    onSubmissionArchive={handleArchiveSubmissionRequest}
                   />
                   <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
 
@@ -1215,6 +1366,7 @@ export function DashboardBoard({
                     onRemoveLink={(value) =>
                       handleRemoveWebLink(selectedTodo.id, value)
                     }
+                    onArchiveLink={(value) => handleArchiveLinkRequest(selectedTodo.id, value)}
                   />
 
                   {selectedTodo.parentId ||
@@ -1237,6 +1389,7 @@ export function DashboardBoard({
                         onEditSubtaskTitle={handleEditSubtaskTitle}
                         onUpdateSubtask={onUpdateSubtask}
                         onDeleteSubtask={handleDeleteSubtaskRow}
+                        onArchiveSubtask={handleArchiveTodoRequest}
                       />
                     </>
                   )}
@@ -1246,6 +1399,7 @@ export function DashboardBoard({
               <TaskCommentsPanel
                 selectedTodo={selectedTodo}
                 currentUserId={currentUserId}
+                canManageSelectedTodo={canManageSelectedTodo}
                 creatorNamesById={creatorNamesById}
                 comments={commentThreads[selectedTodo.id] ?? []}
                 isLoadingComments={isLoadingComments}
@@ -1294,6 +1448,147 @@ export function DashboardBoard({
               onClick={() => setIsEmptySubmissionAlertOpen(false)}
             >
               OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingArchiveTodo !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingArchiveTodo(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+          <AlertDialogHeader className="place-items-start text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>
+                {pendingArchiveTodo?.parentId
+                  ? `Archive Subtask ${pendingArchiveTodo.displayId.split("/").pop() ?? pendingArchiveTodo.displayId}`
+                  : `Archive Task ${pendingArchiveTodo?.displayId}`}
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              {pendingArchiveTodo?.parentId ? (
+                <>
+                  <span className="block">
+                    This subtask will be archived and removed from this task view. You won&apos;t be able to edit it while it is archived.
+                  </span>
+                  <span className="block">
+                    You can restore this subtask later from Archives.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="block">
+                    This task and its subtasks will be archived. They won&apos;t appear in this space, and you won&apos;t be able to edit them while archived.
+                  </span>
+                  <span className="block">
+                    You can restore this task anytime from Archives.
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              className="rounded-[2px] bg-amber-400 text-white hover:bg-amber-300"
+              onClick={() => void handleConfirmArchiveTodo()}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingArchiveSubmission !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingArchiveSubmission(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+          <AlertDialogHeader className="place-items-start text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>
+                Archive Attachment
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                This attachment will be archived and removed from this task view.
+              </span>
+              <span className="block">
+                You can restore it later from Archives.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              className="rounded-[2px] bg-amber-400 text-white hover:bg-amber-300"
+              onClick={() => void handleConfirmArchiveSubmission()}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingArchiveLink !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingArchiveLink(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+          <AlertDialogHeader className="place-items-start text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>
+                Archive Web Link
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                This web link will be archived and removed from this task view.
+              </span>
+              <span className="block">
+                You can restore it later from Archives.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              className="rounded-[2px] bg-amber-400 text-white hover:bg-amber-300"
+              onClick={() => void handleConfirmArchiveLink()}
+            >
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

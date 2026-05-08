@@ -34,7 +34,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { LoadingScreen } from "@/components/ui/loading-screen"
 import {
   OTHER_PROJECT_OPTION,
   PROJECT_PROGRAM_OPTIONS,
@@ -251,8 +250,7 @@ export function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-visible rounded-[2px] border-border/70 bg-white px-5 py-4 dark:border-[#343434] dark:bg-[#171717] sm:max-w-xl">
-        {isSubmitting ? <LoadingScreen label="Creating project..." /> : null}
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-[2px] border-border/70 bg-white px-5 py-4 dark:border-[#343434] dark:bg-[#171717] sm:max-w-xl">
         <div className="border-b border-border/70 pb-2 dark:border-[#343434]">
           <DialogHeader className="gap-2 text-left">
             <DialogTitle className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
@@ -261,8 +259,8 @@ export function CreateProjectDialog({
           </DialogHeader>
         </div>
 
-        <form className="space-y-3 py-1" onSubmit={handleSubmit}>
-          <div className="grid gap-4 sm:grid-cols-2">
+        <form className="flex min-h-0 flex-1 flex-col gap-3 py-1" onSubmit={handleSubmit}>
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <label htmlFor="project-title" className="text-sm font-medium text-slate-900 dark:text-slate-100">
                 Project title <span className="text-red-500">*</span>
@@ -525,7 +523,7 @@ export function CreateProjectDialog({
                 selectedMembers.length === 0
               }
             >
-              Create project
+              {isSubmitting ? "Creating..." : "Create project"}
               <ArrowUpRight className="h-4 w-4" />
             </Button>
           </DialogFooter>

@@ -250,8 +250,15 @@ export default function Navbar() {
               <div className="mt-4 flex flex-col gap-4">
                 <MicrosoftLoginButton onSuccess={() => setIsLoginOpen(false)} />
 
-                <Button variant="outline" className="w-full font-semibold">
-                  Admin Login
+                <Button
+                  variant="outline"
+                  className="w-full font-semibold"
+                  onClick={() => {
+                    setIsLoginOpen(false)
+                    window.location.assign("/api/auth/tester/faculty?redirect=/dashboard")
+                  }}
+                >
+                  Faculty Tester Login
                 </Button>
               </div>
             </DialogContent>

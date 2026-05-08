@@ -109,6 +109,7 @@ export function mapBacklogItemsToTodos(
         orderIndex: item.orderIndex,
         parentId: normalizedParentId,
         createdByUserId: item.createdByUserId ?? null,
+        archivedByUserId: item.archivedByUserId ?? null,
         title: item.title,
         description:
           item.description || (normalizedParentId ? "" : fallbackDescription),
@@ -118,6 +119,8 @@ export function mapBacklogItemsToTodos(
         deadline: item.dueDate ?? "",
         status: item.status,
         checked: item.checked,
+        archived: item.archived ?? false,
+        archivedAt: item.archivedAt ?? null,
         comments: item.commentCount ?? 0,
         links: 0,
         checklist: `${completedSubtasks}/${childItems.length}`,

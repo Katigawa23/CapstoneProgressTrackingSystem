@@ -45,10 +45,21 @@ export async function GET(
 
     return NextResponse.json({ submissions })
   } catch (error) {
-    console.error("Failed to load backlog submissions", error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const isAuthError = errorMessage === "Unauthorized"
+    
+    console.error(
+      `[${new Date().toISOString()}] Failed to load submissions for backlog item:`,
+      { error: errorMessage, stack: error instanceof Error ? error.stack : undefined }
+    )
+    
     return NextResponse.json(
-      { error: "Failed to load backlog submissions" },
-      { status: 500 }
+      { 
+        error: "Failed to load backlog submissions",
+        details: errorMessage,
+        code: isAuthError ? "UNAUTHORIZED" : "INTERNAL_ERROR"
+      },
+      { status: isAuthError ? 401 : 500 }
     )
   }
 }

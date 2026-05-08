@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     const user = await requireAuthenticatedUser()
     const { searchParams } = new URL(request.url)
     const projectId = searchParams.get("projectId")?.trim()
+    const archived = searchParams.get("archived") === "true"
     const limitValue = Number.parseInt(searchParams.get("limit") ?? "", 10)
     const offsetValue = Number.parseInt(searchParams.get("offset") ?? "", 10)
 
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
     }
 
     const items = await listBacklogItems(projectId, user.id, {
+      archived,
       limit: Number.isNaN(limitValue) ? undefined : limitValue,
       offset: Number.isNaN(offsetValue) ? undefined : offsetValue,
     })

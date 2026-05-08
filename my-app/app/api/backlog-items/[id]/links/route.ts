@@ -22,10 +22,21 @@ export async function GET(
 
     return NextResponse.json({ links })
   } catch (error) {
-    console.error("Failed to load backlog web links", error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const isAuthError = errorMessage === "Unauthorized"
+    
+    console.error(
+      `[${new Date().toISOString()}] Failed to load web links for backlog item:`,
+      { error: errorMessage, stack: error instanceof Error ? error.stack : undefined }
+    )
+    
     return NextResponse.json(
-      { error: "Failed to load backlog web links" },
-      { status: 500 }
+      { 
+        error: "Failed to load backlog web links",
+        details: errorMessage,
+        code: isAuthError ? "UNAUTHORIZED" : "INTERNAL_ERROR"
+      },
+      { status: isAuthError ? 401 : 500 }
     )
   }
 }

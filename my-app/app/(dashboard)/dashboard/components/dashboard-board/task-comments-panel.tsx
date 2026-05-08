@@ -26,6 +26,7 @@ import { formatCommentTime } from "./utils"
 type TaskCommentsPanelProps = {
   selectedTodo: TodoItem
   currentUserId?: string | null
+  canManageSelectedTodo?: boolean
   creatorNamesById?: Record<string, string>
   comments: DashboardComment[]
   isLoadingComments: boolean
@@ -52,6 +53,7 @@ function escapeRegExp(value: string) {
 export function TaskCommentsPanel({
   selectedTodo,
   currentUserId = null,
+  canManageSelectedTodo = true,
   creatorNamesById = {},
   comments,
   isLoadingComments,
@@ -211,6 +213,7 @@ export function TaskCommentsPanel({
                   <div className="mt-0.5">
                     <StatusCombobox
                       value={selectedTodo.status}
+                      disabled={!canManageSelectedTodo}
                       onChange={(value) =>
                         onStatusChange(selectedTodo.id, value as TodoItem["status"])
                       }

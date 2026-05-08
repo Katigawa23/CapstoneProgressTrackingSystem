@@ -12,6 +12,7 @@ import { ensureMicrosoftLoginSchema } from "@backend/repositories/microsoft-logi
 import {
   canUserCreateSprintInProject,
   ensureProjectExists,
+  listProjects,
 } from "@backend/repositories/project-repository"
 
 export type BacklogRow = {
@@ -21,6 +22,7 @@ export type BacklogRow = {
   sequenceNumber: number
   orderIndex: number
   createdByUserId: string | null
+  archivedByUserId: string | null
   title: string
   description: string
   startDate: string | null
@@ -28,6 +30,8 @@ export type BacklogRow = {
   status: string
   checked: boolean
   assigneeId: string | null
+  archived: boolean
+  archivedAt: string | null
   createdAt: string
   commentCount?: number
 }
@@ -63,6 +67,7 @@ type BacklogRecord = {
   sequence_number: number
   order_index: number
   created_by_user_id: string | null
+  archived_by_user_id: string | null
   title: string
   description: string
   start_date: string | null
@@ -70,6 +75,8 @@ type BacklogRecord = {
   status: string
   checked: boolean
   assignee_id: string | null
+  is_archived: boolean
+  archived_at: string | null
   created_at: string
 }
 
@@ -78,6 +85,7 @@ type BacklogRecordWithStats = BacklogRecord & {
 }
 
 type ListBacklogItemsOptions = {
+  archived?: boolean
   limit?: number
   offset?: number
 }
@@ -120,6 +128,9 @@ type RawBacklogRecord = Partial<BacklogRecord> & {
   startDate?: string | null
   dueDate?: string | null
   assigneeId?: string | null
+  archivedByUserId?: string | null
+  archived?: boolean
+  archivedAt?: string | null
   createdAt?: string | null
   file_name?: string | null
   file_size?: string | null
@@ -156,6 +167,21 @@ function readNumberAlias(
   return null
 }
 
+function readBooleanAlias(
+  record: RawBacklogRecord,
+  ...keys: Array<keyof RawBacklogRecord>
+) {
+  for (const key of keys) {
+    const value = record[key]
+
+    if (typeof value === "boolean") {
+      return value
+    }
+  }
+
+  return null
+}
+
 function mapRecord(record: BacklogRecordWithStats): BacklogRow {
   return {
     id: record.id,
@@ -164,6 +190,7 @@ function mapRecord(record: BacklogRecordWithStats): BacklogRow {
     sequenceNumber: record.sequence_number,
     orderIndex: record.order_index,
     createdByUserId: record.created_by_user_id,
+    archivedByUserId: record.archived_by_user_id,
     title: record.title,
     description: record.description,
     startDate: record.start_date,
@@ -171,6 +198,8 @@ function mapRecord(record: BacklogRecordWithStats): BacklogRow {
     status: record.status,
     checked: record.checked,
     assigneeId: record.assignee_id,
+    archived: record.is_archived,
+    archivedAt: record.archived_at,
     createdAt: record.created_at,
     commentCount:
       typeof record.comment_count === "number"
@@ -189,6 +218,7 @@ function toRecord(input: BacklogRow): BacklogRecord {
     sequence_number: input.sequenceNumber,
     order_index: input.orderIndex,
     created_by_user_id: input.createdByUserId ?? null,
+    archived_by_user_id: input.archivedByUserId ?? null,
     title: input.title,
     description: input.description,
     start_date: input.startDate,
@@ -196,6 +226,8 @@ function toRecord(input: BacklogRow): BacklogRecord {
     status: input.status,
     checked: input.checked,
     assignee_id: input.assigneeId,
+    is_archived: input.archived,
+    archived_at: input.archivedAt,
     created_at: input.createdAt,
   }
 }
@@ -226,10 +258,17 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
     "created_by_user_id",
     "createdByUserId"
   )
+  const archivedByUserId = readStringAlias(
+    record,
+    "archived_by_user_id",
+    "archivedByUserId"
+  )
   const startDate = readStringAlias(record, "start_date", "startDate")
   const dueDate = readStringAlias(record, "due_date", "dueDate")
   const assigneeId = readStringAlias(record, "assignee_id", "assigneeId")
+  const archivedAt = readStringAlias(record, "archived_at", "archivedAt")
   const createdAt = readStringAlias(record, "created_at", "createdAt")
+  const isArchived = readBooleanAlias(record, "is_archived", "archived")
 
   return {
     id: typeof record.id === "string" ? record.id : randomUUID(),
@@ -240,6 +279,7 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
     order_index:
       orderIndex ?? 1,
     created_by_user_id: createdByUserId,
+    archived_by_user_id: archivedByUserId,
     title: typeof record.title === "string" ? record.title : "",
     description: typeof record.description === "string" ? record.description : "",
     start_date: startDate,
@@ -247,6 +287,8 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
     status: typeof record.status === "string" ? record.status : "todo",
     checked: typeof record.checked === "boolean" ? record.checked : false,
     assignee_id: assigneeId,
+    is_archived: isArchived ?? false,
+    archived_at: archivedAt,
     created_at: createdAt ?? new Date().toISOString(),
   }
 }
@@ -274,13 +316,14 @@ async function ensureBacklogSchema() {
     schemaReady = ensureMicrosoftLoginSchema()
       .then(() =>
         getDb().query(`
-        create table if not exists backlog_items (
+          create table if not exists backlog_items (
           id uuid primary key,
           project_id uuid references projects(id) on delete cascade,
           parent_id uuid references backlog_items(id) on delete cascade,
           sequence_number integer,
           order_index integer,
           created_by_user_id text,
+          archived_by_user_id text,
           title text not null,
           description text not null default '',
           start_date date,
@@ -290,6 +333,8 @@ async function ensureBacklogSchema() {
           ),
           checked boolean not null default false,
           assignee_id text,
+          is_archived boolean not null default false,
+          archived_at timestamptz,
           created_at timestamptz not null default now(),
           updated_at timestamptz not null default now()
         );
@@ -299,6 +344,12 @@ async function ensureBacklogSchema() {
         getDb().query(`
           alter table backlog_items
           add column if not exists created_by_user_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists archived_by_user_id text;
         `)
       )
       .then(() =>
@@ -317,6 +368,18 @@ async function ensureBacklogSchema() {
         getDb().query(`
           alter table backlog_items
           add column if not exists assignee_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists is_archived boolean not null default false;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists archived_at timestamptz;
         `)
       )
       .then(() =>
@@ -595,6 +658,7 @@ export async function listBacklogItemsWithStats(
 ) {
   return withBacklogStore(
     async () => {
+      const archived = options.archived === true
       const limit = Math.max(1, Math.min(options.limit ?? 200, 500))
       const offset = Math.max(0, options.offset ?? 0)
       const result = await getDb().query<BacklogRecordWithStats>(
@@ -605,6 +669,7 @@ export async function listBacklogItemsWithStats(
           backlog_items.sequence_number,
           backlog_items.order_index,
           backlog_items.created_by_user_id,
+          backlog_items.archived_by_user_id,
           backlog_items.title,
           backlog_items.description,
           backlog_items.start_date,
@@ -612,6 +677,8 @@ export async function listBacklogItemsWithStats(
           backlog_items.status,
           backlog_items.checked,
           backlog_items.assignee_id,
+          backlog_items.is_archived,
+          backlog_items.archived_at,
           backlog_items.created_at,
           coalesce(comment_counts.comment_count, 0) as comment_count
         from backlog_items
@@ -629,22 +696,26 @@ export async function listBacklogItemsWithStats(
         ) as comment_counts
           on comment_counts.backlog_item_id = backlog_items.id
         where backlog_items.project_id = $1
+          and backlog_items.is_archived = $3
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
         order by backlog_items.order_index asc, backlog_items.created_at asc
-        limit $3
-        offset $4`,
-        [projectId, ownerUserId, limit, offset]
+        limit $4
+        offset $5`,
+        [projectId, ownerUserId, archived, limit, offset]
       )
 
       return result.rows.map(mapRecord)
     },
     async () => {
+      const archived = options.archived === true
       const records = await readFileRecords()
       return records
-        .filter((record) => record.project_id === projectId)
+        .filter(
+          (record) => record.project_id === projectId && record.is_archived === archived
+        )
         .sort((left, right) => left.order_index - right.order_index)
         .slice(options.offset ?? 0, (options.offset ?? 0) + (options.limit ?? 200))
         .map(mapRecord)
@@ -676,6 +747,7 @@ export async function listProjectBacklogActivities(
           backlog_items.sequence_number,
           backlog_items.order_index,
           backlog_items.created_by_user_id,
+          backlog_items.archived_by_user_id,
           backlog_items.title,
           backlog_items.description,
           backlog_items.start_date,
@@ -683,6 +755,8 @@ export async function listProjectBacklogActivities(
           backlog_items.status,
           backlog_items.checked,
           backlog_items.assignee_id,
+          backlog_items.is_archived,
+          backlog_items.archived_at,
           backlog_items.created_at,
           coalesce(comment_counts.comment_count, 0) as comment_count,
           projects.project_name,
@@ -700,6 +774,7 @@ export async function listProjectBacklogActivities(
         ) as comment_counts
           on comment_counts.backlog_item_id = backlog_items.id
         where backlog_items.project_id = any($1::uuid[])
+          and backlog_items.is_archived = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -918,6 +993,7 @@ export async function createBacklogItem(
         sequenceNumber: nextSequenceNumber,
         orderIndex: nextOrderIndex,
         createdByUserId: ownerUserId,
+        archivedByUserId: null,
         title: normalizedTitle,
         description: input.description,
         startDate: input.startDate,
@@ -925,6 +1001,8 @@ export async function createBacklogItem(
         status: input.status,
         checked: input.checked,
         assigneeId: input.assigneeId,
+        archived: false,
+        archivedAt: null,
         createdAt: new Date().toISOString(),
       }
 
@@ -1141,9 +1219,16 @@ export async function deleteBacklogItem(
         ownerUserId,
         ownerUserRole
       ).catch(() => ownerUserRole === "faculty" || ownerUserRole === "admin")
+      const projectRecords = await listProjects(ownerUserId).catch(() => [])
+
+      const isProjectMember = projectRecords.some(
+        (projectRecord) =>
+          projectRecord.id === targetRecord.project_id
+      )
 
       if (
         targetRecord.parent_id !== null &&
+        !isProjectMember &&
         targetRecord.created_by_user_id !== ownerUserId &&
         !canManageOthers
       ) {
@@ -1160,6 +1245,255 @@ export async function deleteBacklogItem(
 
       await writeFileRecords(nextRecords)
       return true
+    }
+  )
+}
+
+export async function archiveBacklogItem(
+  id: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin" = "student"
+) {
+  return withBacklogStore(
+    async () => {
+      const targetResult = await getDb().query<BacklogRecord>(
+        `select backlog_items.*
+         from backlog_items
+         inner join projects
+           on projects.id = backlog_items.project_id
+         left join project_member_access
+           on project_member_access.project_id = projects.id
+          and project_member_access.member_user_id = $2
+         where backlog_items.id = $1
+           and backlog_items.is_archived = false
+           and (
+             projects.owner_user_id = $2
+             or $2 = any(projects.member_user_ids)
+           )
+           and (
+             backlog_items.parent_id is null
+             or backlog_items.created_by_user_id = $2
+             or projects.owner_user_id = $2
+             or $3 in ('faculty', 'admin')
+             or coalesce(project_member_access.can_create_sprint, false)
+           )
+         limit 1`,
+        [id, ownerUserId, ownerUserRole]
+      )
+
+      const target = targetResult.rows[0]
+
+      if (!target) {
+        return []
+      }
+
+      const result = await getDb().query<BacklogRecord>(
+        `update backlog_items
+         set is_archived = true,
+             archived_at = now(),
+             archived_by_user_id = $2,
+             updated_at = now()
+         where id = $1
+            or ($3::uuid is null and parent_id = $1)
+         returning
+           id,
+           project_id,
+           parent_id,
+           sequence_number,
+           order_index,
+           created_by_user_id,
+           archived_by_user_id,
+           title,
+           description,
+           start_date,
+           due_date,
+           status,
+           checked,
+           assignee_id,
+           is_archived,
+           archived_at,
+           created_at`,
+        [id, ownerUserId, target.parent_id]
+      )
+
+      return result.rows.map(mapRecord)
+    },
+    async () => {
+      const records = await readFileRecords()
+      const targetRecord = records.find((record) => record.id === id)
+
+      if (!targetRecord || targetRecord.is_archived) {
+        return []
+      }
+
+      const canManageOthers = await canUserCreateSprintInProject(
+        targetRecord.project_id,
+        ownerUserId,
+        ownerUserRole
+      ).catch(() => ownerUserRole === "faculty" || ownerUserRole === "admin")
+      const projectRecords = await listProjects(ownerUserId).catch(() => [])
+      const isProjectMember = projectRecords.some(
+        (projectRecord) => projectRecord.id === targetRecord.project_id
+      )
+
+      if (
+        !isProjectMember ||
+        (targetRecord.parent_id !== null &&
+          targetRecord.created_by_user_id !== ownerUserId &&
+          !canManageOthers)
+      ) {
+        return []
+      }
+
+      const archivedAt = new Date().toISOString()
+      const updatedRecords = records.map((record) => {
+        if (
+          record.id === id ||
+          (targetRecord.parent_id === null && record.parent_id === id)
+        ) {
+          return {
+            ...record,
+            is_archived: true,
+            archived_at: archivedAt,
+            archived_by_user_id: ownerUserId,
+          }
+        }
+
+        return record
+      })
+
+      await writeFileRecords(updatedRecords)
+      return updatedRecords
+        .filter(
+          (record) =>
+            record.id === id ||
+            (targetRecord.parent_id === null && record.parent_id === id)
+        )
+        .map(mapRecord)
+    }
+  )
+}
+
+export async function restoreBacklogItem(
+  id: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin" = "student"
+) {
+  return withBacklogStore(
+    async () => {
+      const targetResult = await getDb().query<BacklogRecord>(
+        `select backlog_items.*
+         from backlog_items
+         inner join projects
+           on projects.id = backlog_items.project_id
+         left join project_member_access
+           on project_member_access.project_id = projects.id
+          and project_member_access.member_user_id = $2
+         where backlog_items.id = $1
+           and backlog_items.is_archived = true
+           and (
+             projects.owner_user_id = $2
+             or $2 = any(projects.member_user_ids)
+           )
+           and (
+             backlog_items.parent_id is null
+             or backlog_items.created_by_user_id = $2
+             or projects.owner_user_id = $2
+             or $3 in ('faculty', 'admin')
+             or coalesce(project_member_access.can_create_sprint, false)
+           )
+         limit 1`,
+        [id, ownerUserId, ownerUserRole]
+      )
+
+      const target = targetResult.rows[0]
+
+      if (!target) {
+        return []
+      }
+
+      const result = await getDb().query<BacklogRecord>(
+        `update backlog_items
+         set is_archived = false,
+             archived_at = null,
+             archived_by_user_id = null,
+             updated_at = now()
+         where id = $1
+            or ($3::uuid is null and parent_id = $1)
+         returning
+           id,
+           project_id,
+           parent_id,
+           sequence_number,
+           order_index,
+           created_by_user_id,
+           archived_by_user_id,
+           title,
+           description,
+           start_date,
+           due_date,
+           status,
+           checked,
+           assignee_id,
+           is_archived,
+           archived_at,
+           created_at`,
+        [id, ownerUserId, target.parent_id]
+      )
+
+      return result.rows.map(mapRecord)
+    },
+    async () => {
+      const records = await readFileRecords()
+      const targetRecord = records.find((record) => record.id === id)
+
+      if (!targetRecord || !targetRecord.is_archived) {
+        return []
+      }
+
+      const canManageOthers = await canUserCreateSprintInProject(
+        targetRecord.project_id,
+        ownerUserId,
+        ownerUserRole
+      ).catch(() => ownerUserRole === "faculty" || ownerUserRole === "admin")
+      const projectRecords = await listProjects(ownerUserId).catch(() => [])
+      const isProjectMember = projectRecords.some(
+        (projectRecord) => projectRecord.id === targetRecord.project_id
+      )
+
+      if (
+        !isProjectMember ||
+        (targetRecord.parent_id !== null &&
+          targetRecord.created_by_user_id !== ownerUserId &&
+          !canManageOthers)
+      ) {
+        return []
+      }
+
+      const updatedRecords = records.map((record) => {
+        if (
+          record.id === id ||
+          (targetRecord.parent_id === null && record.parent_id === id)
+        ) {
+          return {
+            ...record,
+            is_archived: false,
+            archived_at: null,
+            archived_by_user_id: null,
+          }
+        }
+
+        return record
+      })
+
+      await writeFileRecords(updatedRecords)
+      return updatedRecords
+        .filter(
+          (record) =>
+            record.id === id ||
+            (targetRecord.parent_id === null && record.parent_id === id)
+        )
+        .map(mapRecord)
     }
   )
 }

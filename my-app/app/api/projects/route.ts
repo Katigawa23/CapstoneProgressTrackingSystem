@@ -15,6 +15,16 @@ import {
   updateProjectStarred,
 } from "@backend/repositories/project-repository"
 
+function revalidateProjectData() {
+  try {
+    revalidateTag("projects", "max")
+    revalidateTag("backlog-items", "max")
+    revalidateTag("backlog-comments", "max")
+  } catch (error) {
+    console.error("Failed to revalidate project-related cache", error)
+  }
+}
+
 export async function GET() {
   try {
     const user = await requireAuthenticatedUser()
@@ -130,9 +140,7 @@ export async function POST(request: Request) {
       projectType: projectType.slice(0, PROJECT_METADATA_MAX_LENGTH),
     }, user.id)
 
-    revalidateTag("projects", "max")
-    revalidateTag("backlog-items", "max")
-    revalidateTag("backlog-comments", "max")
+    revalidateProjectData()
 
     return NextResponse.json({ project }, { status: 201 })
   } catch (error) {
@@ -165,7 +173,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    revalidateTag("projects", "max")
+    revalidateProjectData()
 
     return NextResponse.json({ project })
   } catch (error) {

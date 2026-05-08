@@ -50,6 +50,7 @@ export type DashboardBoardProps = {
     updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">
   ) => Promise<void>
   onDeleteSubtask: (parentTodoId: string, subtaskId: string) => Promise<void>
+  onArchiveTodo: (todo: TodoItem) => Promise<void>
 }
 
 export type CommentThreads = Record<string, DashboardComment[]>

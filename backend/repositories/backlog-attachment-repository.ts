@@ -13,10 +13,13 @@ export type BacklogSubmissionRow = {
   id: string
   backlogItemId: string
   uploadedByUserId: string | null
+  archivedByUserId: string | null
   fileName: string
   fileUrl: string
   fileType: string
   fileSize: number
+  archived: boolean
+  archivedAt: string | null
   uploadedAt: string
 }
 
@@ -24,9 +27,30 @@ export type BacklogWebLinkRow = {
   id: string
   backlogItemId: string
   uploadedByUserId: string | null
+  archivedByUserId: string | null
   url: string
   label: string
+  archived: boolean
+  archivedAt: string | null
   uploadedAt: string
+}
+
+export type ArchivedBacklogAttachmentRow = {
+  id: string
+  backlogItemId: string
+  backlogItemParentId: string | null
+  backlogItemSequenceNumber: number
+  parentSequenceNumber: number | null
+  attachmentType: "file" | "link"
+  uploadedByUserId: string | null
+  archivedByUserId: string | null
+  fileName: string
+  fileUrl: string
+  fileType: string
+  fileSize: number
+  label: string
+  uploadedAt: string
+  archivedAt: string | null
 }
 
 type CreateBacklogSubmissionInput = {
@@ -41,12 +65,15 @@ type BacklogSubmissionRecord = {
   id: string
   backlog_item_id: string
   uploaded_by_user_id: string | null
+  archived_by_user_id: string | null
   attachment_type: "file" | "link"
   file_name: string
   file_url: string
   file_type: string
   file_size: number
   link_label: string
+  is_archived: boolean
+  archived_at: string | null
   uploaded_at: string
 }
 
@@ -95,10 +122,13 @@ function mapRecord(record: BacklogSubmissionRecord): BacklogSubmissionRow {
     id: record.id,
     backlogItemId: record.backlog_item_id,
     uploadedByUserId: record.uploaded_by_user_id,
+    archivedByUserId: record.archived_by_user_id,
     fileName: record.file_name,
     fileUrl: record.file_url,
     fileType: record.file_type,
     fileSize: record.file_size,
+    archived: record.is_archived,
+    archivedAt: record.archived_at,
     uploadedAt: record.uploaded_at,
   }
 }
@@ -108,8 +138,11 @@ function mapWebLinkRecord(record: BacklogSubmissionRecord): BacklogWebLinkRow {
     id: record.id,
     backlogItemId: record.backlog_item_id,
     uploadedByUserId: record.uploaded_by_user_id,
+    archivedByUserId: record.archived_by_user_id,
     url: record.file_url,
     label: record.link_label,
+    archived: record.is_archived,
+    archivedAt: record.archived_at,
     uploadedAt: record.uploaded_at,
   }
 }
@@ -119,12 +152,15 @@ function toRecord(row: BacklogSubmissionRow): BacklogSubmissionRecord {
     id: row.id,
     backlog_item_id: row.backlogItemId,
     uploaded_by_user_id: row.uploadedByUserId ?? null,
+    archived_by_user_id: row.archivedByUserId ?? null,
     attachment_type: "file",
     file_name: row.fileName,
     file_url: row.fileUrl,
     file_type: row.fileType,
     file_size: row.fileSize,
     link_label: "",
+    is_archived: row.archived,
+    archived_at: row.archivedAt,
     uploaded_at: row.uploadedAt,
   }
 }
@@ -134,12 +170,15 @@ function toWebLinkRecord(row: BacklogWebLinkRow): BacklogSubmissionRecord {
     id: row.id,
     backlog_item_id: row.backlogItemId,
     uploaded_by_user_id: row.uploadedByUserId ?? null,
+    archived_by_user_id: row.archivedByUserId ?? null,
     attachment_type: "link",
     file_name: row.label || row.url,
     file_url: row.url,
     file_type: "text/uri-list",
     file_size: 0,
     link_label: row.label,
+    is_archived: row.archived,
+    archived_at: row.archivedAt,
     uploaded_at: row.uploadedAt,
   }
 }
@@ -152,6 +191,7 @@ async function ensureSubmissionSchema() {
           id uuid primary key,
           backlog_item_id uuid not null references backlog_items(id) on delete cascade,
           uploaded_by_user_id text,
+          archived_by_user_id text,
           attachment_type text not null default 'file' check (
             attachment_type in ('file', 'link')
           ),
@@ -160,6 +200,8 @@ async function ensureSubmissionSchema() {
           file_type text not null default 'application/octet-stream',
           file_size integer not null default 0,
           link_label text not null default '',
+          is_archived boolean not null default false,
+          archived_at timestamptz,
           uploaded_at timestamptz not null default now()
         );
       `)
@@ -172,6 +214,12 @@ async function ensureSubmissionSchema() {
       .then(() =>
         getDb().query(`
           alter table backlog_attachment
+          add column if not exists archived_by_user_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_attachment
           add column if not exists attachment_type text not null default 'file';
         `)
       )
@@ -179,6 +227,18 @@ async function ensureSubmissionSchema() {
         getDb().query(`
           alter table backlog_attachment
           add column if not exists link_label text not null default '';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_attachment
+          add column if not exists is_archived boolean not null default false;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_attachment
+          add column if not exists archived_at timestamptz;
         `)
       )
       .then(() =>
@@ -201,6 +261,8 @@ async function ensureSubmissionSchema() {
                 file_type,
                 file_size,
                 link_label,
+                is_archived,
+                archived_at,
                 uploaded_at
               )
               select
@@ -213,6 +275,8 @@ async function ensureSubmissionSchema() {
                 backlog_submissions.file_type,
                 backlog_submissions.file_size,
                 '',
+                false,
+                null,
                 backlog_submissions.uploaded_at
               from backlog_submissions
               on conflict (id) do nothing;
@@ -389,6 +453,7 @@ export async function listBacklogSubmissions(
           on projects.id = backlog_items.project_id
         where backlog_attachment.backlog_item_id = $1
           and backlog_attachment.attachment_type = 'file'
+          and backlog_attachment.is_archived = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -405,7 +470,8 @@ export async function listBacklogSubmissions(
         .filter(
           (record) =>
             record.backlog_item_id === backlogItemId &&
-            record.attachment_type === "file"
+            record.attachment_type === "file" &&
+            record.is_archived === false
         )
         .sort((left, right) => right.uploaded_at.localeCompare(left.uploaded_at))
         .map(mapRecord)
@@ -453,12 +519,15 @@ export async function createBacklogSubmission(
           id,
           backlog_item_id,
           uploaded_by_user_id,
+          archived_by_user_id,
           attachment_type,
           file_name,
           file_url,
           file_type,
           file_size,
           link_label,
+          is_archived,
+          archived_at,
           uploaded_at`,
           [
             randomUUID(),
@@ -481,10 +550,13 @@ export async function createBacklogSubmission(
         id: randomUUID(),
         backlogItemId: input.backlogItemId,
         uploadedByUserId: ownerUserId,
+        archivedByUserId: null,
         fileName: input.fileName,
         fileUrl: input.fileUrl,
         fileType: input.fileType,
         fileSize: input.fileSize,
+        archived: false,
+        archivedAt: null,
         uploadedAt: new Date().toISOString(),
       }
 
@@ -603,6 +675,7 @@ export async function listBacklogWebLinks(
           on projects.id = backlog_items.project_id
         where backlog_attachment.backlog_item_id = $1
           and backlog_attachment.attachment_type = 'link'
+          and backlog_attachment.is_archived = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -619,7 +692,8 @@ export async function listBacklogWebLinks(
         .filter(
           (record) =>
             record.backlog_item_id === backlogItemId &&
-            record.attachment_type === "link"
+            record.attachment_type === "link" &&
+            record.is_archived === false
         )
         .sort((left, right) => right.uploaded_at.localeCompare(left.uploaded_at))
         .map(mapWebLinkRecord)
@@ -667,12 +741,15 @@ export async function createBacklogWebLink(
           id,
           backlog_item_id,
           uploaded_by_user_id,
+          archived_by_user_id,
           attachment_type,
           file_name,
           file_url,
           file_type,
           file_size,
           link_label,
+          is_archived,
+          archived_at,
           uploaded_at`,
           [
             randomUUID(),
@@ -695,8 +772,11 @@ export async function createBacklogWebLink(
         id: randomUUID(),
         backlogItemId: input.backlogItemId,
         uploadedByUserId: ownerUserId,
+        archivedByUserId: null,
         url: input.url,
         label: input.label,
+        archived: false,
+        archivedAt: null,
         uploadedAt: new Date().toISOString(),
       }
 
@@ -786,6 +866,472 @@ export async function deleteBacklogWebLink(
       await writeFileRecords(records)
 
       return mapWebLinkRecord(removedRecord)
+    }
+  )
+}
+
+export async function archiveBacklogSubmission(
+  backlogItemId: string,
+  submissionId: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin"
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<BacklogSubmissionRecord>(
+        `update backlog_attachment
+         set is_archived = true,
+             archived_at = now(),
+             archived_by_user_id = $4
+         where backlog_attachment.id = $1
+           and backlog_attachment.backlog_item_id = $2
+           and backlog_attachment.attachment_type = 'file'
+           and backlog_attachment.is_archived = false
+           and exists (
+             select 1
+             from backlog_items
+             inner join projects
+               on projects.id = backlog_items.project_id
+             left join project_member_access
+               on project_member_access.project_id = projects.id
+              and project_member_access.member_user_id = $3
+             where backlog_items.id = backlog_attachment.backlog_item_id
+               and (
+                 projects.owner_user_id = $3
+                 or $3 = any(projects.member_user_ids)
+               )
+               and (
+                 backlog_attachment.uploaded_by_user_id = $3
+                 or projects.owner_user_id = $3
+                 or $4 in ('faculty', 'admin')
+                 or coalesce(project_member_access.can_create_sprint, false)
+               )
+           )
+         returning
+           id,
+           backlog_item_id,
+           uploaded_by_user_id,
+           archived_by_user_id,
+           attachment_type,
+           file_name,
+           file_url,
+           file_type,
+           file_size,
+           link_label,
+           is_archived,
+           archived_at,
+           uploaded_at`,
+        [submissionId, backlogItemId, ownerUserId, ownerUserRole]
+      )
+
+      return result.rows[0] ? mapRecord(result.rows[0]) : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const recordIndex = records.findIndex(
+        (record) =>
+          record.id === submissionId &&
+          record.backlog_item_id === backlogItemId &&
+          record.attachment_type === "file" &&
+          record.is_archived === false
+      )
+
+      if (recordIndex < 0) {
+        return null
+      }
+
+      if (
+        records[recordIndex].uploaded_by_user_id !== ownerUserId &&
+        !(await canManageOtherProjectAttachments(
+          backlogItemId,
+          ownerUserId,
+          ownerUserRole
+        ))
+      ) {
+        return null
+      }
+
+      records[recordIndex] = {
+        ...records[recordIndex],
+        is_archived: true,
+        archived_at: new Date().toISOString(),
+        archived_by_user_id: ownerUserId,
+      }
+      await writeFileRecords(records)
+
+      return mapRecord(records[recordIndex])
+    }
+  )
+}
+
+export async function restoreBacklogSubmission(
+  backlogItemId: string,
+  submissionId: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin"
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<BacklogSubmissionRecord>(
+        `update backlog_attachment
+         set is_archived = false,
+             archived_at = null,
+             archived_by_user_id = null
+         where backlog_attachment.id = $1
+           and backlog_attachment.backlog_item_id = $2
+           and backlog_attachment.attachment_type = 'file'
+           and backlog_attachment.is_archived = true
+           and exists (
+             select 1
+             from backlog_items
+             inner join projects
+               on projects.id = backlog_items.project_id
+             left join project_member_access
+               on project_member_access.project_id = projects.id
+              and project_member_access.member_user_id = $3
+             where backlog_items.id = backlog_attachment.backlog_item_id
+               and (
+                 projects.owner_user_id = $3
+                 or $3 = any(projects.member_user_ids)
+               )
+               and (
+                 backlog_attachment.uploaded_by_user_id = $3
+                 or projects.owner_user_id = $3
+                 or $4 in ('faculty', 'admin')
+                 or coalesce(project_member_access.can_create_sprint, false)
+               )
+           )
+         returning
+           id,
+           backlog_item_id,
+           uploaded_by_user_id,
+           archived_by_user_id,
+           attachment_type,
+           file_name,
+           file_url,
+           file_type,
+           file_size,
+           link_label,
+           is_archived,
+           archived_at,
+           uploaded_at`,
+        [submissionId, backlogItemId, ownerUserId, ownerUserRole]
+      )
+
+      return result.rows[0] ? mapRecord(result.rows[0]) : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const recordIndex = records.findIndex(
+        (record) =>
+          record.id === submissionId &&
+          record.backlog_item_id === backlogItemId &&
+          record.attachment_type === "file" &&
+          record.is_archived === true
+      )
+
+      if (recordIndex < 0) {
+        return null
+      }
+
+      if (
+        records[recordIndex].uploaded_by_user_id !== ownerUserId &&
+        !(await canManageOtherProjectAttachments(
+          backlogItemId,
+          ownerUserId,
+          ownerUserRole
+        ))
+      ) {
+        return null
+      }
+
+      records[recordIndex] = {
+        ...records[recordIndex],
+        is_archived: false,
+        archived_at: null,
+        archived_by_user_id: null,
+      }
+      await writeFileRecords(records)
+
+      return mapRecord(records[recordIndex])
+    }
+  )
+}
+
+export async function archiveBacklogWebLink(
+  backlogItemId: string,
+  linkId: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin"
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<BacklogSubmissionRecord>(
+        `update backlog_attachment
+         set is_archived = true,
+             archived_at = now(),
+             archived_by_user_id = $4
+         where backlog_attachment.id = $1
+           and backlog_attachment.backlog_item_id = $2
+           and backlog_attachment.attachment_type = 'link'
+           and backlog_attachment.is_archived = false
+           and exists (
+             select 1
+             from backlog_items
+             inner join projects
+               on projects.id = backlog_items.project_id
+             left join project_member_access
+               on project_member_access.project_id = projects.id
+              and project_member_access.member_user_id = $3
+             where backlog_items.id = backlog_attachment.backlog_item_id
+               and (
+                 projects.owner_user_id = $3
+                 or $3 = any(projects.member_user_ids)
+               )
+               and (
+                 backlog_attachment.uploaded_by_user_id = $3
+                 or projects.owner_user_id = $3
+                 or $4 in ('faculty', 'admin')
+                 or coalesce(project_member_access.can_create_sprint, false)
+               )
+           )
+         returning
+           id,
+           backlog_item_id,
+           uploaded_by_user_id,
+           archived_by_user_id,
+           attachment_type,
+           file_name,
+           file_url,
+           file_type,
+           file_size,
+           link_label,
+           is_archived,
+           archived_at,
+           uploaded_at`,
+        [linkId, backlogItemId, ownerUserId, ownerUserRole]
+      )
+
+      return result.rows[0] ? mapWebLinkRecord(result.rows[0]) : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const recordIndex = records.findIndex(
+        (record) =>
+          record.id === linkId &&
+          record.backlog_item_id === backlogItemId &&
+          record.attachment_type === "link" &&
+          record.is_archived === false
+      )
+
+      if (recordIndex < 0) {
+        return null
+      }
+
+      if (
+        records[recordIndex].uploaded_by_user_id !== ownerUserId &&
+        !(await canManageOtherProjectAttachments(
+          backlogItemId,
+          ownerUserId,
+          ownerUserRole
+        ))
+      ) {
+        return null
+      }
+
+      records[recordIndex] = {
+        ...records[recordIndex],
+        is_archived: true,
+        archived_at: new Date().toISOString(),
+        archived_by_user_id: ownerUserId,
+      }
+      await writeFileRecords(records)
+
+      return mapWebLinkRecord(records[recordIndex])
+    }
+  )
+}
+
+export async function restoreBacklogWebLink(
+  backlogItemId: string,
+  linkId: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin"
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<BacklogSubmissionRecord>(
+        `update backlog_attachment
+         set is_archived = false,
+             archived_at = null,
+             archived_by_user_id = null
+         where backlog_attachment.id = $1
+           and backlog_attachment.backlog_item_id = $2
+           and backlog_attachment.attachment_type = 'link'
+           and backlog_attachment.is_archived = true
+           and exists (
+             select 1
+             from backlog_items
+             inner join projects
+               on projects.id = backlog_items.project_id
+             left join project_member_access
+               on project_member_access.project_id = projects.id
+              and project_member_access.member_user_id = $3
+             where backlog_items.id = backlog_attachment.backlog_item_id
+               and (
+                 projects.owner_user_id = $3
+                 or $3 = any(projects.member_user_ids)
+               )
+               and (
+                 backlog_attachment.uploaded_by_user_id = $3
+                 or projects.owner_user_id = $3
+                 or $4 in ('faculty', 'admin')
+                 or coalesce(project_member_access.can_create_sprint, false)
+               )
+           )
+         returning
+           id,
+           backlog_item_id,
+           uploaded_by_user_id,
+           archived_by_user_id,
+           attachment_type,
+           file_name,
+           file_url,
+           file_type,
+           file_size,
+           link_label,
+           is_archived,
+           archived_at,
+           uploaded_at`,
+        [linkId, backlogItemId, ownerUserId, ownerUserRole]
+      )
+
+      return result.rows[0] ? mapWebLinkRecord(result.rows[0]) : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const recordIndex = records.findIndex(
+        (record) =>
+          record.id === linkId &&
+          record.backlog_item_id === backlogItemId &&
+          record.attachment_type === "link" &&
+          record.is_archived === true
+      )
+
+      if (recordIndex < 0) {
+        return null
+      }
+
+      if (
+        records[recordIndex].uploaded_by_user_id !== ownerUserId &&
+        !(await canManageOtherProjectAttachments(
+          backlogItemId,
+          ownerUserId,
+          ownerUserRole
+        ))
+      ) {
+        return null
+      }
+
+      records[recordIndex] = {
+        ...records[recordIndex],
+        is_archived: false,
+        archived_at: null,
+        archived_by_user_id: null,
+      }
+      await writeFileRecords(records)
+
+      return mapWebLinkRecord(records[recordIndex])
+    }
+  )
+}
+
+export async function listArchivedBacklogAttachments(
+  projectId: string,
+  ownerUserId: string
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<
+        BacklogSubmissionRecord & {
+          parent_id: string | null
+          sequence_number: number
+          parent_sequence_number: number | null
+        }
+      >(
+        `select
+          backlog_attachment.id,
+          backlog_attachment.backlog_item_id,
+          backlog_attachment.uploaded_by_user_id,
+          backlog_attachment.archived_by_user_id,
+          backlog_attachment.attachment_type,
+          backlog_attachment.file_name,
+          backlog_attachment.file_url,
+          backlog_attachment.file_type,
+          backlog_attachment.file_size,
+          backlog_attachment.link_label,
+          backlog_attachment.is_archived,
+          backlog_attachment.archived_at,
+          backlog_attachment.uploaded_at,
+          backlog_items.parent_id,
+          backlog_items.sequence_number,
+          parent_item.sequence_number as parent_sequence_number
+        from backlog_attachment
+        inner join backlog_items
+          on backlog_items.id = backlog_attachment.backlog_item_id
+        inner join projects
+          on projects.id = backlog_items.project_id
+        left join backlog_items as parent_item
+          on parent_item.id = backlog_items.parent_id
+        where backlog_items.project_id = $1
+          and backlog_attachment.is_archived = true
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+        order by backlog_attachment.archived_at desc nulls last, backlog_attachment.uploaded_at desc`,
+        [projectId, ownerUserId]
+      )
+
+      return result.rows.map((record) => ({
+        id: record.id,
+        backlogItemId: record.backlog_item_id,
+        backlogItemParentId: record.parent_id,
+        backlogItemSequenceNumber: record.sequence_number,
+        parentSequenceNumber: record.parent_sequence_number,
+        attachmentType: record.attachment_type,
+        uploadedByUserId: record.uploaded_by_user_id,
+        archivedByUserId: record.archived_by_user_id,
+        fileName: record.file_name,
+        fileUrl: record.file_url,
+        fileType: record.file_type,
+        fileSize: record.file_size,
+        label: record.link_label,
+        uploadedAt: record.uploaded_at,
+        archivedAt: record.archived_at,
+      }))
+    },
+    async () => {
+      const records = await readFileRecords()
+      return records
+        .filter((record) => record.is_archived === true)
+        .map((record) => ({
+          id: record.id,
+          backlogItemId: record.backlog_item_id,
+          backlogItemParentId: null,
+          backlogItemSequenceNumber: 0,
+          parentSequenceNumber: null,
+          attachmentType: record.attachment_type,
+          uploadedByUserId: record.uploaded_by_user_id,
+          archivedByUserId: record.archived_by_user_id,
+          fileName: record.file_name,
+          fileUrl: record.file_url,
+          fileType: record.file_type,
+          fileSize: record.file_size,
+          label: record.link_label,
+          uploadedAt: record.uploaded_at,
+          archivedAt: record.archived_at,
+        }))
     }
   )
 }

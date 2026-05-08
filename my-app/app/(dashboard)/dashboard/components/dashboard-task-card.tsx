@@ -57,6 +57,7 @@ type DashboardTaskCardProps = {
   onAddToSprint: (todoId: string, sprintId: string) => Promise<void> | void
   onMoveToBoard: (todoId: string, sprintId: string) => Promise<void> | void
   onOpen: (todo: TodoItem, target?: "default" | "comments") => void
+  onArchive: (todo: TodoItem) => void | Promise<void>
   draggableProvided?: DraggableProvided
   dragSnapshot?: DraggableStateSnapshot
 }
@@ -73,6 +74,7 @@ export function DashboardTaskCard({
   onAddToSprint,
   onMoveToBoard,
   onOpen,
+  onArchive,
   draggableProvided,
   dragSnapshot,
 }: DashboardTaskCardProps) {
@@ -251,7 +253,7 @@ export function DashboardTaskCard({
               Add Comment
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void onArchive(todo)}>
               <Archive className="h-4 w-4" />
               Archive
             </DropdownMenuItem>

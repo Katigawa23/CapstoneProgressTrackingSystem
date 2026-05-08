@@ -95,7 +95,10 @@ function uppercaseFirstCharacter(value: string) {
 }
 
 function normalizeProjectNameForComparison(value: string) {
-  return value.trim().replace(/\s+/g, " ").toLowerCase()
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
 }
 
 function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
@@ -694,7 +697,7 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
       const existingProjectResult = await getDb().query<{ id: string }>(
         `select id
          from projects
-         where lower(regexp_replace(btrim(project_name), '\s+', ' ', 'g')) = $1
+         where regexp_replace(lower(btrim(project_name)), '[^a-z0-9]+', '', 'g') = $1
          limit 1`,
         [normalizedProjectName]
       )
@@ -749,11 +752,19 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
         ]
       )
 
-      await insertProjectMemberAccessRecords(
-        project.id,
-        ownerUserId,
-        Array.isArray(input.memberAccess) ? input.memberAccess : []
-      )
+      try {
+        await insertProjectMemberAccessRecords(
+          project.id,
+          ownerUserId,
+          Array.isArray(input.memberAccess) ? input.memberAccess : []
+        )
+      } catch (error) {
+        console.error("Failed to sync project member access records after project creation", {
+          projectId: project.id,
+          ownerUserId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
 
       return mapRecord(result.rows[0])
     },
@@ -897,19 +908,37 @@ async function insertProjectMemberAccessRecords(
     canCreateSprint: boolean
   }>
 ) {
-  const normalizedAccess = memberAccess
-    .map((member) => ({
-      userId: member.userId.trim(),
-      role:
-        member.role === "faculty" || member.role === "admin" || member.role === "student"
-          ? member.role
-          : "student",
-      canCreateSprint:
-        member.role === "faculty" || member.role === "admin"
-          ? true
-          : member.canCreateSprint === true,
-    }))
-    .filter((member) => member.userId.length > 0 && member.userId !== ownerUserId)
+  const normalizedAccessByUserId = new Map<
+    string,
+    {
+      userId: string
+      role: string
+      canCreateSprint: boolean
+    }
+  >()
+
+  for (const member of memberAccess) {
+    const userId = member.userId.trim()
+
+    if (!userId || userId === ownerUserId) {
+      continue
+    }
+
+    const role =
+      member.role === "faculty" || member.role === "admin" || member.role === "student"
+        ? member.role
+        : "student"
+    const canCreateSprint =
+      role === "faculty" || role === "admin" ? true : member.canCreateSprint === true
+
+    normalizedAccessByUserId.set(userId, {
+      userId,
+      role,
+      canCreateSprint,
+    })
+  }
+
+  const normalizedAccess = [...normalizedAccessByUserId.values()]
 
   if (normalizedAccess.length === 0) {
     return

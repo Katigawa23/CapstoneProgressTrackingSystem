@@ -6,6 +6,7 @@ export type TodoItem = {
   orderIndex: number
   parentId?: string | null
   createdByUserId?: string | null
+  archivedByUserId?: string | null
   title: string
   description: string
   assignee: string
@@ -14,6 +15,8 @@ export type TodoItem = {
   deadline: string
   status: ColumnId
   checked?: boolean
+  archived?: boolean
+  archivedAt?: string | null
   comments: number
   links: number
   checklist: string
@@ -27,6 +30,7 @@ export type BacklogApiItem = {
   projectId?: string
   parentId?: string | null
   createdByUserId?: string | null
+  archivedByUserId?: string | null
   title: string
   description: string
   startDate: string | null
@@ -34,6 +38,8 @@ export type BacklogApiItem = {
   status: string
   checked: boolean
   assigneeId?: string | null
+  archived?: boolean
+  archivedAt?: string | null
   createdAt?: string
   commentCount?: number
 }

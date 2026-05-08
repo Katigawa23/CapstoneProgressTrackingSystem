@@ -24,6 +24,7 @@ type DashboardColumnProps = {
   onAddToSprint: (todoId: string, sprintId: string) => Promise<void> | void
   onMoveToBoard: (todoId: string, sprintId: string) => Promise<void> | void
   onOpenTask: (todo: TodoItem, target?: OpenTaskTarget) => void
+  onArchiveTask: (todo: TodoItem) => void | Promise<void>
   className?: string
   scrollAreaClassName?: string
 }
@@ -40,6 +41,7 @@ export function DashboardColumn({
   onAddToSprint,
   onMoveToBoard,
   onOpenTask,
+  onArchiveTask,
   className = "",
   scrollAreaClassName,
 }: DashboardColumnProps) {
@@ -114,6 +116,7 @@ export function DashboardColumn({
                         onAddToSprint={onAddToSprint}
                         onMoveToBoard={onMoveToBoard}
                         onOpen={onOpenTask}
+                        onArchive={onArchiveTask}
                         draggableProvided={draggableProvided}
                         dragSnapshot={dragSnapshot}
                       />

@@ -22,7 +22,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Tooltip,
@@ -85,6 +84,8 @@ export function DashboardPageClient({
   initialActivities,
 }: DashboardPageClientProps) {
   const router = useRouter()
+  const [hasHydrated, setHasHydrated] = React.useState(false)
+  const recentProjectsScrollRef = React.useRef<HTMLDivElement | null>(null)
   const [projects, setProjects] = React.useState<DashboardProject[]>(initialProjects)
   const [activityItems, setActivityItems] = React.useState(initialActivities)
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
@@ -300,6 +301,10 @@ export function DashboardPageClient({
   ])
 
   React.useEffect(() => {
+    setHasHydrated(true)
+  }, [])
+
+  React.useEffect(() => {
     const syncCurrentUser = () => {
       setCurrentUser(readClientAuthSession()?.user ?? null)
     }
@@ -513,9 +518,64 @@ export function DashboardPageClient({
     )
   }, [getProjectDisplayId, projectDisplayIds, router, starredProjects])
 
+  const renderActivitySections = React.useMemo(
+    () => (
+      <div className="border-t border-slate-200 pt-4 dark:border-slate-800">
+        <div className="overflow-x-auto">
+          <div className="flex min-w-max flex-nowrap gap-6 text-sm text-slate-500 dark:text-slate-400">
+            <span className="border-b-2 border-blue-500 pb-2 font-medium text-blue-700 dark:text-sky-400">
+              Worked on
+            </span>
+            <span className="pb-2">Assigned to me</span>
+            <span className="pb-2">Viewed</span>
+            <span className="pb-2">Starred</span>
+          </div>
+        </div>
+        <div className="mt-[3px] h-px w-full bg-slate-200 dark:bg-slate-800" />
+        {renderActivityContent(workedOnActivities)}
+      </div>
+    ),
+    [renderActivityContent, workedOnActivities]
+  )
+
+  React.useEffect(() => {
+    const container = recentProjectsScrollRef.current
+
+    if (!container) {
+      return
+    }
+
+    const handleWheel = (event: WheelEvent) => {
+      if (container.scrollWidth <= container.clientWidth) {
+        return
+      }
+
+      const delta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.deltaY
+
+      if (delta === 0) {
+        return
+      }
+
+      if (event.cancelable) {
+        event.preventDefault()
+      }
+
+      container.scrollBy({
+        left: delta,
+        behavior: "smooth",
+      })
+    }
+
+    container.addEventListener("wheel", handleWheel, { passive: false })
+
+    return () => {
+      container.removeEventListener("wheel", handleWheel)
+    }
+  }, [recentProjects.length])
+
   return (
     <TooltipProvider>
-      <ScrollArea className="h-full w-full">
+      <div className="h-full w-full overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[92rem] flex-col gap-6 px-1 pb-6 pr-6 sm:pr-8 xl:px-2 xl:pr-10">
           <div>
             <div className="flex items-center justify-between gap-4">
@@ -545,7 +605,9 @@ export function DashboardPageClient({
             <div className="rounded-2xl border border-dashed border-border/70 bg-card px-6 py-10 text-center">
               <h2 className="font-display text-lg font-semibold tracking-tight">No projects yet</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-               Wait for your adviser to create the project workspace. Once it’s ready, you can start managing and completing your capstone or thesis work here.
+               {currentUser?.role === "faculty"
+                 ? "Create a new project workspace to get started. Add your student advisees and begin managing the capstone or thesis guidance."
+                 : "Wait for your adviser to create the project workspace. Once it's ready, you can start managing and completing your capstone or thesis work here."}
               </p>
             </div>
           ) : null}
@@ -563,166 +625,183 @@ export function DashboardPageClient({
               </Link>
             </div>
 
-            <div className="overflow-x-auto pb-2">
-              <div className="flex min-w-max flex-nowrap gap-4">
+            <div
+              ref={recentProjectsScrollRef}
+              className="overflow-x-auto overflow-y-hidden overscroll-x-contain pb-3 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.55)_transparent] [touch-action:pan-x] scroll-smooth [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/80 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/80 dark:[scrollbar-color:rgba(148,163,184,0.35)_transparent] dark:[&::-webkit-scrollbar-thumb]:bg-slate-500/45 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/55"
+            >
+              <div className="flex min-w-max gap-4 px-1 sm:px-0">
                 {recentProjects.map((project, index) => (
-                  <Card
+                  <div
                     key={project.id}
-                    className="relative flex min-h-[142px] w-[220px] flex-none cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md sm:w-[240px] dark:border-[#343434] dark:bg-[#1f1f1f]"
-                    onClick={() => {
-                      setDashboardProject(project.id)
-                      router.push("/dashboard/board")
-                    }}
+                    className="w-[220px] shrink-0 sm:w-[240px]"
                   >
-                    <div className="absolute inset-y-0 left-0 w-1.5 bg-sky-600 dark:bg-sky-500" />
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={`More options for ${project.name}`}
-                          className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                          }}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                        }}
-                      >
-                        <DropdownMenuItem
-                          className="cursor-pointer"
-                          onSelect={() => {
-                            void handleToggleStarred(project.id, !project.starred)
-                          }}
-                        >
-                          <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
-                          {project.starred ? "Remove from starred" : "Add to starred"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
-                          <Pencil className="h-4 w-4" />
-                          Edit project
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
-                          <Archive className="h-4 w-4" />
-                          Archive project
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem variant="destructive" className="cursor-pointer">
-                          <Trash2 className="h-4 w-4" />
-                          Delete Project
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <CardHeader className="flex-1 space-y-3 px-4 pb-3 pt-3.5">
-                    <div className="space-y-1">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                        {projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, index)}
-                      </p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <CardTitle
-                            className="font-display truncate text-base font-semibold tracking-tight dark:text-slate-100"
-                            title={project.name}
+                    <Card
+                      className="relative flex min-h-[142px] w-full cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[#343434] dark:bg-[#1f1f1f]"
+                      onClick={() => {
+                        setDashboardProject(project.id)
+                        router.push("/dashboard/board")
+                      }}
+                    >
+                      <div className="absolute inset-y-0 left-0 w-1.5 bg-sky-600 dark:bg-sky-500" />
+                      {hasHydrated ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label={`More options for ${project.name}`}
+                              className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                              }}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                            }}
                           >
-                            {project.name}
-                          </CardTitle>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{project.name}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <p className="text-sm text-slate-500 dark:text-slate-300">
-                        {project.projectType || "No project type"}
-                      </p>
-                    </div>
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onSelect={() => {
+                                void handleToggleStarred(project.id, !project.starred)
+                              }}
+                            >
+                              <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
+                              {project.starred ? "Remove from starred" : "Add to starred"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer">
+                              <Pencil className="h-4 w-4" />
+                              Edit project
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer">
+                              <Archive className="h-4 w-4" />
+                              Archive project
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem variant="destructive" className="cursor-pointer">
+                              <Trash2 className="h-4 w-4" />
+                              Delete Project
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <span className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 dark:text-slate-500">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </span>
+                      )}
 
-                    <div className="flex justify-end">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center">
-                            {project.members.slice(0, 3).map((member, index) => (
-                              <Avatar
-                                key={`${project.id}-${member}`}
-                                className={`h-7 w-7 border-2 border-white ${index === 0 ? "" : "-ml-2"}`}
+                      <CardHeader className="flex-1 space-y-3 px-4 pb-3 pt-3.5">
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                            {projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, index)}
+                          </p>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <CardTitle
+                                className="font-display truncate text-base font-semibold tracking-tight dark:text-slate-100"
+                                title={project.name}
                               >
-                                <AvatarFallback className="text-[10px]">
-                                  {getMemberInitials(member)}
-                                </AvatarFallback>
-                              </Avatar>
-                            ))}
-                            {project.members.length > 3 ? (
-                              <div className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-emerald-600 text-[10px] font-bold text-white">
-                                +{project.members.length - 3}
+                                {project.name}
+                              </CardTitle>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{project.name}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <p className="text-sm text-slate-500 dark:text-slate-300">
+                            {project.projectType || "No project type"}
+                          </p>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center">
+                                {project.members.slice(0, 3).map((member, index) => (
+                                  <Avatar
+                                    key={`${project.id}-${member}`}
+                                    className={`h-7 w-7 border-2 border-white ${index === 0 ? "" : "-ml-2"}`}
+                                  >
+                                    <AvatarFallback className="text-[10px]">
+                                      {getMemberInitials(member)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                ))}
+                                {project.members.length > 3 ? (
+                                  <div className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-emerald-600 text-[10px] font-bold text-white">
+                                    +{project.members.length - 3}
+                                  </div>
+                                ) : null}
                               </div>
-                            ) : null}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent align="end" className="max-w-[240px]">
-                          <div className="space-y-1">
-                            {project.members.map((member) => (
-                              <p key={`${project.id}-tooltip-${member}`} className="text-xs">
-                                {member}
-                              </p>
-                            ))}
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    </CardHeader>
-                  </Card>
+                            </TooltipTrigger>
+                            <TooltipContent align="end" className="max-w-[240px]">
+                              <div className="space-y-1">
+                                {project.members.map((member) => (
+                                  <p key={`${project.id}-tooltip-${member}`} className="text-xs">
+                                    {member}
+                                  </p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  </div>
                 ))}
               </div>
             </div>
           </section>
 
-          <Tabs defaultValue="worked-on" className="border-t border-slate-200 pt-4 dark:border-slate-800">
-            <div className="overflow-x-auto">
-              <TabsList
-                variant="line"
-                className="flex h-auto min-w-max flex-nowrap justify-start gap-6 rounded-none p-0 text-sm"
-              >
-                <TabsTrigger
-                  value="worked-on"
-                  className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+          {hasHydrated ? (
+            <Tabs defaultValue="worked-on" className="border-t border-slate-200 pt-4 dark:border-slate-800">
+              <div className="overflow-x-auto">
+                <TabsList
+                  variant="line"
+                  className="flex h-auto min-w-max flex-nowrap justify-start gap-6 rounded-none p-0 text-sm"
                 >
-                  Worked on
-                </TabsTrigger>
-                <TabsTrigger
-                  value="assigned-to-me"
-                  className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-                >
-                  Assigned to me
-                </TabsTrigger>
-                <TabsTrigger
-                  value="viewed"
-                  className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-                >
-                  Viewed
-                </TabsTrigger>
-                <TabsTrigger
-                  value="starred"
-                  className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-                >
-                  Starred
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            <div className="mt-[-4px] h-px w-full bg-slate-200 dark:bg-slate-800" />
+                  <TabsTrigger
+                    value="worked-on"
+                    className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+                  >
+                    Worked on
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="assigned-to-me"
+                    className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+                  >
+                    Assigned to me
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="viewed"
+                    className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+                  >
+                    Viewed
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="starred"
+                    className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
+                  >
+                    Starred
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <div className="mt-[-4px] h-px w-full bg-slate-200 dark:bg-slate-800" />
 
-            <TabsContent value="worked-on">{renderActivityContent(workedOnActivities)}</TabsContent>
-            <TabsContent value="assigned-to-me">{renderActivityContent(assignedActivities)}</TabsContent>
-            <TabsContent value="viewed">{renderActivityContent(viewedActivities)}</TabsContent>
-            <TabsContent value="starred">{renderStarredProjectsContent()}</TabsContent>
-          </Tabs>
+              <TabsContent value="worked-on">{renderActivityContent(workedOnActivities)}</TabsContent>
+              <TabsContent value="assigned-to-me">{renderActivityContent(assignedActivities)}</TabsContent>
+              <TabsContent value="viewed">{renderActivityContent(viewedActivities)}</TabsContent>
+              <TabsContent value="starred">{renderStarredProjectsContent()}</TabsContent>
+            </Tabs>
+          ) : (
+            renderActivitySections
+          )}
         </div>
-      </ScrollArea>
+      </div>
     </TooltipProvider>
   )
 }

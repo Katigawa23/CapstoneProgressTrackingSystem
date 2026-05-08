@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import {
+  Archive,
   ChevronDown,
   Download,
   Ellipsis,
@@ -17,6 +18,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatTrustedDateTime } from "@/lib/trusted-time"
@@ -40,6 +47,7 @@ type TaskSubmissionsSectionProps = {
   onSubmissionUpload: (todoId: string) => void | Promise<void>
   onSubmissionDraftRemove: (todoId: string, draftId: string) => void
   onSubmissionDelete: (todoId: string, submissionId: string) => void | Promise<void>
+  onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
 }
 
 function formatAttachmentDate(uploadedAt: string) {
@@ -88,12 +96,14 @@ function AttachmentList({
   currentUserId,
   canManageOtherProjectResources,
   onSubmissionDelete,
+  onSubmissionArchive,
 }: {
   submissions: DashboardSubmission[]
   backlogItemId: string
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
   onSubmissionDelete: (todoId: string, submissionId: string) => void | Promise<void>
+  onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
 }) {
   return (
     <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
@@ -135,38 +145,48 @@ function AttachmentList({
                 <p className="text-[13px] text-slate-600 dark:text-slate-300">
                   {formatAttachmentDate(submission.uploadedAt)}
                 </p>
-                <div className="flex items-center justify-end gap-1">
-                  <a
-                    href={submission.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
-                    aria-label={`Open ${submission.fileName}`}
-                    title="Open"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </a>
-                  <a
-                    href={submission.fileUrl}
-                    download={submission.fileName}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
-                    aria-label={`Download ${submission.fileName}`}
-                    title="Download"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </a>
-                  <button
-                    type="button"
-                    disabled={!canDeleteSubmission}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                    aria-label={`Delete ${submission.fileName}`}
-                    title="Delete"
-                    onClick={() =>
-                      void onSubmissionDelete(backlogItemId, submission.id)
-                    }
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                <div className="flex items-center justify-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
+                        aria-label={`Open actions for ${submission.fileName}`}
+                        title="Actions"
+                      >
+                        <Ellipsis className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                    >
+                      <DropdownMenuItem asChild>
+                        <a href={submission.fileUrl} target="_blank" rel="noreferrer">
+                          <Eye className="h-4 w-4" />
+                          Open
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a href={submission.fileUrl} download={submission.fileName}>
+                          <Download className="h-4 w-4" />
+                          Download
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => void onSubmissionArchive(backlogItemId, submission)}>
+                        <Archive className="h-4 w-4" />
+                        Archive
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={!canDeleteSubmission}
+                        className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
+                        onSelect={() => void onSubmissionDelete(backlogItemId, submission.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
               )
@@ -228,6 +248,7 @@ export function TaskSubmissionsSection({
   onSubmissionAttach,
   onSubmissionDraftRemove,
   onSubmissionDelete,
+  onSubmissionArchive,
 }: TaskSubmissionsSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
 
@@ -367,6 +388,7 @@ export function TaskSubmissionsSection({
             currentUserId={currentUserId}
             canManageOtherProjectResources={canManageOtherProjectResources}
             onSubmissionDelete={onSubmissionDelete}
+            onSubmissionArchive={onSubmissionArchive}
           />
         ) : null}
       </CollapsibleContent>

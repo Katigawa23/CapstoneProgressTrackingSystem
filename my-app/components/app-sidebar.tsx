@@ -72,9 +72,9 @@ const documentationItems: NavItem[] = [
   { title: "Recycle Bin", href: "/dashboard/recycle-bin", icon: Trash2 },
 ]
 
-const groupItems: NavItem[] = [
+const getGroupItems = (role: UserRole): NavItem[] => [
   { title: "Members", href: "/dashboard/members", icon: Users },
-  { title: "Faculty", href: "/dashboard/adviser", icon: Users },
+  { title: role === "faculty" ? "Students" : "Faculty", href: "/dashboard/adviser", icon: Users },
 ]
 
 const quickLinkItems: NavItem[] = [
@@ -266,7 +266,7 @@ export function AppSidebar({
   const projectCollections = getDashboardProjectCollections(projects)
   const visibleProjectItems = filterItemsByRole(projectItems, role)
   const visibleDocumentationItems = filterItemsByRole(documentationItems, role)
-  const visibleGroupItems = filterItemsByRole(groupItems, role)
+  const visibleGroupItems = filterItemsByRole(getGroupItems(role), role)
   const visibleQuickLinkItems = filterItemsByRole(quickLinkItems, role)
   const isProjectPickerPage =
     pathname === "/dashboard" || pathname === "/dashboard/projects"

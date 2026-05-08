@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { ChevronDown, Link2, Plus, X } from "lucide-react"
+import { Archive, ChevronDown, Ellipsis, Link2, Plus, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -8,6 +8,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 
 type TaskWebLinksSectionProps = {
@@ -21,6 +27,7 @@ type TaskWebLinksSectionProps = {
   canManageOtherProjectResources?: boolean
   onAddLink: (value: { url: string; label: string }) => void | Promise<void>
   onRemoveLink: (value: { id: string; url: string; label: string }) => void | Promise<void>
+  onArchiveLink: (value: { id: string; url: string; label: string }) => void | Promise<void>
 }
 
 function normalizeUrl(value: string) {
@@ -60,6 +67,7 @@ export function TaskWebLinksSection({
   canManageOtherProjectResources = false,
   onAddLink,
   onRemoveLink,
+  onArchiveLink,
 }: TaskWebLinksSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
   const [isCreatingLink, setIsCreatingLink] = React.useState(false)
@@ -291,22 +299,47 @@ export function TaskWebLinksSection({
                       </p>
                     </div>
                   </a>
-                  <button
-                    type="button"
-                    disabled={
-                      !Boolean(currentUserId?.trim()) ||
-                      !(
-                        link.uploadedByUserId === currentUserId?.trim() ||
-                        canManageOtherProjectResources
-                      )
-                    }
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-                    aria-label={`Remove ${link.label || link.url}`}
-                    title="Delete"
-                    onClick={() => void onRemoveLink(link)}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
+                        aria-label={`Open actions for ${link.label || link.url}`}
+                        title="Actions"
+                      >
+                        <Ellipsis className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                    >
+                      <DropdownMenuItem asChild>
+                        <a href={link.url} target="_blank" rel="noreferrer">
+                          <Link2 className="h-4 w-4" />
+                          Open
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => void onArchiveLink(link)}>
+                        <Archive className="h-4 w-4" />
+                        Archive
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={
+                          !Boolean(currentUserId?.trim()) ||
+                          !(
+                            link.uploadedByUserId === currentUserId?.trim() ||
+                            canManageOtherProjectResources
+                          )
+                        }
+                        className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
+                        onSelect={() => void onRemoveLink(link)}
+                      >
+                        <X className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))}
             </div>

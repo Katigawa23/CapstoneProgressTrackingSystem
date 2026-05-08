@@ -611,6 +611,54 @@ export function DashboardBoardPageClient({
     [buildChecklist, todos]
   )
 
+  const handleArchiveTodo = React.useCallback(
+    async (todo: TodoItem) => {
+      const activeProjectId = getSelectedDashboardProjectId()
+
+      if (!activeProjectId) {
+        router.replace("/dashboard")
+        return
+      }
+
+      const previousTodos = todos
+      const nextTodos = todo.parentId
+        ? todos.filter((item) => item.id !== todo.id)
+        : todos.filter((item) => item.id !== todo.id && item.parentId !== todo.id)
+
+      setTodos(() => {
+        const baseTodos = nextTodos
+
+        if (!todo.parentId) {
+          return baseTodos
+        }
+
+        return baseTodos.map((item) =>
+          item.id === todo.parentId
+            ? { ...item, checklist: buildChecklist(baseTodos, todo.parentId) }
+            : item
+        )
+      })
+
+      try {
+        const response = await fetch(`/api/backlog-items/${todo.id}/archive`, {
+          method: "POST",
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to archive item")
+        }
+
+        const refreshedTodos = await fetchTodosForProject(activeProjectId)
+        setTodos(refreshedTodos)
+      } catch (error) {
+        console.error(error)
+        setTodos(previousTodos)
+        throw error
+      }
+    },
+    [buildChecklist, fetchTodosForProject, router, todos]
+  )
+
   const resetCreateForm = () => {
     setCreateTitle("")
     setCreateTaskError(null)
@@ -1125,6 +1173,7 @@ export function DashboardBoardPageClient({
             onCreateSubtaskInputChange={() => setCreateSubtaskError(null)}
             onUpdateSubtask={handleUpdateSubtask}
             onDeleteSubtask={handleDeleteSubtask}
+            onArchiveTodo={handleArchiveTodo}
           />
         </div>
       </div>

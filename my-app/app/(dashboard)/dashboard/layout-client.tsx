@@ -40,6 +40,7 @@ function ProfileMenu({
   session: AuthSession | null
   disabled?: boolean
 }) {
+  const [mounted, setMounted] = React.useState(false)
   const initials = (session?.user.name ?? "")
     .trim()
     .split(/\s+/)
@@ -47,6 +48,25 @@ function ProfileMenu({
     .join("")
     .slice(0, 2)
     .toUpperCase() || "KM"
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <Button variant="ghost" className="h-9 w-9 rounded-full p-0" disabled={disabled}>
+        <span
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold tracking-tight text-[var(--brand-primary-fixed-foreground)]"
+          style={{
+            backgroundColor: "var(--brand-primary-fixed)",
+          }}
+        >
+          {initials}
+        </span>
+      </Button>
+    )
+  }
 
   return (
     <DropdownMenu>
