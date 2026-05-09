@@ -61,6 +61,8 @@ export default function ArchivePage() {
   const [projectId, setProjectId] = React.useState<string | null>(null)
   const [currentUserName, setCurrentUserName] = React.useState("")
   const [currentUserId, setCurrentUserId] = React.useState("")
+  const [currentUserRole, setCurrentUserRole] = React.useState("")
+  const [actionError, setActionError] = React.useState<string | null>(null)
   const hasActiveFilters = filterValue !== "none"
   const activeFilterCount = hasActiveFilters ? 1 : 0
 
@@ -96,6 +98,7 @@ export default function ArchivePage() {
       const session = readClientAuthSession()?.user
       setCurrentUserName(session?.name?.trim() ?? "")
       setCurrentUserId(session?.id?.trim() ?? "")
+      setCurrentUserRole(session?.role?.trim() ?? "")
     }
 
     syncProject()
@@ -204,31 +207,45 @@ export default function ArchivePage() {
   const someVisibleSelected =
     allRows.some((id) => selectedIds.includes(id)) && !allVisibleSelected
 
+  const readErrorMessage = React.useCallback(async (response: Response, fallbackMessage: string) => {
+    try {
+      const data = (await response.json()) as { error?: string; details?: string }
+      return data.details || data.error || fallbackMessage
+    } catch {
+      return fallbackMessage
+    }
+  }, [])
+
   const handleRestore = React.useCallback(async (itemId: string) => {
+    setActionError(null)
     const response = await fetch(`/api/backlog-items/${itemId}/restore`, {
       method: "POST",
     })
 
     if (!response.ok) {
-      throw new Error("Failed to restore archived item")
+      setActionError(await readErrorMessage(response, "Failed to restore archived item"))
+      return
     }
 
     await loadArchiveItems(projectId)
-  }, [loadArchiveItems, projectId])
+  }, [loadArchiveItems, projectId, readErrorMessage])
 
   const handleDelete = React.useCallback(async (itemId: string) => {
+    setActionError(null)
     const response = await fetch(`/api/backlog-items/${itemId}`, {
       method: "DELETE",
     })
 
     if (!response.ok) {
-      throw new Error("Failed to delete archived item")
+      setActionError(await readErrorMessage(response, "Failed to delete archived item"))
+      return
     }
 
     await loadArchiveItems(projectId)
-  }, [loadArchiveItems, projectId])
+  }, [loadArchiveItems, projectId, readErrorMessage])
 
   const handleRestoreAttachment = React.useCallback(async (item: ArchivedAttachment) => {
+    setActionError(null)
     const route =
       item.attachmentType === "file"
         ? `/api/backlog-items/${item.backlogItemId}/submissions/restore?submissionId=${encodeURIComponent(item.id)}`
@@ -237,13 +254,15 @@ export default function ArchivePage() {
     const response = await fetch(route, { method: "POST" })
 
     if (!response.ok) {
-      throw new Error("Failed to restore archived resource")
+      setActionError(await readErrorMessage(response, "Failed to restore archived resource"))
+      return
     }
 
     await loadArchiveItems(projectId)
-  }, [loadArchiveItems, projectId])
+  }, [loadArchiveItems, projectId, readErrorMessage])
 
   const handleDeleteAttachment = React.useCallback(async (item: ArchivedAttachment) => {
+    setActionError(null)
     const route =
       item.attachmentType === "file"
         ? `/api/backlog-items/${item.backlogItemId}/submissions?submissionId=${encodeURIComponent(item.id)}`
@@ -252,11 +271,12 @@ export default function ArchivePage() {
     const response = await fetch(route, { method: "DELETE" })
 
     if (!response.ok) {
-      throw new Error("Failed to delete archived resource")
+      setActionError(await readErrorMessage(response, "Failed to delete archived resource"))
+      return
     }
 
     await loadArchiveItems(projectId)
-  }, [loadArchiveItems, projectId])
+  }, [loadArchiveItems, projectId, readErrorMessage])
 
   return (
     <div className="space-y-5">
@@ -324,6 +344,12 @@ export default function ArchivePage() {
         </div>
       </div>
 
+      {actionError ? (
+        <div className="rounded-[2px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+          {actionError}
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-xs dark:border-[#343434] dark:bg-[#1f1f1f]">
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse">
@@ -356,6 +382,11 @@ export default function ArchivePage() {
                   const createdByName = namesById[item.createdByUserId ?? ""] ?? item.createdByUserId ?? "Unknown user"
                   const archivedByName = namesById[item.archivedByUserId ?? ""] ?? item.archivedByUserId ?? "Unknown user"
                   const isSelected = selectedIds.includes(item.id)
+                  const canManageTask =
+                    !item.parentId ||
+                    ["faculty", "admin"].includes(currentUserRole) ||
+                    item.createdByUserId === currentUserId ||
+                    item.archivedByUserId === currentUserId
 
                   return (
                     <tr
@@ -422,11 +453,15 @@ export default function ArchivePage() {
                             align="end"
                             className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
                           >
-                            <DropdownMenuItem onSelect={() => void handleRestore(item.id)}>
+                            <DropdownMenuItem
+                              disabled={!canManageTask}
+                              onSelect={() => void handleRestore(item.id)}
+                            >
                               <RotateCcw className="h-4 w-4" />
                               Restore
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              disabled={!canManageTask}
                               className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
                               onSelect={() => void handleDelete(item.id)}
                             >
@@ -444,6 +479,9 @@ export default function ArchivePage() {
                 const createdByName = namesById[item.uploadedByUserId ?? ""] ?? item.uploadedByUserId ?? "Unknown user"
                 const archivedByName = namesById[item.archivedByUserId ?? ""] ?? item.archivedByUserId ?? "Unknown user"
                 const isSelected = selectedIds.includes(item.id)
+                const canManageAttachment =
+                  ["faculty", "admin"].includes(currentUserRole) ||
+                  item.uploadedByUserId === currentUserId
                 const displayId =
                   item.backlogItemParentId && item.parentSequenceNumber
                     ? buildSubtaskDisplayId(
@@ -517,11 +555,15 @@ export default function ArchivePage() {
                           align="end"
                           className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
                         >
-                          <DropdownMenuItem onSelect={() => void handleRestoreAttachment(item)}>
+                          <DropdownMenuItem
+                            disabled={!canManageAttachment}
+                            onSelect={() => void handleRestoreAttachment(item)}
+                          >
                             <RotateCcw className="h-4 w-4" />
                             Restore
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            disabled={!canManageAttachment}
                             className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
                             onSelect={() => void handleDeleteAttachment(item)}
                           >

@@ -10,10 +10,6 @@
       --tw-rotate-z: initial;
       --tw-skew-x: initial;
       --tw-skew-y: initial;
-      --tw-pan-x: initial;
-      --tw-pan-y: initial;
-      --tw-pinch-zoom: initial;
-      --tw-scroll-snap-strictness: proximity;
       --tw-space-y-reverse: 0;
       --tw-space-x-reverse: 0;
       --tw-divide-y-reverse: 0;
@@ -102,6 +98,7 @@
 @layer theme {
   :root, :host {
     --color-red-50: #fef2f2;
+    --color-red-200: #ffcaca;
     --color-red-300: #ffa3a3;
     --color-red-400: #ff6568;
     --color-red-500: #fb2c36;
@@ -251,6 +248,7 @@
   @supports (color: lab(0% 0 0)) {
     :root, :host {
       --color-red-50: lab(96.5005% 4.18511 1.52329);
+      --color-red-200: lab(86.017% 19.8815 7.75869);
       --color-red-300: lab(76.5514% 36.4219 15.5335);
       --color-red-400: lab(63.7053% 60.7449 31.3109);
       --color-red-500: lab(55.4814% 75.0732 48.8528);
@@ -1131,6 +1129,10 @@
     display: none;
   }
 
+  .inline {
+    display: inline;
+  }
+
   .inline-block {
     display: inline-block;
   }
@@ -1688,10 +1690,6 @@
     width: 100%;
   }
 
-  .w-max {
-    width: max-content;
-  }
-
   .w-px {
     width: 1px;
   }
@@ -1852,10 +1850,6 @@
     flex-grow: 0;
   }
 
-  .basis-\[78\%\] {
-    flex-basis: 78%;
-  }
-
   .basis-full {
     flex-basis: 100%;
   }
@@ -1972,17 +1966,8 @@
     cursor: text;
   }
 
-  .touch-pan-x {
-    --tw-pan-x: pan-x;
-    touch-action: var(--tw-pan-x, ) var(--tw-pan-y, ) var(--tw-pinch-zoom, );
-  }
-
   .\[touch-action\:pan-x\] {
     touch-action: pan-x;
-  }
-
-  .\[touch-action\:pan-y\] {
-    touch-action: pan-y;
   }
 
   .touch-none {
@@ -1995,18 +1980,6 @@
 
   .resize-none {
     resize: none;
-  }
-
-  .snap-x {
-    scroll-snap-type: x var(--tw-scroll-snap-strictness);
-  }
-
-  .snap-mandatory {
-    --tw-scroll-snap-strictness: mandatory;
-  }
-
-  .snap-start {
-    scroll-snap-align: start;
   }
 
   .scroll-my-1 {
@@ -2293,10 +2266,6 @@
     overflow-x: hidden;
   }
 
-  .overflow-x-scroll {
-    overflow-x: scroll;
-  }
-
   .overflow-y-auto {
     overflow-y: auto;
   }
@@ -2579,6 +2548,10 @@
 
   .border-orange-200 {
     border-color: var(--color-orange-200);
+  }
+
+  .border-red-200 {
+    border-color: var(--color-red-200);
   }
 
   .border-rose-200 {
@@ -2891,6 +2864,10 @@
     .bg-primary\/20 {
       background-color: color-mix(in oklab, var(--primary) 20%, transparent);
     }
+  }
+
+  .bg-red-50 {
+    background-color: var(--color-red-50);
   }
 
   .bg-rose-500 {
@@ -3774,6 +3751,10 @@
     color: var(--color-red-600);
   }
 
+  .text-red-700 {
+    color: var(--color-red-700);
+  }
+
   .text-secondary-foreground {
     color: var(--secondary-foreground);
   }
@@ -4274,24 +4255,12 @@
     --sidebar: #f7fbff;
   }
 
-  .\[-ms-overflow-style\:none\] {
-    -ms-overflow-style: none;
-  }
-
   .\[scrollbar-color\:rgba\(148\,163\,184\,0\.55\)_transparent\] {
     scrollbar-color: #94a3b88c transparent;
   }
 
   .\[scrollbar-color\:rgba\(148\,163\,184\,0\.85\)_transparent\] {
     scrollbar-color: #94a3b8d9 transparent;
-  }
-
-  .\[scrollbar-width\:auto\] {
-    scrollbar-width: auto;
-  }
-
-  .\[scrollbar-width\:none\] {
-    scrollbar-width: none;
   }
 
   .\[scrollbar-width\:thin\] {
@@ -4985,12 +4954,6 @@
   }
 
   @media (hover: hover) {
-    .hover\:bg-red-50:hover {
-      background-color: var(--color-red-50);
-    }
-  }
-
-  @media (hover: hover) {
     .hover\:bg-secondary\/80:hover {
       background-color: var(--secondary);
     }
@@ -5119,12 +5082,6 @@
   @media (hover: hover) {
     .hover\:text-primary:hover {
       color: var(--primary);
-    }
-  }
-
-  @media (hover: hover) {
-    .hover\:text-red-600:hover {
-      color: var(--color-red-600);
     }
   }
 
@@ -6353,12 +6310,6 @@
   }
 
   @media (min-width: 40rem) {
-    .sm\:mx-0 {
-      margin-inline: calc(var(--spacing) * 0);
-    }
-  }
-
-  @media (min-width: 40rem) {
     .sm\:mb-6 {
       margin-bottom: calc(var(--spacing) * 6);
     }
@@ -6511,12 +6462,6 @@
   @media (min-width: 40rem) {
     .sm\:basis-1\/2 {
       flex-basis: 50%;
-    }
-  }
-
-  @media (min-width: 40rem) {
-    .sm\:basis-\[240px\] {
-      flex-basis: 240px;
     }
   }
 
@@ -7327,6 +7272,16 @@
     }
   }
 
+  .dark\:border-red-500\/30:is(.dark *) {
+    border-color: #fb2c364d;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .dark\:border-red-500\/30:is(.dark *) {
+      border-color: color-mix(in oklab, var(--color-red-500) 30%, transparent);
+    }
+  }
+
   .dark\:border-rose-400\/40:is(.dark *) {
     border-color: #ff667f66;
   }
@@ -7580,6 +7535,16 @@
     background-color: var(--color-orange-500);
   }
 
+  .dark\:bg-red-500\/10:is(.dark *) {
+    background-color: #fb2c361a;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .dark\:bg-red-500\/10:is(.dark *) {
+      background-color: color-mix(in oklab, var(--color-red-500) 10%, transparent);
+    }
+  }
+
   .dark\:bg-rose-500:is(.dark *) {
     background-color: var(--color-rose-500);
   }
@@ -7712,6 +7677,10 @@
 
   .dark\:text-muted-foreground:is(.dark *) {
     color: var(--muted-foreground);
+  }
+
+  .dark\:text-red-200:is(.dark *) {
+    color: var(--color-red-200);
   }
 
   .dark\:text-red-400:is(.dark *) {
@@ -7938,18 +7907,6 @@
   }
 
   @media (hover: hover) {
-    .dark\:hover\:bg-red-950\/30:is(.dark *):hover {
-      background-color: #4608094d;
-    }
-
-    @supports (color: color-mix(in lab, red, red)) {
-      .dark\:hover\:bg-red-950\/30:is(.dark *):hover {
-        background-color: color-mix(in oklab, var(--color-red-950) 30%, transparent);
-      }
-    }
-  }
-
-  @media (hover: hover) {
     .dark\:hover\:bg-sky-500:is(.dark *):hover {
       background-color: var(--color-sky-500);
     }
@@ -8012,12 +7969,6 @@
   @media (hover: hover) {
     .dark\:hover\:text-foreground:is(.dark *):hover {
       color: var(--foreground);
-    }
-  }
-
-  @media (hover: hover) {
-    .dark\:hover\:text-red-400:is(.dark *):hover {
-      color: var(--color-red-400);
     }
   }
 
@@ -8484,10 +8435,6 @@
 
   .\[\&_svg\:not\(\[class\*\=\'text-\'\]\)\]\:text-muted-foreground svg:not([class*="text-"]) {
     color: var(--muted-foreground);
-  }
-
-  .\[\&\:\:-webkit-scrollbar\]\:hidden::-webkit-scrollbar {
-    display: none;
   }
 
   .\[\&\:\:-webkit-scrollbar\]\:h-1\.5::-webkit-scrollbar {
@@ -9300,27 +9247,6 @@
 @property --tw-skew-y {
   syntax: "*";
   inherits: false
-}
-
-@property --tw-pan-x {
-  syntax: "*";
-  inherits: false
-}
-
-@property --tw-pan-y {
-  syntax: "*";
-  inherits: false
-}
-
-@property --tw-pinch-zoom {
-  syntax: "*";
-  inherits: false
-}
-
-@property --tw-scroll-snap-strictness {
-  syntax: "*";
-  inherits: false;
-  initial-value: proximity;
 }
 
 @property --tw-space-y-reverse {

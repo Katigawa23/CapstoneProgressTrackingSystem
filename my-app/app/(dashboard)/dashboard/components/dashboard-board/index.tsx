@@ -483,7 +483,12 @@ export function DashboardBoard({
           clearFallbackTimer()
 
           if (request.status < 200 || request.status >= 300) {
-            reject(new Error("Failed to upload submission"))
+            const response = request.response as
+              | { error?: string; details?: string }
+              | null
+            const errorMessage =
+              response?.details || response?.error || "Failed to upload submission"
+            reject(new Error(errorMessage))
             return
           }
 

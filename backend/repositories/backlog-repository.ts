@@ -1273,6 +1273,7 @@ export async function archiveBacklogItem(
            and (
              backlog_items.parent_id is null
              or backlog_items.created_by_user_id = $2
+             or backlog_items.archived_by_user_id = $2
              or projects.owner_user_id = $2
              or $3 in ('faculty', 'admin')
              or coalesce(project_member_access.can_create_sprint, false)
@@ -1340,6 +1341,7 @@ export async function archiveBacklogItem(
         !isProjectMember ||
         (targetRecord.parent_id !== null &&
           targetRecord.created_by_user_id !== ownerUserId &&
+          targetRecord.archived_by_user_id !== ownerUserId &&
           !canManageOthers)
       ) {
         return []

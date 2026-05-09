@@ -2,6 +2,20 @@
 
 import { Collapsible as CollapsiblePrimitive } from "radix-ui"
 
+const CollapsibleTriggerPrimitive =
+  CollapsiblePrimitive.CollapsibleTrigger as unknown as React.ComponentType<
+    React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleTrigger> & {
+      suppressHydrationWarning?: boolean
+    }
+  >
+
+const CollapsibleContentPrimitive =
+  CollapsiblePrimitive.CollapsibleContent as unknown as React.ComponentType<
+    React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleContent> & {
+      suppressHydrationWarning?: boolean
+    }
+  >
+
 function Collapsible({
   ...props
 }: React.ComponentProps<typeof CollapsiblePrimitive.Root>) {
@@ -12,8 +26,9 @@ function CollapsibleTrigger({
   ...props
 }: React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleTrigger>) {
   return (
-    <CollapsiblePrimitive.CollapsibleTrigger
+    <CollapsibleTriggerPrimitive
       data-slot="collapsible-trigger"
+      suppressHydrationWarning
       {...props}
     />
   )
@@ -23,8 +38,9 @@ function CollapsibleContent({
   ...props
 }: React.ComponentProps<typeof CollapsiblePrimitive.CollapsibleContent>) {
   return (
-    <CollapsiblePrimitive.CollapsibleContent
+    <CollapsibleContentPrimitive
       data-slot="collapsible-content"
+      suppressHydrationWarning
       {...props}
     />
   )

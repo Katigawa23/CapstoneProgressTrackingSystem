@@ -168,7 +168,10 @@ function AttachmentList({
                         </a>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <a href={submission.fileUrl} download={submission.fileName}>
+                        <a
+                          href={`${submission.fileUrl}${submission.fileUrl.includes("?") ? "&" : "?"}download=1`}
+                          download={submission.fileName}
+                        >
                           <Download className="h-4 w-4" />
                           Download
                         </a>

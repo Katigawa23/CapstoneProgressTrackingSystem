@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { randomUUID } from "crypto"
-import { mkdir, unlink, writeFile } from "fs/promises"
+import { unlink } from "fs/promises"
 import path from "path"
 
 import { NextResponse } from "next/server"
@@ -13,13 +13,6 @@ import {
 } from "@backend/repositories/backlog-attachment-repository"
 
 export const runtime = "nodejs"
-
-const uploadRoot = path.join(
-  process.cwd(),
-  "public",
-  "uploads",
-  "backlog-submissions"
-)
 
 function sanitizeFileName(fileName: string) {
   const trimmedName = fileName.trim()
@@ -78,24 +71,20 @@ export async function POST(
       return NextResponse.json({ error: "At least one file is required" }, { status: 400 })
     }
 
-    const itemUploadRoot = path.join(uploadRoot, id)
-    await mkdir(itemUploadRoot, { recursive: true })
-
     const submissions = await Promise.all(
       files.map(async (file) => {
+        const submissionId = randomUUID()
         const safeName = sanitizeFileName(file.name) || "submission"
-        const storedName = `${randomUUID()}-${safeName}`
-        const outputPath = path.join(itemUploadRoot, storedName)
         const bytes = Buffer.from(await file.arrayBuffer())
 
-        await writeFile(outputPath, bytes)
-
         return createBacklogSubmission({
+          id: submissionId,
           backlogItemId: id,
           fileName: file.name,
-          fileUrl: `/uploads/backlog-submissions/${id}/${storedName}`,
+          fileUrl: `/api/backlog-items/${id}/submissions/file?submissionId=${encodeURIComponent(submissionId)}&filename=${encodeURIComponent(safeName)}`,
           fileType: file.type || "application/octet-stream",
           fileSize: file.size,
+          fileData: bytes,
         }, user.id)
       })
     )
@@ -117,8 +106,12 @@ export async function POST(
     return NextResponse.json({ submissions: createdSubmissions }, { status: 201 })
   } catch (error) {
     console.error("Failed to upload backlog submissions", error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: "Failed to upload backlog submissions" },
+      {
+        error: "Failed to upload backlog submissions",
+        details: errorMessage,
+      },
       { status: 500 }
     )
   }

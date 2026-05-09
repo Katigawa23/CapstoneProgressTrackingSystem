@@ -54,11 +54,13 @@ export type ArchivedBacklogAttachmentRow = {
 }
 
 type CreateBacklogSubmissionInput = {
+  id?: string
   backlogItemId: string
   fileName: string
   fileUrl: string
   fileType: string
   fileSize: number
+  fileData: Buffer
 }
 
 type BacklogSubmissionRecord = {
@@ -72,9 +74,21 @@ type BacklogSubmissionRecord = {
   file_type: string
   file_size: number
   link_label: string
+  file_data?: Buffer | string | null
   is_archived: boolean
   archived_at: string | null
   uploaded_at: string
+}
+
+export type BacklogSubmissionAsset = {
+  id: string
+  backlogItemId: string
+  fileName: string
+  fileType: string
+  fileSize: number
+  fileUrl: string
+  uploadedAt: string
+  fileData: Buffer | null
 }
 
 type CreateBacklogWebLinkInput = {
@@ -147,6 +161,18 @@ function mapWebLinkRecord(record: BacklogSubmissionRecord): BacklogWebLinkRow {
   }
 }
 
+function toBuffer(value: Buffer | string | null | undefined) {
+  if (Buffer.isBuffer(value)) {
+    return value
+  }
+
+  if (typeof value === "string" && value.length > 0) {
+    return Buffer.from(value, "base64")
+  }
+
+  return null
+}
+
 function toRecord(row: BacklogSubmissionRow): BacklogSubmissionRecord {
   return {
     id: row.id,
@@ -199,6 +225,7 @@ async function ensureSubmissionSchema() {
           file_url text not null,
           file_type text not null default 'application/octet-stream',
           file_size integer not null default 0,
+          file_data bytea,
           link_label text not null default '',
           is_archived boolean not null default false,
           archived_at timestamptz,
@@ -221,6 +248,12 @@ async function ensureSubmissionSchema() {
         getDb().query(`
           alter table backlog_attachment
           add column if not exists attachment_type text not null default 'file';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_attachment
+          add column if not exists file_data bytea;
         `)
       )
       .then(() =>
@@ -395,6 +428,7 @@ async function readFileRecords(): Promise<BacklogSubmissionRecord[]> {
             ...record,
             attachment_type: "file",
             link_label: "",
+            file_data: null,
           })
         )
       } catch (legacyError) {
@@ -439,12 +473,15 @@ export async function listBacklogSubmissions(
           backlog_attachment.id,
           backlog_attachment.backlog_item_id,
           backlog_attachment.uploaded_by_user_id,
+          backlog_attachment.archived_by_user_id,
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
           backlog_attachment.file_type,
           backlog_attachment.file_size,
           backlog_attachment.link_label,
+          backlog_attachment.is_archived,
+          backlog_attachment.archived_at,
           backlog_attachment.uploaded_at
         from backlog_attachment
         inner join backlog_items
@@ -485,6 +522,7 @@ export async function createBacklogSubmission(
 ) {
   return withSubmissionStore(
     async () => {
+      const submissionId = input.id ?? randomUUID()
       const result = await getDb().query<BacklogSubmissionRecord>(
         `insert into backlog_attachment (
           id,
@@ -495,6 +533,7 @@ export async function createBacklogSubmission(
           file_url,
           file_type,
           file_size,
+          file_data,
           link_label
         )
         select
@@ -506,14 +545,15 @@ export async function createBacklogSubmission(
           $6,
           $7,
           $8,
-          $9
+          $9,
+          $10
         from backlog_items
         inner join projects
           on projects.id = backlog_items.project_id
         where backlog_items.id = $2
           and (
-            projects.owner_user_id = $10
-            or $10 = any(projects.member_user_ids)
+            projects.owner_user_id = $11
+            or $11 = any(projects.member_user_ids)
           )
         returning
           id,
@@ -525,12 +565,13 @@ export async function createBacklogSubmission(
           file_url,
           file_type,
           file_size,
+          file_data,
           link_label,
           is_archived,
           archived_at,
           uploaded_at`,
           [
-            randomUUID(),
+            submissionId,
             input.backlogItemId,
             ownerUserId,
             "file",
@@ -538,6 +579,7 @@ export async function createBacklogSubmission(
             input.fileUrl,
             input.fileType,
             input.fileSize,
+            input.fileData,
             "",
             ownerUserId,
           ]
@@ -547,7 +589,7 @@ export async function createBacklogSubmission(
     },
     async () => {
       const submission: BacklogSubmissionRow = {
-        id: randomUUID(),
+        id: input.id ?? randomUUID(),
         backlogItemId: input.backlogItemId,
         uploadedByUserId: ownerUserId,
         archivedByUserId: null,
@@ -561,7 +603,10 @@ export async function createBacklogSubmission(
       }
 
       const records = await readFileRecords()
-      records.unshift(toRecord(submission))
+      records.unshift({
+        ...toRecord(submission),
+        file_data: input.fileData.toString("base64"),
+      })
       await writeFileRecords(records)
 
       return submission
@@ -646,6 +691,91 @@ export async function deleteBacklogSubmission(
       await writeFileRecords(records)
 
       return mapRecord(removedRecord)
+    }
+  )
+}
+
+export async function getBacklogSubmissionAsset(
+  backlogItemId: string,
+  submissionId: string,
+  ownerUserId: string
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<BacklogSubmissionRecord>(
+        `select
+          backlog_attachment.id,
+          backlog_attachment.backlog_item_id,
+          backlog_attachment.uploaded_by_user_id,
+          backlog_attachment.archived_by_user_id,
+          backlog_attachment.attachment_type,
+          backlog_attachment.file_name,
+          backlog_attachment.file_url,
+          backlog_attachment.file_type,
+          backlog_attachment.file_size,
+          backlog_attachment.file_data,
+          backlog_attachment.link_label,
+          backlog_attachment.is_archived,
+          backlog_attachment.archived_at,
+          backlog_attachment.uploaded_at
+        from backlog_attachment
+        inner join backlog_items
+          on backlog_items.id = backlog_attachment.backlog_item_id
+        inner join projects
+          on projects.id = backlog_items.project_id
+        where backlog_attachment.id = $1
+          and backlog_attachment.backlog_item_id = $2
+          and backlog_attachment.attachment_type = 'file'
+          and backlog_attachment.is_archived = false
+          and (
+            projects.owner_user_id = $3
+            or $3 = any(projects.member_user_ids)
+          )
+        limit 1`,
+        [submissionId, backlogItemId, ownerUserId]
+      )
+
+      const record = result.rows[0]
+
+      if (!record) {
+        return null
+      }
+
+      return {
+        id: record.id,
+        backlogItemId: record.backlog_item_id,
+        fileName: record.file_name,
+        fileType: record.file_type,
+        fileSize: record.file_size,
+        fileUrl: record.file_url,
+        uploadedAt: record.uploaded_at,
+        fileData: toBuffer(record.file_data),
+      } satisfies BacklogSubmissionAsset
+    },
+    async () => {
+      const records = await readFileRecords()
+      const record = records.find(
+        (entry) =>
+          entry.id === submissionId &&
+          entry.backlog_item_id === backlogItemId &&
+          entry.attachment_type === "file" &&
+          entry.is_archived === false
+      )
+
+      if (!record) {
+        return null
+      }
+
+      return {
+        id: record.id,
+        backlogItemId: record.backlog_item_id,
+        fileName: record.file_name,
+        fileType: record.file_type,
+        fileSize: record.file_size,
+        fileUrl: record.file_url,
+        uploadedAt: record.uploaded_at,
+        fileData: toBuffer(record.file_data),
+      } satisfies BacklogSubmissionAsset
     }
   )
 }

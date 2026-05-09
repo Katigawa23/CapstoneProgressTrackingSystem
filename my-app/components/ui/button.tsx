@@ -52,6 +52,7 @@ function Button({
 
   return (
     <Comp
+      suppressHydrationWarning
       data-slot="button"
       data-variant={variant}
       data-size={size}
