@@ -1554,6 +1554,7 @@ export function DashboardBoard({
                   <TaskSubmissionsSection
                     selectedTodo={selectedTodo}
                     currentUserId={currentUserId}
+                    creatorNamesById={creatorNamesById}
                     canManageOtherProjectResources={canManageOtherProjectResources}
                     isSubmissionActionsOpen={
                       isSubmissionActionsOpen[selectedTodo.id] ?? false
@@ -1588,6 +1589,7 @@ export function DashboardBoard({
                   <TaskWebLinksSection
                     links={taskWebLinks[selectedTodo.id] ?? []}
                     currentUserId={currentUserId}
+                    creatorNamesById={creatorNamesById}
                     canManageOtherProjectResources={canManageOtherProjectResources}
                     onAddLink={(value) => handleAddWebLink(selectedTodo.id, value)}
                     onRemoveLink={(value) => {

@@ -6,6 +6,7 @@ import {
   Download,
   Ellipsis,
   Eye,
+  Filter,
   FileText,
   ImageIcon,
   Trash2,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Collapsible,
   CollapsibleContent,
@@ -22,11 +24,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatTrustedDateTime } from "@/lib/trusted-time"
+import { getAssigneeOption } from "../../backlog/types"
 
 import type { DashboardSubmission, TodoItem } from "../../types"
 import type { SubmissionDraft } from "./types"
@@ -35,6 +41,7 @@ import { formatSubmissionSize } from "./utils"
 type TaskSubmissionsSectionProps = {
   selectedTodo: TodoItem
   currentUserId?: string | null
+  creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean
   isSubmissionActionsOpen: boolean
   submissionDrafts: SubmissionDraft[]
@@ -48,6 +55,23 @@ type TaskSubmissionsSectionProps = {
   onSubmissionDraftRemove: (todoId: string, draftId: string) => void
   onSubmissionDelete: (todoId: string, submissionId: string) => void | Promise<void>
   onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
+}
+
+type ResourceFilterOption = {
+  id: string
+  label: string
+  detail?: string
+  initials: string
+}
+
+function getFilterInitials(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "U"
 }
 
 function formatAttachmentDate(uploadedAt: string) {
@@ -166,9 +190,19 @@ function AttachmentList({
                       className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
                     >
                       <DropdownMenuItem asChild>
-                        <a href={submission.fileUrl} target="_blank" rel="noreferrer">
+                        <a
+                          href={
+                            submission.driveFileId
+                              ? `https://drive.google.com/file/d/${encodeURIComponent(
+                                  submission.driveFileId
+                                )}/view?usp=drivesdk`
+                              : `/dashboard/attachments/${submission.id}?itemId=${backlogItemId}`
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                        >
                           <Eye className="h-4 w-4" />
-                          Open
+                          Review
                         </a>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -212,7 +246,7 @@ function AttachmentListSkeleton() {
   return (
     <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
       <div className="overflow-x-auto px-3 py-2">
-        <div className="min-w-[640px]">
+        <div className="min-w-[560px] max-w-full">
           <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 border-b border-slate-200 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:text-slate-400">
             <span>Name</span>
             <span>Size</span>
@@ -228,13 +262,11 @@ function AttachmentListSkeleton() {
               >
                 <div className="flex min-w-0 items-center gap-2.5">
                   <Skeleton className="h-8 w-8 rounded-[2px]" />
-                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-36 max-w-[70%]" />
                 </div>
-                <Skeleton className="h-4 w-12" />
-                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-10" />
+                <Skeleton className="h-4 w-24" />
                 <div className="flex items-center justify-end gap-1">
-                  <Skeleton className="h-7 w-7 rounded-[2px]" />
-                  <Skeleton className="h-7 w-7 rounded-[2px]" />
                   <Skeleton className="h-7 w-7 rounded-[2px]" />
                 </div>
               </div>
@@ -249,6 +281,7 @@ function AttachmentListSkeleton() {
 export function TaskSubmissionsSection({
   selectedTodo,
   currentUserId = null,
+  creatorNamesById = {},
   canManageOtherProjectResources = false,
   submissionDrafts,
   submissionThreads,
@@ -261,6 +294,62 @@ export function TaskSubmissionsSection({
   onSubmissionArchive,
 }: TaskSubmissionsSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
+  const [uploaderFilter, setUploaderFilter] = React.useState("all")
+  const normalizedCurrentUserId = currentUserId?.trim() ?? ""
+  const uploaderOptions = React.useMemo<ResourceFilterOption[]>(() => {
+    const options = new Map<string, string>()
+
+    for (const submission of submissionThreads) {
+      const uploadedByUserId = submission.uploadedByUserId?.trim()
+
+      if (!uploadedByUserId) {
+        continue
+      }
+
+      const assigneeOption = getAssigneeOption(uploadedByUserId)
+      const label =
+        uploadedByUserId === normalizedCurrentUserId
+          ? "To me"
+          : assigneeOption?.name ?? creatorNamesById[uploadedByUserId] ?? uploadedByUserId
+      const detail =
+        uploadedByUserId === normalizedCurrentUserId
+          ? assigneeOption?.email ?? creatorNamesById[uploadedByUserId]
+          : assigneeOption?.email
+
+      options.set(
+        uploadedByUserId,
+        JSON.stringify({
+          detail,
+          initials: assigneeOption?.initials ?? getFilterInitials(label),
+          label,
+        })
+      )
+    }
+
+    return Array.from(options, ([id, value]) => {
+      const option = JSON.parse(value) as Omit<ResourceFilterOption, "id">
+      return { id, ...option }
+    }).sort((left, right) => {
+      if (left.id === normalizedCurrentUserId) {
+        return -1
+      }
+
+      if (right.id === normalizedCurrentUserId) {
+        return 1
+      }
+
+      return left.label.localeCompare(right.label)
+    })
+  }, [creatorNamesById, normalizedCurrentUserId, submissionThreads])
+  const visibleSubmissionThreads = React.useMemo(
+    () =>
+      uploaderFilter === "all"
+        ? submissionThreads
+        : submissionThreads.filter(
+            (submission) => submission.uploadedByUserId?.trim() === uploaderFilter
+          ),
+    [submissionThreads, uploaderFilter]
+  )
 
   React.useEffect(() => {
     if (submissionDrafts.length > 0) {
@@ -307,17 +396,83 @@ export function TaskSubmissionsSection({
         </div>
 
         <div className="mt-0.5 flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-9 w-9 rounded-[2px] p-0 text-slate-700 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-200 dark:hover:bg-[#303030]"
-            aria-label="More attachment actions"
-            title="More"
-          >
-            <Ellipsis className="h-4 w-4" />
-          </Button>
-
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={`relative h-9 w-9 rounded-[2px] p-0 dark:border-[#3a3a3a] dark:bg-[#262626] dark:hover:bg-[#303030] ${
+                  uploaderFilter === "all"
+                    ? "text-slate-700 dark:text-slate-200"
+                    : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300"
+                }`}
+                aria-label="Filter attachments"
+                title="Filter attachments"
+              >
+                <Filter className="h-4 w-4" />
+                {uploaderFilter !== "all" ? (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold leading-none text-white">
+                    1
+                  </span>
+                ) : null}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-44 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+            >
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  Attached by
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-44 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                  <DropdownMenuItem onSelect={() => setUploaderFilter("all")}>
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback className="text-[9px]">
+                        All
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px]">All members</span>
+                      <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
+                        Attached by anyone
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                  {uploaderOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option.id}
+                      onSelect={() => setUploaderFilter(option.id)}
+                    >
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="text-[9px]">
+                          {option.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px]">{option.label}</span>
+                        {option.detail ? (
+                          <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
+                            {option.detail}
+                          </span>
+                        ) : null}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {uploaderFilter !== "all" ? (
+            <button
+              type="button"
+              className="text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+              onClick={() => setUploaderFilter("all")}
+            >
+              Clear filters
+            </button>
+          ) : null}
           <Button
             type="button"
             size="sm"
@@ -393,13 +548,21 @@ export function TaskSubmissionsSection({
           <AttachmentListSkeleton />
         ) : submissionDrafts.length === 0 && submissionThreads.length > 0 ? (
           <AttachmentList
-            submissions={submissionThreads}
+            submissions={visibleSubmissionThreads}
             backlogItemId={selectedTodo.id}
             currentUserId={currentUserId}
             canManageOtherProjectResources={canManageOtherProjectResources}
             onSubmissionDelete={onSubmissionDelete}
             onSubmissionArchive={onSubmissionArchive}
           />
+        ) : null}
+        {submissionDrafts.length === 0 &&
+        !isLoadingSubmissions &&
+        submissionThreads.length > 0 &&
+        visibleSubmissionThreads.length === 0 ? (
+          <div className="rounded-[2px] border border-slate-200 bg-white px-3 py-4 text-sm text-slate-500 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400">
+            No attachments match this filter.
+          </div>
         ) : null}
       </CollapsibleContent>
     </Collapsible>

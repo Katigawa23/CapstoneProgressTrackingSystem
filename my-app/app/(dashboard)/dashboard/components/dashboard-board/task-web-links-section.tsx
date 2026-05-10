@@ -1,8 +1,9 @@
 import * as React from "react"
 
-import { Archive, ChevronDown, Ellipsis, Link2, Plus, X } from "lucide-react"
+import { Archive, ChevronDown, Ellipsis, Filter, Link2, Plus, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Collapsible,
   CollapsibleContent,
@@ -12,18 +13,40 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { getAssigneeOption } from "../../backlog/types"
 import type { DashboardWebLink } from "../../types"
 
 type TaskWebLinksSectionProps = {
   links: DashboardWebLink[]
   currentUserId?: string | null
+  creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean
   onAddLink: (value: { url: string; label: string }) => void | Promise<void>
   onRemoveLink: (value: { id: string; url: string; label: string }) => void | Promise<void>
   onArchiveLink: (value: DashboardWebLink) => void | Promise<void>
+}
+
+type ResourceFilterOption = {
+  id: string
+  label: string
+  detail?: string
+  initials: string
+}
+
+function getFilterInitials(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "U"
 }
 
 function normalizeUrl(value: string) {
@@ -60,6 +83,7 @@ function getFaviconUrl(value: string) {
 export function TaskWebLinksSection({
   links,
   currentUserId = null,
+  creatorNamesById = {},
   canManageOtherProjectResources = false,
   onAddLink,
   onRemoveLink,
@@ -69,7 +93,61 @@ export function TaskWebLinksSection({
   const [isCreatingLink, setIsCreatingLink] = React.useState(false)
   const [urlDraft, setUrlDraft] = React.useState("")
   const [labelDraft, setLabelDraft] = React.useState("")
+  const [creatorFilter, setCreatorFilter] = React.useState("all")
   const createRowRef = React.useRef<HTMLDivElement | null>(null)
+  const normalizedCurrentUserId = currentUserId?.trim() ?? ""
+  const creatorOptions = React.useMemo<ResourceFilterOption[]>(() => {
+    const options = new Map<string, string>()
+
+    for (const link of links) {
+      const uploadedByUserId = link.uploadedByUserId?.trim()
+
+      if (!uploadedByUserId) {
+        continue
+      }
+
+      const assigneeOption = getAssigneeOption(uploadedByUserId)
+      const label =
+        uploadedByUserId === normalizedCurrentUserId
+          ? "To me"
+          : assigneeOption?.name ?? creatorNamesById[uploadedByUserId] ?? uploadedByUserId
+      const detail =
+        uploadedByUserId === normalizedCurrentUserId
+          ? assigneeOption?.email ?? creatorNamesById[uploadedByUserId]
+          : assigneeOption?.email
+
+      options.set(
+        uploadedByUserId,
+        JSON.stringify({
+          detail,
+          initials: assigneeOption?.initials ?? getFilterInitials(label),
+          label,
+        })
+      )
+    }
+
+    return Array.from(options, ([id, value]) => {
+      const option = JSON.parse(value) as Omit<ResourceFilterOption, "id">
+      return { id, ...option }
+    }).sort((left, right) => {
+      if (left.id === normalizedCurrentUserId) {
+        return -1
+      }
+
+      if (right.id === normalizedCurrentUserId) {
+        return 1
+      }
+
+      return left.label.localeCompare(right.label)
+    })
+  }, [creatorNamesById, links, normalizedCurrentUserId])
+  const visibleLinks = React.useMemo(
+    () =>
+      creatorFilter === "all"
+        ? links
+        : links.filter((link) => link.uploadedByUserId?.trim() === creatorFilter),
+    [creatorFilter, links]
+  )
 
   React.useEffect(() => {
     if (!isCreatingLink) {
@@ -132,7 +210,7 @@ export function TaskWebLinksSection({
               />
               <span className="text-[15px] font-semibold">Web Link</span>
               <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-[#343434] dark:text-slate-300">
-                {links.length}
+                {visibleLinks.length}
               </span>
             </button>
           </CollapsibleTrigger>
@@ -144,6 +222,83 @@ export function TaskWebLinksSection({
         </div>
 
         <div className="mt-0.5 flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={`relative h-9 w-9 rounded-[2px] p-0 dark:border-[#3a3a3a] dark:bg-[#262626] dark:hover:bg-[#303030] ${
+                  creatorFilter === "all"
+                    ? "text-slate-700 dark:text-slate-200"
+                    : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300"
+                }`}
+                aria-label="Filter web links"
+                title="Filter web links"
+              >
+                <Filter className="h-4 w-4" />
+                {creatorFilter !== "all" ? (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold leading-none text-white">
+                    1
+                  </span>
+                ) : null}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-44 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+            >
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  Created by
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-44 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                  <DropdownMenuItem onSelect={() => setCreatorFilter("all")}>
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback className="text-[9px]">
+                        All
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px]">All members</span>
+                      <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
+                        Created by anyone
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                  {creatorOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option.id}
+                      onSelect={() => setCreatorFilter(option.id)}
+                    >
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="text-[9px]">
+                          {option.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px]">{option.label}</span>
+                        {option.detail ? (
+                          <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
+                            {option.detail}
+                          </span>
+                        ) : null}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {creatorFilter !== "all" ? (
+            <button
+              type="button"
+              className="text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+              onClick={() => setCreatorFilter("all")}
+            >
+              Clear filters
+            </button>
+          ) : null}
           <Button
             type="button"
             size="sm"
@@ -249,10 +404,14 @@ export function TaskWebLinksSection({
           </div>
         ) : null}
 
-        {links.length === 0 ? null : (
+        {links.length === 0 ? null : visibleLinks.length === 0 ? (
+          <div className="rounded-[2px] border border-slate-200 bg-white px-3 py-4 text-sm text-slate-500 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400">
+            No web links match this filter.
+          </div>
+        ) : (
           <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
             <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
-              {links.map((link) => {
+              {visibleLinks.map((link) => {
                 const canManageLink =
                   Boolean(currentUserId?.trim()) &&
                   (
