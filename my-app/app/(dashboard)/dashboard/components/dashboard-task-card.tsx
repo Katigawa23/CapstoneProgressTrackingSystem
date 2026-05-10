@@ -47,6 +47,7 @@ type DashboardTaskCardProps = {
   isDragging?: boolean
   isSprintView?: boolean
   currentSprintId?: string | null
+  canMoveToSprint?: boolean
   canArchive?: boolean
   canDelete?: boolean
   sprints: Array<{
@@ -70,6 +71,7 @@ export function DashboardTaskCard({
   isDragging = false,
   isSprintView = false,
   currentSprintId = null,
+  canMoveToSprint = true,
   canArchive = true,
   canDelete = true,
   sprints,
@@ -165,7 +167,10 @@ export function DashboardTaskCard({
             onClick={(event) => event.stopPropagation()}
           >
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={Boolean(todo.parentId)}>
+              <DropdownMenuSubTrigger
+                disabled={!canMoveToSprint || Boolean(todo.parentId)}
+                className="data-[disabled]:cursor-not-allowed data-[disabled]:text-slate-300 data-[disabled]:opacity-100 data-[disabled]:focus:bg-transparent data-[disabled]:focus:text-slate-300 dark:data-[disabled]:text-slate-600 dark:data-[disabled]:focus:text-slate-600"
+              >
                 <FolderKanban className="h-4 w-4" />
                 Move to Sprint
               </DropdownMenuSubTrigger>
@@ -188,6 +193,8 @@ export function DashboardTaskCard({
             </DropdownMenuSub>
             {isSprintView && currentSprintId ? (
               <DropdownMenuItem
+                disabled={!canMoveToSprint}
+                className="data-[disabled]:cursor-not-allowed data-[disabled]:text-slate-300 data-[disabled]:opacity-100 data-[disabled]:focus:bg-transparent data-[disabled]:focus:text-slate-300 dark:data-[disabled]:text-slate-600 dark:data-[disabled]:focus:text-slate-600"
                 onSelect={() => void onMoveToBoard(todo.id, currentSprintId)}
               >
                 <FolderKanban className="h-4 w-4" />

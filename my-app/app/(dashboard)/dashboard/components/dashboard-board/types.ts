@@ -21,6 +21,7 @@ export type DashboardBoardProps = {
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean
+  canMoveToSprint?: boolean
   isSprintView?: boolean
   currentSprintId?: string | null
   sprints: Array<{

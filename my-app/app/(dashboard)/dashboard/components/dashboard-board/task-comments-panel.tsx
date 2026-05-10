@@ -26,7 +26,6 @@ import { formatCommentTime } from "./utils"
 type TaskCommentsPanelProps = {
   selectedTodo: TodoItem
   currentUserId?: string | null
-  canManageSelectedTodo?: boolean
   creatorNamesById?: Record<string, string>
   comments: DashboardComment[]
   isLoadingComments: boolean
@@ -53,7 +52,6 @@ function escapeRegExp(value: string) {
 export function TaskCommentsPanel({
   selectedTodo,
   currentUserId = null,
-  canManageSelectedTodo = true,
   creatorNamesById = {},
   comments,
   isLoadingComments,
@@ -213,7 +211,6 @@ export function TaskCommentsPanel({
                   <div className="mt-0.5">
                     <StatusCombobox
                       value={selectedTodo.status}
-                      disabled={!canManageSelectedTodo}
                       onChange={(value) =>
                         onStatusChange(selectedTodo.id, value as TodoItem["status"])
                       }
@@ -299,9 +296,11 @@ export function TaskCommentsPanel({
 
                   return (
                     <div key={comment.id} className="flex gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
-                      {getInitials(comment.author || "Unknown User")}
-                    </div>
+                    <Avatar className="h-9 w-9">
+                      <AvatarFallback className="text-xs">
+                        {getInitials(comment.author || "Unknown User")}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -426,6 +425,7 @@ export function TaskCommentsPanel({
                   />
                 </div>
                 <Textarea
+                  autoFocus
                   value={commentDraft}
                   onChange={(event) => onCommentDraftChange(event.target.value)}
                   placeholder="Add a comment..."

@@ -14,12 +14,15 @@ export type BacklogSubmissionRow = {
   backlogItemId: string
   uploadedByUserId: string | null
   archivedByUserId: string | null
+  deletedByUserId: string | null
   fileName: string
   fileUrl: string
   fileType: string
   fileSize: number
   archived: boolean
   archivedAt: string | null
+  deleted: boolean
+  deletedAt: string | null
   uploadedAt: string
 }
 
@@ -28,10 +31,13 @@ export type BacklogWebLinkRow = {
   backlogItemId: string
   uploadedByUserId: string | null
   archivedByUserId: string | null
+  deletedByUserId: string | null
   url: string
   label: string
   archived: boolean
   archivedAt: string | null
+  deleted: boolean
+  deletedAt: string | null
   uploadedAt: string
 }
 
@@ -53,6 +59,11 @@ export type ArchivedBacklogAttachmentRow = {
   archivedAt: string | null
 }
 
+export type DeletedBacklogAttachmentRow = ArchivedBacklogAttachmentRow & {
+  deletedByUserId: string | null
+  deletedAt: string | null
+}
+
 type CreateBacklogSubmissionInput = {
   id?: string
   backlogItemId: string
@@ -68,6 +79,7 @@ type BacklogSubmissionRecord = {
   backlog_item_id: string
   uploaded_by_user_id: string | null
   archived_by_user_id: string | null
+  deleted_by_user_id: string | null
   attachment_type: "file" | "link"
   file_name: string
   file_url: string
@@ -77,6 +89,8 @@ type BacklogSubmissionRecord = {
   file_data?: Buffer | string | null
   is_archived: boolean
   archived_at: string | null
+  is_deleted: boolean
+  deleted_at: string | null
   uploaded_at: string
 }
 
@@ -136,13 +150,16 @@ function mapRecord(record: BacklogSubmissionRecord): BacklogSubmissionRow {
     id: record.id,
     backlogItemId: record.backlog_item_id,
     uploadedByUserId: record.uploaded_by_user_id,
-    archivedByUserId: record.archived_by_user_id,
+    archivedByUserId: record.archived_by_user_id ?? null,
+    deletedByUserId: record.deleted_by_user_id ?? null,
     fileName: record.file_name,
     fileUrl: record.file_url,
     fileType: record.file_type,
     fileSize: record.file_size,
-    archived: record.is_archived,
-    archivedAt: record.archived_at,
+    archived: record.is_archived ?? false,
+    archivedAt: record.archived_at ?? null,
+    deleted: record.is_deleted ?? false,
+    deletedAt: record.deleted_at ?? null,
     uploadedAt: record.uploaded_at,
   }
 }
@@ -152,11 +169,14 @@ function mapWebLinkRecord(record: BacklogSubmissionRecord): BacklogWebLinkRow {
     id: record.id,
     backlogItemId: record.backlog_item_id,
     uploadedByUserId: record.uploaded_by_user_id,
-    archivedByUserId: record.archived_by_user_id,
+    archivedByUserId: record.archived_by_user_id ?? null,
+    deletedByUserId: record.deleted_by_user_id ?? null,
     url: record.file_url,
     label: record.link_label,
-    archived: record.is_archived,
-    archivedAt: record.archived_at,
+    archived: record.is_archived ?? false,
+    archivedAt: record.archived_at ?? null,
+    deleted: record.is_deleted ?? false,
+    deletedAt: record.deleted_at ?? null,
     uploadedAt: record.uploaded_at,
   }
 }
@@ -179,6 +199,7 @@ function toRecord(row: BacklogSubmissionRow): BacklogSubmissionRecord {
     backlog_item_id: row.backlogItemId,
     uploaded_by_user_id: row.uploadedByUserId ?? null,
     archived_by_user_id: row.archivedByUserId ?? null,
+    deleted_by_user_id: row.deletedByUserId ?? null,
     attachment_type: "file",
     file_name: row.fileName,
     file_url: row.fileUrl,
@@ -187,6 +208,8 @@ function toRecord(row: BacklogSubmissionRow): BacklogSubmissionRecord {
     link_label: "",
     is_archived: row.archived,
     archived_at: row.archivedAt,
+    is_deleted: row.deleted ?? false,
+    deleted_at: row.deletedAt ?? null,
     uploaded_at: row.uploadedAt,
   }
 }
@@ -197,6 +220,7 @@ function toWebLinkRecord(row: BacklogWebLinkRow): BacklogSubmissionRecord {
     backlog_item_id: row.backlogItemId,
     uploaded_by_user_id: row.uploadedByUserId ?? null,
     archived_by_user_id: row.archivedByUserId ?? null,
+    deleted_by_user_id: row.deletedByUserId ?? null,
     attachment_type: "link",
     file_name: row.label || row.url,
     file_url: row.url,
@@ -205,6 +229,8 @@ function toWebLinkRecord(row: BacklogWebLinkRow): BacklogSubmissionRecord {
     link_label: row.label,
     is_archived: row.archived,
     archived_at: row.archivedAt,
+    is_deleted: row.deleted ?? false,
+    deleted_at: row.deletedAt ?? null,
     uploaded_at: row.uploadedAt,
   }
 }
@@ -218,6 +244,7 @@ async function ensureSubmissionSchema() {
           backlog_item_id uuid not null references backlog_items(id) on delete cascade,
           uploaded_by_user_id text,
           archived_by_user_id text,
+          deleted_by_user_id text,
           attachment_type text not null default 'file' check (
             attachment_type in ('file', 'link')
           ),
@@ -229,6 +256,8 @@ async function ensureSubmissionSchema() {
           link_label text not null default '',
           is_archived boolean not null default false,
           archived_at timestamptz,
+          is_deleted boolean not null default false,
+          deleted_at timestamptz,
           uploaded_at timestamptz not null default now()
         );
       `)
@@ -242,6 +271,12 @@ async function ensureSubmissionSchema() {
         getDb().query(`
           alter table backlog_attachment
           add column if not exists archived_by_user_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_attachment
+          add column if not exists deleted_by_user_id text;
         `)
       )
       .then(() =>
@@ -272,6 +307,18 @@ async function ensureSubmissionSchema() {
         getDb().query(`
           alter table backlog_attachment
           add column if not exists archived_at timestamptz;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_attachment
+          add column if not exists is_deleted boolean not null default false;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_attachment
+          add column if not exists deleted_at timestamptz;
         `)
       )
       .then(() =>
@@ -409,7 +456,15 @@ async function withSubmissionStore<T>(
 async function readFileRecords(): Promise<BacklogSubmissionRecord[]> {
   try {
     const raw = await readFile(submissionsFilePath, "utf8")
-    return JSON.parse(raw) as BacklogSubmissionRecord[]
+    return (JSON.parse(raw) as BacklogSubmissionRecord[]).map((record) => ({
+      ...record,
+      archived_by_user_id: record.archived_by_user_id ?? null,
+      deleted_by_user_id: record.deleted_by_user_id ?? null,
+      is_archived: record.is_archived ?? false,
+      archived_at: record.archived_at ?? null,
+      is_deleted: record.is_deleted ?? false,
+      deleted_at: record.deleted_at ?? null,
+    }))
   } catch (error) {
     const code =
       typeof error === "object" && error && "code" in error
@@ -429,6 +484,9 @@ async function readFileRecords(): Promise<BacklogSubmissionRecord[]> {
             attachment_type: "file",
             link_label: "",
             file_data: null,
+            deleted_by_user_id: null,
+            is_deleted: false,
+            deleted_at: null,
           })
         )
       } catch (legacyError) {
@@ -474,6 +532,7 @@ export async function listBacklogSubmissions(
           backlog_attachment.backlog_item_id,
           backlog_attachment.uploaded_by_user_id,
           backlog_attachment.archived_by_user_id,
+          backlog_attachment.deleted_by_user_id,
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
@@ -482,6 +541,8 @@ export async function listBacklogSubmissions(
           backlog_attachment.link_label,
           backlog_attachment.is_archived,
           backlog_attachment.archived_at,
+          backlog_attachment.is_deleted,
+          backlog_attachment.deleted_at,
           backlog_attachment.uploaded_at
         from backlog_attachment
         inner join backlog_items
@@ -491,6 +552,7 @@ export async function listBacklogSubmissions(
         where backlog_attachment.backlog_item_id = $1
           and backlog_attachment.attachment_type = 'file'
           and backlog_attachment.is_archived = false
+          and backlog_attachment.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -508,7 +570,8 @@ export async function listBacklogSubmissions(
           (record) =>
             record.backlog_item_id === backlogItemId &&
             record.attachment_type === "file" &&
-            record.is_archived === false
+            record.is_archived === false &&
+            record.is_deleted === false
         )
         .sort((left, right) => right.uploaded_at.localeCompare(left.uploaded_at))
         .map(mapRecord)
@@ -593,12 +656,15 @@ export async function createBacklogSubmission(
         backlogItemId: input.backlogItemId,
         uploadedByUserId: ownerUserId,
         archivedByUserId: null,
+        deletedByUserId: null,
         fileName: input.fileName,
         fileUrl: input.fileUrl,
         fileType: input.fileType,
         fileSize: input.fileSize,
         archived: false,
         archivedAt: null,
+        deleted: false,
+        deletedAt: null,
         uploadedAt: new Date().toISOString(),
       }
 
@@ -623,10 +689,14 @@ export async function deleteBacklogSubmission(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `delete from backlog_attachment
+        `update backlog_attachment
+        set is_deleted = true,
+            deleted_at = now(),
+            deleted_by_user_id = $3
         where backlog_attachment.id = $1
           and backlog_attachment.backlog_item_id = $2
           and backlog_attachment.attachment_type = 'file'
+          and backlog_attachment.is_deleted = false
           and exists (
             select 1
             from backlog_items
@@ -651,12 +721,21 @@ export async function deleteBacklogSubmission(
           backlog_attachment.id,
           backlog_attachment.backlog_item_id,
           backlog_attachment.uploaded_by_user_id,
+          backlog_attachment.archived_by_user_id,
+          backlog_attachment.deleted_by_user_id,
+          backlog_attachment.deleted_by_user_id,
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
           backlog_attachment.file_type,
           backlog_attachment.file_size,
           backlog_attachment.link_label,
+          backlog_attachment.is_archived,
+          backlog_attachment.archived_at,
+          backlog_attachment.is_deleted,
+          backlog_attachment.deleted_at,
+          backlog_attachment.is_deleted,
+          backlog_attachment.deleted_at,
           backlog_attachment.uploaded_at`,
         [submissionId, backlogItemId, ownerUserId, ownerUserRole]
       )
@@ -687,10 +766,15 @@ export async function deleteBacklogSubmission(
         return null
       }
 
-      const [removedRecord] = records.splice(recordIndex, 1)
+      records[recordIndex] = {
+        ...records[recordIndex],
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        deleted_by_user_id: ownerUserId,
+      }
       await writeFileRecords(records)
 
-      return mapRecord(removedRecord)
+      return mapRecord(records[recordIndex])
     }
   )
 }
@@ -727,6 +811,7 @@ export async function getBacklogSubmissionAsset(
           and backlog_attachment.backlog_item_id = $2
           and backlog_attachment.attachment_type = 'file'
           and backlog_attachment.is_archived = false
+          and backlog_attachment.is_deleted = false
           and (
             projects.owner_user_id = $3
             or $3 = any(projects.member_user_ids)
@@ -791,12 +876,18 @@ export async function listBacklogWebLinks(
           backlog_attachment.id,
           backlog_attachment.backlog_item_id,
           backlog_attachment.uploaded_by_user_id,
+          backlog_attachment.archived_by_user_id,
+          backlog_attachment.deleted_by_user_id,
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
           backlog_attachment.file_type,
           backlog_attachment.file_size,
           backlog_attachment.link_label,
+          backlog_attachment.is_archived,
+          backlog_attachment.archived_at,
+          backlog_attachment.is_deleted,
+          backlog_attachment.deleted_at,
           backlog_attachment.uploaded_at
         from backlog_attachment
         inner join backlog_items
@@ -806,6 +897,7 @@ export async function listBacklogWebLinks(
         where backlog_attachment.backlog_item_id = $1
           and backlog_attachment.attachment_type = 'link'
           and backlog_attachment.is_archived = false
+          and backlog_attachment.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -823,7 +915,8 @@ export async function listBacklogWebLinks(
           (record) =>
             record.backlog_item_id === backlogItemId &&
             record.attachment_type === "link" &&
-            record.is_archived === false
+            record.is_archived === false &&
+            record.is_deleted === false
         )
         .sort((left, right) => right.uploaded_at.localeCompare(left.uploaded_at))
         .map(mapWebLinkRecord)
@@ -903,10 +996,13 @@ export async function createBacklogWebLink(
         backlogItemId: input.backlogItemId,
         uploadedByUserId: ownerUserId,
         archivedByUserId: null,
+        deletedByUserId: null,
         url: input.url,
         label: input.label,
         archived: false,
         archivedAt: null,
+        deleted: false,
+        deletedAt: null,
         uploadedAt: new Date().toISOString(),
       }
 
@@ -928,10 +1024,14 @@ export async function deleteBacklogWebLink(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `delete from backlog_attachment
+        `update backlog_attachment
+        set is_deleted = true,
+            deleted_at = now(),
+            deleted_by_user_id = $3
         where backlog_attachment.id = $1
           and backlog_attachment.backlog_item_id = $2
           and backlog_attachment.attachment_type = 'link'
+          and backlog_attachment.is_deleted = false
           and exists (
             select 1
             from backlog_items
@@ -956,12 +1056,18 @@ export async function deleteBacklogWebLink(
           backlog_attachment.id,
           backlog_attachment.backlog_item_id,
           backlog_attachment.uploaded_by_user_id,
+          backlog_attachment.archived_by_user_id,
+          backlog_attachment.deleted_by_user_id,
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
           backlog_attachment.file_type,
           backlog_attachment.file_size,
           backlog_attachment.link_label,
+          backlog_attachment.is_archived,
+          backlog_attachment.archived_at,
+          backlog_attachment.is_deleted,
+          backlog_attachment.deleted_at,
           backlog_attachment.uploaded_at`,
         [linkId, backlogItemId, ownerUserId, ownerUserRole]
       )
@@ -992,10 +1098,15 @@ export async function deleteBacklogWebLink(
         return null
       }
 
-      const [removedRecord] = records.splice(recordIndex, 1)
+      records[recordIndex] = {
+        ...records[recordIndex],
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        deleted_by_user_id: ownerUserId,
+      }
       await writeFileRecords(records)
 
-      return mapWebLinkRecord(removedRecord)
+      return mapWebLinkRecord(records[recordIndex])
     }
   )
 }
@@ -1017,6 +1128,7 @@ export async function archiveBacklogSubmission(
            and backlog_attachment.backlog_item_id = $2
            and backlog_attachment.attachment_type = 'file'
            and backlog_attachment.is_archived = false
+           and backlog_attachment.is_deleted = false
            and exists (
              select 1
              from backlog_items
@@ -1111,6 +1223,7 @@ export async function restoreBacklogSubmission(
            and backlog_attachment.backlog_item_id = $2
            and backlog_attachment.attachment_type = 'file'
            and backlog_attachment.is_archived = true
+           and backlog_attachment.is_deleted = false
            and exists (
              select 1
              from backlog_items
@@ -1205,6 +1318,7 @@ export async function archiveBacklogWebLink(
            and backlog_attachment.backlog_item_id = $2
            and backlog_attachment.attachment_type = 'link'
            and backlog_attachment.is_archived = false
+           and backlog_attachment.is_deleted = false
            and exists (
              select 1
              from backlog_items
@@ -1299,6 +1413,7 @@ export async function restoreBacklogWebLink(
            and backlog_attachment.backlog_item_id = $2
            and backlog_attachment.attachment_type = 'link'
            and backlog_attachment.is_archived = true
+           and backlog_attachment.is_deleted = false
            and exists (
              select 1
              from backlog_items
@@ -1396,7 +1511,8 @@ export async function archiveBacklogAttachmentsForItems(
              archived_at = now(),
              archived_by_user_id = $2
          where backlog_item_id::text = any($1::text[])
-           and is_archived = false`,
+          and is_archived = false
+          and is_deleted = false`,
         [normalizedIds, ownerUserId]
       )
 
@@ -1447,7 +1563,8 @@ export async function restoreBacklogAttachmentsForItems(backlogItemIds: string[]
              archived_at = null,
              archived_by_user_id = null
          where backlog_item_id::text = any($1::text[])
-           and is_archived = true`,
+          and is_archived = true
+          and is_deleted = false`,
         [normalizedIds]
       )
 
@@ -1519,6 +1636,7 @@ export async function listArchivedBacklogAttachments(
           on parent_item.id = backlog_items.parent_id
         where backlog_items.project_id = $1
           and backlog_attachment.is_archived = true
+          and backlog_attachment.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -1566,6 +1684,252 @@ export async function listArchivedBacklogAttachments(
           uploadedAt: record.uploaded_at,
           archivedAt: record.archived_at,
         }))
+    }
+  )
+}
+
+export async function listDeletedBacklogAttachments(
+  projectId: string,
+  ownerUserId: string
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<
+        BacklogSubmissionRecord & {
+          parent_id: string | null
+          sequence_number: number
+          parent_sequence_number: number | null
+        }
+      >(
+        `select
+          backlog_attachment.id,
+          backlog_attachment.backlog_item_id,
+          backlog_attachment.uploaded_by_user_id,
+          backlog_attachment.archived_by_user_id,
+          backlog_attachment.deleted_by_user_id,
+          backlog_attachment.attachment_type,
+          backlog_attachment.file_name,
+          backlog_attachment.file_url,
+          backlog_attachment.file_type,
+          backlog_attachment.file_size,
+          backlog_attachment.link_label,
+          backlog_attachment.is_archived,
+          backlog_attachment.archived_at,
+          backlog_attachment.is_deleted,
+          backlog_attachment.deleted_at,
+          backlog_attachment.uploaded_at,
+          backlog_items.parent_id,
+          backlog_items.sequence_number,
+          parent_item.sequence_number as parent_sequence_number
+        from backlog_attachment
+        inner join backlog_items
+          on backlog_items.id = backlog_attachment.backlog_item_id
+        inner join projects
+          on projects.id = backlog_items.project_id
+        left join backlog_items as parent_item
+          on parent_item.id = backlog_items.parent_id
+        where backlog_items.project_id = $1
+          and backlog_attachment.is_deleted = true
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+        order by backlog_attachment.deleted_at desc nulls last, backlog_attachment.uploaded_at desc`,
+        [projectId, ownerUserId]
+      )
+
+      return result.rows.map((record): DeletedBacklogAttachmentRow => ({
+        id: record.id,
+        backlogItemId: record.backlog_item_id,
+        backlogItemParentId: record.parent_id,
+        backlogItemSequenceNumber: record.sequence_number,
+        parentSequenceNumber: record.parent_sequence_number,
+        attachmentType: record.attachment_type,
+        uploadedByUserId: record.uploaded_by_user_id,
+        archivedByUserId: record.archived_by_user_id,
+        deletedByUserId: record.deleted_by_user_id,
+        fileName: record.file_name,
+        fileUrl: record.file_url,
+        fileType: record.file_type,
+        fileSize: record.file_size,
+        label: record.link_label,
+        uploadedAt: record.uploaded_at,
+        archivedAt: record.archived_at,
+        deletedAt: record.deleted_at,
+      }))
+    },
+    async () => {
+      const records = await readFileRecords()
+      return records
+        .filter((record) => record.is_deleted === true)
+        .map((record): DeletedBacklogAttachmentRow => ({
+          id: record.id,
+          backlogItemId: record.backlog_item_id,
+          backlogItemParentId: null,
+          backlogItemSequenceNumber: 0,
+          parentSequenceNumber: null,
+          attachmentType: record.attachment_type,
+          uploadedByUserId: record.uploaded_by_user_id,
+          archivedByUserId: record.archived_by_user_id,
+          deletedByUserId: record.deleted_by_user_id,
+          fileName: record.file_name,
+          fileUrl: record.file_url,
+          fileType: record.file_type,
+          fileSize: record.file_size,
+          label: record.link_label,
+          uploadedAt: record.uploaded_at,
+          archivedAt: record.archived_at,
+          deletedAt: record.deleted_at,
+        }))
+    }
+  )
+}
+
+export async function restoreDeletedBacklogAttachment(
+  attachmentId: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin"
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<BacklogSubmissionRecord>(
+        `update backlog_attachment
+         set is_deleted = false,
+             deleted_at = null,
+             deleted_by_user_id = null
+         where backlog_attachment.id = $1
+           and backlog_attachment.is_deleted = true
+           and exists (
+             select 1
+             from backlog_items
+             inner join projects
+               on projects.id = backlog_items.project_id
+             left join project_member_access
+               on project_member_access.project_id = projects.id
+              and project_member_access.member_user_id = $2
+             where backlog_items.id = backlog_attachment.backlog_item_id
+               and (
+                 projects.owner_user_id = $2
+                 or $2 = any(projects.member_user_ids)
+               )
+               and (
+                 backlog_attachment.deleted_by_user_id = $2
+                 or projects.owner_user_id = $2
+                 or $3 in ('faculty', 'admin')
+                 or coalesce(project_member_access.can_create_sprint, false)
+               )
+           )
+         returning *`,
+        [attachmentId, ownerUserId, ownerUserRole]
+      )
+
+      return result.rows[0]
+        ? result.rows[0].attachment_type === "link"
+          ? mapWebLinkRecord(result.rows[0])
+          : mapRecord(result.rows[0])
+        : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const recordIndex = records.findIndex(
+        (record) => record.id === attachmentId && record.is_deleted === true
+      )
+
+      if (recordIndex < 0) {
+        return null
+      }
+
+      const record = records[recordIndex]
+
+      if (
+        record.deleted_by_user_id !== ownerUserId &&
+        !(await canManageOtherProjectAttachments(
+          record.backlog_item_id,
+          ownerUserId,
+          ownerUserRole
+        ))
+      ) {
+        return null
+      }
+
+      records[recordIndex] = {
+        ...record,
+        is_deleted: false,
+        deleted_at: null,
+        deleted_by_user_id: null,
+      }
+      await writeFileRecords(records)
+
+      return records[recordIndex].attachment_type === "link"
+        ? mapWebLinkRecord(records[recordIndex])
+        : mapRecord(records[recordIndex])
+    }
+  )
+}
+
+export async function permanentlyDeleteBacklogAttachment(
+  attachmentId: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin"
+) {
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query<{ id: string }>(
+        `delete from backlog_attachment
+         where backlog_attachment.id = $1
+           and backlog_attachment.is_deleted = true
+           and exists (
+             select 1
+             from backlog_items
+             inner join projects
+               on projects.id = backlog_items.project_id
+             left join project_member_access
+               on project_member_access.project_id = projects.id
+              and project_member_access.member_user_id = $2
+             where backlog_items.id = backlog_attachment.backlog_item_id
+               and (
+                 projects.owner_user_id = $2
+                 or $2 = any(projects.member_user_ids)
+               )
+               and (
+                 backlog_attachment.deleted_by_user_id = $2
+                 or projects.owner_user_id = $2
+                 or $3 in ('faculty', 'admin')
+                 or coalesce(project_member_access.can_create_sprint, false)
+               )
+           )
+         returning id`,
+        [attachmentId, ownerUserId, ownerUserRole]
+      )
+
+      return (result.rowCount ?? 0) > 0
+    },
+    async () => {
+      const records = await readFileRecords()
+      const recordIndex = records.findIndex(
+        (record) => record.id === attachmentId && record.is_deleted === true
+      )
+
+      if (recordIndex < 0) {
+        return false
+      }
+
+      const record = records[recordIndex]
+
+      if (
+        record.deleted_by_user_id !== ownerUserId &&
+        !(await canManageOtherProjectAttachments(
+          record.backlog_item_id,
+          ownerUserId,
+          ownerUserRole
+        ))
+      ) {
+        return false
+      }
+
+      records.splice(recordIndex, 1)
+      await writeFileRecords(records)
+      return true
     }
   )
 }

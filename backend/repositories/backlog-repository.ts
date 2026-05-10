@@ -27,6 +27,7 @@ export type BacklogRow = {
   orderIndex: number
   createdByUserId: string | null
   archivedByUserId: string | null
+  deletedByUserId: string | null
   title: string
   description: string
   startDate: string | null
@@ -36,6 +37,8 @@ export type BacklogRow = {
   assigneeId: string | null
   archived: boolean
   archivedAt: string | null
+  deleted: boolean
+  deletedAt: string | null
   createdAt: string
   commentCount?: number
 }
@@ -72,6 +75,7 @@ type BacklogRecord = {
   order_index: number
   created_by_user_id: string | null
   archived_by_user_id: string | null
+  deleted_by_user_id: string | null
   title: string
   description: string
   start_date: string | null
@@ -81,6 +85,8 @@ type BacklogRecord = {
   assignee_id: string | null
   is_archived: boolean
   archived_at: string | null
+  is_deleted: boolean
+  deleted_at: string | null
   created_at: string
 }
 
@@ -90,6 +96,7 @@ type BacklogRecordWithStats = BacklogRecord & {
 
 type ListBacklogItemsOptions = {
   archived?: boolean
+  deleted?: boolean
   limit?: number
   offset?: number
 }
@@ -133,8 +140,11 @@ type RawBacklogRecord = Partial<BacklogRecord> & {
   dueDate?: string | null
   assigneeId?: string | null
   archivedByUserId?: string | null
+  deletedByUserId?: string | null
   archived?: boolean
   archivedAt?: string | null
+  deleted?: boolean
+  deletedAt?: string | null
   createdAt?: string | null
   file_name?: string | null
   file_size?: string | null
@@ -194,7 +204,8 @@ function mapRecord(record: BacklogRecordWithStats): BacklogRow {
     sequenceNumber: record.sequence_number,
     orderIndex: record.order_index,
     createdByUserId: record.created_by_user_id,
-    archivedByUserId: record.archived_by_user_id,
+    archivedByUserId: record.archived_by_user_id ?? null,
+    deletedByUserId: record.deleted_by_user_id ?? null,
     title: record.title,
     description: record.description,
     startDate: record.start_date,
@@ -202,8 +213,10 @@ function mapRecord(record: BacklogRecordWithStats): BacklogRow {
     status: record.status,
     checked: record.checked,
     assigneeId: record.assignee_id,
-    archived: record.is_archived,
-    archivedAt: record.archived_at,
+    archived: record.is_archived ?? false,
+    archivedAt: record.archived_at ?? null,
+    deleted: record.is_deleted ?? false,
+    deletedAt: record.deleted_at ?? null,
     createdAt: record.created_at,
     commentCount:
       typeof record.comment_count === "number"
@@ -223,6 +236,7 @@ function toRecord(input: BacklogRow): BacklogRecord {
     order_index: input.orderIndex,
     created_by_user_id: input.createdByUserId ?? null,
     archived_by_user_id: input.archivedByUserId ?? null,
+    deleted_by_user_id: input.deletedByUserId ?? null,
     title: input.title,
     description: input.description,
     start_date: input.startDate,
@@ -232,6 +246,8 @@ function toRecord(input: BacklogRow): BacklogRecord {
     assignee_id: input.assigneeId,
     is_archived: input.archived,
     archived_at: input.archivedAt,
+    is_deleted: input.deleted ?? false,
+    deleted_at: input.deletedAt ?? null,
     created_at: input.createdAt,
   }
 }
@@ -267,12 +283,19 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
     "archived_by_user_id",
     "archivedByUserId"
   )
+  const deletedByUserId = readStringAlias(
+    record,
+    "deleted_by_user_id",
+    "deletedByUserId"
+  )
   const startDate = readStringAlias(record, "start_date", "startDate")
   const dueDate = readStringAlias(record, "due_date", "dueDate")
   const assigneeId = readStringAlias(record, "assignee_id", "assigneeId")
   const archivedAt = readStringAlias(record, "archived_at", "archivedAt")
+  const deletedAt = readStringAlias(record, "deleted_at", "deletedAt")
   const createdAt = readStringAlias(record, "created_at", "createdAt")
   const isArchived = readBooleanAlias(record, "is_archived", "archived")
+  const isDeleted = readBooleanAlias(record, "is_deleted", "deleted")
 
   return {
     id: typeof record.id === "string" ? record.id : randomUUID(),
@@ -284,6 +307,7 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
       orderIndex ?? 1,
     created_by_user_id: createdByUserId,
     archived_by_user_id: archivedByUserId,
+    deleted_by_user_id: deletedByUserId,
     title: typeof record.title === "string" ? record.title : "",
     description: typeof record.description === "string" ? record.description : "",
     start_date: startDate,
@@ -293,6 +317,8 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
     assignee_id: assigneeId,
     is_archived: isArchived ?? false,
     archived_at: archivedAt,
+    is_deleted: isDeleted ?? false,
+    deleted_at: deletedAt,
     created_at: createdAt ?? new Date().toISOString(),
   }
 }
@@ -328,6 +354,7 @@ async function ensureBacklogSchema() {
           order_index integer,
           created_by_user_id text,
           archived_by_user_id text,
+          deleted_by_user_id text,
           title text not null,
           description text not null default '',
           start_date date,
@@ -339,6 +366,8 @@ async function ensureBacklogSchema() {
           assignee_id text,
           is_archived boolean not null default false,
           archived_at timestamptz,
+          is_deleted boolean not null default false,
+          deleted_at timestamptz,
           created_at timestamptz not null default now(),
           updated_at timestamptz not null default now()
         );
@@ -354,6 +383,12 @@ async function ensureBacklogSchema() {
         getDb().query(`
           alter table backlog_items
           add column if not exists archived_by_user_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists deleted_by_user_id text;
         `)
       )
       .then(() =>
@@ -384,6 +419,18 @@ async function ensureBacklogSchema() {
         getDb().query(`
           alter table backlog_items
           add column if not exists archived_at timestamptz;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists is_deleted boolean not null default false;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog_items
+          add column if not exists deleted_at timestamptz;
         `)
       )
       .then(() =>
@@ -663,6 +710,7 @@ export async function listBacklogItemsWithStats(
   return withBacklogStore(
     async () => {
       const archived = options.archived === true
+      const deleted = options.deleted === true
       const limit = Math.max(1, Math.min(options.limit ?? 200, 500))
       const offset = Math.max(0, options.offset ?? 0)
       const result = await getDb().query<BacklogRecordWithStats>(
@@ -674,6 +722,8 @@ export async function listBacklogItemsWithStats(
           backlog_items.order_index,
           backlog_items.created_by_user_id,
           backlog_items.archived_by_user_id,
+          backlog_items.deleted_by_user_id,
+          backlog_items.deleted_by_user_id,
           backlog_items.title,
           backlog_items.description,
           backlog_items.start_date,
@@ -683,6 +733,10 @@ export async function listBacklogItemsWithStats(
           backlog_items.assignee_id,
           backlog_items.is_archived,
           backlog_items.archived_at,
+          backlog_items.is_deleted,
+          backlog_items.deleted_at,
+          backlog_items.is_deleted,
+          backlog_items.deleted_at,
           backlog_items.created_at,
           coalesce(comment_counts.comment_count, 0) as comment_count
         from backlog_items
@@ -701,6 +755,7 @@ export async function listBacklogItemsWithStats(
           on comment_counts.backlog_item_id = backlog_items.id
         where backlog_items.project_id = $1
           and backlog_items.is_archived = $3
+          and backlog_items.is_deleted = $6
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -708,17 +763,21 @@ export async function listBacklogItemsWithStats(
         order by backlog_items.order_index asc, backlog_items.created_at asc
         limit $4
         offset $5`,
-        [projectId, ownerUserId, archived, limit, offset]
+        [projectId, ownerUserId, archived, limit, offset, deleted]
       )
 
       return result.rows.map(mapRecord)
     },
     async () => {
       const archived = options.archived === true
+      const deleted = options.deleted === true
       const records = await readFileRecords()
       return records
         .filter(
-          (record) => record.project_id === projectId && record.is_archived === archived
+          (record) =>
+            record.project_id === projectId &&
+            record.is_archived === archived &&
+            record.is_deleted === deleted
         )
         .sort((left, right) => left.order_index - right.order_index)
         .slice(options.offset ?? 0, (options.offset ?? 0) + (options.limit ?? 200))
@@ -779,6 +838,7 @@ export async function listProjectBacklogActivities(
           on comment_counts.backlog_item_id = backlog_items.id
         where backlog_items.project_id = any($1::uuid[])
           and backlog_items.is_archived = false
+          and backlog_items.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -797,7 +857,7 @@ export async function listProjectBacklogActivities(
     async () => {
       const records = await readFileRecords()
       return records
-        .filter((record) => projectIds.includes(record.project_id))
+        .filter((record) => projectIds.includes(record.project_id) && !record.is_deleted)
         .sort((left, right) => right.created_at.localeCompare(left.created_at))
         .map((record) => ({
           ...mapRecord(record),
@@ -831,6 +891,8 @@ export async function createBacklogItem(
              or backlog_items.parent_id = $2::uuid
            )
            and lower(regexp_replace(btrim(backlog_items.title), '\\s+', ' ', 'g')) = $3
+           and backlog_items.is_archived = false
+           and backlog_items.is_deleted = false
            and (
              projects.owner_user_id = $4
              or $4 = any(projects.member_user_ids)
@@ -998,6 +1060,7 @@ export async function createBacklogItem(
         orderIndex: nextOrderIndex,
         createdByUserId: ownerUserId,
         archivedByUserId: null,
+        deletedByUserId: null,
         title: normalizedTitle,
         description: input.description,
         startDate: input.startDate,
@@ -1007,6 +1070,8 @@ export async function createBacklogItem(
         assigneeId: input.assigneeId,
         archived: false,
         archivedAt: null,
+        deleted: false,
+        deletedAt: null,
         createdAt: new Date().toISOString(),
       }
 
@@ -1107,6 +1172,7 @@ export async function updateBacklogItem(
              where project_id = $1
                and id <> $2
                and is_archived = false
+               and is_deleted = false
                and (
                  ($3::uuid is null and parent_id is null)
                  or parent_id = $3::uuid
@@ -1235,13 +1301,18 @@ export async function deleteBacklogItem(
   return withBacklogStore(
     async () => {
       const result = await getDb().query<{ id: string }>(
-        `delete from backlog_items
-        using projects
+        `update backlog_items
+        set is_deleted = true,
+            deleted_at = now(),
+            deleted_by_user_id = $2,
+            updated_at = now()
+        from projects
         left join project_member_access
           on project_member_access.project_id = projects.id
          and project_member_access.member_user_id = $2
-        where backlog_items.id = $1
+        where (backlog_items.id = $1 or backlog_items.parent_id = $1)
           and projects.id = backlog_items.project_id
+          and backlog_items.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -1285,6 +1356,161 @@ export async function deleteBacklogItem(
         return false
       }
 
+      let changed = false
+      const deletedAt = new Date().toISOString()
+      const nextRecords = records.map((record) => {
+        if ((record.id !== id && record.parent_id !== id) || record.is_deleted) {
+          return record
+        }
+
+        changed = true
+        return {
+          ...record,
+          is_deleted: true,
+          deleted_at: deletedAt,
+          deleted_by_user_id: ownerUserId,
+        }
+      })
+
+      if (!changed) {
+        return false
+      }
+
+      await writeFileRecords(nextRecords)
+      return true
+    }
+  )
+}
+
+export async function restoreDeletedBacklogItem(
+  id: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin" = "student"
+) {
+  return withBacklogStore(
+    async () => {
+      const result = await getDb().query<{ id: string }>(
+        `update backlog_items
+        set is_deleted = false,
+            deleted_at = null,
+            deleted_by_user_id = null,
+            updated_at = now()
+        from projects
+        left join project_member_access
+          on project_member_access.project_id = projects.id
+         and project_member_access.member_user_id = $2
+        where (backlog_items.id = $1 or backlog_items.parent_id = $1)
+          and projects.id = backlog_items.project_id
+          and backlog_items.is_deleted = true
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+          and (
+            backlog_items.deleted_by_user_id = $2
+            or projects.owner_user_id = $2
+            or $3 in ('faculty', 'admin')
+            or coalesce(project_member_access.can_create_sprint, false)
+          )
+        returning backlog_items.id`,
+        [id, ownerUserId, ownerUserRole]
+      )
+
+      return (result.rowCount ?? 0) > 0
+    },
+    async () => {
+      const records = await readFileRecords()
+      const targetRecord = records.find((record) => record.id === id)
+
+      if (!targetRecord || !targetRecord.is_deleted) {
+        return false
+      }
+
+      const canManageOthers = await canUserCreateSprintInProject(
+        targetRecord.project_id,
+        ownerUserId,
+        ownerUserRole
+      ).catch(() => ownerUserRole === "faculty" || ownerUserRole === "admin")
+
+      if (targetRecord.deleted_by_user_id !== ownerUserId && !canManageOthers) {
+        return false
+      }
+
+      let changed = false
+      const nextRecords = records.map((record) => {
+        if ((record.id !== id && record.parent_id !== id) || !record.is_deleted) {
+          return record
+        }
+
+        changed = true
+        return {
+          ...record,
+          is_deleted: false,
+          deleted_at: null,
+          deleted_by_user_id: null,
+        }
+      })
+
+      if (!changed) {
+        return false
+      }
+
+      await writeFileRecords(nextRecords)
+      return true
+    }
+  )
+}
+
+export async function permanentlyDeleteBacklogItem(
+  id: string,
+  ownerUserId: string,
+  ownerUserRole: "student" | "faculty" | "admin" = "student"
+) {
+  return withBacklogStore(
+    async () => {
+      const result = await getDb().query<{ id: string }>(
+        `delete from backlog_items
+        using projects
+        left join project_member_access
+          on project_member_access.project_id = projects.id
+         and project_member_access.member_user_id = $2
+        where (backlog_items.id = $1 or backlog_items.parent_id = $1)
+          and projects.id = backlog_items.project_id
+          and backlog_items.is_deleted = true
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+          and (
+            backlog_items.deleted_by_user_id = $2
+            or projects.owner_user_id = $2
+            or $3 in ('faculty', 'admin')
+            or coalesce(project_member_access.can_create_sprint, false)
+          )
+        returning backlog_items.id`,
+        [id, ownerUserId, ownerUserRole]
+      )
+
+      return (result.rowCount ?? 0) > 0
+    },
+    async () => {
+      const records = await readFileRecords()
+      const targetRecord = records.find((record) => record.id === id)
+
+      if (!targetRecord || !targetRecord.is_deleted) {
+        return false
+      }
+
+      const canManageOthers = await canUserCreateSprintInProject(
+        targetRecord.project_id,
+        ownerUserId,
+        ownerUserRole
+      ).catch(() => ownerUserRole === "faculty" || ownerUserRole === "admin")
+
+      if (targetRecord.deleted_by_user_id !== ownerUserId && !canManageOthers) {
+        return false
+      }
+
       const nextRecords = records.filter(
         (record) => record.id !== id && record.parent_id !== id
       )
@@ -1316,6 +1542,7 @@ export async function archiveBacklogItem(
           and project_member_access.member_user_id = $2
          where backlog_items.id = $1
            and backlog_items.is_archived = false
+           and backlog_items.is_deleted = false
            and (
              projects.owner_user_id = $2
              or $2 = any(projects.member_user_ids)
@@ -1454,6 +1681,7 @@ export async function restoreBacklogItem(
           and project_member_access.member_user_id = $2
          where backlog_items.id = $1
            and backlog_items.is_archived = true
+           and backlog_items.is_deleted = false
            and (
              projects.owner_user_id = $2
              or $2 = any(projects.member_user_ids)

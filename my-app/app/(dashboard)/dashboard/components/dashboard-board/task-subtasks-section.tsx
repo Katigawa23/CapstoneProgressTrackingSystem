@@ -402,14 +402,13 @@ export function TaskSubtasksSection({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-[2px] border border-slate-200 bg-white px-3 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc] dark:hover:bg-[#24292f] dark:hover:text-[#dee4ea]"
+                  className="relative inline-flex h-9 w-9 items-center justify-center rounded-[2px] border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc] dark:hover:bg-[#24292f] dark:hover:text-[#dee4ea]"
                   aria-label="Filter subtasks"
                   title="Filter"
                 >
                   <Filter className="h-4 w-4" />
-                  <span>Filter</span>
                   {hasActiveFilters ? (
-                    <span className="inline-flex min-w-5 items-center justify-center rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-200">
+                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold leading-none text-white dark:bg-blue-500">
                       {activeFilterCount}
                     </span>
                   ) : null}

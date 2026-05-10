@@ -786,6 +786,10 @@ export function BacklogPageClient({
 
   const moveItemToSprint = React.useCallback(
     async (backlogItemId: string, sprintId: string) => {
+      if (!canCreateSprint) {
+        return
+      }
+
       const previousSprints = sprints
       const previousItems = items
 
@@ -828,11 +832,15 @@ export function BacklogPageClient({
         setItems(previousItems)
       }
     },
-    [items, sprints]
+    [canCreateSprint, items, sprints]
   )
 
   const moveItemToBoard = React.useCallback(
     async (backlogItemId: string, sprintId: string) => {
+      if (!canCreateSprint) {
+        return
+      }
+
       const previousSprints = sprints
 
       setSprints((currentSprints) =>
@@ -863,7 +871,7 @@ export function BacklogPageClient({
         setSprints(previousSprints)
       }
     },
-    [sprints]
+    [canCreateSprint, sprints]
   )
 
   const getRootItemsForDroppable = React.useCallback(
@@ -885,7 +893,7 @@ export function BacklogPageClient({
     (result: DropResult) => {
       const { source, destination, draggableId } = result
 
-      if (!destination) {
+      if (!canCreateSprint || !destination) {
         return
       }
 
@@ -929,7 +937,7 @@ export function BacklogPageClient({
         void reorderRootItems(rootItems, draggableId, targetItem?.id ?? null)
       }
     },
-    [getRootItemsForDroppable, moveItemToBoard, moveItemToSprint, reorderRootItems, selectedSprintId]
+    [canCreateSprint, getRootItemsForDroppable, moveItemToBoard, moveItemToSprint, reorderRootItems, selectedSprintId]
   )
 
   const handleCreateSprint = React.useCallback(async () => {
@@ -1038,6 +1046,7 @@ export function BacklogPageClient({
               onUpdateAssignee={updateItemAssignee}
               onEditItem={handleOpenEdit}
               onDeleteItem={handleDeleteItem}
+              canMoveItems={canCreateSprint}
             />
           </div>
 
@@ -1075,6 +1084,7 @@ export function BacklogPageClient({
               onUpdateAssignee={updateItemAssignee}
               onEditItem={handleOpenEdit}
               onDeleteItem={handleDeleteItem}
+              canMoveItems={canCreateSprint}
             />
           </div>
         </div>

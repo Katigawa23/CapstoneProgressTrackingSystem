@@ -16,6 +16,7 @@ type DashboardColumnProps = {
   currentSprintId?: string | null
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
+  canMoveToSprint?: boolean
   sprints: Array<{
     id: string
     name: string
@@ -39,6 +40,7 @@ export function DashboardColumn({
   currentSprintId = null,
   currentUserId = null,
   canManageOtherProjectResources = false,
+  canMoveToSprint = true,
   sprints,
   onStatusChange,
   onAssigneeChange,
@@ -103,7 +105,11 @@ export function DashboardColumn({
             >
               <div className={`space-y-0.5 pt-0 pr-2 pb-2 ${hasTodos ? "" : "h-full"}`}>
                 {todos.map((todo, index) => (
-                  <Draggable key={todo.id} draggableId={todo.id} index={index}>
+                  <Draggable
+                    key={todo.id}
+                    draggableId={todo.id}
+                    index={index}
+                  >
                     {(draggableProvided, dragSnapshot) => (
                       <DashboardTaskCard
                         todo={todo}
@@ -116,6 +122,7 @@ export function DashboardColumn({
                         sprints={sprints}
                         isSprintView={isSprintView}
                         currentSprintId={currentSprintId}
+                        canMoveToSprint={canMoveToSprint}
                         canArchive={
                           canManageOtherProjectResources ||
                           (Boolean(normalizedCurrentUserId) &&

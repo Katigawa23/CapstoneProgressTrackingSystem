@@ -56,6 +56,7 @@ type SprintSummary = {
 
 const BOARD_REALTIME_REFRESH_INTERVAL_MS = 500
 const BOARD_LOCAL_MUTATION_GUARD_MS = 8000
+const BOARD_MOVE_SETTLE_MS = 1500
 
 function normalizeProjectPersonName(name: string) {
   return name
@@ -137,6 +138,7 @@ export function DashboardBoardPageClient({
   const [isCreatingSubtask, setIsCreatingSubtask] = React.useState(false)
   const [createSubtaskError, setCreateSubtaskError] = React.useState<string | null>(null)
   const localMutationGuardUntilRef = React.useRef(0)
+  const localMutationReleaseTimerRef = React.useRef<number | null>(null)
   const selectedProject = React.useMemo(
     () =>
       initialProjects.find((project) => project.id === selectedProjectId) ??
@@ -227,10 +229,22 @@ export function DashboardBoardPageClient({
     return `${completedCount}/${subtasks.length}`
   }, [])
   const guardBoardSyncDuringLocalMutation = React.useCallback(() => {
+    if (localMutationReleaseTimerRef.current) {
+      window.clearTimeout(localMutationReleaseTimerRef.current)
+      localMutationReleaseTimerRef.current = null
+    }
+
     localMutationGuardUntilRef.current = Date.now() + BOARD_LOCAL_MUTATION_GUARD_MS
   }, [])
-  const releaseBoardSyncGuard = React.useCallback(() => {
-    localMutationGuardUntilRef.current = 0
+  const releaseBoardSyncGuardAfterSettle = React.useCallback(() => {
+    if (localMutationReleaseTimerRef.current) {
+      window.clearTimeout(localMutationReleaseTimerRef.current)
+    }
+
+    localMutationReleaseTimerRef.current = window.setTimeout(() => {
+      localMutationGuardUntilRef.current = 0
+      localMutationReleaseTimerRef.current = null
+    }, BOARD_MOVE_SETTLE_MS)
   }, [])
 
   const fetchTodosForProject = React.useCallback(
@@ -282,12 +296,20 @@ export function DashboardBoardPageClient({
   }, [])
 
   React.useEffect(() => {
+    return () => {
+      if (localMutationReleaseTimerRef.current) {
+        window.clearTimeout(localMutationReleaseTimerRef.current)
+      }
+    }
+  }, [])
+
+  React.useEffect(() => {
     cacheDashboardProjects(initialProjects)
     setAssigneeOptions(
       createAssigneeOptionsFromProject(selectedProject, currentUser)
     )
 
-    if (!initialSelectedProjectId) {
+    if (!initialSelectedProjectId || hasLoadedBoardData) {
       return
     }
 
@@ -304,6 +326,7 @@ export function DashboardBoardPageClient({
     initialSelectedProjectId,
     initialSprintId,
     selectedProject,
+    hasLoadedBoardData,
   ])
 
   React.useEffect(() => {
@@ -552,12 +575,8 @@ export function DashboardBoardPageClient({
         const activeProjectId = getSelectedDashboardProjectId()
 
         if (activeProjectId) {
-          const [refreshedTodos, refreshedSprints] = await Promise.all([
-            fetchTodosForProject(activeProjectId),
-            fetchSprintsForProject(activeProjectId),
-          ])
+          const refreshedSprints = await fetchSprintsForProject(activeProjectId)
 
-          setTodos(refreshedTodos)
           setSprints(refreshedSprints)
         }
       } catch (error) {
@@ -570,14 +589,13 @@ export function DashboardBoardPageClient({
         })
         setTodos(previousTodos)
       } finally {
-        releaseBoardSyncGuard()
+        releaseBoardSyncGuardAfterSettle()
       }
     },
     [
       fetchSprintsForProject,
-      fetchTodosForProject,
       guardBoardSyncDuringLocalMutation,
-      releaseBoardSyncGuard,
+      releaseBoardSyncGuardAfterSettle,
       todos,
     ]
   )
@@ -921,7 +939,7 @@ export function DashboardBoardPageClient({
           fetchSprintsForProject(selectedProjectId),
         ])
 
-        if (cancelled) {
+        if (cancelled || Date.now() < localMutationGuardUntilRef.current) {
           return
         }
 
@@ -1210,6 +1228,10 @@ export function DashboardBoardPageClient({
 
   const handleAddToSprint = React.useCallback(
     async (todoId: string, sprintId: string) => {
+      if (!canCreateSprint) {
+        return
+      }
+
       try {
         const response = await fetch(`/api/sprints/${sprintId}/items`, {
           method: "POST",
@@ -1249,11 +1271,15 @@ export function DashboardBoardPageClient({
         console.error(error)
       }
     },
-    []
+    [canCreateSprint]
   )
 
   const handleMoveToBoard = React.useCallback(
     async (todoId: string, sprintId: string) => {
+      if (!canCreateSprint) {
+        return
+      }
+
       try {
         const response = await fetch(`/api/sprints/${sprintId}/items`, {
           method: "DELETE",
@@ -1283,7 +1309,7 @@ export function DashboardBoardPageClient({
         console.error(error)
       }
     },
-    []
+    [canCreateSprint]
   )
 
   return (
@@ -1350,6 +1376,7 @@ export function DashboardBoardPageClient({
             currentUserId={currentUser?.id ?? null}
             creatorNamesById={creatorNamesById}
             canManageOtherProjectResources={canCreateSprint}
+            canMoveToSprint={canCreateSprint}
             isSprintView={Boolean(selectedSprint)}
             currentSprintId={selectedSprint?.id ?? null}
             sprints={sprints}

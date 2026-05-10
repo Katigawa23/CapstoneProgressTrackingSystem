@@ -29,6 +29,7 @@ type BacklogBoardProps = {
   onEditItem: (item: WorkItem) => void
   onDeleteItem: (id: string) => void
   onOpenCreate?: () => void
+  canMoveItems?: boolean
 }
 
 export function BacklogBoard({
@@ -43,6 +44,7 @@ export function BacklogBoard({
   onEditItem,
   onDeleteItem,
   onOpenCreate,
+  canMoveItems = true,
 }: BacklogBoardProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
   const [expandedParentIds, setExpandedParentIds] = React.useState<Set<string>>(
@@ -288,7 +290,12 @@ export function BacklogBoard({
                   const isChildrenExpanded = expandedParentIds.has(item.id)
 
                   return (
-                    <Draggable key={item.id} draggableId={item.id} index={index}>
+                    <Draggable
+                      key={item.id}
+                      draggableId={item.id}
+                      index={index}
+                      isDragDisabled={!canMoveItems}
+                    >
                       {(draggableProvided, dragSnapshot) => (
                         <div
                           ref={draggableProvided.innerRef}

@@ -1,7 +1,5 @@
 import { revalidateTag } from "next/cache"
 import { randomUUID } from "crypto"
-import { unlink } from "fs/promises"
-import path from "path"
 
 import { NextResponse } from "next/server"
 
@@ -146,24 +144,6 @@ export async function DELETE(
         { error: "Submission not found" },
         { status: 404 }
       )
-    }
-
-    if (deletedSubmission.fileUrl.startsWith("/uploads/backlog-submissions/")) {
-      const relativePath = deletedSubmission.fileUrl.replace(/^\/+/, "")
-      const filePath = path.join(process.cwd(), "public", relativePath)
-
-      try {
-        await unlink(filePath)
-      } catch (error) {
-        const code =
-          typeof error === "object" && error && "code" in error
-            ? String(error.code)
-            : null
-
-        if (code !== "ENOENT") {
-          throw error
-        }
-      }
     }
 
     revalidateTag("backlog-items", "max")

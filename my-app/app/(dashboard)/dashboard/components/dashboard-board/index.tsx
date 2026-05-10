@@ -61,6 +61,7 @@ export function DashboardBoard({
   currentUserId = null,
   creatorNamesById = {},
   canManageOtherProjectResources = false,
+  canMoveToSprint = true,
   isSprintView = false,
   currentSprintId = null,
   sprints,
@@ -132,18 +133,29 @@ export function DashboardBoard({
   const commentImageInputRef = React.useRef<HTMLInputElement | null>(null)
   const commentFileInputRef = React.useRef<HTMLInputElement | null>(null)
   const submissionInputRef = React.useRef<HTMLInputElement | null>(null)
+  const initializedCommentTodoIdRef = React.useRef<string | null>(null)
   const selectedTodoId = selectedTodo?.id ?? null
 
   React.useEffect(() => {
     if (!selectedTodo) {
+      initializedCommentTodoIdRef.current = null
+      return
+    }
+
+    const isNewSelectedTodo = initializedCommentTodoIdRef.current !== selectedTodo.id
+
+    if (!isNewSelectedTodo && openTarget !== "comments") {
       return
     }
 
     setDescriptionDraft(selectedTodo.description ?? "")
-    setCommentDraft("")
+    if (isNewSelectedTodo) {
+      setCommentDraft("")
+    }
     setIsEditingDescription(false)
     setIsEditingComments(openTarget === "comments")
     setEditingCommentId(null)
+    initializedCommentTodoIdRef.current = selectedTodo.id
   }, [openTarget, selectedTodo])
 
   React.useEffect(() => {
@@ -1196,23 +1208,6 @@ export function DashboardBoard({
     }
   }, [pendingArchiveLink, refreshTaskResources])
 
-  const canManageSelectedTodo = React.useMemo(() => {
-    if (!selectedTodo) {
-      return false
-    }
-
-    if (!selectedTodo.parentId) {
-      return true
-    }
-
-    const normalizedCurrentUserId = currentUserId?.trim() ?? ""
-
-    return Boolean(normalizedCurrentUserId) && (
-      selectedTodo.createdByUserId === normalizedCurrentUserId ||
-      canManageOtherProjectResources
-    )
-  }, [canManageOtherProjectResources, currentUserId, selectedTodo])
-
   const getColumnTodos = React.useCallback(
     (columnId: TodoItem["status"]) =>
       todos
@@ -1317,6 +1312,7 @@ export function DashboardBoard({
                   currentSprintId={currentSprintId}
                   currentUserId={currentUserId}
                   canManageOtherProjectResources={canManageOtherProjectResources}
+                  canMoveToSprint={canMoveToSprint}
                   sprints={sprints}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
@@ -1353,6 +1349,7 @@ export function DashboardBoard({
               currentSprintId={currentSprintId}
               currentUserId={currentUserId}
               canManageOtherProjectResources={canManageOtherProjectResources}
+              canMoveToSprint={canMoveToSprint}
               sprints={sprints}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}
@@ -1555,7 +1552,6 @@ export function DashboardBoard({
               <TaskCommentsPanel
                 selectedTodo={selectedTodo}
                 currentUserId={currentUserId}
-                canManageSelectedTodo={canManageSelectedTodo}
                 creatorNamesById={creatorNamesById}
                 comments={commentThreads[selectedTodo.id] ?? []}
                 isLoadingComments={isLoadingComments}
