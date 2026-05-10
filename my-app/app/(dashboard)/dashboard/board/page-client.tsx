@@ -396,52 +396,67 @@ export function DashboardBoardPageClient({
         return
       }
 
-      const rootTodos = previousTodos.filter(
-        (todo) => !todo.parentId
+      const sourceStatus = currentTodo.status
+      const rootTodos = previousTodos.filter((todo) => !todo.parentId)
+      const unchangedRootTodos = rootTodos.filter(
+        (todo) =>
+          todo.id !== todoId &&
+          todo.status !== sourceStatus &&
+          todo.status !== nextStatus
       )
-      const nonRootTodos = previousTodos.filter(
-        (todo) => Boolean(todo.parentId)
+      const sourceColumnTodos = rootTodos.filter(
+        (todo) => todo.id !== todoId && todo.status === sourceStatus
       )
-      const remainingRootTodos = rootTodos.filter((todo) => todo.id !== todoId)
-      const targetIndex =
+      const destinationColumnTodos =
+        sourceStatus === nextStatus
+          ? sourceColumnTodos
+          : rootTodos.filter(
+              (todo) => todo.id !== todoId && todo.status === nextStatus
+            )
+      const destinationIndex =
         targetTodoId === null
-          ? (() => {
-              const lastMatchingIndex = remainingRootTodos.reduce(
-                (lastIndex, todo, index) =>
-                  todo.status === nextStatus ? index : lastIndex,
-                -1
-              )
-
-              return lastMatchingIndex === -1
-                ? remainingRootTodos.length
-                : lastMatchingIndex + 1
-            })()
+          ? destinationColumnTodos.length
           : Math.max(
-              remainingRootTodos.findIndex((todo) => todo.id === targetTodoId),
+              destinationColumnTodos.findIndex((todo) => todo.id === targetTodoId),
               0
             )
-
       const movedTodo: TodoItem = {
         ...currentTodo,
         status: nextStatus,
         checked: nextStatus === "completed",
       }
-      const reorderedRootTodos = [...remainingRootTodos]
+      const reorderedDestinationTodos = [...destinationColumnTodos]
 
-      reorderedRootTodos.splice(targetIndex, 0, movedTodo)
+      reorderedDestinationTodos.splice(destinationIndex, 0, movedTodo)
 
-      const normalizedRootTodos = reorderedRootTodos.map((todo, index) => ({
+      const normalizedDestinationTodos = reorderedDestinationTodos.map((todo, index) => ({
         ...todo,
         orderIndex: index + 1,
       }))
-      const nextTodos = [...normalizedRootTodos, ...nonRootTodos]
+      const normalizedSourceTodos =
+        sourceStatus === nextStatus
+          ? []
+          : sourceColumnTodos.map((todo, index) => ({
+              ...todo,
+              orderIndex: index + 1,
+            }))
+      const changedRootTodos = [
+        ...normalizedSourceTodos,
+        ...normalizedDestinationTodos,
+      ]
+      const nonRootTodos = previousTodos.filter((todo) => Boolean(todo.parentId))
+      const nextTodos = [
+        ...unchangedRootTodos,
+        ...changedRootTodos,
+        ...nonRootTodos,
+      ]
 
       guardBoardSyncDuringLocalMutation()
       setTodos(nextTodos)
 
       try {
         await Promise.all(
-          normalizedRootTodos.map((todo) =>
+          changedRootTodos.map((todo) =>
             fetch(`/api/backlog-items/${todo.id}`, {
               method: "PATCH",
               headers: {
