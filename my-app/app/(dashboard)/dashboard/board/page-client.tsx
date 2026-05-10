@@ -13,7 +13,10 @@ import {
   type DashboardProject,
 } from "@/lib/projects"
 import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
-import { broadcastDashboardActivitySync } from "@/lib/dashboard-activity-sync"
+import {
+  broadcastDashboardActivitySync,
+  subscribeToDashboardActivitySync,
+} from "@/lib/dashboard-activity-sync"
 import { writeDashboardBoardState } from "@/lib/dashboard-board-state"
 import { DashboardBoard } from "../components/dashboard-board"
 import { getTrustedTodayDayNumber, parseDateStringToDayNumber } from "@/lib/trusted-time"
@@ -51,7 +54,7 @@ type SprintSummary = {
   backlogItemIds: string[]
 }
 
-const BOARD_REALTIME_REFRESH_INTERVAL_MS = 1000
+const BOARD_REALTIME_REFRESH_INTERVAL_MS = 500
 const BOARD_LOCAL_MUTATION_GUARD_MS = 8000
 
 function normalizeProjectPersonName(name: string) {
@@ -316,6 +319,60 @@ export function DashboardBoardPageClient({
     })
   }, [hasLoadedBoardData, todos])
 
+  React.useEffect(() => {
+    return subscribeToDashboardActivitySync((payload) => {
+      if (
+        typeof payload.status !== "string" &&
+        typeof payload.checked !== "boolean" &&
+        typeof payload.orderIndex !== "number" &&
+        !("assigneeId" in payload)
+      ) {
+        return
+      }
+
+      setTodos((currentTodos) => {
+        const currentTodo = currentTodos.find((todo) => todo.id === payload.itemId)
+
+        if (!currentTodo) {
+          return currentTodos
+        }
+
+        const nextTodos = currentTodos.map((todo) =>
+          todo.id === payload.itemId
+            ? {
+                ...todo,
+                ...("assigneeId" in payload
+                  ? {
+                      assigneeId: payload.assigneeId ?? null,
+                      assignee: getAssigneeOption(payload.assigneeId ?? null)?.name ?? "",
+                    }
+                  : {}),
+                ...(typeof payload.status === "string"
+                  ? { status: payload.status }
+                  : {}),
+                ...(typeof payload.checked === "boolean"
+                  ? { checked: payload.checked }
+                  : {}),
+                ...(typeof payload.orderIndex === "number"
+                  ? { orderIndex: payload.orderIndex }
+                  : {}),
+              }
+            : todo
+        )
+
+        if (!currentTodo.parentId) {
+          return nextTodos
+        }
+
+        return nextTodos.map((todo) =>
+          todo.id === currentTodo.parentId
+            ? { ...todo, checklist: buildChecklist(nextTodos, currentTodo.parentId) }
+            : todo
+        )
+      })
+    })
+  }, [buildChecklist])
+
   const handleStatusChange = React.useCallback(
     async (todoId: string, nextStatus: TodoItem["status"]) => {
       const currentTodo = todos.find((todo) => todo.id === todoId)
@@ -342,6 +399,11 @@ export function DashboardBoardPageClient({
             : todo
         )
       })
+      broadcastDashboardActivitySync({
+        itemId: todoId,
+        status: nextStatus,
+        checked: nextChecked,
+      })
 
       try {
         const response = await fetch(`/api/backlog-items/${todoId}`, {
@@ -357,6 +419,11 @@ export function DashboardBoardPageClient({
         }
       } catch (error) {
         console.error(error)
+        broadcastDashboardActivitySync({
+          itemId: todoId,
+          status: currentTodo.status,
+          checked: currentTodo.checked ?? false,
+        })
         setTodos((currentTodos) => {
           const revertedTodos = currentTodos.map((todo) =>
             todo.id === todoId
@@ -453,6 +520,14 @@ export function DashboardBoardPageClient({
 
       guardBoardSyncDuringLocalMutation()
       setTodos(nextTodos)
+      const normalizedMovedTodo =
+        changedRootTodos.find((todo) => todo.id === movedTodo.id) ?? movedTodo
+      broadcastDashboardActivitySync({
+        itemId: normalizedMovedTodo.id,
+        status: normalizedMovedTodo.status,
+        checked: normalizedMovedTodo.checked ?? false,
+        orderIndex: normalizedMovedTodo.orderIndex,
+      })
 
       try {
         await Promise.all(
@@ -487,6 +562,12 @@ export function DashboardBoardPageClient({
         }
       } catch (error) {
         console.error(error)
+        broadcastDashboardActivitySync({
+          itemId: currentTodo.id,
+          status: currentTodo.status,
+          checked: currentTodo.checked ?? false,
+          orderIndex: currentTodo.orderIndex,
+        })
         setTodos(previousTodos)
       } finally {
         releaseBoardSyncGuard()

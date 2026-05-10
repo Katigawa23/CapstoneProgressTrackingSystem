@@ -5,7 +5,10 @@ const DASHBOARD_ACTIVITY_SYNC_STORAGE_KEY = "tracksphere-dashboard-activity-sync
 
 export type DashboardActivitySyncPayload = {
   itemId: string
-  assigneeId: string | null
+  assigneeId?: string | null
+  checked?: boolean
+  orderIndex?: number
+  status?: "todo" | "inprogress" | "revision" | "completed"
 }
 
 function isBrowser() {
@@ -21,7 +24,26 @@ function isPayload(value: unknown): value is DashboardActivitySyncPayload {
 
   return (
     typeof candidate.itemId === "string" &&
-    (typeof candidate.assigneeId === "string" || candidate.assigneeId === null)
+    (
+      !("assigneeId" in candidate) ||
+      typeof candidate.assigneeId === "string" ||
+      candidate.assigneeId === null
+    ) &&
+    (
+      !("checked" in candidate) ||
+      typeof candidate.checked === "boolean"
+    ) &&
+    (
+      !("orderIndex" in candidate) ||
+      typeof candidate.orderIndex === "number"
+    ) &&
+    (
+      !("status" in candidate) ||
+      candidate.status === "todo" ||
+      candidate.status === "inprogress" ||
+      candidate.status === "revision" ||
+      candidate.status === "completed"
+    )
   )
 }
 
