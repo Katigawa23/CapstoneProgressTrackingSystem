@@ -7,6 +7,7 @@ export type DashboardActivitySyncPayload = {
   itemId: string
   assigneeId?: string | null
   checked?: boolean
+  detailsChanged?: boolean
   orderIndex?: number
   status?: "todo" | "inprogress" | "revision" | "completed"
 }
@@ -32,6 +33,10 @@ function isPayload(value: unknown): value is DashboardActivitySyncPayload {
     (
       !("checked" in candidate) ||
       typeof candidate.checked === "boolean"
+    ) &&
+    (
+      !("detailsChanged" in candidate) ||
+      typeof candidate.detailsChanged === "boolean"
     ) &&
     (
       !("orderIndex" in candidate) ||

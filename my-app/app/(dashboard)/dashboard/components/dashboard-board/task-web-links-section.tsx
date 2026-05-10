@@ -294,11 +294,17 @@ export function TaskWebLinksSection({
                       </span>
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[12px] font-medium leading-tight text-slate-900 dark:text-slate-100">
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p
+                        className="truncate text-[12px] font-medium leading-tight text-slate-900 dark:text-slate-100"
+                        title={link.label || getHostname(link.url)}
+                      >
                         {link.label || getHostname(link.url)}
                       </p>
-                      <p className="truncate text-[10px] leading-tight text-slate-500 dark:text-slate-400">
+                      <p
+                        className="truncate text-[10px] leading-tight text-slate-500 dark:text-slate-400"
+                        title={getHostname(link.url)}
+                      >
                         {getHostname(link.url)}
                       </p>
                     </div>

@@ -108,7 +108,7 @@ function AttachmentList({
   return (
     <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
       <div className="overflow-x-auto px-3 py-2">
-        <div className="min-w-[640px]">
+        <div className="min-w-[560px] max-w-full">
           <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 border-b border-slate-200 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:text-slate-400">
             <span>Name</span>
             <span>Size</span>
@@ -131,12 +131,15 @@ function AttachmentList({
                 key={submission.id}
                 className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 rounded-[2px] px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-[#2c2c2c]"
               >
-                <div className="flex min-w-0 items-center gap-2.5">
+                <div className="flex min-w-0 items-center gap-2.5 overflow-hidden">
                   <FilePreviewTile
                     fileName={submission.fileName}
                     fileType={submission.fileType}
                   />
-                  <p className="truncate text-[13px] font-medium text-slate-900 dark:text-slate-100">
+                  <p
+                    className="min-w-0 truncate text-[13px] font-medium text-slate-900 dark:text-slate-100"
+                    title={submission.fileName}
+                  >
                     {submission.fileName}
                   </p>
                 </div>

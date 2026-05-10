@@ -30,6 +30,10 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  broadcastDashboardActivitySync,
+  subscribeToDashboardActivitySync,
+} from "@/lib/dashboard-activity-sync"
 
 import { columns } from "../../constants"
 import type {
@@ -151,6 +155,11 @@ export function DashboardBoard({
 
     if (nextSelectedTodo && nextSelectedTodo !== selectedTodo) {
       setSelectedTodo(nextSelectedTodo)
+      return
+    }
+
+    if (!nextSelectedTodo) {
+      setSelectedTodo(null)
     }
   }, [selectedTodo, selectedTodoId, todos])
 
@@ -366,6 +375,89 @@ export function DashboardBoard({
       cancelled = true
     }
   }, [onTodoUpdate, selectedTodoId, taskWebLinks])
+
+  const refreshTaskResources = React.useCallback(
+    async (todoId: string, options?: { signal?: AbortSignal }) => {
+      try {
+        const [submissionsResponse, linksResponse] = await Promise.all([
+          fetch(`/api/backlog-items/${todoId}/submissions`, {
+            cache: "no-store",
+            signal: options?.signal,
+          }),
+          fetch(`/api/backlog-items/${todoId}/links`, {
+            cache: "no-store",
+            signal: options?.signal,
+          }),
+        ])
+
+        if (!submissionsResponse.ok || !linksResponse.ok) {
+          return
+        }
+
+        const [submissionsData, linksData] = await Promise.all([
+          submissionsResponse.json() as Promise<{
+            submissions: DashboardSubmission[]
+          }>,
+          linksResponse.json() as Promise<{ links: DashboardWebLink[] }>,
+        ])
+
+        setSubmissionThreads((current) => ({
+          ...current,
+          [todoId]: submissionsData.submissions,
+        }))
+        setTaskWebLinks((current) => ({
+          ...current,
+          [todoId]: linksData.links,
+        }))
+        onTodoUpdate(todoId, { links: linksData.links.length })
+      } catch (error) {
+        if ((error as { name?: string })?.name !== "AbortError") {
+          console.error("Failed to refresh task resources", error)
+        }
+      }
+    },
+    [onTodoUpdate]
+  )
+
+  React.useEffect(() => {
+    if (!selectedTodoId) {
+      return
+    }
+
+    const controller = new AbortController()
+    const todoId = selectedTodoId
+
+    const syncSelectedTaskResources = async () => {
+      await refreshTaskResources(todoId, { signal: controller.signal })
+    }
+
+    void syncSelectedTaskResources()
+
+    const intervalId = window.setInterval(
+      () => void syncSelectedTaskResources(),
+      1000
+    )
+
+    return () => {
+      controller.abort()
+      window.clearInterval(intervalId)
+    }
+  }, [refreshTaskResources, selectedTodoId])
+
+  React.useEffect(() => {
+    return subscribeToDashboardActivitySync((payload) => {
+      if (!payload.detailsChanged) {
+        return
+      }
+
+      void refreshTaskResources(payload.itemId)
+      setLoadedTaskIds((current) => {
+        const next = { ...current }
+        delete next[payload.itemId]
+        return next
+      })
+    })
+  }, [refreshTaskResources])
 
   const handleDescriptionSave = React.useCallback(() => {
     if (!selectedTodo) {
@@ -639,6 +731,8 @@ export function DashboardBoard({
           ...current,
           [todoId]: [...uploadedSubmissions.reverse(), ...(current[todoId] ?? [])],
         }))
+        broadcastDashboardActivitySync({ itemId: todoId, detailsChanged: true })
+        void refreshTaskResources(todoId)
         uploadSucceeded = true
       } catch (error) {
         console.error(error)
@@ -669,7 +763,7 @@ export function DashboardBoard({
         }, 500)
       }
     },
-    [submissionDrafts, uploadSubmissionFile]
+    [refreshTaskResources, submissionDrafts, uploadSubmissionFile]
   )
 
   const handleSubmissionDelete = React.useCallback(
@@ -692,11 +786,13 @@ export function DashboardBoard({
             (submission) => submission.id !== submissionId
           ),
         }))
+        broadcastDashboardActivitySync({ itemId: todoId, detailsChanged: true })
+        void refreshTaskResources(todoId)
       } catch (error) {
         console.error(error)
       }
     },
-    []
+    [refreshTaskResources]
   )
 
   const handleCommentSave = React.useCallback(() => {
@@ -891,11 +987,13 @@ export function DashboardBoard({
           [todoId]: nextLinks,
         }))
         onTodoUpdate(todoId, { links: nextLinks.length })
+        broadcastDashboardActivitySync({ itemId: todoId, detailsChanged: true })
+        void refreshTaskResources(todoId)
       } catch (error) {
         console.error(error)
       }
     },
-    [onTodoUpdate, taskWebLinks]
+    [onTodoUpdate, refreshTaskResources, taskWebLinks]
   )
 
   const handleRemoveWebLink = React.useCallback(
@@ -920,11 +1018,13 @@ export function DashboardBoard({
           [todoId]: nextLinks,
         }))
         onTodoUpdate(todoId, { links: nextLinks.length })
+        broadcastDashboardActivitySync({ itemId: todoId, detailsChanged: true })
+        void refreshTaskResources(todoId)
       } catch (error) {
         console.error(error)
       }
     },
-    [onTodoUpdate, taskWebLinks]
+    [onTodoUpdate, refreshTaskResources, taskWebLinks]
   )
 
   const handleEditSubtaskTitle = React.useCallback(
@@ -1051,12 +1151,17 @@ export function DashboardBoard({
           (submission) => submission.id !== pendingArchiveSubmission.submission.id
         ),
       }))
+      broadcastDashboardActivitySync({
+        itemId: pendingArchiveSubmission.todoId,
+        detailsChanged: true,
+      })
+      void refreshTaskResources(pendingArchiveSubmission.todoId)
     } catch (error) {
       console.error(error)
     } finally {
       setPendingArchiveSubmission(null)
     }
-  }, [pendingArchiveSubmission])
+  }, [pendingArchiveSubmission, refreshTaskResources])
 
   const handleConfirmArchiveLink = React.useCallback(async () => {
     if (!pendingArchiveLink) {
@@ -1079,12 +1184,17 @@ export function DashboardBoard({
           (link) => link.id !== pendingArchiveLink.link.id
         ),
       }))
+      broadcastDashboardActivitySync({
+        itemId: pendingArchiveLink.todoId,
+        detailsChanged: true,
+      })
+      void refreshTaskResources(pendingArchiveLink.todoId)
     } catch (error) {
       console.error(error)
     } finally {
       setPendingArchiveLink(null)
     }
-  }, [pendingArchiveLink])
+  }, [pendingArchiveLink, refreshTaskResources])
 
   const canManageSelectedTodo = React.useMemo(() => {
     if (!selectedTodo) {
