@@ -27,6 +27,7 @@ import {
   PROJECT_CHANGE_EVENT,
   type DashboardProject,
 } from "@/lib/projects"
+import { validateDisplayName } from "@/lib/text-validation"
 import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
 
 function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
@@ -351,6 +352,13 @@ export function BacklogPageClient({
 
     if (!selectedProjectId || !selectedProject) {
       router.replace("/dashboard")
+      return
+    }
+
+    const titleValidationError = validateDisplayName(title, "Task name")
+
+    if (titleValidationError) {
+      setCreateTaskError(titleValidationError)
       return
     }
 
@@ -942,6 +950,13 @@ export function BacklogPageClient({
 
   const handleCreateSprint = React.useCallback(async () => {
     if (isCreatingSprint || !sprintName.trim() || !sprintStartDate || !sprintEndDate) {
+      return
+    }
+
+    const nameValidationError = validateDisplayName(sprintName, "Sprint name")
+
+    if (nameValidationError) {
+      setCreateSprintError(nameValidationError)
       return
     }
 

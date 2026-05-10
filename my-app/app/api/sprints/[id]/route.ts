@@ -5,9 +5,10 @@ import { requireAuthenticatedUser } from "@/lib/server-auth"
 import { stripEmoji, validateDisplayName } from "@/lib/text-validation"
 import { canUserCreateSprintInProject } from "@backend/repositories/project-repository"
 import {
-  createSprint,
-  listSprints,
+  archiveSprint,
+  deleteSprint,
   SprintNameConflictError,
+  updateSprint,
 } from "@backend/repositories/sprint-repository"
 
 function normalizeRequiredDate(value: unknown) {
@@ -19,35 +20,13 @@ function normalizeRequiredDate(value: unknown) {
   return trimmedValue.length > 0 ? trimmedValue : null
 }
 
-export async function GET(request: Request) {
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const user = await requireAuthenticatedUser()
-    const { searchParams } = new URL(request.url)
-    const projectId = searchParams.get("projectId")?.trim()
-
-    if (!projectId) {
-      return NextResponse.json({ error: "projectId is required" }, { status: 400 })
-    }
-
-    const sprints = await listSprints(projectId, user.id)
-
-    return NextResponse.json(
-      { sprints },
-      {
-        headers: {
-          "Cache-Control": "no-store, max-age=0",
-        },
-      }
-    )
-  } catch (error) {
-    console.error("Failed to load sprints", error)
-    return NextResponse.json({ error: "Failed to load sprints" }, { status: 500 })
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const user = await requireAuthenticatedUser()
+    const { id } = await params
     const body = (await request.json()) as {
       projectId?: string
       name?: string
@@ -55,18 +34,13 @@ export async function POST(request: Request) {
       startDate?: string
       endDate?: string
       description?: string
-      backlogItemIds?: string[]
     }
 
     const projectId = body.projectId?.trim()
     const rawName = body.name?.trim()
     const name = rawName ? stripEmoji(rawName).trim() : rawName
-    const duration = body.duration?.trim() ?? ""
     const startDate = normalizeRequiredDate(body.startDate)
     const endDate = normalizeRequiredDate(body.endDate)
-    const backlogItemIds = Array.isArray(body.backlogItemIds)
-      ? body.backlogItemIds.filter((value) => typeof value === "string" && value.trim())
-      : []
 
     if (!projectId) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
@@ -90,37 +64,84 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "End date is required" }, { status: 400 })
     }
 
-    const canCreateSprint = await canUserCreateSprintInProject(projectId, user.id, user.role)
+    const canManageSprint = await canUserCreateSprintInProject(projectId, user.id, user.role)
 
-    if (!canCreateSprint) {
+    if (!canManageSprint) {
       return NextResponse.json(
-        { error: "You do not have permission to create a sprint for this project." },
+        { error: "You do not have permission to edit this sprint." },
         { status: 403 }
       )
     }
 
-    const sprint = await createSprint(
+    const sprint = await updateSprint(
       {
+        id,
         projectId,
         name,
-        duration,
+        duration: body.duration?.trim() ?? "",
         startDate,
         endDate,
         description: body.description?.trim() ?? "",
-        backlogItemIds,
       },
-      user.id
+      user.id,
+      user.role
     )
+
+    if (!sprint || sprint.projectId !== projectId) {
+      return NextResponse.json({ error: "Sprint not found" }, { status: 404 })
+    }
 
     revalidateTag("backlog-items", "max")
 
-    return NextResponse.json({ sprint }, { status: 201 })
+    return NextResponse.json({ sprint })
   } catch (error) {
     if (error instanceof SprintNameConflictError) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
 
-    console.error("Failed to create sprint", error)
-    return NextResponse.json({ error: "Failed to create sprint" }, { status: 500 })
+    console.error("Failed to update sprint", error)
+    return NextResponse.json({ error: "Failed to update sprint" }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await requireAuthenticatedUser()
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const projectId = searchParams.get("projectId")?.trim()
+    const action = searchParams.get("action")?.trim() ?? "delete"
+
+    if (!projectId) {
+      return NextResponse.json({ error: "projectId is required" }, { status: 400 })
+    }
+
+    const canManageSprint = await canUserCreateSprintInProject(projectId, user.id, user.role)
+
+    if (!canManageSprint) {
+      return NextResponse.json(
+        { error: "You do not have permission to manage this sprint." },
+        { status: 403 }
+      )
+    }
+
+    const success =
+      action === "archive"
+        ? await archiveSprint(id, projectId, user.id, user.role)
+        : await deleteSprint(id, projectId, user.id, user.role)
+
+    if (!success) {
+      return NextResponse.json({ error: "Sprint not found" }, { status: 404 })
+    }
+
+    revalidateTag("backlog-items", "max")
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Failed to manage sprint", error)
+    return NextResponse.json({ error: "Failed to manage sprint" }, { status: 500 })
   }
 }

@@ -23,6 +23,12 @@ export type SprintRow = {
   backlogItemIds: string[]
   createdByUserId: string
   createdAt: string
+  archived: boolean
+  archivedAt: string | null
+  archivedByUserId: string
+  deleted: boolean
+  deletedAt: string | null
+  deletedByUserId: string
 }
 
 type SprintRecord = {
@@ -36,6 +42,12 @@ type SprintRecord = {
   description: string
   created_by_user_id: string
   created_at: string
+  is_archived?: boolean | null
+  archived_at?: string | null
+  archived_by_user_id?: string | null
+  is_deleted?: boolean | null
+  deleted_at?: string | null
+  deleted_by_user_id?: string | null
 }
 
 type SprintRecordWithItems = SprintRecord & {
@@ -50,6 +62,12 @@ type RawSprintRecord = Partial<SprintRecord> & {
   backlogItemIds?: string[]
   createdByUserId?: string
   createdAt?: string
+  archived?: boolean
+  archivedAt?: string | null
+  archivedByUserId?: string | null
+  deleted?: boolean
+  deletedAt?: string | null
+  deletedByUserId?: string | null
 }
 
 type CreateSprintInput = {
@@ -61,6 +79,18 @@ type CreateSprintInput = {
   description: string
   backlogItemIds: string[]
 }
+
+type UpdateSprintInput = {
+  id: string
+  projectId: string
+  name: string
+  duration: string
+  startDate: string
+  endDate: string
+  description: string
+}
+
+type SprintActionRole = "student" | "faculty" | "admin"
 
 type SprintStorageMode = "database" | "file"
 
@@ -133,6 +163,38 @@ function normalizeSprintRecord(record: RawSprintRecord): SprintRow {
         : typeof record.createdAt === "string"
         ? record.createdAt
         : new Date().toISOString(),
+    archived:
+      typeof record.is_archived === "boolean"
+        ? record.is_archived
+        : record.archived === true,
+    archivedAt:
+      typeof record.archived_at === "string"
+        ? record.archived_at
+        : typeof record.archivedAt === "string"
+        ? record.archivedAt
+        : null,
+    archivedByUserId:
+      typeof record.archived_by_user_id === "string"
+        ? record.archived_by_user_id
+        : typeof record.archivedByUserId === "string"
+        ? record.archivedByUserId
+        : "",
+    deleted:
+      typeof record.is_deleted === "boolean"
+        ? record.is_deleted
+        : record.deleted === true,
+    deletedAt:
+      typeof record.deleted_at === "string"
+        ? record.deleted_at
+        : typeof record.deletedAt === "string"
+        ? record.deletedAt
+        : null,
+    deletedByUserId:
+      typeof record.deleted_by_user_id === "string"
+        ? record.deleted_by_user_id
+        : typeof record.deletedByUserId === "string"
+        ? record.deletedByUserId
+        : "",
   }
 }
 
@@ -151,6 +213,12 @@ function mapRecord(record: SprintRecordWithItems): SprintRow {
       : [],
     createdByUserId: record.created_by_user_id,
     createdAt: record.created_at,
+    archived: record.is_archived === true,
+    archivedAt: record.archived_at ?? null,
+    archivedByUserId: record.archived_by_user_id ?? "",
+    deleted: record.is_deleted === true,
+    deletedAt: record.deleted_at ?? null,
+    deletedByUserId: record.deleted_by_user_id ?? "",
   }
 }
 
@@ -228,6 +296,12 @@ async function ensureSprintSchema() {
           end_date date not null,
           description text not null default '',
           created_by_user_id text not null default '',
+          is_archived boolean not null default false,
+          archived_at timestamptz,
+          archived_by_user_id text,
+          is_deleted boolean not null default false,
+          deleted_at timestamptz,
+          deleted_by_user_id text,
           created_at timestamptz not null default now(),
           updated_at timestamptz not null default now()
         );
@@ -277,6 +351,17 @@ async function ensureSprintSchema() {
       )
       .then(() =>
         getDb().query(`
+          alter table sprints
+          add column if not exists is_archived boolean not null default false,
+          add column if not exists archived_at timestamptz,
+          add column if not exists archived_by_user_id text,
+          add column if not exists is_deleted boolean not null default false,
+          add column if not exists deleted_at timestamptz,
+          add column if not exists deleted_by_user_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
           create index if not exists sprints_project_created_at_idx
           on sprints(project_id, created_at desc);
         `)
@@ -291,6 +376,13 @@ async function ensureSprintSchema() {
         getDb().query(`
           create index if not exists sprints_created_by_user_id_idx
           on sprints(created_by_user_id);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create index if not exists sprints_project_active_idx
+          on sprints(project_id, created_at desc)
+          where is_archived = false and is_deleted = false;
         `)
       )
       .then(() =>
@@ -483,6 +575,12 @@ export async function listSprints(projectId: string, ownerUserId: string) {
           sprints.description,
           sprints.created_by_user_id,
           sprints.created_at,
+          sprints.is_archived,
+          sprints.archived_at,
+          sprints.archived_by_user_id,
+          sprints.is_deleted,
+          sprints.deleted_at,
+          sprints.deleted_by_user_id,
           coalesce(
             array_agg(sprint_backlog_items.backlog_item_id order by sprint_backlog_items.created_at)
               filter (where sprint_backlog_items.backlog_item_id is not null),
@@ -494,6 +592,8 @@ export async function listSprints(projectId: string, ownerUserId: string) {
         left join sprint_backlog_items
           on sprint_backlog_items.sprint_id = sprints.id
         where sprints.project_id = $1
+          and sprints.is_archived = false
+          and sprints.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
@@ -508,7 +608,7 @@ export async function listSprints(projectId: string, ownerUserId: string) {
     async () => {
       const records = await readFileRecords()
       return records
-        .filter((record) => record.projectId === projectId)
+        .filter((record) => record.projectId === projectId && !record.archived && !record.deleted)
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
     }
   )
@@ -526,6 +626,8 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
            on projects.id = sprints.project_id
          where sprints.project_id = $1
            and lower(regexp_replace(btrim(sprints.name), '\s+', ' ', 'g')) = $2
+           and sprints.is_archived = false
+           and sprints.is_deleted = false
            and (
              projects.owner_user_id = $3
              or $3 = any(projects.member_user_ids)
@@ -676,6 +778,8 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
       const duplicateRecord = records.find(
         (record) =>
           record.projectId === input.projectId &&
+          !record.archived &&
+          !record.deleted &&
           normalizeSprintNameForComparison(record.name) === normalizedComparableName
       )
 
@@ -705,6 +809,12 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
         ),
         createdByUserId: ownerUserId,
         createdAt: new Date().toISOString(),
+        archived: false,
+        archivedAt: null,
+        archivedByUserId: "",
+        deleted: false,
+        deletedAt: null,
+        deletedByUserId: "",
       }
 
       records.unshift(sprint)
@@ -712,6 +822,261 @@ export async function createSprint(input: CreateSprintInput, ownerUserId: string
       await resetBacklogStatusesInFile(sprint.backlogItemIds)
 
       return sprint
+    }
+  )
+}
+
+export async function updateSprint(
+  input: UpdateSprintInput,
+  actorUserId: string,
+  actorRole: SprintActionRole
+) {
+  return withSprintStore(
+    async () => {
+      await ensureSprintSchema()
+
+      const sprintLookup = await getDb().query<{ project_id: string }>(
+        `select sprints.project_id
+        from sprints
+        inner join projects
+          on projects.id = sprints.project_id
+        where sprints.id = $1
+          and sprints.project_id = $4
+          and sprints.is_deleted = false
+          and (
+            $3 in ('faculty', 'admin')
+            or projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+        limit 1`,
+        [input.id, actorUserId, actorRole, input.projectId]
+      )
+      const projectId = sprintLookup.rows[0]?.project_id
+
+      if (!projectId) {
+        return null
+      }
+
+      const normalizedComparableName = normalizeSprintNameForComparison(input.name)
+      const duplicateResult = await getDb().query<{ id: string }>(
+        `select id
+        from sprints
+        where project_id = $1
+          and id <> $2
+          and lower(regexp_replace(btrim(name), '\s+', ' ', 'g')) = $3
+          and is_archived = false
+          and is_deleted = false
+        limit 1`,
+        [projectId, input.id, normalizedComparableName]
+      )
+
+      if ((duplicateResult.rowCount ?? 0) > 0) {
+        throw new SprintNameConflictError(input.name)
+      }
+
+      const result = await getDb().query<SprintRecordWithItems>(
+        `update sprints
+        set name = $2,
+            duration = $3,
+            start_date = $4,
+            end_date = $5,
+            description = $6,
+            updated_at = now()
+        where id = $1
+          and is_deleted = false
+        returning
+          id,
+          project_id,
+          sequence_number,
+          name,
+          duration,
+          start_date::text,
+          end_date::text,
+          description,
+          created_by_user_id,
+          created_at,
+          is_archived,
+          archived_at,
+          archived_by_user_id,
+          is_deleted,
+          deleted_at,
+          deleted_by_user_id,
+          coalesce(
+            array(
+              select sprint_backlog_items.backlog_item_id::text
+              from sprint_backlog_items
+              where sprint_backlog_items.sprint_id = sprints.id
+              order by sprint_backlog_items.created_at
+            ),
+            '{}'::text[]
+          ) as backlog_item_ids`,
+        [
+          input.id,
+          input.name,
+          input.duration,
+          input.startDate,
+          input.endDate,
+          input.description,
+        ]
+      )
+
+      const sprint = result.rows[0]
+      return sprint ? mapRecord(sprint) : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const sprintIndex = records.findIndex(
+        (record) =>
+          record.id === input.id &&
+          record.projectId === input.projectId &&
+          !record.deleted
+      )
+
+      if (sprintIndex === -1) {
+        return null
+      }
+
+      const currentSprint = records[sprintIndex]
+      const normalizedComparableName = normalizeSprintNameForComparison(input.name)
+      const duplicateRecord = records.find(
+        (record) =>
+          record.id !== input.id &&
+          record.projectId === currentSprint.projectId &&
+          !record.archived &&
+          !record.deleted &&
+          normalizeSprintNameForComparison(record.name) === normalizedComparableName
+      )
+
+      if (duplicateRecord) {
+        throw new SprintNameConflictError(input.name)
+      }
+
+      records[sprintIndex] = {
+        ...currentSprint,
+        name: input.name,
+        duration: input.duration,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        description: input.description,
+      }
+
+      await writeFileRecords(records)
+      return records[sprintIndex]
+    }
+  )
+}
+
+export async function archiveSprint(
+  sprintId: string,
+  projectId: string,
+  actorUserId: string,
+  actorRole: SprintActionRole
+) {
+  return withSprintStore(
+    async () => {
+      await ensureSprintSchema()
+
+      const result = await getDb().query<{ id: string }>(
+        `update sprints
+        set is_archived = true,
+            archived_at = now(),
+            archived_by_user_id = $2,
+            updated_at = now()
+        from projects
+        where sprints.project_id = projects.id
+          and sprints.id = $1
+          and sprints.project_id = $4
+          and sprints.is_deleted = false
+          and sprints.is_archived = false
+          and (
+            $3 in ('faculty', 'admin')
+            or projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+        returning sprints.id`,
+        [sprintId, actorUserId, actorRole, projectId]
+      )
+
+      return (result.rowCount ?? 0) > 0
+    },
+    async () => {
+      const records = await readFileRecords()
+      const sprintIndex = records.findIndex(
+        (record) =>
+          record.id === sprintId &&
+          record.projectId === projectId &&
+          !record.archived &&
+          !record.deleted
+      )
+
+      if (sprintIndex === -1) {
+        return false
+      }
+
+      records[sprintIndex] = {
+        ...records[sprintIndex],
+        archived: true,
+        archivedAt: new Date().toISOString(),
+        archivedByUserId: actorUserId,
+      }
+
+      await writeFileRecords(records)
+      return true
+    }
+  )
+}
+
+export async function deleteSprint(
+  sprintId: string,
+  projectId: string,
+  actorUserId: string,
+  actorRole: SprintActionRole
+) {
+  return withSprintStore(
+    async () => {
+      await ensureSprintSchema()
+
+      const result = await getDb().query<{ id: string }>(
+        `update sprints
+        set is_deleted = true,
+            deleted_at = now(),
+            deleted_by_user_id = $2,
+            updated_at = now()
+        from projects
+        where sprints.project_id = projects.id
+          and sprints.id = $1
+          and sprints.project_id = $4
+          and sprints.is_deleted = false
+          and (
+            $3 in ('faculty', 'admin')
+            or projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+        returning sprints.id`,
+        [sprintId, actorUserId, actorRole, projectId]
+      )
+
+      return (result.rowCount ?? 0) > 0
+    },
+    async () => {
+      const records = await readFileRecords()
+      const sprintIndex = records.findIndex(
+        (record) => record.id === sprintId && record.projectId === projectId && !record.deleted
+      )
+
+      if (sprintIndex === -1) {
+        return false
+      }
+
+      records[sprintIndex] = {
+        ...records[sprintIndex],
+        deleted: true,
+        deletedAt: new Date().toISOString(),
+        deletedByUserId: actorUserId,
+      }
+
+      await writeFileRecords(records)
+      return true
     }
   )
 }

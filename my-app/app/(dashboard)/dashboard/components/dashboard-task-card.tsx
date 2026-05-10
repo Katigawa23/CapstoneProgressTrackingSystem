@@ -61,6 +61,7 @@ type DashboardTaskCardProps = {
   onMoveToBoard: (todoId: string, sprintId: string) => Promise<void> | void
   onOpen: (todo: TodoItem, target?: "default" | "comments") => void
   onArchive: (todo: TodoItem) => void | Promise<void>
+  onDelete: (todo: TodoItem) => void | Promise<void>
   draggableProvided?: DraggableProvided
   dragSnapshot?: DraggableStateSnapshot
 }
@@ -81,6 +82,7 @@ export function DashboardTaskCard({
   onMoveToBoard,
   onOpen,
   onArchive,
+  onDelete,
   draggableProvided,
   dragSnapshot,
 }: DashboardTaskCardProps) {
@@ -277,6 +279,7 @@ export function DashboardTaskCard({
             <DropdownMenuItem
               disabled={!canDelete}
               className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:focus:bg-red-950/30 dark:focus:text-red-400"
+              onSelect={() => void onDelete(todo)}
             >
               <Trash2 className="h-4 w-4" />
               Delete

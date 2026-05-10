@@ -8,6 +8,7 @@ import {
   stripEmojiFromProjectTitle,
 } from "@/lib/projects"
 import { canCreateProject, isUserRole } from "@/lib/rbac"
+import { validateDisplayName } from "@/lib/text-validation"
 import {
   createProject,
   ProjectNameConflictError,
@@ -110,6 +111,12 @@ export async function POST(request: Request) {
 
     if (!name) {
       return NextResponse.json({ error: "Project title is required" }, { status: 400 })
+    }
+
+    const nameValidationError = validateDisplayName(name, "Project title")
+
+    if (nameValidationError) {
+      return NextResponse.json({ error: nameValidationError }, { status: 400 })
     }
 
     if (members.length === 0) {

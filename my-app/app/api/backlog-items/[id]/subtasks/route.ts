@@ -2,7 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { stripEmoji } from "@/lib/text-validation"
+import { stripEmoji, validateDisplayName } from "@/lib/text-validation"
 import {
   BacklogItemNameConflictError,
   createBacklogItem,
@@ -54,6 +54,12 @@ export async function POST(
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
+    }
+
+    const titleValidationError = validateDisplayName(title, "Subtask name")
+
+    if (titleValidationError) {
+      return NextResponse.json({ error: titleValidationError }, { status: 400 })
     }
 
     if (!projectId) {

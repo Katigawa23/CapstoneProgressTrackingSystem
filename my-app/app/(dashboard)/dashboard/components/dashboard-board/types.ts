@@ -51,6 +51,7 @@ export type DashboardBoardProps = {
     updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">
   ) => Promise<void>
   onDeleteSubtask: (parentTodoId: string, subtaskId: string) => Promise<void>
+  onDeleteTodo: (todo: TodoItem) => Promise<void>
   onArchiveTodo: (todo: TodoItem) => Promise<void>
 }
 

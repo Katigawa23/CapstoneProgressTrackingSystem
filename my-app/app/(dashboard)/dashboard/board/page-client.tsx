@@ -18,6 +18,7 @@ import {
   subscribeToDashboardActivitySync,
 } from "@/lib/dashboard-activity-sync"
 import { writeDashboardBoardState } from "@/lib/dashboard-board-state"
+import { validateDisplayName } from "@/lib/text-validation"
 import { DashboardBoard } from "../components/dashboard-board"
 import { getTrustedTodayDayNumber, parseDateStringToDayNumber } from "@/lib/trusted-time"
 import {
@@ -756,6 +757,42 @@ export function DashboardBoardPageClient({
     [buildChecklist, todos]
   )
 
+  const handleDeleteTodo = React.useCallback(
+    async (todo: TodoItem) => {
+      const previousTodos = todos
+      const nextTodos = todo.parentId
+        ? todos.filter((item) => item.id !== todo.id)
+        : todos.filter((item) => item.id !== todo.id && item.parentId !== todo.id)
+
+      setTodos(() => {
+        if (!todo.parentId) {
+          return nextTodos
+        }
+
+        return nextTodos.map((item) =>
+          item.id === todo.parentId
+            ? { ...item, checklist: buildChecklist(nextTodos, todo.parentId) }
+            : item
+        )
+      })
+
+      try {
+        const response = await fetch(`/api/backlog-items/${todo.id}`, {
+          method: "DELETE",
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to delete item")
+        }
+      } catch (error) {
+        console.error(error)
+        setTodos(previousTodos)
+        throw error
+      }
+    },
+    [buildChecklist, todos]
+  )
+
   const handleArchiveTodo = React.useCallback(
     async (todo: TodoItem) => {
       const activeProjectId = getSelectedDashboardProjectId()
@@ -814,6 +851,13 @@ export function DashboardBoardPageClient({
 
   const handleCreateItem = async () => {
     if (isCreatingTask || !createTitle.trim()) return
+
+    const titleValidationError = validateDisplayName(createTitle, "Task name")
+
+    if (titleValidationError) {
+      setCreateTaskError(titleValidationError)
+      return
+    }
 
     const selectedProjectId = getSelectedDashboardProjectId()
 
@@ -992,6 +1036,13 @@ export function DashboardBoardPageClient({
         return
       }
 
+      const titleValidationError = validateDisplayName(input.title, "Subtask name")
+
+      if (titleValidationError) {
+        setCreateSubtaskError(titleValidationError)
+        throw new Error(titleValidationError)
+      }
+
       const selectedProjectId = getSelectedDashboardProjectId()
 
       if (!selectedProjectId) {
@@ -1151,6 +1202,13 @@ export function DashboardBoardPageClient({
 
   const handleCreateSprint = React.useCallback(async () => {
     if (isCreatingSprint || !sprintName.trim() || !sprintStartDate || !sprintEndDate) {
+      return
+    }
+
+    const nameValidationError = validateDisplayName(sprintName, "Sprint name")
+
+    if (nameValidationError) {
+      setCreateSprintError(nameValidationError)
       return
     }
 
@@ -1392,6 +1450,7 @@ export function DashboardBoardPageClient({
             onCreateSubtaskInputChange={() => setCreateSubtaskError(null)}
             onUpdateSubtask={handleUpdateSubtask}
             onDeleteSubtask={handleDeleteSubtask}
+            onDeleteTodo={handleDeleteTodo}
             onArchiveTodo={handleArchiveTodo}
           />
         </div>

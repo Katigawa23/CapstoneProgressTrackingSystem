@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Ellipsis } from "lucide-react"
+import { Archive, Ellipsis, Pencil, Trash2 } from "lucide-react"
 
 import {
   canCreateSprintForProject,
@@ -15,10 +15,36 @@ import {
 } from "@/lib/projects"
 import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
 import { getTrustedTodayDayNumber, parseDateStringToDayNumber } from "@/lib/trusted-time"
+import { validateDisplayName } from "@/lib/text-validation"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { DashboardHeader, type DashboardBoardFilter } from "../components/dashboard-header"
 import { CreateSprintDialog } from "../components/create-sprint-dialog"
 import type { BacklogApiItem, TodoItem } from "../types"
-import { mapBacklogItemsToTodos } from "../utils"
+import { getInitials, mapBacklogItemsToTodos } from "../utils"
 
 type ActiveSprintPageClientProps = {
   initialProjects: DashboardProject[]
@@ -31,6 +57,7 @@ type SprintSummary = {
   sequenceNumber: number
   name: string
   description: string
+  duration: string
   createdByUserId: string
   startDate: string
   endDate: string
@@ -78,6 +105,15 @@ function formatCreatedBy(createdByUserId: string, currentUser: AuthenticatedUser
   return createdByUserId
 }
 
+function parseDateStringToDate(dateString: string) {
+  if (!dateString) {
+    return undefined
+  }
+
+  const parsedDate = new Date(`${dateString}T00:00:00`)
+  return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate
+}
+
 export function ActiveSprintPageClient({
   initialProjects,
   initialSelectedProjectId,
@@ -97,6 +133,11 @@ export function ActiveSprintPageClient({
   const [sprintScopeItemId, setSprintScopeItemId] = React.useState("")
   const [sprintDescription, setSprintDescription] = React.useState("")
   const [isCreatingSprint, setIsCreatingSprint] = React.useState(false)
+  const [sprintDialogMode, setSprintDialogMode] = React.useState<"create" | "edit">("create")
+  const [editingSprint, setEditingSprint] = React.useState<SprintSummary | null>(null)
+  const [pendingArchiveSprint, setPendingArchiveSprint] = React.useState<SprintSummary | null>(null)
+  const [pendingDeleteSprint, setPendingDeleteSprint] = React.useState<SprintSummary | null>(null)
+  const [deleteSprintConfirmation, setDeleteSprintConfirmation] = React.useState("")
   const [sprints, setSprints] = React.useState<SprintSummary[]>([])
   const [selectedSprintId, setSelectedSprintId] = React.useState<string | null>(null)
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
@@ -110,14 +151,13 @@ export function ActiveSprintPageClient({
       null,
     [initialProjects, selectedProjectId]
   )
-  const selectedSprint = React.useMemo(
-    () => sprints.find((sprint) => sprint.id === selectedSprintId) ?? null,
-    [selectedSprintId, sprints]
-  )
   const canCreateSprint = React.useMemo(
     () => canCreateSprintForProject(selectedProject, currentUser),
     [currentUser, selectedProject]
   )
+  const expectedDeleteSprintConfirmation = pendingDeleteSprint
+    ? `Delete/${pendingDeleteSprint.name}`
+    : ""
 
   React.useEffect(() => {
     if (selectedSprintId || sprints.length === 0) {
@@ -280,10 +320,49 @@ export function ActiveSprintPageClient({
     setSprintEndDate(undefined)
     setSprintScopeItemId("")
     setSprintDescription("")
+    setEditingSprint(null)
+    setSprintDialogMode("create")
   }, [])
+
+  const openCreateSprintDialog = React.useCallback(() => {
+    if (!canCreateSprint) {
+      return
+    }
+
+    resetCreateSprintForm()
+    setSprintDialogMode("create")
+    setCreateSprintOpen(true)
+  }, [canCreateSprint, resetCreateSprintForm])
+
+  const openEditSprintDialog = React.useCallback(
+    (sprint: SprintSummary) => {
+      if (!canCreateSprint) {
+        return
+      }
+
+      setEditingSprint(sprint)
+      setSprintDialogMode("edit")
+      setSprintName(sprint.name)
+      setSprintDuration(sprint.duration || "custom")
+      setSprintStartDate(parseDateStringToDate(sprint.startDate))
+      setSprintEndDate(parseDateStringToDate(sprint.endDate))
+      setSprintScopeItemId("")
+      setSprintDescription(sprint.description)
+      setCreateSprintError(null)
+      setCreateSprintOpen(true)
+    },
+    [canCreateSprint]
+  )
 
   const handleCreateSprint = React.useCallback(async () => {
     if (isCreatingSprint || !sprintName.trim() || !sprintStartDate || !sprintEndDate) {
+      return
+    }
+
+    const nameValidationError = validateDisplayName(sprintName, "Sprint name")
+
+    if (nameValidationError) {
+      setCreateSprintError(nameValidationError)
       return
     }
 
@@ -359,6 +438,140 @@ export function ActiveSprintPageClient({
     canCreateSprint,
   ])
 
+  const handleUpdateSprint = React.useCallback(async () => {
+    if (
+      isCreatingSprint ||
+      !editingSprint ||
+      !selectedProjectId ||
+      !sprintName.trim() ||
+      !sprintStartDate ||
+      !sprintEndDate ||
+      !canCreateSprint
+    ) {
+      return
+    }
+
+    const nameValidationError = validateDisplayName(sprintName, "Sprint name")
+
+    if (nameValidationError) {
+      setCreateSprintError(nameValidationError)
+      return
+    }
+
+    try {
+      setIsCreatingSprint(true)
+      const response = await fetch(`/api/sprints/${editingSprint.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId: selectedProjectId,
+          name: sprintName.trim(),
+          duration: sprintDuration,
+          startDate: sprintStartDate.toISOString().slice(0, 10),
+          endDate: sprintEndDate.toISOString().slice(0, 10),
+          description: sprintDescription.trim(),
+        }),
+      })
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(data?.error || "Failed to update sprint")
+      }
+
+      const data = (await response.json()) as {
+        sprint: SprintSummary
+      }
+
+      setSprints((currentSprints) =>
+        currentSprints.map((sprint) =>
+          sprint.id === data.sprint.id ? data.sprint : sprint
+        )
+      )
+      setCreateSprintOpen(false)
+      resetCreateSprintForm()
+    } catch (error) {
+      setCreateSprintError(
+        error instanceof Error ? error.message : "Failed to update sprint"
+      )
+    } finally {
+      setIsCreatingSprint(false)
+    }
+  }, [
+    canCreateSprint,
+    editingSprint,
+    isCreatingSprint,
+    resetCreateSprintForm,
+    selectedProjectId,
+    sprintDescription,
+    sprintDuration,
+    sprintEndDate,
+    sprintName,
+    sprintStartDate,
+  ])
+
+  const handleArchiveSprint = React.useCallback(async () => {
+    if (!pendingArchiveSprint || !selectedProjectId || !canCreateSprint) {
+      return
+    }
+
+    const sprintId = pendingArchiveSprint.id
+    const response = await fetch(
+      `/api/sprints/${sprintId}?projectId=${encodeURIComponent(selectedProjectId)}&action=archive`,
+      { method: "DELETE" }
+    )
+
+    if (!response.ok) {
+      return
+    }
+
+    setSprints((currentSprints) =>
+      currentSprints.filter((sprint) => sprint.id !== sprintId)
+    )
+    if (selectedSprintId === sprintId) {
+      setSelectedSprintId(null)
+    }
+    setPendingArchiveSprint(null)
+  }, [canCreateSprint, pendingArchiveSprint, selectedProjectId, selectedSprintId])
+
+  const handleDeleteSprint = React.useCallback(async () => {
+    if (
+      !pendingDeleteSprint ||
+      !selectedProjectId ||
+      !canCreateSprint ||
+      deleteSprintConfirmation.trim() !== expectedDeleteSprintConfirmation
+    ) {
+      return
+    }
+
+    const sprintId = pendingDeleteSprint.id
+    const response = await fetch(
+      `/api/sprints/${sprintId}?projectId=${encodeURIComponent(selectedProjectId)}&action=delete`,
+      { method: "DELETE" }
+    )
+
+    if (!response.ok) {
+      return
+    }
+
+    setSprints((currentSprints) =>
+      currentSprints.filter((sprint) => sprint.id !== sprintId)
+    )
+    if (selectedSprintId === sprintId) {
+      setSelectedSprintId(null)
+    }
+    setPendingDeleteSprint(null)
+    setDeleteSprintConfirmation("")
+  }, [
+    canCreateSprint,
+    deleteSprintConfirmation,
+    expectedDeleteSprintConfirmation,
+    pendingDeleteSprint,
+    selectedProjectId,
+    selectedSprintId,
+  ])
+
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
       <DashboardHeader
@@ -366,7 +579,6 @@ export function ActiveSprintPageClient({
         breadcrumbSectionLabel="Active Sprint"
         activeSprintName={null}
         showFilter={false}
-        sprintDescription={selectedSprint?.description ?? null}
         sprintCountdownLabel={null}
         boardTitle="Active Sprint"
         showCreateButton={false}
@@ -386,11 +598,7 @@ export function ActiveSprintPageClient({
         filterValue={filterValue}
         onFilterChange={setFilterValue}
         onCreateSprint={() => {
-          if (!canCreateSprint) {
-            return
-          }
-
-          setCreateSprintOpen(true)
+          openCreateSprintDialog()
         }}
         onManageSprints={() => {}}
       />
@@ -407,6 +615,8 @@ export function ActiveSprintPageClient({
 
           {visibleSprints.length > 0 ? (
             visibleSprints.map((sprint) => {
+              const createdByName = formatCreatedBy(sprint.createdByUserId, currentUser)
+
               return (
                 <div
                   key={sprint.id}
@@ -426,9 +636,25 @@ export function ActiveSprintPageClient({
                     onClick={() => router.push(`/dashboard/active-sprint/${sprint.id}`)}
                     className="flex min-w-0 items-center text-left text-[13px] text-slate-600 dark:text-slate-300"
                   >
-                    <span className="truncate whitespace-nowrap">
-                      {formatCreatedBy(sprint.createdByUserId, currentUser)}
-                    </span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Avatar size="sm" className="h-6 w-6">
+                              <AvatarFallback className="text-[9px]">
+                                {getInitials(createdByName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="truncate whitespace-nowrap" title={createdByName}>
+                              {createdByName}
+                            </span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={6}>
+                          {createdByName}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </button>
                   <button
                     type="button"
@@ -447,13 +673,47 @@ export function ActiveSprintPageClient({
                     </p>
                   </button>
                   <div className="flex justify-center">
-                    <button
-                      type="button"
-                      aria-label={`Sprint actions for ${sprint.name}`}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
-                    >
-                      <Ellipsis className="h-4 w-4" />
-                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Sprint actions for ${sprint.name}`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                        >
+                          <Ellipsis className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-40 border-slate-200 bg-white text-slate-700 shadow-lg dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                      >
+                        <DropdownMenuItem
+                          disabled={!canCreateSprint}
+                          onSelect={() => openEditSprintDialog(sprint)}
+                          className="gap-2"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={!canCreateSprint}
+                          onSelect={() => setPendingArchiveSprint(sprint)}
+                          className="gap-2"
+                        >
+                          <Archive className="h-4 w-4" />
+                          Archive
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          disabled={!canCreateSprint}
+                          onSelect={() => setPendingDeleteSprint(sprint)}
+                          className="gap-2 text-red-600 focus:text-red-600 disabled:text-slate-400 dark:text-red-300 dark:focus:text-red-300"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               )
@@ -492,8 +752,107 @@ export function ActiveSprintPageClient({
         onScopeItemChange={setSprintScopeItemId}
         onDescriptionChange={setSprintDescription}
         isSubmitting={isCreatingSprint}
-        onCreateSprint={handleCreateSprint}
+        mode={sprintDialogMode}
+        onCreateSprint={sprintDialogMode === "edit" ? handleUpdateSprint : handleCreateSprint}
       />
+
+      <AlertDialog
+        open={pendingArchiveSprint !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingArchiveSprint(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+          <AlertDialogHeader className="place-items-start text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                <Archive className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>Archive Sprint</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                This sprint will be hidden from Active Sprint.
+              </span>
+              <span className="block">
+                Work items already in the sprint will stay in their current board status.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              className="rounded-[2px]"
+              onClick={() => void handleArchiveSprint()}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingDeleteSprint !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingDeleteSprint(null)
+            setDeleteSprintConfirmation("")
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+          <AlertDialogHeader className="place-items-start text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                <Trash2 className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>Delete Sprint</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                This sprint will be removed from Active Sprint.
+              </span>
+              <span className="block">
+                Work items already in the sprint will stay in their current board status.
+              </span>
+              <span className="block">
+                Type <span className="font-semibold text-slate-900 dark:text-slate-100">{expectedDeleteSprintConfirmation}</span> to confirm.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={deleteSprintConfirmation}
+            onChange={(event) => setDeleteSprintConfirmation(event.target.value)}
+            placeholder={expectedDeleteSprintConfirmation}
+            className="h-9 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#454545] dark:bg-[#1f1f1f]"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              disabled={deleteSprintConfirmation.trim() !== expectedDeleteSprintConfirmation}
+              className="rounded-[2px] bg-red-600 text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={(event) => {
+                if (deleteSprintConfirmation.trim() !== expectedDeleteSprintConfirmation) {
+                  event.preventDefault()
+                  return
+                }
+
+                void handleDeleteSprint()
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

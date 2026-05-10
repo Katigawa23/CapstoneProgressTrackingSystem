@@ -52,6 +52,7 @@ type CreateSprintDialogProps = {
   onScopeItemChange: (value: string) => void
   onDescriptionChange: (value: string) => void
   isSubmitting?: boolean
+  mode?: "create" | "edit"
   onCreateSprint: () => void
 }
 
@@ -98,6 +99,7 @@ export function CreateSprintDialog({
   onScopeItemChange,
   onDescriptionChange,
   isSubmitting = false,
+  mode = "create",
   onCreateSprint,
 }: CreateSprintDialogProps) {
   const [startDateOpen, setStartDateOpen] = React.useState(false)
@@ -140,7 +142,7 @@ export function CreateSprintDialog({
       <DialogContent className="rounded-[2px] border-slate-200 bg-white px-5 py-4 text-slate-900 dark:border-[#343434] dark:bg-[#171717] dark:text-slate-100 sm:max-w-md">
         <DialogHeader className="border-b border-slate-200 pb-2 dark:border-[#343434]">
           <DialogTitle className="font-display text-left tracking-tight text-slate-900 dark:text-slate-100">
-            Start Sprint
+            {mode === "edit" ? "Edit Sprint" : "Start Sprint"}
           </DialogTitle>
         </DialogHeader>
 
@@ -258,28 +260,30 @@ export function CreateSprintDialog({
             </div>
           </div>
 
-          <div className="max-w-[220px] space-y-1">
-            <Label htmlFor="sprint-scope">Work items</Label>
-            <Select
-              value={scopeItemId || undefined}
-              onValueChange={onScopeItemChange}
-            >
-              <SelectTrigger
-                id="sprint-scope"
-                disabled={scopeOptions.length === 0}
-                className="h-7 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f]"
+          {mode === "create" ? (
+            <div className="max-w-[220px] space-y-1">
+              <Label htmlFor="sprint-scope">Work items</Label>
+              <Select
+                value={scopeItemId || undefined}
+                onValueChange={onScopeItemChange}
               >
-                <SelectValue placeholder="Select work item" />
-              </SelectTrigger>
-              <SelectContent>
-                {scopeOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                <SelectTrigger
+                  id="sprint-scope"
+                  disabled={scopeOptions.length === 0}
+                  className="h-7 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f]"
+                >
+                  <SelectValue placeholder="Select work item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {scopeOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
 
           <div className="space-y-1">
             <Label htmlFor="sprint-description">Description</Label>
@@ -315,7 +319,13 @@ export function CreateSprintDialog({
             onClick={onCreateSprint}
             disabled={isSubmitting || !sprintName.trim()}
           >
-            {isSubmitting ? "Starting..." : "Start"}
+            {isSubmitting
+              ? mode === "edit"
+                ? "Saving..."
+                : "Starting..."
+              : mode === "edit"
+              ? "Save"
+              : "Start"}
           </Button>
         </div>
       </DialogContent>

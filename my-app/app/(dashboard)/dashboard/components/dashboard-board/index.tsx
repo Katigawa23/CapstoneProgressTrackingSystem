@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
-import { Archive, FolderCheck, GitFork } from "lucide-react"
+import { Archive, FolderCheck, GitFork, Trash2 } from "lucide-react"
 
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -77,6 +78,7 @@ export function DashboardBoard({
   onCreateSubtaskInputChange,
   onUpdateSubtask,
   onDeleteSubtask,
+  onDeleteTodo,
   onArchiveTodo,
 }: DashboardBoardProps) {
   const [selectedTodo, setSelectedTodo] = React.useState<TodoItem | null>(null)
@@ -127,6 +129,16 @@ export function DashboardBoard({
     todoId: string
     link: DashboardWebLink
   } | null>(null)
+  const [pendingDeleteSubmission, setPendingDeleteSubmission] = React.useState<{
+    todoId: string
+    submission: DashboardSubmission
+  } | null>(null)
+  const [pendingDeleteLink, setPendingDeleteLink] = React.useState<{
+    todoId: string
+    link: DashboardWebLink
+  } | null>(null)
+  const [pendingDeleteTodo, setPendingDeleteTodo] = React.useState<TodoItem | null>(null)
+  const [deleteTodoConfirmation, setDeleteTodoConfirmation] = React.useState("")
 
   const imageInputRef = React.useRef<HTMLInputElement | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -778,11 +790,17 @@ export function DashboardBoard({
     [refreshTaskResources, submissionDrafts, uploadSubmissionFile]
   )
 
-  const handleSubmissionDelete = React.useCallback(
-    async (todoId: string, submissionId: string) => {
+  const handleConfirmDeleteSubmission = React.useCallback(
+    async () => {
+      if (!pendingDeleteSubmission) {
+        return
+      }
+
+      const { todoId, submission } = pendingDeleteSubmission
+
       try {
         const response = await fetch(
-          `/api/backlog-items/${todoId}/submissions?submissionId=${encodeURIComponent(submissionId)}`,
+          `/api/backlog-items/${todoId}/submissions?submissionId=${encodeURIComponent(submission.id)}`,
           {
             method: "DELETE",
           }
@@ -795,16 +813,18 @@ export function DashboardBoard({
         setSubmissionThreads((current) => ({
           ...current,
           [todoId]: (current[todoId] ?? []).filter(
-            (submission) => submission.id !== submissionId
+            (currentSubmission) => currentSubmission.id !== submission.id
           ),
         }))
         broadcastDashboardActivitySync({ itemId: todoId, detailsChanged: true })
         void refreshTaskResources(todoId)
       } catch (error) {
         console.error(error)
+      } finally {
+        setPendingDeleteSubmission(null)
       }
     },
-    [refreshTaskResources]
+    [pendingDeleteSubmission, refreshTaskResources]
   )
 
   const handleCommentSave = React.useCallback(() => {
@@ -1008,11 +1028,17 @@ export function DashboardBoard({
     [onTodoUpdate, refreshTaskResources, taskWebLinks]
   )
 
-  const handleRemoveWebLink = React.useCallback(
-    async (todoId: string, value: { id: string; url: string; label: string }) => {
+  const handleConfirmDeleteLink = React.useCallback(
+    async () => {
+      if (!pendingDeleteLink) {
+        return
+      }
+
+      const { todoId, link } = pendingDeleteLink
+
       try {
         const response = await fetch(
-          `/api/backlog-items/${todoId}/links?linkId=${encodeURIComponent(value.id)}`,
+          `/api/backlog-items/${todoId}/links?linkId=${encodeURIComponent(link.id)}`,
           {
             method: "DELETE",
           }
@@ -1022,7 +1048,7 @@ export function DashboardBoard({
           throw new Error("Failed to delete web link")
         }
         const nextLinks = (taskWebLinks[todoId] ?? []).filter(
-          (link) => link.id !== value.id
+          (currentLink) => currentLink.id !== link.id
         )
 
         setTaskWebLinks((current) => ({
@@ -1034,10 +1060,50 @@ export function DashboardBoard({
         void refreshTaskResources(todoId)
       } catch (error) {
         console.error(error)
+      } finally {
+        setPendingDeleteLink(null)
       }
     },
-    [onTodoUpdate, refreshTaskResources, taskWebLinks]
+    [onTodoUpdate, pendingDeleteLink, refreshTaskResources, taskWebLinks]
   )
+
+  const expectedDeleteTodoConfirmation = React.useMemo(
+    () => (pendingDeleteTodo ? `Delete/${pendingDeleteTodo.title}` : ""),
+    [pendingDeleteTodo]
+  )
+
+  const handleConfirmDeleteTodo = React.useCallback(async () => {
+    if (
+      !pendingDeleteTodo ||
+      deleteTodoConfirmation.trim() !== expectedDeleteTodoConfirmation
+    ) {
+      return
+    }
+
+    try {
+      if (pendingDeleteTodo.parentId && selectedTodo?.id === pendingDeleteTodo.parentId) {
+        await onDeleteSubtask(selectedTodo.id, pendingDeleteTodo.id)
+      } else {
+        await onDeleteTodo(pendingDeleteTodo)
+      }
+
+      if (selectedTodo?.id === pendingDeleteTodo.id) {
+        setSelectedTodo(null)
+      }
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setPendingDeleteTodo(null)
+      setDeleteTodoConfirmation("")
+    }
+  }, [
+    deleteTodoConfirmation,
+    expectedDeleteTodoConfirmation,
+    onDeleteSubtask,
+    onDeleteTodo,
+    pendingDeleteTodo,
+    selectedTodo,
+  ])
 
   const handleEditSubtaskTitle = React.useCallback(
     async (subtask: TodoItem, nextTitle: string) => {
@@ -1056,18 +1122,11 @@ export function DashboardBoard({
   )
 
   const handleDeleteSubtaskRow = React.useCallback(
-    async (subtask: TodoItem) => {
-      if (!selectedTodo) {
-        return
-      }
-
-      try {
-        await onDeleteSubtask(selectedTodo.id, subtask.id)
-      } catch (error) {
-        console.error(error)
-      }
+    (subtask: TodoItem) => {
+      setPendingDeleteTodo(subtask)
+      setDeleteTodoConfirmation("")
     },
-    [onDeleteSubtask, selectedTodo]
+    []
   )
 
   const canArchiveTodo = React.useCallback(
@@ -1320,6 +1379,10 @@ export function DashboardBoard({
                   onMoveToBoard={onMoveToBoard}
                   onOpenTask={handleOpenTask}
                   onArchiveTask={handleArchiveTodoRequest}
+                  onDeleteTask={(todo) => {
+                    setPendingDeleteTodo(todo)
+                    setDeleteTodoConfirmation("")
+                  }}
                   className="h-full"
                   scrollAreaClassName={
                     isSprintView
@@ -1357,6 +1420,10 @@ export function DashboardBoard({
               onMoveToBoard={onMoveToBoard}
               onOpenTask={handleOpenTask}
               onArchiveTask={handleArchiveTodoRequest}
+              onDeleteTask={(todo) => {
+                setPendingDeleteTodo(todo)
+                setDeleteTodoConfirmation("")
+              }}
             />
           )
         })}
@@ -1505,7 +1572,15 @@ export function DashboardBoard({
                     onSubmissionAttach={handleSubmissionAttach}
                     onSubmissionUpload={handleSubmissionUpload}
                     onSubmissionDraftRemove={handleSubmissionDraftRemove}
-                    onSubmissionDelete={handleSubmissionDelete}
+                    onSubmissionDelete={(todoId, submissionId) => {
+                      const submission = (submissionThreads[todoId] ?? []).find(
+                        (item) => item.id === submissionId
+                      )
+
+                      if (submission) {
+                        setPendingDeleteSubmission({ todoId, submission })
+                      }
+                    }}
                     onSubmissionArchive={handleArchiveSubmissionRequest}
                   />
                   <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
@@ -1515,9 +1590,15 @@ export function DashboardBoard({
                     currentUserId={currentUserId}
                     canManageOtherProjectResources={canManageOtherProjectResources}
                     onAddLink={(value) => handleAddWebLink(selectedTodo.id, value)}
-                    onRemoveLink={(value) =>
-                      handleRemoveWebLink(selectedTodo.id, value)
-                    }
+                    onRemoveLink={(value) => {
+                      const link = (taskWebLinks[selectedTodo.id] ?? []).find(
+                        (item) => item.id === value.id
+                      )
+
+                      if (link) {
+                        setPendingDeleteLink({ todoId: selectedTodo.id, link })
+                      }
+                    }}
                     onArchiveLink={(value) => handleArchiveLinkRequest(selectedTodo.id, value)}
                   />
 
@@ -1741,6 +1822,150 @@ export function DashboardBoard({
               onClick={() => void handleConfirmArchiveLink()}
             >
               Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingDeleteSubmission !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingDeleteSubmission(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+          <AlertDialogHeader className="place-items-start text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                <Trash2 className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>
+                Delete Attachment
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                This attachment will be moved to the Recycle Bin.
+              </span>
+              <span className="block">
+                You can restore it within 30 days.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              className="rounded-[2px] bg-red-600 text-white hover:bg-red-500"
+              onClick={() => void handleConfirmDeleteSubmission()}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingDeleteTodo !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingDeleteTodo(null)
+            setDeleteTodoConfirmation("")
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+          <AlertDialogHeader className="place-items-start text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                <Trash2 className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>
+                {pendingDeleteTodo?.parentId ? "Delete Subtask" : "Delete Task"}
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                This {pendingDeleteTodo?.parentId ? "subtask" : "task"} will be moved to the Recycle Bin.
+              </span>
+              <span className="block">
+                Related items, including subtasks, attachments, web links, and comments, will be moved with it.
+              </span>
+              <span className="block">
+                Type <span className="font-semibold text-slate-900 dark:text-slate-100">{expectedDeleteTodoConfirmation}</span> to confirm.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={deleteTodoConfirmation}
+            onChange={(event) => setDeleteTodoConfirmation(event.target.value)}
+            placeholder={expectedDeleteTodoConfirmation}
+            className="h-9 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#454545] dark:bg-[#1f1f1f]"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              disabled={deleteTodoConfirmation.trim() !== expectedDeleteTodoConfirmation}
+              className="rounded-[2px] bg-red-600 text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={(event) => {
+                if (deleteTodoConfirmation.trim() !== expectedDeleteTodoConfirmation) {
+                  event.preventDefault()
+                  return
+                }
+
+                void handleConfirmDeleteTodo()
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingDeleteLink !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingDeleteLink(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+          <AlertDialogHeader className="place-items-start text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                <Trash2 className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>
+                Delete Web Link
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                This web link will be moved to the Recycle Bin.
+              </span>
+              <span className="block">
+                You can restore it within 30 days.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              className="rounded-[2px] bg-red-600 text-white hover:bg-red-500"
+              onClick={() => void handleConfirmDeleteLink()}
+            >
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

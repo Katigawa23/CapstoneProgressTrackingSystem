@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/collapsible"
 
 import { getLocalDateString, getTrustedTodayDateString } from "@/lib/trusted-time"
+import { validateDisplayName } from "@/lib/text-validation"
 import { cn } from "@/lib/utils"
 import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
@@ -325,6 +326,13 @@ export function TaskSubtasksSection({
       setNewSubtaskStartDate(undefined)
       setNewSubtaskDueDate(undefined)
       setSubtaskTitleError(null)
+      return
+    }
+
+    const titleValidationError = validateDisplayName(nextTitle, "Subtask name")
+
+    if (titleValidationError) {
+      setSubtaskTitleError(titleValidationError)
       return
     }
 

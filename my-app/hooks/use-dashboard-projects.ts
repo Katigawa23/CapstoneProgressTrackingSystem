@@ -15,6 +15,7 @@ import {
   setDashboardProject,
   type DashboardProject,
 } from "@/lib/projects"
+import { validateDisplayName } from "@/lib/text-validation"
 
 export type ProjectMemberOption = {
   id: string
@@ -261,6 +262,13 @@ export function useDashboardProjects({
       .filter((member) => member.userId)
 
     if (!title || !program || !yearLevel || !syTerm || !resolvedProjectType || memberNames.length === 0) {
+      return null
+    }
+
+    const titleValidationError = validateDisplayName(title, "Project title")
+
+    if (titleValidationError) {
+      setCreateProjectError(titleValidationError)
       return null
     }
 

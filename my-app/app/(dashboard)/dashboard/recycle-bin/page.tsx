@@ -519,7 +519,7 @@ export default function RecycleBinPage() {
                 <th className="w-24 px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Key</th>
                 <th className="w-24 px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Type</th>
                 <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Name</th>
-                <th className="w-32 px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Date deleted</th>
+                <th className="w-36 px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Date deleted</th>
                 <th className="w-72 px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Created by</th>
                 <th className="w-72 px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Deleted by</th>
                 <th className="w-16 px-2 py-2 text-right text-xs font-medium text-slate-500 dark:text-slate-400">Actions</th>
@@ -596,13 +596,13 @@ export default function RecycleBinPage() {
                                   {typeLabel}
                                 </span>
                               </td>
-                              <td className="px-2 py-2">
-                                <p className="truncate text-sm text-slate-900 dark:text-slate-100" title={title}>
+                              <td className="min-w-0 px-2 py-2">
+                                <p className="max-w-full truncate whitespace-nowrap text-sm text-slate-900 dark:text-slate-100" title={title}>
                                   {title}
                                 </p>
                               </td>
                               <td className="px-2 py-2">
-                                <span className="inline-flex rounded-[8px] border border-slate-200 px-2 py-1 text-xs text-slate-700 dark:border-[#454545] dark:text-slate-300">
+                                <span className="inline-flex whitespace-nowrap rounded-[8px] border border-slate-200 px-2 py-1 text-xs text-slate-700 dark:border-[#454545] dark:text-slate-300">
                                   {item.deletedAt ? formatDeadline(item.deletedAt) : "-"}
                                 </span>
                               </td>
@@ -611,7 +611,7 @@ export default function RecycleBinPage() {
                                   <Avatar size="sm">
                                     <AvatarFallback>{getInitials(createdByName)}</AvatarFallback>
                                   </Avatar>
-                                  <span className="truncate text-xs text-slate-700 dark:text-slate-300">
+                                  <span className="min-w-0 truncate whitespace-nowrap text-xs text-slate-700 dark:text-slate-300" title={createdByName}>
                                     {createdByName}
                                   </span>
                                 </div>
@@ -621,7 +621,7 @@ export default function RecycleBinPage() {
                                   <Avatar size="sm">
                                     <AvatarFallback>{getInitials(deletedByName)}</AvatarFallback>
                                   </Avatar>
-                                  <span className="truncate text-xs text-slate-700 dark:text-slate-300">
+                                  <span className="min-w-0 truncate whitespace-nowrap text-xs text-slate-700 dark:text-slate-300" title={deletedByName}>
                                     {deletedByName}
                                   </span>
                                 </div>
