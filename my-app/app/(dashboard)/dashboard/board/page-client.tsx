@@ -51,7 +51,8 @@ type SprintSummary = {
   backlogItemIds: string[]
 }
 
-const BOARD_REALTIME_REFRESH_INTERVAL_MS = 3000
+const BOARD_REALTIME_REFRESH_INTERVAL_MS = 1000
+const BOARD_LOCAL_MUTATION_GUARD_MS = 8000
 
 function normalizeProjectPersonName(name: string) {
   return name
@@ -132,6 +133,7 @@ export function DashboardBoardPageClient({
     React.useState<DashboardBoardFilter>("none")
   const [isCreatingSubtask, setIsCreatingSubtask] = React.useState(false)
   const [createSubtaskError, setCreateSubtaskError] = React.useState<string | null>(null)
+  const localMutationGuardUntilRef = React.useRef(0)
   const selectedProject = React.useMemo(
     () =>
       initialProjects.find((project) => project.id === selectedProjectId) ??
@@ -220,6 +222,12 @@ export function DashboardBoardPageClient({
     const completedCount = subtasks.filter((item) => item.checked).length
 
     return `${completedCount}/${subtasks.length}`
+  }, [])
+  const guardBoardSyncDuringLocalMutation = React.useCallback(() => {
+    localMutationGuardUntilRef.current = Date.now() + BOARD_LOCAL_MUTATION_GUARD_MS
+  }, [])
+  const releaseBoardSyncGuard = React.useCallback(() => {
+    localMutationGuardUntilRef.current = 0
   }, [])
 
   const fetchTodosForProject = React.useCallback(
@@ -428,6 +436,7 @@ export function DashboardBoardPageClient({
       }))
       const nextTodos = [...normalizedRootTodos, ...nonRootTodos]
 
+      guardBoardSyncDuringLocalMutation()
       setTodos(nextTodos)
 
       try {
@@ -450,12 +459,31 @@ export function DashboardBoardPageClient({
             })
           )
         )
+        const activeProjectId = getSelectedDashboardProjectId()
+
+        if (activeProjectId) {
+          const [refreshedTodos, refreshedSprints] = await Promise.all([
+            fetchTodosForProject(activeProjectId),
+            fetchSprintsForProject(activeProjectId),
+          ])
+
+          setTodos(refreshedTodos)
+          setSprints(refreshedSprints)
+        }
       } catch (error) {
         console.error(error)
         setTodos(previousTodos)
+      } finally {
+        releaseBoardSyncGuard()
       }
     },
-    [todos]
+    [
+      fetchSprintsForProject,
+      fetchTodosForProject,
+      guardBoardSyncDuringLocalMutation,
+      releaseBoardSyncGuard,
+      todos,
+    ]
   )
 
   const handleTodoUpdate = React.useCallback(
@@ -780,7 +808,12 @@ export function DashboardBoardPageClient({
     let isSyncing = false
 
     const syncBoardData = async () => {
-      if (cancelled || isSyncing || document.hidden) {
+      if (
+        cancelled ||
+        isSyncing ||
+        document.hidden ||
+        Date.now() < localMutationGuardUntilRef.current
+      ) {
         return
       }
 
