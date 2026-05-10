@@ -695,14 +695,14 @@ export function DashboardPageClient({
                       )}
 
                       <CardHeader className="flex-1 space-y-3 px-4 pb-3 pt-3.5">
-                        <div className="space-y-1">
+                        <div className="min-w-0 space-y-1">
                           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                             {projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, index)}
                           </p>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <CardTitle
-                                className="font-display truncate text-base font-semibold tracking-tight dark:text-slate-100"
+                                className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-display text-base font-semibold tracking-tight dark:text-slate-100"
                                 title={project.name}
                               >
                                 {project.name}

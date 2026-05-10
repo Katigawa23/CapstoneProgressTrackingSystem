@@ -51,6 +51,8 @@ type SprintSummary = {
   backlogItemIds: string[]
 }
 
+const BOARD_REALTIME_REFRESH_INTERVAL_MS = 3000
+
 function normalizeProjectPersonName(name: string) {
   return name
     .trim()
@@ -502,7 +504,8 @@ export function DashboardBoardPageClient({
         })
 
         if (!response.ok) {
-          throw new Error("Failed to update backlog item assignee")
+          const data = (await response.json().catch(() => null)) as { error?: string } | null
+          throw new Error(data?.error || "Failed to update backlog item assignee")
         }
       } catch (error) {
         console.error(error)
@@ -767,6 +770,66 @@ export function DashboardBoardPageClient({
       window.removeEventListener(PROJECT_CHANGE_EVENT, loadTodosForSelectedProject)
     }
   }, [currentUser, fetchSprintsForProject, fetchTodosForProject, initialProjects, router])
+
+  React.useEffect(() => {
+    if (!selectedProjectId) {
+      return
+    }
+
+    let cancelled = false
+    let isSyncing = false
+
+    const syncBoardData = async () => {
+      if (cancelled || isSyncing || document.hidden) {
+        return
+      }
+
+      isSyncing = true
+
+      try {
+        const [nextTodos, nextSprints] = await Promise.all([
+          fetchTodosForProject(selectedProjectId),
+          fetchSprintsForProject(selectedProjectId),
+        ])
+
+        if (cancelled) {
+          return
+        }
+
+        setTodos(nextTodos)
+        setSprints(nextSprints)
+        setSelectedSprintId((currentSelectedSprintId) =>
+          nextSprints.some((sprint) => sprint.id === currentSelectedSprintId)
+            ? currentSelectedSprintId
+            : null
+        )
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to sync board data", error)
+        }
+      } finally {
+        isSyncing = false
+      }
+    }
+
+    const intervalId = window.setInterval(
+      () => void syncBoardData(),
+      BOARD_REALTIME_REFRESH_INTERVAL_MS
+    )
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        void syncBoardData()
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [fetchSprintsForProject, fetchTodosForProject, selectedProjectId])
 
   const handleCreateSubtask = React.useCallback(
     async (

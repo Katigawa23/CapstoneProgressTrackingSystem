@@ -47,6 +47,8 @@ type DashboardTaskCardProps = {
   isDragging?: boolean
   isSprintView?: boolean
   currentSprintId?: string | null
+  canArchive?: boolean
+  canDelete?: boolean
   sprints: Array<{
     id: string
     name: string
@@ -68,6 +70,8 @@ export function DashboardTaskCard({
   isDragging = false,
   isSprintView = false,
   currentSprintId = null,
+  canArchive = true,
+  canDelete = true,
   sprints,
   onStatusChange,
   onAssigneeChange,
@@ -137,7 +141,10 @@ export function DashboardTaskCard({
       </div>
 
       <div className="mb-1.5 flex items-start justify-between gap-2">
-        <h3 className="line-clamp-2 flex-1 text-xs font-semibold leading-snug text-slate-900 dark:text-slate-100">
+        <h3
+          className="flex-1 truncate whitespace-nowrap text-xs font-semibold leading-snug text-slate-900 dark:text-slate-100"
+          title={todo.title}
+        >
           {todo.title}
         </h3>
 
@@ -253,11 +260,17 @@ export function DashboardTaskCard({
               Add Comment
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void onArchive(todo)}>
+            <DropdownMenuItem
+              disabled={!canArchive}
+              onSelect={() => void onArchive(todo)}
+            >
               <Archive className="h-4 w-4" />
               Archive
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:focus:bg-red-950/30 dark:focus:text-red-400">
+            <DropdownMenuItem
+              disabled={!canDelete}
+              className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:focus:bg-red-950/30 dark:focus:text-red-400"
+            >
               <Trash2 className="h-4 w-4" />
               Delete
             </DropdownMenuItem>

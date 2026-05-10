@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
-import { AlertTriangle, FolderCheck, GitFork } from "lucide-react"
+import { Archive, FolderCheck, GitFork } from "lucide-react"
 
 import {
   AlertDialog,
@@ -958,22 +958,58 @@ export function DashboardBoard({
     [onDeleteSubtask, selectedTodo]
   )
 
+  const canArchiveTodo = React.useCallback(
+    (todo: TodoItem) => {
+      const normalizedCurrentUserId = currentUserId?.trim() ?? ""
+
+      return (
+        canManageOtherProjectResources ||
+        (Boolean(normalizedCurrentUserId) &&
+          todo.createdByUserId === normalizedCurrentUserId)
+      )
+    },
+    [canManageOtherProjectResources, currentUserId]
+  )
+
   const handleArchiveTodoRequest = React.useCallback((todo: TodoItem) => {
+    if (!canArchiveTodo(todo)) {
+      return
+    }
+
     setPendingArchiveTodo(todo)
-  }, [])
+  }, [canArchiveTodo])
 
   const handleArchiveSubmissionRequest = React.useCallback(
     (todoId: string, submission: DashboardSubmission) => {
+      const normalizedCurrentUserId = currentUserId?.trim() ?? ""
+
+      if (
+        !canManageOtherProjectResources &&
+        (!normalizedCurrentUserId ||
+          submission.uploadedByUserId !== normalizedCurrentUserId)
+      ) {
+        return
+      }
+
       setPendingArchiveSubmission({ todoId, submission })
     },
-    []
+    [canManageOtherProjectResources, currentUserId]
   )
 
   const handleArchiveLinkRequest = React.useCallback(
     (todoId: string, link: DashboardWebLink) => {
+      const normalizedCurrentUserId = currentUserId?.trim() ?? ""
+
+      if (
+        !canManageOtherProjectResources &&
+        (!normalizedCurrentUserId || link.uploadedByUserId !== normalizedCurrentUserId)
+      ) {
+        return
+      }
+
       setPendingArchiveLink({ todoId, link })
     },
-    []
+    [canManageOtherProjectResources, currentUserId]
   )
 
   const handleConfirmArchiveTodo = React.useCallback(async () => {
@@ -1169,6 +1205,8 @@ export function DashboardBoard({
                   allTodos={todos}
                   isSprintView={isSprintView}
                   currentSprintId={currentSprintId}
+                  currentUserId={currentUserId}
+                  canManageOtherProjectResources={canManageOtherProjectResources}
                   sprints={sprints}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
@@ -1203,6 +1241,8 @@ export function DashboardBoard({
               allTodos={todos}
               isSprintView={isSprintView}
               currentSprintId={currentSprintId}
+              currentUserId={currentUserId}
+              canManageOtherProjectResources={canManageOtherProjectResources}
               sprints={sprints}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}
@@ -1384,6 +1424,7 @@ export function DashboardBoard({
                         subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
                         currentUserId={currentUserId}
                         canManageOtherProjectResources={canManageOtherProjectResources}
+                        creatorNamesById={creatorNamesById}
                         isSubmittingSubtask={isCreatingSubtask}
                         createSubtaskError={createSubtaskError}
                         onCreateSubtaskInputChange={onCreateSubtaskInputChange}
@@ -1470,7 +1511,7 @@ export function DashboardBoard({
           <AlertDialogHeader className="place-items-start text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
-                <AlertTriangle className="h-4 w-4" />
+                <Archive className="h-4 w-4" />
               </div>
               <AlertDialogTitle>
                 {pendingArchiveTodo?.parentId
@@ -1527,7 +1568,7 @@ export function DashboardBoard({
           <AlertDialogHeader className="place-items-start text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
-                <AlertTriangle className="h-4 w-4" />
+                <Archive className="h-4 w-4" />
               </div>
               <AlertDialogTitle>
                 Archive Attachment
@@ -1569,7 +1610,7 @@ export function DashboardBoard({
           <AlertDialogHeader className="place-items-start text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
-                <AlertTriangle className="h-4 w-4" />
+                <Archive className="h-4 w-4" />
               </div>
               <AlertDialogTitle>
                 Archive Web Link

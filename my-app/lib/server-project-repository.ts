@@ -634,13 +634,21 @@ export async function listProjects(ownerUserId: string) {
   return withProjectStore(
     async () => {
       const result = await getDb().query<ProjectRecord>(
-        `select
+        `with latest_logins as (
+           select distinct on (microsoft_user_id)
+             microsoft_user_id,
+             name,
+             email
+           from microsoft_account_logins
+           order by microsoft_user_id, login_at desc
+         )
+         select
            projects.id,
            projects.owner_user_id,
-           projects.member_user_ids,
+           coalesce(member_logins.member_user_ids, projects.member_user_ids) as member_user_ids,
            projects.sprint_creator_user_ids,
            projects.project_name,
-           projects.project_member,
+           coalesce(member_logins.project_member, projects.project_member) as project_member,
            projects.project_adviser,
            (project_starred_preferences.project_id is not null) as is_starred,
            projects.program,
@@ -649,11 +657,19 @@ export async function listProjects(ownerUserId: string) {
            projects.project_type,
            projects.created_at
          from projects
+         left join lateral (
+           select
+             array_agg(login.microsoft_user_id order by login.name asc, login.email asc) as member_user_ids,
+             array_agg(login.name order by login.name asc, login.email asc) as project_member
+           from unnest(projects.member_user_ids) as member_user_id
+           inner join latest_logins login
+             on login.microsoft_user_id = member_user_id
+         ) as member_logins on true
          left join project_starred_preferences
            on project_starred_preferences.project_id = projects.id
           and project_starred_preferences.user_id = $1
-         where owner_user_id = $1
-            or $1 = any(member_user_ids)
+         where projects.owner_user_id = $1
+            or $1 = any(projects.member_user_ids)
          order by projects.created_at desc`,
         [ownerUserId]
       )

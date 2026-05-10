@@ -124,6 +124,7 @@ function AttachmentList({
                   submission.uploadedByUserId === currentUserId?.trim() ||
                   canManageOtherProjectResources === true
                 )
+              const canArchiveSubmission = canDeleteSubmission
 
               return (
               <div
@@ -176,7 +177,10 @@ function AttachmentList({
                           Download
                         </a>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => void onSubmissionArchive(backlogItemId, submission)}>
+                      <DropdownMenuItem
+                        disabled={!canArchiveSubmission}
+                        onSelect={() => void onSubmissionArchive(backlogItemId, submission)}
+                      >
                         <Archive className="h-4 w-4" />
                         Archive
                       </DropdownMenuItem>

@@ -1,8 +1,29 @@
 "use client"
 
 import * as React from "react"
-import { Ellipsis, Filter, RotateCcw, Search, Trash2 } from "lucide-react"
+import {
+  ArchiveRestore,
+  Ellipsis,
+  FileText,
+  Filter,
+  FolderKanban,
+  GitFork,
+  Link2,
+  RotateCcw,
+  Search,
+  Trash2,
+} from "lucide-react"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -19,7 +40,7 @@ import {
   PROJECT_CHANGE_EVENT,
 } from "@/lib/projects"
 import { readClientAuthSession, subscribeToAuthChange } from "@/lib/auth-client"
-import type { BacklogApiItem } from "../types"
+import type { BacklogApiItem, TodoItem } from "../types"
 import {
   buildSubtaskDisplayId,
   buildTaskDisplayId,
@@ -48,6 +69,9 @@ type ArchivedAttachment = {
   uploadedAt: string
   archivedAt: string | null
 }
+type ArchiveTableRow =
+  | { type: "item"; item: TodoItem; depth: number }
+  | { type: "attachment"; item: ArchivedAttachment; depth: number }
 
 const activeHeaderFilterItemClassName =
   "bg-blue-50 text-blue-700 data-[highlighted]:bg-blue-100 data-[highlighted]:text-blue-800 dark:bg-blue-500/20 dark:text-blue-200 dark:data-[highlighted]:bg-blue-500/30 dark:data-[highlighted]:text-blue-100"
@@ -63,6 +87,7 @@ export default function ArchivePage() {
   const [currentUserId, setCurrentUserId] = React.useState("")
   const [currentUserRole, setCurrentUserRole] = React.useState("")
   const [actionError, setActionError] = React.useState<string | null>(null)
+  const [pendingRestoreRow, setPendingRestoreRow] = React.useState<ArchiveTableRow | null>(null)
   const hasActiveFilters = filterValue !== "none"
   const activeFilterCount = hasActiveFilters ? 1 : 0
 
@@ -200,12 +225,56 @@ export default function ArchivePage() {
     })
   }, [archivedAttachments, currentUserName, filterValue, namesById, projectCode, searchValue])
 
-  const allRows = [...visibleItems.map((item) => item.id), ...visibleAttachmentItems.map((item) => item.id)]
+  const buildArchiveRows = React.useCallback((items: TodoItem[], attachments: ArchivedAttachment[]) => {
+    const archivedItemIds = new Set(todos.map((item) => item.id))
+    const topLevelItems = items
+      .filter((item) => !item.parentId || !archivedItemIds.has(item.parentId))
+      .map((item): ArchiveTableRow => ({ type: "item", item, depth: 0 }))
+    const looseAttachments = attachments
+      .filter((item) => !archivedItemIds.has(item.backlogItemId))
+      .map((item): ArchiveTableRow => ({ type: "attachment", item, depth: 0 }))
+
+    return [...topLevelItems, ...looseAttachments]
+  }, [todos])
+  const archiveRows = React.useMemo(
+    () => buildArchiveRows(visibleItems, visibleAttachmentItems),
+    [buildArchiveRows, visibleAttachmentItems, visibleItems]
+  )
+  const totalArchiveRows = React.useMemo(
+    () => buildArchiveRows(todos, archivedAttachments),
+    [archivedAttachments, buildArchiveRows, todos]
+  )
+
+  const allRows = archiveRows.map((row) => row.item.id)
   const allVisibleSelected =
     allRows.length > 0 &&
     allRows.every((id) => selectedIds.includes(id))
   const someVisibleSelected =
     allRows.some((id) => selectedIds.includes(id)) && !allVisibleSelected
+  const getArchiveRowTypeLabel = React.useCallback((row: ArchiveTableRow) => {
+    if (row.type === "attachment") {
+      return row.item.attachmentType === "link" ? "Weblink" : "Attachment"
+    }
+
+    return row.item.parentId ? "Subtask" : "Task"
+  }, [])
+  const getArchiveRowIcon = React.useCallback((row: ArchiveTableRow) => {
+    if (row.type === "attachment") {
+      return row.item.attachmentType === "link" ? Link2 : FileText
+    }
+
+    return row.item.parentId ? GitFork : FolderKanban
+  }, [])
+  const renderArchiveKey = React.useCallback((row: ArchiveTableRow, displayId: string) => {
+    const RowIcon = getArchiveRowIcon(row)
+
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <RowIcon className="h-3.5 w-3.5 shrink-0 text-slate-600 dark:text-slate-300" />
+        <span>{displayId}</span>
+      </span>
+    )
+  }, [getArchiveRowIcon])
 
   const readErrorMessage = React.useCallback(async (response: Response, fallbackMessage: string) => {
     try {
@@ -277,6 +346,22 @@ export default function ArchivePage() {
 
     await loadArchiveItems(projectId)
   }, [loadArchiveItems, projectId, readErrorMessage])
+
+  const handleConfirmRestore = React.useCallback(async () => {
+    if (!pendingRestoreRow) {
+      return
+    }
+
+    const row = pendingRestoreRow
+    setPendingRestoreRow(null)
+
+    if (row.type === "item") {
+      await handleRestore(row.item.id)
+      return
+    }
+
+    await handleRestoreAttachment(row.item)
+  }, [handleRestore, handleRestoreAttachment, pendingRestoreRow])
 
   return (
     <div className="space-y-5">
@@ -355,7 +440,7 @@ export default function ArchivePage() {
           <table className="min-w-full border-collapse">
             <thead className="border-b border-slate-200 bg-slate-50 dark:border-[#343434] dark:bg-[#202020]">
               <tr className="text-left">
-                <th className="w-12 px-4 py-3">
+                <th className="w-9 px-2.5 py-2">
                   <Checkbox
                     checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
                     onCheckedChange={(checked) => {
@@ -368,17 +453,19 @@ export default function ArchivePage() {
                     aria-label="Select all archived items"
                   />
                 </th>
-                <th className="px-3 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Key</th>
-                <th className="px-3 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Name</th>
-                <th className="px-3 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Date archived</th>
-                <th className="px-3 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Created by</th>
-                <th className="px-3 py-3 text-xs font-medium text-slate-500 dark:text-slate-400">Archived by</th>
-                <th className="w-14 px-3 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400">Actions</th>
+                <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Key</th>
+                <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Type</th>
+                <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Name</th>
+                <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Date archived</th>
+                <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Created by</th>
+                <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Archived by</th>
+                <th className="w-11 px-2 py-2 text-right text-xs font-medium text-slate-500 dark:text-slate-400">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {visibleItems.length > 0 ? (
-                visibleItems.map((item) => {
+              {archiveRows.map((row) => {
+                if (row.type === "item") {
+                  const item = row.item
                   const createdByName = namesById[item.createdByUserId ?? ""] ?? item.createdByUserId ?? "Unknown user"
                   const archivedByName = namesById[item.archivedByUserId ?? ""] ?? item.archivedByUserId ?? "Unknown user"
                   const isSelected = selectedIds.includes(item.id)
@@ -393,7 +480,7 @@ export default function ArchivePage() {
                       key={item.id}
                       className="border-b border-slate-200 transition hover:bg-slate-50 dark:border-[#343434] dark:hover:bg-[#242424]"
                     >
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-2.5 py-2 align-middle">
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={(checked) => {
@@ -406,18 +493,33 @@ export default function ArchivePage() {
                           aria-label={`Select ${item.displayId}`}
                         />
                       </td>
-                      <td className="px-3 py-3 align-middle text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {item.displayId}
+                      <td
+                        className="px-2 py-2 align-middle text-sm font-semibold text-slate-900 dark:text-slate-100"
+                        style={{ paddingLeft: `${0.75 + row.depth * 1.25}rem` }}
+                      >
+                        {renderArchiveKey(row, item.displayId)}
                       </td>
-                      <td className="px-3 py-3 align-middle text-sm text-slate-700 dark:text-slate-200">
-                        {item.title}
+                      <td className="px-2 py-2 align-middle">
+                        <span className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-[#303030] dark:text-slate-300">
+                          {getArchiveRowTypeLabel(row)}
+                        </span>
                       </td>
-                      <td className="px-3 py-3 align-middle">
-                        <span className="inline-flex rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-[#4a4a4a] dark:text-slate-200">
+                      <td className="max-w-[220px] px-2 py-2 align-middle text-sm text-slate-700 dark:text-slate-200">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {row.depth > 0 ? (
+                            <span className="h-px w-4 bg-slate-300 dark:bg-[#4a4a4a]" aria-hidden="true" />
+                          ) : null}
+                          <span className="truncate whitespace-nowrap" title={item.title}>
+                            {item.title}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 align-middle">
+                        <span className="inline-flex rounded-md border border-slate-300 px-1.5 py-0.5 text-xs text-slate-700 dark:border-[#4a4a4a] dark:text-slate-200">
                           {item.archivedAt ? formatDeadline(item.archivedAt) : "-"}
                         </span>
                       </td>
-                      <td className="px-3 py-3 align-middle">
+                      <td className="px-2 py-2 align-middle">
                         <div className="flex items-center gap-2">
                           <Avatar size="sm">
                             <AvatarFallback>{getInitials(createdByName)}</AvatarFallback>
@@ -427,7 +529,7 @@ export default function ArchivePage() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 py-3 align-middle">
+                      <td className="px-2 py-2 align-middle">
                         <div className="flex items-center gap-2">
                           <Avatar size="sm">
                             <AvatarFallback>{getInitials(archivedByName)}</AvatarFallback>
@@ -437,12 +539,12 @@ export default function ArchivePage() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 py-3 align-middle text-right">
+                      <td className="px-2 py-2 align-middle text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[#303030] dark:hover:text-slate-100"
+                              className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[#303030] dark:hover:text-slate-100"
                               aria-label={`Open actions for ${item.displayId}`}
                               title="Actions"
                             >
@@ -455,7 +557,7 @@ export default function ArchivePage() {
                           >
                             <DropdownMenuItem
                               disabled={!canManageTask}
-                              onSelect={() => void handleRestore(item.id)}
+                              onSelect={() => setPendingRestoreRow(row)}
                             >
                               <RotateCcw className="h-4 w-4" />
                               Restore
@@ -473,9 +575,9 @@ export default function ArchivePage() {
                       </td>
                     </tr>
                   )
-                })
-              ) : null}
-              {visibleAttachmentItems.map((item) => {
+                }
+
+                const item = row.item
                 const createdByName = namesById[item.uploadedByUserId ?? ""] ?? item.uploadedByUserId ?? "Unknown user"
                 const archivedByName = namesById[item.archivedByUserId ?? ""] ?? item.archivedByUserId ?? "Unknown user"
                 const isSelected = selectedIds.includes(item.id)
@@ -497,7 +599,7 @@ export default function ArchivePage() {
                     key={item.id}
                     className="border-b border-slate-200 transition hover:bg-slate-50 dark:border-[#343434] dark:hover:bg-[#242424]"
                   >
-                    <td className="px-4 py-3 align-middle">
+                    <td className="px-2.5 py-2 align-middle">
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => {
@@ -508,18 +610,33 @@ export default function ArchivePage() {
                         aria-label={`Select ${displayId}`}
                       />
                     </td>
-                    <td className="px-3 py-3 align-middle text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {displayId}
+                    <td
+                      className="px-2 py-2 align-middle text-sm font-semibold text-slate-900 dark:text-slate-100"
+                      style={{ paddingLeft: `${0.75 + row.depth * 1.25}rem` }}
+                    >
+                      {renderArchiveKey(row, displayId)}
                     </td>
-                    <td className="px-3 py-3 align-middle text-sm text-slate-700 dark:text-slate-200">
-                      {resourceName}
+                    <td className="px-2 py-2 align-middle">
+                      <span className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-[#303030] dark:text-slate-300">
+                        {getArchiveRowTypeLabel(row)}
+                      </span>
                     </td>
-                    <td className="px-3 py-3 align-middle">
-                      <span className="inline-flex rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-[#4a4a4a] dark:text-slate-200">
+                    <td className="max-w-[220px] px-2 py-2 align-middle text-sm text-slate-700 dark:text-slate-200">
+                      <div className="flex min-w-0 items-center gap-2">
+                        {row.depth > 0 ? (
+                          <span className="h-px w-4 bg-slate-300 dark:bg-[#4a4a4a]" aria-hidden="true" />
+                        ) : null}
+                        <span className="truncate whitespace-nowrap" title={resourceName}>
+                          {resourceName}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2 align-middle">
+                      <span className="inline-flex rounded-md border border-slate-300 px-1.5 py-0.5 text-xs text-slate-700 dark:border-[#4a4a4a] dark:text-slate-200">
                         {item.archivedAt ? formatDeadline(item.archivedAt) : "-"}
                       </span>
                     </td>
-                    <td className="px-3 py-3 align-middle">
+                    <td className="px-2 py-2 align-middle">
                       <div className="flex items-center gap-2">
                         <Avatar size="sm">
                           <AvatarFallback>{getInitials(createdByName)}</AvatarFallback>
@@ -529,7 +646,7 @@ export default function ArchivePage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-3 py-3 align-middle">
+                    <td className="px-2 py-2 align-middle">
                       <div className="flex items-center gap-2">
                         <Avatar size="sm">
                           <AvatarFallback>{getInitials(archivedByName)}</AvatarFallback>
@@ -539,12 +656,12 @@ export default function ArchivePage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-3 py-3 align-middle text-right">
+                    <td className="px-2 py-2 align-middle text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[#303030] dark:hover:text-slate-100"
+                            className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[#303030] dark:hover:text-slate-100"
                             aria-label={`Open actions for ${displayId}`}
                             title="Actions"
                           >
@@ -557,7 +674,7 @@ export default function ArchivePage() {
                         >
                           <DropdownMenuItem
                             disabled={!canManageAttachment}
-                            onSelect={() => void handleRestoreAttachment(item)}
+                            onSelect={() => setPendingRestoreRow(row)}
                           >
                             <RotateCcw className="h-4 w-4" />
                             Restore
@@ -576,9 +693,9 @@ export default function ArchivePage() {
                   </tr>
                 )
               })}
-              {visibleItems.length === 0 && visibleAttachmentItems.length === 0 ? (
+              {archiveRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={8} className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
                     No archived items match your search or filter.
                   </td>
                 </tr>
@@ -587,10 +704,49 @@ export default function ArchivePage() {
           </table>
         </div>
 
-        <div className="border-t border-slate-200 px-4 py-3 text-center text-sm text-slate-500 dark:border-[#343434] dark:text-slate-400">
-          {visibleItems.length + visibleAttachmentItems.length} of {todos.length + archivedAttachments.length}
+        <div className="border-t border-slate-200 px-4 py-2 text-center text-sm text-slate-500 dark:border-[#343434] dark:text-slate-400">
+          {archiveRows.length} of {totalArchiveRows.length}
         </div>
       </div>
+
+      <AlertDialog
+        open={pendingRestoreRow !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRestoreRow(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-sm border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#3a3a3a] dark:bg-[#2f3033] dark:text-slate-100">
+          <AlertDialogHeader className="place-items-start text-left">
+            <AlertDialogTitle className="flex items-center gap-3 text-xl font-semibold leading-tight text-slate-950 dark:text-slate-100">
+              <ArchiveRestore className="h-5 w-5 shrink-0 text-blue-600 dark:text-amber-400" />
+              You&apos;re about to restore this work item
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed text-slate-600 dark:text-slate-200">
+              Once restored, you&apos;ll be able to view and edit the work item
+              {pendingRestoreRow?.type === "item" && !pendingRestoreRow.item.parentId
+                ? ", including subtasks,"
+                : ""}
+              {" "}from this space.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="border-transparent bg-transparent text-slate-500 shadow-none hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-transparent dark:hover:text-white"
+              onClick={() => setPendingRestoreRow(null)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-blue-600 text-white hover:bg-blue-500 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300"
+              onClick={() => void handleConfirmRestore()}
+            >
+              Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

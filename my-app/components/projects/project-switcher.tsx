@@ -53,6 +53,7 @@ export function ProjectSwitcher({
     return (
       <button
         type="button"
+        suppressHydrationWarning
         className="
           group flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-sky-100
           bg-white px-2 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-colors sm:min-h-12
@@ -90,6 +91,7 @@ export function ProjectSwitcher({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
+          suppressHydrationWarning
           className="
             group flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-sky-100
             bg-white px-2 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-colors sm:min-h-12

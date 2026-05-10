@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Calendar } from "@/components/ui/calendar"
 import {
   DropdownMenu,
@@ -22,6 +23,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   Popover,
   PopoverContent,
@@ -39,7 +46,7 @@ import { cn } from "@/lib/utils"
 import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
 import type { TodoItem } from "../../types"
-import { formatDeadline } from "../../utils"
+import { formatDeadline, getInitials } from "../../utils"
 import type { CreateSubtaskInput } from "./types"
 
 type TaskSubtasksSectionProps = {
@@ -47,6 +54,7 @@ type TaskSubtasksSectionProps = {
   subtasks: TodoItem[]
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
+  creatorNamesById?: Record<string, string>
   isSubmittingSubtask?: boolean
   createSubtaskError?: string | null
   onCreateSubtaskInputChange?: () => void
@@ -85,6 +93,10 @@ function parseChecklistProgress(checklist: string, fallbackTotal: number) {
   return { completed, total }
 }
 
+function normalizeSubtaskTitle(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase()
+}
+
 function SubtaskGlyph() {
   return (
     <span className="relative h-4 w-4 shrink-0 text-blue-400">
@@ -97,7 +109,7 @@ function SubtaskGlyph() {
 }
 
 const subtaskGridClass =
-  "grid grid-cols-[minmax(0,1.2fr)_68px_68px_84px_108px_52px] items-center gap-x-2.5"
+  "grid grid-cols-[minmax(0,1.2fr)_72px_68px_68px_84px_108px_52px] items-center gap-x-2.5"
 
 type SubtaskStatusFilter = "all" | TodoItem["status"]
 type SubtaskAssigneeFilter = "all" | "me"
@@ -112,6 +124,7 @@ export function TaskSubtasksSection({
   subtasks,
   currentUserId = null,
   canManageOtherProjectResources = false,
+  creatorNamesById = {},
   isSubmittingSubtask = false,
   createSubtaskError = null,
   onCreateSubtaskInputChange,
@@ -131,6 +144,7 @@ export function TaskSubtasksSection({
   const [newSubtaskTitle, setNewSubtaskTitle] = React.useState("")
   const [newSubtaskStartDate, setNewSubtaskStartDate] = React.useState<Date>()
   const [newSubtaskDueDate, setNewSubtaskDueDate] = React.useState<Date>()
+  const [subtaskTitleError, setSubtaskTitleError] = React.useState<string | null>(null)
   const [openStartDateSubtaskId, setOpenStartDateSubtaskId] = React.useState<
     string | null
   >(null)
@@ -163,6 +177,24 @@ export function TaskSubtasksSection({
       ? filteredByAssignee
       : filteredByAssignee.filter((subtask) => subtask.status === statusFilter)
   }, [assigneeFilter, normalizedCurrentUserId, statusFilter, subtasks])
+  const getDuplicateSubtaskTitleError = React.useCallback(
+    (title: string, ignoredSubtaskId?: string) => {
+      const normalizedTitle = normalizeSubtaskTitle(title)
+
+      if (!normalizedTitle) {
+        return null
+      }
+
+      const duplicate = subtasks.some(
+        (subtask) =>
+          subtask.id !== ignoredSubtaskId &&
+          normalizeSubtaskTitle(subtask.title) === normalizedTitle
+      )
+
+      return duplicate ? `Subtask "${title.trim()}" already exists.` : null
+    },
+    [subtasks]
+  )
 
   React.useEffect(() => {
     if (!isCreatingSubtask) {
@@ -175,6 +207,7 @@ export function TaskSubtasksSection({
         setNewSubtaskTitle("")
         setNewSubtaskStartDate(undefined)
         setNewSubtaskDueDate(undefined)
+        setSubtaskTitleError(null)
       }
     }
 
@@ -194,6 +227,7 @@ export function TaskSubtasksSection({
       if (!editSubtaskRowRef.current?.contains(event.target as Node)) {
         setEditingSubtaskId(null)
         setEditingTitle("")
+        setSubtaskTitleError(null)
         setOpenStartDateSubtaskId(null)
         setOpenDueDateSubtaskId(null)
       }
@@ -213,17 +247,26 @@ export function TaskSubtasksSection({
       if (!nextTitle || nextTitle === subtask.title) {
         setEditingSubtaskId(null)
         setEditingTitle("")
+        setSubtaskTitleError(null)
+        return
+      }
+
+      const duplicateError = getDuplicateSubtaskTitleError(nextTitle, subtask.id)
+
+      if (duplicateError) {
+        setSubtaskTitleError(duplicateError)
         return
       }
 
       try {
         await onEditSubtaskTitle(subtask, nextTitle)
+        setSubtaskTitleError(null)
       } finally {
         setEditingSubtaskId(null)
         setEditingTitle("")
       }
     },
-    [editingTitle, onEditSubtaskTitle]
+    [editingTitle, getDuplicateSubtaskTitleError, onEditSubtaskTitle]
   )
 
   const handleSubtaskStartDateChange = React.useCallback(
@@ -281,6 +324,14 @@ export function TaskSubtasksSection({
       setNewSubtaskTitle("")
       setNewSubtaskStartDate(undefined)
       setNewSubtaskDueDate(undefined)
+      setSubtaskTitleError(null)
+      return
+    }
+
+    const duplicateError = getDuplicateSubtaskTitleError(nextTitle)
+
+    if (duplicateError) {
+      setSubtaskTitleError(duplicateError)
       return
     }
 
@@ -295,13 +346,14 @@ export function TaskSubtasksSection({
           ? newSubtaskDueDate.toISOString().slice(0, 10)
           : undefined,
       })
+      setSubtaskTitleError(null)
     } finally {
       setIsCreatingSubtask(false)
       setNewSubtaskTitle("")
       setNewSubtaskStartDate(undefined)
       setNewSubtaskDueDate(undefined)
     }
-  }, [isSubmittingSubtask, newSubtaskDueDate, newSubtaskStartDate, newSubtaskTitle, onAddSubtask])
+  }, [getDuplicateSubtaskTitleError, isSubmittingSubtask, newSubtaskDueDate, newSubtaskStartDate, newSubtaskTitle, onAddSubtask])
 
   const toggleAssignToMeFilter = React.useCallback(() => {
     setAssigneeFilter((current) => (current === "me" ? "all" : "me"))
@@ -465,6 +517,7 @@ export function TaskSubtasksSection({
                 setIsCreatingSubtask(true)
                 setEditingSubtaskId(null)
                 setEditingTitle("")
+                setSubtaskTitleError(null)
                 setNewSubtaskTitle("")
                 setNewSubtaskStartDate(undefined)
                 setNewSubtaskDueDate(undefined)
@@ -496,6 +549,7 @@ export function TaskSubtasksSection({
             className={`${subtaskGridClass} border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-500 dark:border-[#2b3138] dark:bg-[#1d2125] dark:text-[#9fadbc]`}
           >
             <span>Work</span>
+            <span className="text-center">Created by</span>
             <span className="text-center">Start</span>
             <span className="text-center">Due</span>
             <span className="text-center">Assignee</span>
@@ -521,6 +575,10 @@ export function TaskSubtasksSection({
                   )
                 const canUpdateSubtaskFields = Boolean(normalizedCurrentUserId)
                 const canDeleteSubtask = canManageSubtask
+                const createdByName =
+                  creatorNamesById[subtask.createdByUserId ?? ""] ??
+                  subtask.createdByUserId ??
+                  "Unknown user"
 
                 return (
                   <div
@@ -534,7 +592,10 @@ export function TaskSubtasksSection({
                         <div className="flex min-w-0 items-center gap-2">
                           <Input
                             value={editingTitle}
-                            onChange={(event) => setEditingTitle(event.target.value)}
+                            onChange={(event) => {
+                              setEditingTitle(event.target.value)
+                              setSubtaskTitleError(null)
+                            }}
                             onKeyDown={(event) => {
                               if (event.key === "Enter") {
                                 event.preventDefault()
@@ -544,11 +605,17 @@ export function TaskSubtasksSection({
                               if (event.key === "Escape") {
                                 setEditingSubtaskId(null)
                                 setEditingTitle("")
+                                setSubtaskTitleError(null)
                               }
                             }}
                             autoFocus
                             className="h-8 border-blue-300 bg-white text-[13px] text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
                           />
+                          {subtaskTitleError ? (
+                            <p className="min-w-36 text-xs text-red-500">
+                              {subtaskTitleError}
+                            </p>
+                          ) : null}
                           <button
                             type="button"
                             disabled={!canManageSubtask}
@@ -571,6 +638,21 @@ export function TaskSubtasksSection({
                           {subtask.title}
                         </button>
                       )}
+                    </div>
+
+                    <div className="flex justify-center">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Avatar size="sm">
+                              <AvatarFallback>{getInitials(createdByName)}</AvatarFallback>
+                            </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent sideOffset={6}>
+                            {createdByName}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
 
                     <div className="flex justify-center">
@@ -741,12 +823,16 @@ export function TaskSubtasksSection({
                             onSelect={() => {
                               setEditingSubtaskId(subtask.id)
                               setEditingTitle(subtask.title)
+                              setSubtaskTitleError(null)
                             }}
                           >
                             <Pencil className="h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => void onArchiveSubtask(subtask)}>
+                          <DropdownMenuItem
+                            disabled={!canManageSubtask}
+                            onSelect={() => void onArchiveSubtask(subtask)}
+                          >
                             <Archive className="h-4 w-4" />
                             Archive
                           </DropdownMenuItem>
@@ -779,6 +865,7 @@ export function TaskSubtasksSection({
                     value={newSubtaskTitle}
                     onChange={(event) => {
                       setNewSubtaskTitle(event.target.value)
+                      setSubtaskTitleError(null)
                       onCreateSubtaskInputChange?.()
                     }}
                     onKeyDown={(event) => {
@@ -792,6 +879,7 @@ export function TaskSubtasksSection({
                         setNewSubtaskTitle("")
                         setNewSubtaskStartDate(undefined)
                         setNewSubtaskDueDate(undefined)
+                        setSubtaskTitleError(null)
                       }
                     }}
                     autoFocus
@@ -800,9 +888,13 @@ export function TaskSubtasksSection({
                   />
                   {createSubtaskError ? (
                     <p className="text-xs text-red-500">{createSubtaskError}</p>
+                  ) : subtaskTitleError ? (
+                    <p className="text-xs text-red-500">{subtaskTitleError}</p>
                   ) : null}
                 </div>
               </div>
+
+              <div className="h-9" />
 
               <div />
 

@@ -133,15 +133,18 @@ export function createAssigneeOptionsFromProject(
   const currentUserName = currentUser?.name?.trim() ?? ""
   const currentUserId = currentUser?.id?.trim() ?? ""
 
-  const options = memberNames.map((name, index) => {
-    const fallbackId = buildAssigneeOptionId(name)
-    const mappedId = memberUserIds[index] || fallbackId
+  const options = memberNames.flatMap((name, index) => {
+    const mappedId = memberUserIds[index]
     const resolvedId =
       currentUserName && name === currentUserName && currentUserId
         ? currentUserId
         : mappedId
 
-    return buildAssigneeOption(name, currentUser, resolvedId)
+    if (!resolvedId) {
+      return []
+    }
+
+    return [buildAssigneeOption(name, currentUser, resolvedId)]
   })
 
   if (

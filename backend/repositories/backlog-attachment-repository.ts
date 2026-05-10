@@ -1012,7 +1012,7 @@ export async function archiveBacklogSubmission(
         `update backlog_attachment
          set is_archived = true,
              archived_at = now(),
-             archived_by_user_id = $4
+             archived_by_user_id = $3
          where backlog_attachment.id = $1
            and backlog_attachment.backlog_item_id = $2
            and backlog_attachment.attachment_type = 'file'
@@ -1030,10 +1030,10 @@ export async function archiveBacklogSubmission(
                  projects.owner_user_id = $3
                  or $3 = any(projects.member_user_ids)
                )
-               and (
-                 backlog_attachment.uploaded_by_user_id = $3
-                 or projects.owner_user_id = $3
-                 or $4 in ('faculty', 'admin')
+                and (
+                  backlog_attachment.uploaded_by_user_id = $3
+                  or projects.owner_user_id = $3
+                  or $4 in ('faculty', 'admin')
                  or coalesce(project_member_access.can_create_sprint, false)
                )
            )
@@ -1200,7 +1200,7 @@ export async function archiveBacklogWebLink(
         `update backlog_attachment
          set is_archived = true,
              archived_at = now(),
-             archived_by_user_id = $4
+             archived_by_user_id = $3
          where backlog_attachment.id = $1
            and backlog_attachment.backlog_item_id = $2
            and backlog_attachment.attachment_type = 'link'
@@ -1372,6 +1372,110 @@ export async function restoreBacklogWebLink(
       await writeFileRecords(records)
 
       return mapWebLinkRecord(records[recordIndex])
+    }
+  )
+}
+
+export async function archiveBacklogAttachmentsForItems(
+  backlogItemIds: string[],
+  ownerUserId: string
+) {
+  const normalizedIds = Array.from(
+    new Set(backlogItemIds.map((id) => id.trim()).filter(Boolean))
+  )
+
+  if (normalizedIds.length === 0) {
+    return 0
+  }
+
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query(
+        `update backlog_attachment
+         set is_archived = true,
+             archived_at = now(),
+             archived_by_user_id = $2
+         where backlog_item_id::text = any($1::text[])
+           and is_archived = false`,
+        [normalizedIds, ownerUserId]
+      )
+
+      return result.rowCount ?? 0
+    },
+    async () => {
+      const idSet = new Set(normalizedIds)
+      const archivedAt = new Date().toISOString()
+      let changedCount = 0
+      const records = await readFileRecords()
+      const nextRecords = records.map((record) => {
+        if (!idSet.has(record.backlog_item_id) || record.is_archived) {
+          return record
+        }
+
+        changedCount += 1
+        return {
+          ...record,
+          is_archived: true,
+          archived_at: archivedAt,
+          archived_by_user_id: ownerUserId,
+        }
+      })
+
+      if (changedCount > 0) {
+        await writeFileRecords(nextRecords)
+      }
+
+      return changedCount
+    }
+  )
+}
+
+export async function restoreBacklogAttachmentsForItems(backlogItemIds: string[]) {
+  const normalizedIds = Array.from(
+    new Set(backlogItemIds.map((id) => id.trim()).filter(Boolean))
+  )
+
+  if (normalizedIds.length === 0) {
+    return 0
+  }
+
+  return withSubmissionStore(
+    async () => {
+      const result = await getDb().query(
+        `update backlog_attachment
+         set is_archived = false,
+             archived_at = null,
+             archived_by_user_id = null
+         where backlog_item_id::text = any($1::text[])
+           and is_archived = true`,
+        [normalizedIds]
+      )
+
+      return result.rowCount ?? 0
+    },
+    async () => {
+      const idSet = new Set(normalizedIds)
+      let changedCount = 0
+      const records = await readFileRecords()
+      const nextRecords = records.map((record) => {
+        if (!idSet.has(record.backlog_item_id) || !record.is_archived) {
+          return record
+        }
+
+        changedCount += 1
+        return {
+          ...record,
+          is_archived: false,
+          archived_at: null,
+          archived_by_user_id: null,
+        }
+      })
+
+      if (changedCount > 0) {
+        await writeFileRecords(nextRecords)
+      }
+
+      return changedCount
     }
   )
 }

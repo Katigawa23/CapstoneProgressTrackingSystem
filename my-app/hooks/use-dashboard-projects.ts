@@ -249,6 +249,7 @@ export function useDashboardProjects({
       .map((member) => member.id.trim())
       .filter(Boolean)
     const memberUserIds = selectedMembers
+      .filter((member) => member.role === "student")
       .map((member) => member.id.trim())
       .filter(Boolean)
     const memberAccess = selectedMembers

@@ -14,6 +14,8 @@ type DashboardColumnProps = {
   allTodos: TodoItem[]
   isSprintView?: boolean
   currentSprintId?: string | null
+  currentUserId?: string | null
+  canManageOtherProjectResources?: boolean
   sprints: Array<{
     id: string
     name: string
@@ -35,6 +37,8 @@ export function DashboardColumn({
   allTodos,
   isSprintView = false,
   currentSprintId = null,
+  currentUserId = null,
+  canManageOtherProjectResources = false,
   sprints,
   onStatusChange,
   onAssigneeChange,
@@ -46,6 +50,7 @@ export function DashboardColumn({
   scrollAreaClassName,
 }: DashboardColumnProps) {
   const hasTodos = todos.length > 0
+  const normalizedCurrentUserId = currentUserId?.trim() ?? ""
 
   return (
     <Droppable droppableId={column.id}>
@@ -111,6 +116,16 @@ export function DashboardColumn({
                         sprints={sprints}
                         isSprintView={isSprintView}
                         currentSprintId={currentSprintId}
+                        canArchive={
+                          canManageOtherProjectResources ||
+                          (Boolean(normalizedCurrentUserId) &&
+                            todo.createdByUserId === normalizedCurrentUserId)
+                        }
+                        canDelete={
+                          canManageOtherProjectResources ||
+                          (Boolean(normalizedCurrentUserId) &&
+                            todo.createdByUserId === normalizedCurrentUserId)
+                        }
                         onStatusChange={onStatusChange}
                         onAssigneeChange={onAssigneeChange}
                         onAddToSprint={onAddToSprint}

@@ -101,6 +101,12 @@ export async function POST(request: Request) {
           }))
           .filter((member) => member.userId.length > 0)
       : []
+    const normalizedMemberUserIds =
+      memberAccess.length > 0
+        ? memberAccess
+            .filter((member) => member.role !== "faculty" && member.role !== "admin")
+            .map((member) => member.userId)
+        : memberUserIds
 
     if (!name) {
       return NextResponse.json({ error: "Project title is required" }, { status: 400 })
@@ -132,7 +138,7 @@ export async function POST(request: Request) {
       advisers,
       sprintCreatorUserIds,
       starred: body.starred === true,
-      memberUserIds,
+      memberUserIds: normalizedMemberUserIds,
       memberAccess,
       program: program.slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.slice(0, PROJECT_METADATA_MAX_LENGTH),

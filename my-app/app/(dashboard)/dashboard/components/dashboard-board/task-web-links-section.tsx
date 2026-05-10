@@ -252,7 +252,15 @@ export function TaskWebLinksSection({
         {links.length === 0 ? null : (
           <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
             <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
-              {links.map((link) => (
+              {links.map((link) => {
+                const canManageLink =
+                  Boolean(currentUserId?.trim()) &&
+                  (
+                    link.uploadedByUserId === currentUserId?.trim() ||
+                    canManageOtherProjectResources
+                  )
+
+                return (
                 <div
                   key={link.id}
                   className="flex items-center gap-2.5 px-2.5 py-1.5 transition-colors hover:bg-slate-50 dark:hover:bg-[#2c2c2c]"
@@ -316,18 +324,15 @@ export function TaskWebLinksSection({
                           Open
                         </a>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => void onArchiveLink(link)}>
+                      <DropdownMenuItem
+                        disabled={!canManageLink}
+                        onSelect={() => void onArchiveLink(link)}
+                      >
                         <Archive className="h-4 w-4" />
                         Archive
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        disabled={
-                          !Boolean(currentUserId?.trim()) ||
-                          !(
-                            link.uploadedByUserId === currentUserId?.trim() ||
-                            canManageOtherProjectResources
-                          )
-                        }
+                        disabled={!canManageLink}
                         className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
                         onSelect={() => void onRemoveLink(link)}
                       >
@@ -337,7 +342,7 @@ export function TaskWebLinksSection({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         )}

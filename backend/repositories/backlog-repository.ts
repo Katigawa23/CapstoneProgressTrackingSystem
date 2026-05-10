@@ -10,6 +10,10 @@ import {
 } from "@backend/db/fallback"
 import { ensureMicrosoftLoginSchema } from "@backend/repositories/microsoft-login-repository"
 import {
+  archiveBacklogAttachmentsForItems,
+  restoreBacklogAttachmentsForItems,
+} from "@backend/repositories/backlog-attachment-repository"
+import {
   canUserCreateSprintInProject,
   ensureProjectExists,
   listProjects,
@@ -826,7 +830,7 @@ export async function createBacklogItem(
              ($2::uuid is null and backlog_items.parent_id is null)
              or backlog_items.parent_id = $2::uuid
            )
-           and lower(regexp_replace(btrim(backlog_items.title), '\s+', ' ', 'g')) = $3
+           and lower(regexp_replace(btrim(backlog_items.title), '\\s+', ' ', 'g')) = $3
            and (
              projects.owner_user_id = $4
              or $4 = any(projects.member_user_ids)
@@ -1074,6 +1078,55 @@ export async function updateBacklogItem(
         return null
       }
 
+      if (typeof input.title === "string" || "parentId" in input) {
+        const currentResult = await getDb().query<BacklogRecord>(
+          `select backlog_items.*
+           from backlog_items
+           inner join projects
+             on projects.id = backlog_items.project_id
+           where backlog_items.id = $1
+             and (
+               projects.owner_user_id = $2
+               or $2 = any(projects.member_user_ids)
+             )
+           limit 1`,
+          [id, ownerUserId]
+        )
+        const currentRecord = currentResult.rows[0]
+
+        if (currentRecord) {
+          const nextParentId =
+            "parentId" in input ? input.parentId ?? null : currentRecord.parent_id
+          const nextTitle =
+            typeof input.title === "string" ? input.title : currentRecord.title
+          const normalizedComparableTitle = normalizeItemNameForComparison(nextTitle)
+          const duplicateType = nextParentId ? "subtask" : "task"
+          const duplicateResult = await getDb().query<{ id: string }>(
+            `select id
+             from backlog_items
+             where project_id = $1
+               and id <> $2
+               and is_archived = false
+               and (
+                 ($3::uuid is null and parent_id is null)
+                 or parent_id = $3::uuid
+               )
+               and lower(regexp_replace(btrim(title), '\\s+', ' ', 'g')) = $4
+             limit 1`,
+            [
+              currentRecord.project_id,
+              id,
+              nextParentId,
+              normalizedComparableTitle,
+            ]
+          )
+
+          if ((duplicateResult.rowCount ?? 0) > 0) {
+            throw new BacklogItemNameConflictError(nextTitle, duplicateType)
+          }
+        }
+      }
+
       fields.push(`updated_at = now()`)
       values.push(id)
 
@@ -1090,28 +1143,21 @@ export async function updateBacklogItem(
             projects.owner_user_id = $${values.length + 1}
             or $${values.length + 1} = any(projects.member_user_ids)
           )
-          and (
-            backlog_items.parent_id is null
-            or backlog_items.created_by_user_id = $${values.length + 1}
-            or projects.owner_user_id = $${values.length + 1}
-            or $${values.length + 2} in ('faculty', 'admin')
-            or coalesce(project_member_access.can_create_sprint, false)
-          )
         returning
-          id,
-          project_id,
-          parent_id,
-          sequence_number,
-          order_index,
-          created_by_user_id,
-          title,
-          description,
-          start_date,
-          due_date,
-          status,
-          checked,
-          assignee_id,
-          created_at`,
+          backlog_items.id,
+          backlog_items.project_id,
+          backlog_items.parent_id,
+          backlog_items.sequence_number,
+          backlog_items.order_index,
+          backlog_items.created_by_user_id,
+          backlog_items.title,
+          backlog_items.description,
+          backlog_items.start_date,
+          backlog_items.due_date,
+          backlog_items.status,
+          backlog_items.checked,
+          backlog_items.assignee_id,
+          backlog_items.created_at`,
         [...values, ownerUserId, ownerUserRole]
       )
 
@@ -1130,20 +1176,6 @@ export async function updateBacklogItem(
       }
 
       const current = mapRecord(records[index])
-      const canManageOthers = await canUserCreateSprintInProject(
-        current.projectId,
-        ownerUserId,
-        ownerUserRole
-      ).catch(() => ownerUserRole === "faculty" || ownerUserRole === "admin")
-
-      if (
-        current.parentId !== null &&
-        current.createdByUserId !== ownerUserId &&
-        !canManageOthers
-      ) {
-        return null
-      }
-
       const next: BacklogRow = {
         ...current,
         title: typeof input.title === "string" ? input.title : current.title,
@@ -1164,6 +1196,27 @@ export async function updateBacklogItem(
           typeof input.orderIndex === "number" && Number.isFinite(input.orderIndex)
             ? input.orderIndex
             : current.orderIndex,
+      }
+      const shouldCheckDuplicate =
+        typeof input.title === "string" || "parentId" in input
+
+      if (shouldCheckDuplicate) {
+        const normalizedComparableTitle = normalizeItemNameForComparison(next.title)
+        const duplicateRecord = records.find(
+          (record) =>
+            record.id !== id &&
+            record.project_id === next.projectId &&
+            record.is_archived === false &&
+            record.parent_id === next.parentId &&
+            normalizeItemNameForComparison(record.title) === normalizedComparableTitle
+        )
+
+        if (duplicateRecord) {
+          throw new BacklogItemNameConflictError(
+            next.title,
+            next.parentId ? "subtask" : "task"
+          )
+        }
       }
 
       records[index] = toRecord(next)
@@ -1194,8 +1247,7 @@ export async function deleteBacklogItem(
             or $2 = any(projects.member_user_ids)
           )
           and (
-            backlog_items.parent_id is null
-            or backlog_items.created_by_user_id = $2
+            backlog_items.created_by_user_id = $2
             or projects.owner_user_id = $2
             or $3 in ('faculty', 'admin')
             or coalesce(project_member_access.can_create_sprint, false)
@@ -1227,10 +1279,8 @@ export async function deleteBacklogItem(
       )
 
       if (
-        targetRecord.parent_id !== null &&
-        !isProjectMember &&
-        targetRecord.created_by_user_id !== ownerUserId &&
-        !canManageOthers
+        !isProjectMember ||
+        (targetRecord.created_by_user_id !== ownerUserId && !canManageOthers)
       ) {
         return false
       }
@@ -1271,9 +1321,7 @@ export async function archiveBacklogItem(
              or $2 = any(projects.member_user_ids)
            )
            and (
-             backlog_items.parent_id is null
-             or backlog_items.created_by_user_id = $2
-             or backlog_items.archived_by_user_id = $2
+             backlog_items.created_by_user_id = $2
              or projects.owner_user_id = $2
              or $3 in ('faculty', 'admin')
              or coalesce(project_member_access.can_create_sprint, false)
@@ -1317,7 +1365,15 @@ export async function archiveBacklogItem(
         [id, ownerUserId, target.parent_id]
       )
 
-      return result.rows.map(mapRecord)
+      const archivedItems = result.rows.map(mapRecord)
+      await archiveBacklogAttachmentsForItems(
+        archivedItems.map((item) => item.id),
+        ownerUserId
+      ).catch((error) => {
+        console.error("Failed to archive contained backlog attachments", error)
+      })
+
+      return archivedItems
     },
     async () => {
       const records = await readFileRecords()
@@ -1339,10 +1395,7 @@ export async function archiveBacklogItem(
 
       if (
         !isProjectMember ||
-        (targetRecord.parent_id !== null &&
-          targetRecord.created_by_user_id !== ownerUserId &&
-          targetRecord.archived_by_user_id !== ownerUserId &&
-          !canManageOthers)
+        (targetRecord.created_by_user_id !== ownerUserId && !canManageOthers)
       ) {
         return []
       }
@@ -1365,13 +1418,21 @@ export async function archiveBacklogItem(
       })
 
       await writeFileRecords(updatedRecords)
-      return updatedRecords
+      const archivedItems = updatedRecords
         .filter(
           (record) =>
             record.id === id ||
             (targetRecord.parent_id === null && record.parent_id === id)
         )
         .map(mapRecord)
+      await archiveBacklogAttachmentsForItems(
+        archivedItems.map((item) => item.id),
+        ownerUserId
+      ).catch((error) => {
+        console.error("Failed to archive contained backlog attachments", error)
+      })
+
+      return archivedItems
     }
   )
 }
@@ -1421,7 +1482,7 @@ export async function restoreBacklogItem(
              archived_by_user_id = null,
              updated_at = now()
          where id = $1
-            or ($3::uuid is null and parent_id = $1)
+            or ($2::boolean and parent_id = $1)
          returning
            id,
            project_id,
@@ -1440,10 +1501,15 @@ export async function restoreBacklogItem(
            is_archived,
            archived_at,
            created_at`,
-        [id, ownerUserId, target.parent_id]
+        [id, target.parent_id === null]
       )
 
-      return result.rows.map(mapRecord)
+      const restoredItems = result.rows.map(mapRecord)
+      await restoreBacklogAttachmentsForItems(restoredItems.map((item) => item.id)).catch((error) => {
+        console.error("Failed to restore contained backlog attachments", error)
+      })
+
+      return restoredItems
     },
     async () => {
       const records = await readFileRecords()
@@ -1489,13 +1555,18 @@ export async function restoreBacklogItem(
       })
 
       await writeFileRecords(updatedRecords)
-      return updatedRecords
+      const restoredItems = updatedRecords
         .filter(
           (record) =>
             record.id === id ||
             (targetRecord.parent_id === null && record.parent_id === id)
         )
         .map(mapRecord)
+      await restoreBacklogAttachmentsForItems(restoredItems.map((item) => item.id)).catch((error) => {
+        console.error("Failed to restore contained backlog attachments", error)
+      })
+
+      return restoredItems
     }
   )
 }

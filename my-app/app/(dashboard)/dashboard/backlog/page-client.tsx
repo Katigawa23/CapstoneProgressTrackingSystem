@@ -460,7 +460,8 @@ export function BacklogPageClient({
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update backlog item assignee")
+        const data = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(data?.error || "Failed to update backlog item assignee")
       }
     } catch (error) {
       console.error(error)

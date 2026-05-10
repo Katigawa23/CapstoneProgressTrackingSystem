@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
+  BacklogItemNameConflictError,
   deleteBacklogItem,
   updateBacklogItem,
 } from "@backend/repositories/backlog-repository"
@@ -75,9 +76,18 @@ export async function PATCH(
 
     return NextResponse.json({ item })
   } catch (error) {
+    if (error instanceof BacklogItemNameConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+
     console.error("Failed to update backlog item", error)
     return NextResponse.json(
-      { error: "Failed to update backlog item" },
+      {
+        error:
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : "Failed to update backlog item",
+      },
       { status: 500 }
     )
   }
