@@ -15,7 +15,10 @@ import {
 } from "@/lib/projects"
 import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
 import { getTrustedTodayDayNumber, parseDateStringToDayNumber } from "@/lib/trusted-time"
-import { validateDisplayName } from "@/lib/text-validation"
+import {
+  TASK_SPRINT_NAME_MAX_LENGTH,
+  validateDisplayName,
+} from "@/lib/text-validation"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   AlertDialog,
@@ -359,7 +362,9 @@ export function ActiveSprintPageClient({
       return
     }
 
-    const nameValidationError = validateDisplayName(sprintName, "Sprint name")
+    const nameValidationError = validateDisplayName(sprintName, "Sprint name", {
+      maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+    })
 
     if (nameValidationError) {
       setCreateSprintError(nameValidationError)
@@ -451,7 +456,9 @@ export function ActiveSprintPageClient({
       return
     }
 
-    const nameValidationError = validateDisplayName(sprintName, "Sprint name")
+    const nameValidationError = validateDisplayName(sprintName, "Sprint name", {
+      maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+    })
 
     if (nameValidationError) {
       setCreateSprintError(nameValidationError)

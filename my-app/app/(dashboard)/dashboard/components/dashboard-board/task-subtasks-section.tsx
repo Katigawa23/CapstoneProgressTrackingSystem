@@ -42,7 +42,10 @@ import {
 } from "@/components/ui/collapsible"
 
 import { getLocalDateString, getTrustedTodayDateString } from "@/lib/trusted-time"
-import { validateDisplayName } from "@/lib/text-validation"
+import {
+  TASK_SPRINT_NAME_MAX_LENGTH,
+  validateDisplayName,
+} from "@/lib/text-validation"
 import { cn } from "@/lib/utils"
 import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
@@ -329,7 +332,9 @@ export function TaskSubtasksSection({
       return
     }
 
-    const titleValidationError = validateDisplayName(nextTitle, "Subtask name")
+    const titleValidationError = validateDisplayName(nextTitle, "Subtask name", {
+      maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+    })
 
     if (titleValidationError) {
       setSubtaskTitleError(titleValidationError)
@@ -918,6 +923,7 @@ export function TaskSubtasksSection({
                       setSubtaskTitleError(null)
                       onCreateSubtaskInputChange?.()
                     }}
+                    maxLength={TASK_SPRINT_NAME_MAX_LENGTH}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault()

@@ -2,7 +2,11 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { stripEmoji, validateDisplayName } from "@/lib/text-validation"
+import {
+  stripEmoji,
+  TASK_SPRINT_NAME_MAX_LENGTH,
+  validateDisplayName,
+} from "@/lib/text-validation"
 import { canUserCreateSprintInProject } from "@backend/repositories/project-repository"
 import {
   createSprint,
@@ -76,7 +80,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Sprint name is required" }, { status: 400 })
     }
 
-    const nameValidationError = validateDisplayName(name, "Sprint name")
+    const nameValidationError = validateDisplayName(name, "Sprint name", {
+      maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+    })
 
     if (nameValidationError) {
       return NextResponse.json({ error: nameValidationError }, { status: 400 })

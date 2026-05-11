@@ -18,7 +18,10 @@ import {
   subscribeToDashboardActivitySync,
 } from "@/lib/dashboard-activity-sync"
 import { writeDashboardBoardState } from "@/lib/dashboard-board-state"
-import { validateDisplayName } from "@/lib/text-validation"
+import {
+  TASK_SPRINT_NAME_MAX_LENGTH,
+  validateDisplayName,
+} from "@/lib/text-validation"
 import { DashboardBoard } from "../components/dashboard-board"
 import { getTrustedTodayDayNumber, parseDateStringToDayNumber } from "@/lib/trusted-time"
 import {
@@ -852,7 +855,9 @@ export function DashboardBoardPageClient({
   const handleCreateItem = async () => {
     if (isCreatingTask || !createTitle.trim()) return
 
-    const titleValidationError = validateDisplayName(createTitle, "Task name")
+    const titleValidationError = validateDisplayName(createTitle, "Task name", {
+      maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+    })
 
     if (titleValidationError) {
       setCreateTaskError(titleValidationError)
@@ -1036,7 +1041,9 @@ export function DashboardBoardPageClient({
         return
       }
 
-      const titleValidationError = validateDisplayName(input.title, "Subtask name")
+      const titleValidationError = validateDisplayName(input.title, "Subtask name", {
+        maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+      })
 
       if (titleValidationError) {
         setCreateSubtaskError(titleValidationError)
@@ -1205,7 +1212,9 @@ export function DashboardBoardPageClient({
       return
     }
 
-    const nameValidationError = validateDisplayName(sprintName, "Sprint name")
+    const nameValidationError = validateDisplayName(sprintName, "Sprint name", {
+      maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+    })
 
     if (nameValidationError) {
       setCreateSprintError(nameValidationError)

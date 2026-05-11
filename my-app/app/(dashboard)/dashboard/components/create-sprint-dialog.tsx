@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { TASK_SPRINT_NAME_MAX_LENGTH } from "@/lib/text-validation"
 import { cn } from "@/lib/utils"
 
 type SprintScopeOption = {
@@ -156,6 +157,7 @@ export function CreateSprintDialog({
               value={sprintName}
               onChange={(event) => onSprintNameChange(event.target.value)}
               placeholder="Sprint 13"
+              maxLength={TASK_SPRINT_NAME_MAX_LENGTH}
               className="h-7 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f]"
             />
             {sprintNameError ? (

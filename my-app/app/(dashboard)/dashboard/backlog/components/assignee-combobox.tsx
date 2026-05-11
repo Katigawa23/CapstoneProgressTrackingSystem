@@ -136,19 +136,19 @@ export function AssigneeCombobox({
                   setOpen(false)
                 }}
                 className={cn(
-                  "flex min-h-9 items-center gap-2 rounded-md px-2 py-1.5 text-slate-900",
-                  !value && "bg-slate-100"
+                  "flex min-h-9 items-center gap-2 rounded-md px-2 py-1.5 text-slate-900 data-[selected=true]:bg-slate-100 data-[selected=true]:text-slate-950 dark:text-slate-100 dark:data-[selected=true]:bg-[#343a42] dark:data-[selected=true]:text-white",
+                  !value && "bg-slate-100 dark:bg-[#343a42]"
                 )}
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white">
-                  <User className="h-3 w-3 text-slate-500" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[#4b5563] dark:bg-[#252a31]">
+                  <User className="h-3 w-3 text-slate-500 dark:text-slate-200" />
                 </div>
 
-                <div className="flex-1 text-[13px] font-medium">Unassigned</div>
+                <div className="flex-1 text-[13px] font-medium dark:text-white">Unassigned</div>
 
                 <Check
                   className={cn(
-                    "h-4 w-4 text-slate-600",
+                    "h-4 w-4 text-slate-600 dark:text-slate-100",
                     !value ? "opacity-100" : "opacity-0"
                   )}
                 />
@@ -167,8 +167,8 @@ export function AssigneeCombobox({
                     setOpen(false)
                   }}
                   className={cn(
-                    "mt-1 flex min-h-9 items-start gap-2 rounded-md px-2 py-1.5 text-slate-900",
-                    value === option.id && "bg-slate-100"
+                    "mt-1 flex min-h-9 items-start gap-2 rounded-md px-2 py-1.5 text-slate-900 data-[selected=true]:bg-slate-100 data-[selected=true]:text-slate-950 dark:text-slate-100 dark:data-[selected=true]:bg-[#343a42] dark:data-[selected=true]:text-white",
+                    value === option.id && "bg-slate-100 dark:bg-[#343a42]"
                   )}
                 >
                   <Avatar className="mt-0.5 h-7 w-7">
@@ -178,9 +178,9 @@ export function AssigneeCombobox({
                   </Avatar>
 
                   <div className="flex-1 leading-tight">
-                    <div className="text-[12px] leading-4 font-medium">{option.name}</div>
+                    <div className="text-[12px] leading-4 font-medium dark:text-white">{option.name}</div>
                     {option.email ? (
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      <div className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-200">
                         {option.email}
                       </div>
                     ) : null}
@@ -188,7 +188,7 @@ export function AssigneeCombobox({
 
                   <Check
                     className={cn(
-                      "mt-1 h-4 w-4 text-slate-600",
+                      "mt-1 h-4 w-4 text-slate-600 dark:text-slate-100",
                       value === option.id ? "opacity-100" : "opacity-0"
                     )}
                   />

@@ -9,17 +9,25 @@ export function hasEmoji(value: string) {
   return stripEmoji(value) !== value
 }
 
-export const NAME_MIN_LENGTH = 20
+export const TASK_SPRINT_NAME_MAX_LENGTH = 20
 
-export function validateDisplayName(value: string, label = "Name") {
+type ValidateDisplayNameOptions = {
+  maxLength?: number
+}
+
+export function validateDisplayName(
+  value: string,
+  label = "Name",
+  options: ValidateDisplayNameOptions = {}
+) {
   const trimmedValue = value.trim()
 
   if (!trimmedValue) {
     return `${label} is required`
   }
 
-  if (trimmedValue.length < NAME_MIN_LENGTH) {
-    return `${label} must be at least ${NAME_MIN_LENGTH} characters.`
+  if (options.maxLength && trimmedValue.length > options.maxLength) {
+    return `${label} must be ${options.maxLength} characters or fewer.`
   }
 
   if (/^\d+$/.test(trimmedValue.replace(/\s+/g, ""))) {

@@ -27,7 +27,10 @@ import {
   PROJECT_CHANGE_EVENT,
   type DashboardProject,
 } from "@/lib/projects"
-import { validateDisplayName } from "@/lib/text-validation"
+import {
+  TASK_SPRINT_NAME_MAX_LENGTH,
+  validateDisplayName,
+} from "@/lib/text-validation"
 import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
 
 function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
@@ -355,7 +358,9 @@ export function BacklogPageClient({
       return
     }
 
-    const titleValidationError = validateDisplayName(title, "Task name")
+    const titleValidationError = validateDisplayName(title, "Task name", {
+      maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+    })
 
     if (titleValidationError) {
       setCreateTaskError(titleValidationError)
@@ -953,7 +958,9 @@ export function BacklogPageClient({
       return
     }
 
-    const nameValidationError = validateDisplayName(sprintName, "Sprint name")
+    const nameValidationError = validateDisplayName(sprintName, "Sprint name", {
+      maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+    })
 
     if (nameValidationError) {
       setCreateSprintError(nameValidationError)

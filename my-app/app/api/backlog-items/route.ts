@@ -2,7 +2,11 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { stripEmoji, validateDisplayName } from "@/lib/text-validation"
+import {
+  stripEmoji,
+  TASK_SPRINT_NAME_MAX_LENGTH,
+  validateDisplayName,
+} from "@/lib/text-validation"
 import {
   BacklogItemNameConflictError,
   createBacklogItem,
@@ -92,7 +96,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
     }
 
-    const titleValidationError = validateDisplayName(title, requestedParentId ? "Subtask name" : "Task name")
+    const titleValidationError = validateDisplayName(
+      title,
+      requestedParentId ? "Subtask name" : "Task name",
+      { maxLength: TASK_SPRINT_NAME_MAX_LENGTH }
+    )
 
     if (titleValidationError) {
       return NextResponse.json({ error: titleValidationError }, { status: 400 })

@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
+import { TASK_SPRINT_NAME_MAX_LENGTH } from "@/lib/text-validation"
 
 type CreateWorkItemDialogProps = {
   open: boolean
@@ -109,6 +110,7 @@ export function CreateWorkItemDialog({
               value={title}
               onChange={(event) => onTitleChange(event.target.value)}
               placeholder="Enter task title"
+              maxLength={TASK_SPRINT_NAME_MAX_LENGTH}
               className="h-8 rounded-[2px] border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-500 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
             />
             {titleError ? (

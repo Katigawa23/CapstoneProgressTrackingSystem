@@ -247,8 +247,24 @@ export default function Navbar() {
                 <DialogTitle className="font-display text-2xl tracking-tight">Login</DialogTitle>
               </DialogHeader>
 
-              <div className="mt-4 flex flex-col gap-4">
-                <MicrosoftLoginButton onSuccess={() => setIsLoginOpen(false)} />
+              <div className="mt-4 flex flex-col gap-3">
+                <MicrosoftLoginButton
+                  onSuccess={() => setIsLoginOpen(false)}
+                />
+
+                <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" />
+                  <span>Or</span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full font-semibold"
+                  type="button"
+                >
+                  Admin Login
+                </Button>
 
                 <Button
                   variant="outline"
@@ -258,7 +274,7 @@ export default function Navbar() {
                     window.location.assign("/api/auth/tester/faculty?redirect=/dashboard")
                   }}
                 >
-                  Faculty Tester Login
+                  Faculty Tester
                 </Button>
               </div>
             </DialogContent>
