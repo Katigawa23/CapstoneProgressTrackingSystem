@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 import {
   getMicrosoftTenantId,
+  type MicrosoftUser,
   normalizeMicrosoftRole,
   redeemMicrosoftCode,
 } from "@backend/auth/microsoft"
@@ -21,7 +22,7 @@ export const dynamic = "force-dynamic"
 
 function createCompletionUrl(
   request: NextRequest,
-  user: { id: string; name: string; email: string; role: "student" | "faculty" }
+  user: MicrosoftUser
 ) {
   const payload = Buffer.from(
     JSON.stringify({
