@@ -99,15 +99,15 @@ function FilePreviewTile({
     fileType === "application/pdf" || normalizedName.endsWith(".pdf")
 
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#303030]">
-      <div className="relative flex h-5.5 w-4.5 items-center justify-center rounded-[2px] bg-white text-slate-700 shadow-sm dark:bg-slate-100">
+    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#303030]">
+      <div className="relative flex h-4.5 w-3.5 items-center justify-center rounded-[2px] bg-white text-slate-700 shadow-sm dark:bg-slate-100">
         <div className="absolute right-0 top-0 h-1.5 w-1.5 rounded-bl-[2px] bg-slate-200 dark:bg-slate-300" />
         {isImage ? (
-          <ImageIcon className="h-2.5 w-2.5" />
+          <ImageIcon className="h-2 w-2" />
         ) : isPdf ? (
-          <span className="text-[7px] font-bold tracking-tight text-slate-800">PDF</span>
+          <span className="text-[6px] font-bold tracking-tight text-slate-800">PDF</span>
         ) : (
-          <FileText className="h-2.5 w-2.5" />
+          <FileText className="h-2 w-2" />
         )}
       </div>
     </div>
@@ -131,9 +131,9 @@ function AttachmentList({
 }) {
   return (
     <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
-      <div className="overflow-x-auto px-3 py-2">
+      <div className="overflow-x-auto">
         <div className="min-w-[560px] max-w-full">
-          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 border-b border-slate-200 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:text-slate-400">
+          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-x-2.5 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1d2125] dark:text-slate-400">
             <span>Name</span>
             <span>Size</span>
             <span>Date added</span>
@@ -153,20 +153,23 @@ function AttachmentList({
               return (
               <div
                 key={submission.id}
-                className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 rounded-[2px] px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-[#2c2c2c]"
+                className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-x-2.5 px-3 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-[#2c2c2c]"
               >
-                <div className="flex min-w-0 items-center gap-2.5 overflow-hidden">
+                <a
+                  href={submission.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left transition hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:hover:text-blue-300 dark:focus-visible:ring-offset-[#262626]"
+                  title={`Open ${submission.fileName}`}
+                >
                   <FilePreviewTile
                     fileName={submission.fileName}
                     fileType={submission.fileType}
                   />
-                  <p
-                    className="min-w-0 truncate text-[13px] font-medium text-slate-900 dark:text-slate-100"
-                    title={submission.fileName}
-                  >
+                  <span className="min-w-0 truncate text-[13px] text-slate-900 hover:underline dark:text-slate-100">
                     {submission.fileName}
-                  </p>
-                </div>
+                  </span>
+                </a>
                 <p className="text-[13px] text-slate-600 dark:text-slate-300">
                   {formatSubmissionSize(submission.fileSize)}
                 </p>
@@ -178,7 +181,7 @@ function AttachmentList({
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
                         aria-label={`Open actions for ${submission.fileName}`}
                         title="Actions"
                       >
@@ -190,19 +193,9 @@ function AttachmentList({
                       className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
                     >
                       <DropdownMenuItem asChild>
-                        <a
-                          href={
-                            submission.driveFileId
-                              ? `https://drive.google.com/file/d/${encodeURIComponent(
-                                  submission.driveFileId
-                                )}/view?usp=drivesdk`
-                              : `/dashboard/attachments/${submission.id}?itemId=${backlogItemId}`
-                          }
-                          target="_blank"
-                          rel="noreferrer"
-                        >
+                        <a href={submission.fileUrl} target="_blank" rel="noreferrer">
                           <Eye className="h-4 w-4" />
-                          Review
+                          Open
                         </a>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -245,9 +238,9 @@ function AttachmentList({
 function AttachmentListSkeleton() {
   return (
     <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
-      <div className="overflow-x-auto px-3 py-2">
+      <div className="overflow-x-auto">
         <div className="min-w-[560px] max-w-full">
-          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 border-b border-slate-200 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:text-slate-400">
+          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-x-2.5 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1d2125] dark:text-slate-400">
             <span>Name</span>
             <span>Size</span>
             <span>Date added</span>
@@ -258,16 +251,16 @@ function AttachmentListSkeleton() {
             {Array.from({ length: 2 }).map((_, index) => (
               <div
                 key={index}
-                className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-3 rounded-[2px] px-2 py-2"
+                className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-x-2.5 px-3 py-2"
               >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <Skeleton className="h-8 w-8 rounded-[2px]" />
-                  <Skeleton className="h-4 w-36 max-w-[70%]" />
+                <div className="flex min-w-0 items-center gap-2">
+                  <Skeleton className="h-6 w-6 rounded-[2px]" />
+                  <Skeleton className="h-3.5 w-36 max-w-[70%]" />
                 </div>
-                <Skeleton className="h-4 w-10" />
-                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3.5 w-10" />
+                <Skeleton className="h-3.5 w-24" />
                 <div className="flex items-center justify-end gap-1">
-                  <Skeleton className="h-7 w-7 rounded-[2px]" />
+                  <Skeleton className="h-6 w-6 rounded-[2px]" />
                 </div>
               </div>
             ))}

@@ -5,10 +5,6 @@ import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
-  isGoogleDriveUploadConfigured,
-  uploadAttachmentToGoogleDrive,
-} from "@/lib/google-drive"
-import {
   createBacklogSubmission,
   deleteBacklogSubmission,
   listBacklogSubmissions,
@@ -78,23 +74,12 @@ export async function POST(
         const submissionId = randomUUID()
         const safeName = sanitizeFileName(file.name) || "submission"
         const bytes = Buffer.from(await file.arrayBuffer())
-        const driveUpload = isGoogleDriveUploadConfigured()
-          ? await uploadAttachmentToGoogleDrive({
-              fileName: file.name,
-              fileType: file.type || "application/octet-stream",
-              fileData: bytes,
-            }).catch((error) => {
-              console.warn("Google Drive upload failed; using local attachment storage.", error)
-              return null
-            })
-          : null
 
         return createBacklogSubmission({
           id: submissionId,
           backlogItemId: id,
           fileName: file.name,
           fileUrl: `/api/backlog-items/${id}/submissions/file?submissionId=${encodeURIComponent(submissionId)}&filename=${encodeURIComponent(safeName)}`,
-          driveFileId: driveUpload?.id ?? null,
           fileType: file.type || "application/octet-stream",
           fileSize: file.size,
           fileData: bytes,

@@ -42,6 +42,9 @@ export const PROJECT_TYPE_OPTIONS = [
 export type DashboardProject = {
   id: string
   name: string
+  ownerUserId?: string
+  ownerName?: string
+  ownerEmail?: string
   members: string[]
   advisers: string[]
   sprintCreatorUserIds: string[]
@@ -92,16 +95,33 @@ export function hasEmojiInProjectTitle(value: string) {
 
 export const dashboardProjects: DashboardProject[] = []
 
-function getUserScopedStorageKey(baseKey: string) {
+function normalizeUserScopedKeyPart(userId: string | null | undefined) {
+  const normalizedUserId = userId?.trim()
+
+  if (!normalizedUserId) {
+    return "guest"
+  }
+
+  return normalizedUserId.replace(/[^A-Za-z0-9_-]/g, "_")
+}
+
+export function getUserScopedProjectCookieKey(
+  baseKey: string,
+  userId: string | null | undefined
+) {
+  return `${baseKey}-${normalizeUserScopedKeyPart(userId)}`
+}
+
+function readCurrentClientUserId() {
   if (typeof window === "undefined") {
-    return baseKey
+    return null
   }
 
   try {
     const sessionValue = window.localStorage.getItem("tracksphere_auth_session")
 
     if (!sessionValue) {
-      return `${baseKey}:guest`
+      return null
     }
 
     const session = JSON.parse(sessionValue) as {
@@ -109,12 +129,22 @@ function getUserScopedStorageKey(baseKey: string) {
     }
     const userId = session?.user?.id
 
-    return typeof userId === "string" && userId.trim()
-      ? `${baseKey}:${userId.trim()}`
-      : `${baseKey}:guest`
+    return typeof userId === "string" && userId.trim() ? userId.trim() : null
   } catch {
-    return `${baseKey}:guest`
+    return null
   }
+}
+
+function getUserScopedStorageKey(baseKey: string) {
+  return `${baseKey}:${normalizeUserScopedKeyPart(readCurrentClientUserId())}`
+}
+
+function getClientProjectCookieKey(baseKey: string) {
+  return getUserScopedProjectCookieKey(baseKey, readCurrentClientUserId())
+}
+
+function expireLegacyCookie(baseKey: string) {
+  document.cookie = `${baseKey}=; path=/; max-age=0; samesite=lax`
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -139,6 +169,12 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
   return {
     id: candidate.id,
     name: candidate.name,
+    ownerUserId:
+      typeof candidate.ownerUserId === "string" ? candidate.ownerUserId : undefined,
+    ownerName:
+      typeof candidate.ownerName === "string" ? candidate.ownerName : undefined,
+    ownerEmail:
+      typeof candidate.ownerEmail === "string" ? candidate.ownerEmail : undefined,
     members: candidate.members,
     advisers: isStringArray(candidate.advisers) ? candidate.advisers : [],
     sprintCreatorUserIds: isStringArray(candidate.sprintCreatorUserIds)
@@ -189,12 +225,14 @@ function writeStoredProjects(projects: DashboardProject[]) {
   }
 
   const serializedProjects = JSON.stringify(projects)
+  const projectsCookieKey = getClientProjectCookieKey(PROJECTS_COOKIE_KEY)
 
   window.localStorage.setItem(
     getUserScopedStorageKey(PROJECTS_STORAGE_KEY),
     serializedProjects
   )
-  document.cookie = `${PROJECTS_COOKIE_KEY}=${encodeURIComponent(serializedProjects)}; path=/; max-age=31536000; samesite=lax`
+  document.cookie = `${projectsCookieKey}=${encodeURIComponent(serializedProjects)}; path=/; max-age=31536000; samesite=lax`
+  expireLegacyCookie(PROJECTS_COOKIE_KEY)
   window.dispatchEvent(new CustomEvent(PROJECTS_CHANGE_EVENT, { detail: projects }))
 }
 
@@ -242,7 +280,7 @@ export async function refreshDashboardProjects() {
 
   const data = (await response.json()) as { projects: DashboardProject[] }
   cacheDashboardProjects(data.projects)
-  return data.projects
+  return getDashboardProjects()
 }
 
 export function findDashboardProject(projectId: string | null | undefined) {
@@ -446,14 +484,22 @@ export async function setDashboardProjectStarred(projectId: string, starred: boo
 }
 
 export function setDashboardProject(projectId: string) {
+  const projectCookieKey = getClientProjectCookieKey(PROJECT_COOKIE_KEY)
+
   window.localStorage.setItem(getUserScopedStorageKey(PROJECT_STORAGE_KEY), projectId)
-  document.cookie = `${PROJECT_COOKIE_KEY}=${encodeURIComponent(projectId)}; path=/; max-age=31536000; samesite=lax`
+  document.cookie = `${projectCookieKey}=${encodeURIComponent(projectId)}; path=/; max-age=31536000; samesite=lax`
+  expireLegacyCookie(PROJECT_COOKIE_KEY)
   writeStoredProjects(prioritizeProject(getDashboardProjects(), projectId))
   window.dispatchEvent(new CustomEvent(PROJECT_CHANGE_EVENT, { detail: projectId }))
 }
 
-export function readDashboardProjectsFromCookieStore(cookieStore: CookieStoreLike) {
-  const storedProjects = cookieStore.get(PROJECTS_COOKIE_KEY)?.value
+export function readDashboardProjectsFromCookieStore(
+  cookieStore: CookieStoreLike,
+  userId?: string | null
+) {
+  const storedProjects = cookieStore.get(
+    getUserScopedProjectCookieKey(PROJECTS_COOKIE_KEY, userId)
+  )?.value
 
   if (!storedProjects) {
     return dashboardProjects

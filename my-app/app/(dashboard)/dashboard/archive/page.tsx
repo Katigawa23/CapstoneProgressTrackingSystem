@@ -3,6 +3,7 @@
 import * as React from "react"
 import {
   ArchiveRestore,
+  ChevronDown,
   Ellipsis,
   FileText,
   Filter,
@@ -72,9 +73,66 @@ type ArchivedAttachment = {
 type ArchiveTableRow =
   | { type: "item"; item: TodoItem; depth: number }
   | { type: "attachment"; item: ArchivedAttachment; depth: number }
+type ArchiveGroup = {
+  id: string
+  label: string
+  rows: ArchiveTableRow[]
+}
 
 const activeHeaderFilterItemClassName =
   "bg-blue-50 text-blue-700 data-[highlighted]:bg-blue-100 data-[highlighted]:text-blue-800 dark:bg-blue-500/20 dark:text-blue-200 dark:data-[highlighted]:bg-blue-500/30 dark:data-[highlighted]:text-blue-100"
+
+function getStartOfDay(value: Date) {
+  const nextDate = new Date(value)
+  nextDate.setHours(0, 0, 0, 0)
+  return nextDate
+}
+
+function getArchivedGroupId(archivedAt?: string | null) {
+  if (!archivedAt) {
+    return "unknown"
+  }
+
+  const archivedDate = new Date(archivedAt)
+
+  if (Number.isNaN(archivedDate.getTime())) {
+    return "unknown"
+  }
+
+  const today = getStartOfDay(new Date())
+  const archivedDay = getStartOfDay(archivedDate)
+  const diffDays = Math.floor(
+    (today.getTime() - archivedDay.getTime()) / (24 * 60 * 60 * 1000)
+  )
+
+  if (diffDays <= 0) return "today"
+  if (diffDays === 1) return "yesterday"
+  if (diffDays <= 7) return "last-week"
+  if (diffDays <= 31) return "last-month"
+  return "older"
+}
+
+function getArchiveRowArchivedAt(row: ArchiveTableRow) {
+  return row.item.archivedAt
+}
+
+const archiveGroupLabels: Record<string, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  "last-week": "Last week",
+  "last-month": "Last month",
+  older: "Older",
+  unknown: "Unknown date",
+}
+
+const archiveGroupOrder = [
+  "today",
+  "yesterday",
+  "last-week",
+  "last-month",
+  "older",
+  "unknown",
+]
 
 export default function ArchivePage() {
   const [searchValue, setSearchValue] = React.useState("")
@@ -88,6 +146,7 @@ export default function ArchivePage() {
   const [currentUserRole, setCurrentUserRole] = React.useState("")
   const [actionError, setActionError] = React.useState<string | null>(null)
   const [pendingRestoreRow, setPendingRestoreRow] = React.useState<ArchiveTableRow | null>(null)
+  const [collapsedGroupIds, setCollapsedGroupIds] = React.useState<string[]>([])
   const hasActiveFilters = filterValue !== "none"
   const activeFilterCount = hasActiveFilters ? 1 : 0
 
@@ -244,6 +303,22 @@ export default function ArchivePage() {
     () => buildArchiveRows(todos, archivedAttachments),
     [archivedAttachments, buildArchiveRows, todos]
   )
+  const archiveGroups = React.useMemo<ArchiveGroup[]>(() => {
+    const rowsByGroup = new Map<string, ArchiveTableRow[]>()
+
+    for (const row of archiveRows) {
+      const groupId = getArchivedGroupId(getArchiveRowArchivedAt(row))
+      rowsByGroup.set(groupId, [...(rowsByGroup.get(groupId) ?? []), row])
+    }
+
+    return archiveGroupOrder
+      .map((groupId) => ({
+        id: groupId,
+        label: archiveGroupLabels[groupId] ?? groupId,
+        rows: rowsByGroup.get(groupId) ?? [],
+      }))
+      .filter((group) => group.rows.length > 0)
+  }, [archiveRows])
 
   const allRows = archiveRows.map((row) => row.item.id)
   const allVisibleSelected =
@@ -257,6 +332,13 @@ export default function ArchivePage() {
     }
 
     return row.item.parentId ? "Subtask" : "Task"
+  }, [])
+  const toggleGroup = React.useCallback((groupId: string) => {
+    setCollapsedGroupIds((current) =>
+      current.includes(groupId)
+        ? current.filter((id) => id !== groupId)
+        : [...current, groupId]
+    )
   }, [])
   const getArchiveRowIcon = React.useCallback((row: ArchiveTableRow) => {
     if (row.type === "attachment") {
@@ -463,7 +545,34 @@ export default function ArchivePage() {
               </tr>
             </thead>
             <tbody>
-              {archiveRows.map((row) => {
+              {archiveGroups.map((group) => {
+                const isCollapsed = collapsedGroupIds.includes(group.id)
+
+                return (
+                  <React.Fragment key={group.id}>
+                    <tr className="bg-slate-50/80 dark:bg-[#202020]">
+                      <td colSpan={8} className="px-2.5 py-2">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 text-left text-sm font-semibold text-slate-700 transition hover:text-slate-950 dark:text-slate-200 dark:hover:text-white"
+                          onClick={() => toggleGroup(group.id)}
+                          aria-expanded={!isCollapsed}
+                        >
+                          <ChevronDown
+                            className={`h-4 w-4 shrink-0 transition-transform ${
+                              isCollapsed ? "-rotate-90" : "rotate-0"
+                            }`}
+                          />
+                          <span>
+                            {group.label} ({group.rows.length})
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+
+                    {isCollapsed
+                      ? null
+                      : group.rows.map((row) => {
                 if (row.type === "item") {
                   const item = row.item
                   const createdByName = namesById[item.createdByUserId ?? ""] ?? item.createdByUserId ?? "Unknown user"
@@ -691,6 +800,9 @@ export default function ArchivePage() {
                       </DropdownMenu>
                     </td>
                   </tr>
+                )
+              })}
+                  </React.Fragment>
                 )
               })}
               {archiveRows.length === 0 ? (

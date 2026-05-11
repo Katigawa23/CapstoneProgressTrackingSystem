@@ -323,7 +323,7 @@ export function DashboardPageClient({
 
   React.useEffect(() => {
     cacheDashboardProjects(initialProjects)
-    setProjects(initialProjects)
+    setProjects(getDashboardProjects())
 
     const syncProjects = () => {
       setProjects(getDashboardProjects())
@@ -575,7 +575,7 @@ export function DashboardPageClient({
 
   return (
     <TooltipProvider>
-      <div className="h-full w-full overflow-y-auto">
+      <div className="w-full">
         <div className="mx-auto flex w-full max-w-[92rem] flex-col gap-6 px-1 pb-6 pr-6 sm:pr-8 xl:px-2 xl:pr-10">
           <div>
             <div className="flex items-center justify-between gap-4">

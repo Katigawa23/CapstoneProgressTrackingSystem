@@ -1,7 +1,10 @@
 import { cookies } from "next/headers"
 
 import { readAuthenticatedUser } from "@/lib/server-auth"
-import { PROJECT_COOKIE_KEY } from "@/lib/projects"
+import {
+  getUserScopedProjectCookieKey,
+  PROJECT_COOKIE_KEY,
+} from "@/lib/projects"
 
 import { DashboardLayoutShell } from "./layout-shell"
 import { getDashboardProjectsData } from "./data"
@@ -14,7 +17,10 @@ export default async function DashboardLayout({
   const cookieStore = await cookies()
   const authenticatedUser = await readAuthenticatedUser()
   const initialProjects = await getDashboardProjectsData()
-  const selectedProjectId = cookieStore.get(PROJECT_COOKIE_KEY)?.value ?? null
+  const selectedProjectId =
+    cookieStore.get(
+      getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, authenticatedUser?.id)
+    )?.value ?? null
   const initialTeam =
     initialProjects.find((project) => project.id === selectedProjectId) ?? initialProjects[0] ?? null
 

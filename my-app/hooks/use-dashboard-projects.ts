@@ -60,8 +60,15 @@ export function useDashboardProjects({
 
   React.useEffect(() => {
     cacheDashboardProjects(initialProjects)
-    setProjects(initialProjects)
-    setTeam(initialTeam)
+    const cachedProjects = getDashboardProjects()
+    const savedProjectId = getSelectedDashboardProjectId()
+    setProjects(cachedProjects)
+    setTeam(
+      cachedProjects.find((project) => project.id === savedProjectId) ??
+        initialTeam ??
+        cachedProjects[0] ??
+        null
+    )
 
     window.addEventListener("storage", syncProjectState)
     window.addEventListener(PROJECT_CHANGE_EVENT, syncProjectState)
@@ -84,10 +91,14 @@ export function useDashboardProjects({
         }
 
         setProjects(nextProjects)
+        const savedProjectId = getSelectedDashboardProjectId()
         setTeam((currentTeam) =>
-          currentTeam
-            ? nextProjects.find((project) => project.id === currentTeam.id) ?? nextProjects[0] ?? null
-            : nextProjects[0] ?? null
+          nextProjects.find((project) => project.id === savedProjectId) ??
+          (currentTeam
+            ? nextProjects.find((project) => project.id === currentTeam.id) ?? null
+            : null) ??
+          nextProjects[0] ??
+          null
         )
       })
       .catch((error) => {
@@ -312,6 +323,7 @@ export function useDashboardProjects({
 
     return nextProject
   }, [
+    isCreatingProject,
     projectProgram,
     projectProgramOther,
     projectSyTerm,

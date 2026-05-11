@@ -591,12 +591,31 @@ export function TaskSubtasksSection({
                   <div
                     key={subtask.id}
                     ref={isEditingCurrentSubtask ? editSubtaskRowRef : null}
-                    className={`${subtaskGridClass} bg-white px-3 py-2 transition-colors hover:bg-slate-50 dark:bg-[#1f1f23] dark:hover:bg-[#24292f]`}
+                    role={isEditingCurrentSubtask ? undefined : "button"}
+                    tabIndex={isEditingCurrentSubtask ? undefined : 0}
+                    onClick={() => {
+                      if (!isEditingCurrentSubtask) {
+                        onOpenSubtask(subtask)
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (isEditingCurrentSubtask) {
+                        return
+                      }
+
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        onOpenSubtask(subtask)
+                      }
+                    }}
+                    className={`${subtaskGridClass} group bg-white px-3 py-2 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset dark:bg-[#1f1f23] dark:hover:bg-[#24292f] ${
+                      isEditingCurrentSubtask ? "" : "cursor-pointer"
+                    }`}
                   >
                     <div className="flex min-w-0 items-center gap-2">
-                      <SubtaskGlyph />
                       {isEditingCurrentSubtask ? (
                         <div className="flex min-w-0 items-center gap-2">
+                          <SubtaskGlyph />
                           <Input
                             value={editingTitle}
                             onChange={(event) => {
@@ -636,14 +655,15 @@ export function TaskSubtasksSection({
                           </button>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          className="truncate text-left text-[13px] text-slate-900 transition hover:text-blue-600 dark:text-[#dee4ea] dark:hover:text-[#8ab4ff]"
-                          onClick={() => onOpenSubtask(subtask)}
+                        <span
+                          className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left text-[13px] text-slate-900 transition group-hover:text-blue-600 dark:text-[#dee4ea] dark:group-hover:text-[#8ab4ff]"
                           title={`Open ${subtask.title}`}
                         >
-                          {subtask.title}
-                        </button>
+                          <SubtaskGlyph />
+                          <span className="min-w-0 truncate">
+                            {subtask.title}
+                          </span>
+                        </span>
                       )}
                     </div>
 
@@ -662,7 +682,14 @@ export function TaskSubtasksSection({
                       </TooltipProvider>
                     </div>
 
-                    <div className="flex justify-center">
+                    <div
+                      className="flex justify-center"
+                      onClick={(event) => {
+                        if (!subtask.startDate || isEditingCurrentSubtask) {
+                          event.stopPropagation()
+                        }
+                      }}
+                    >
                       {subtask.startDate && !isEditingCurrentSubtask ? (
                         <span className="text-[11px] text-slate-600 dark:text-[#dee4ea]">
                           {formatDeadline(subtask.startDate)}
@@ -717,7 +744,14 @@ export function TaskSubtasksSection({
                       )}
                     </div>
 
-                    <div className="flex justify-center">
+                    <div
+                      className="flex justify-center"
+                      onClick={(event) => {
+                        if (!subtask.deadline || isEditingCurrentSubtask) {
+                          event.stopPropagation()
+                        }
+                      }}
+                    >
                       {subtask.deadline && !isEditingCurrentSubtask ? (
                         <span className="text-[11px] text-slate-600 dark:text-[#dee4ea]">
                           {formatDeadline(subtask.deadline)}
@@ -779,7 +813,10 @@ export function TaskSubtasksSection({
                       )}
                     </div>
 
-                    <div className="flex justify-center">
+                    <div
+                      className="flex justify-center"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <AssigneeCombobox
                         value={subtask.assigneeId}
                         disabled={!canUpdateSubtaskFields}
@@ -794,7 +831,10 @@ export function TaskSubtasksSection({
                       />
                     </div>
 
-                    <div className="flex justify-center">
+                    <div
+                      className="flex justify-center"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <StatusCombobox
                         value={subtask.status}
                         disabled={!canUpdateSubtaskFields}
@@ -809,7 +849,10 @@ export function TaskSubtasksSection({
                       />
                     </div>
 
-                    <div className="flex items-center justify-end">
+                    <div
+                      className="flex items-center justify-end"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button

@@ -66,7 +66,6 @@ export type DashboardSubmission = {
   uploadedByUserId?: string | null
   fileName: string
   fileUrl: string
-  driveFileId?: string | null
   fileType: string
   fileSize: number
   uploadedAt: string

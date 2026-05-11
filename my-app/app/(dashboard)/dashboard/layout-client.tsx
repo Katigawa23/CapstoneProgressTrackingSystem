@@ -221,7 +221,11 @@ export function DashboardLayoutClient({
         <AppSidebar role={role} initialProjects={initialProjects} initialTeam={initialTeam} />
 
         <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50/60 pt-16 dark:from-[#212121] dark:to-[#171717]">
-          <main className="flex h-full min-w-0 flex-col overflow-hidden p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10">
+          <main
+            className={`flex h-full min-w-0 flex-col p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10 ${
+              pathname === "/dashboard" ? "overflow-y-auto" : "overflow-hidden"
+            }`}
+          >
             {authLoading
               ? pathname === "/dashboard/backlog"
                 ? <BacklogLoadingSkeleton />

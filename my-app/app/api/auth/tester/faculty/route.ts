@@ -38,10 +38,6 @@ function createCompletionUrl(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.redirect(new URL("/?authError=disabled", request.url))
-  }
-
   const tenantId = getMicrosoftTenantId()
   await saveMicrosoftAccountLogin(TEST_FACULTY_USER, tenantId)
 

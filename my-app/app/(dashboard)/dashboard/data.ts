@@ -8,7 +8,11 @@ import {
   listProjectBacklogActivities,
 } from "@backend/repositories/backlog-repository"
 import { listSprints } from "@backend/repositories/sprint-repository"
-import { PROJECT_COOKIE_KEY, type DashboardProject } from "@/lib/projects"
+import {
+  getUserScopedProjectCookieKey,
+  PROJECT_COOKIE_KEY,
+  type DashboardProject,
+} from "@/lib/projects"
 
 const useDashboardCache = process.env.NODE_ENV === "production"
 
@@ -80,7 +84,9 @@ export async function getSelectedProjectData() {
     useDashboardCache ? getCachedProjects(user.id) : listProjects(user.id)
   )
   const cookieStore = await cookies()
-  const selectedProjectId = cookieStore.get(PROJECT_COOKIE_KEY)?.value ?? null
+  const selectedProjectId =
+    cookieStore.get(getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, user.id))
+      ?.value ?? null
   const selectedProject =
     projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null
 
@@ -124,20 +130,30 @@ export async function getDashboardHomeData() {
   const projects = await (
     useDashboardCache ? getCachedProjects(user.id) : listProjects(user.id)
   )
+  const cookieStore = await cookies()
+  const selectedProjectId =
+    cookieStore.get(getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, user.id))
+      ?.value ?? null
+  const orderedProjects = selectedProjectId
+    ? [
+        ...projects.filter((project) => project.id === selectedProjectId),
+        ...projects.filter((project) => project.id !== selectedProjectId),
+      ]
+    : projects
   const activities = await (
     useDashboardCache
       ? getCachedProjectActivities(
-          projects.map((project) => project.id),
+          orderedProjects.map((project) => project.id),
           user.id
         )
       : listProjectBacklogActivities(
-          projects.map((project) => project.id),
+          orderedProjects.map((project) => project.id),
           user.id
         )
   )
 
   return {
-    projects,
+    projects: orderedProjects,
     activities,
   }
 }

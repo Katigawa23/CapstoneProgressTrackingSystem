@@ -74,7 +74,7 @@ const documentationItems: NavItem[] = [
 
 const getGroupItems = (role: UserRole): NavItem[] => [
   { title: "Members", href: "/dashboard/members", icon: Users },
-  { title: role === "faculty" ? "Students" : "Faculty", href: "/dashboard/adviser", icon: Users },
+  { title: role === "faculty" ? "Students" : "Advisers", href: "/dashboard/adviser", icon: Users },
 ]
 
 const quickLinkItems: NavItem[] = [

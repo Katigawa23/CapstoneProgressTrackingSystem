@@ -19,6 +19,8 @@ import {
 type ProjectRecord = {
   id: string
   owner_user_id: string
+  owner_name?: string | null
+  owner_email?: string | null
   member_user_ids: string[]
   sprint_creator_user_ids: string[]
   project_name: string
@@ -63,7 +65,18 @@ type ProjectMemberAccessRecord = {
   project_id: string
   member_user_id: string
   member_role: string
+  project_role: string
   can_create_sprint: boolean
+}
+
+export type ProjectMemberAccessView = {
+  userId: string
+  name: string
+  email: string
+  role: "student" | "faculty" | "admin"
+  projectRole: string
+  canCreateSprint: boolean
+  isOwner: boolean
 }
 
 type ProjectStorageMode = "database" | "file"
@@ -188,6 +201,7 @@ async function ensureProjectsSchema() {
           project_id uuid not null references projects(id) on delete cascade,
           member_user_id text not null references microsoft_account_logins(microsoft_user_id) on delete cascade,
           member_role text not null default 'student',
+          project_role text not null default '',
           can_create_sprint boolean not null default false,
           created_at timestamptz not null default now(),
           primary key (project_id, member_user_id)
@@ -238,6 +252,12 @@ async function ensureProjectsSchema() {
         getDb().query(`
           alter table project_member_access
           add column if not exists member_role text not null default 'student';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table project_member_access
+          add column if not exists project_role text not null default '';
         `)
       )
       .then(() =>
@@ -540,6 +560,9 @@ function mapRecord(record: ProjectRecord): DashboardProject {
   return {
     id: record.id,
     name: record.project_name,
+    ownerUserId: record.owner_user_id,
+    ownerName: record.owner_name ?? undefined,
+    ownerEmail: record.owner_email ?? undefined,
     members: record.project_member,
     advisers: record.project_adviser,
     sprintCreatorUserIds: record.sprint_creator_user_ids,
@@ -645,6 +668,8 @@ export async function listProjects(ownerUserId: string) {
          select
            projects.id,
            projects.owner_user_id,
+           owner_login.name as owner_name,
+           owner_login.email as owner_email,
            coalesce(member_logins.member_user_ids, projects.member_user_ids) as member_user_ids,
            projects.sprint_creator_user_ids,
            projects.project_name,
@@ -657,6 +682,8 @@ export async function listProjects(ownerUserId: string) {
            projects.project_type,
            projects.created_at
          from projects
+         left join latest_logins owner_login
+           on owner_login.microsoft_user_id = projects.owner_user_id
          left join lateral (
            select
              array_agg(login.microsoft_user_id order by login.name asc, login.email asc) as member_user_ids,
@@ -1077,5 +1104,423 @@ export async function canUserCreateSprintInProject(
 
       return project.owner_user_id === userId || project.sprint_creator_user_ids.includes(userId)
     }
+  )
+}
+
+function normalizeProjectMemberRole(role: string): "student" | "faculty" | "admin" {
+  if (role === "faculty" || role === "admin") {
+    return role
+  }
+
+  return "student"
+}
+
+function canManageProjectMembers(userRole: "student" | "faculty" | "admin") {
+  return userRole === "faculty" || userRole === "admin"
+}
+
+export async function listProjectMembers(
+  projectId: string,
+  userId: string,
+  userRole: "student" | "faculty" | "admin"
+): Promise<ProjectMemberAccessView[]> {
+  return withProjectStore(
+    async () => {
+      const access = await getDb().query<{ can_access: boolean }>(
+        `select exists (
+           select 1
+           from projects p
+           left join project_member_access pma
+             on pma.project_id = p.id
+            and pma.member_user_id = $2
+           where p.id = $1
+             and (
+               p.owner_user_id = $2
+               or $2 = any(p.member_user_ids)
+               or pma.member_user_id is not null
+               or $3 in ('faculty', 'admin')
+             )
+         ) as can_access`,
+        [projectId, userId, userRole]
+      )
+
+      if (access.rows[0]?.can_access !== true) {
+        return []
+      }
+
+      const result = await getDb().query<{
+        user_id: string
+        name: string
+        email: string
+        role: string
+        project_role: string
+        can_create_sprint: boolean
+        is_owner: boolean
+      }>(
+        `with project_scope as (
+           select *
+           from projects
+           where id = $1
+           limit 1
+         ),
+         project_people as (
+           select owner_user_id as user_id
+           from project_scope
+           union
+           select unnest(member_user_ids) as user_id
+           from project_scope
+           union
+           select member_user_id as user_id
+           from project_member_access
+           where project_id = $1
+         ),
+         latest_logins as (
+           select distinct on (microsoft_user_id)
+             microsoft_user_id,
+             name,
+             email,
+             role
+           from microsoft_account_logins
+           order by microsoft_user_id, login_at desc
+         )
+         select
+           people.user_id,
+           coalesce(login.name, people.user_id) as name,
+           coalesce(login.email, '') as email,
+           case
+             when project_scope.owner_user_id = people.user_id then coalesce(nullif(login.role, ''), 'faculty')
+           else coalesce(pma.member_role, nullif(login.role, ''), 'student')
+          end as role,
+          coalesce(pma.project_role, '') as project_role,
+          case
+            when project_scope.owner_user_id = people.user_id then true
+            when coalesce(pma.member_role, login.role) in ('faculty', 'admin') then true
+            else coalesce(pma.can_create_sprint, false)
+           end as can_create_sprint,
+           project_scope.owner_user_id = people.user_id as is_owner
+         from project_people people
+         cross join project_scope
+         left join latest_logins login
+           on login.microsoft_user_id = people.user_id
+         left join project_member_access pma
+           on pma.project_id = $1
+          and pma.member_user_id = people.user_id
+         where project_scope.owner_user_id <> people.user_id
+           and coalesce(pma.member_role, login.role, 'student') not in ('faculty', 'admin')
+         order by is_owner desc, name asc, email asc`,
+        [projectId]
+      )
+
+      return result.rows.map((row) => ({
+        userId: row.user_id,
+        name: row.name,
+        email: row.email,
+        role: normalizeProjectMemberRole(row.role),
+        projectRole: row.project_role,
+        canCreateSprint: row.can_create_sprint === true,
+        isOwner: row.is_owner === true,
+      }))
+    },
+    async () => {
+      const records = await readFileRecords()
+      const project = records.find(
+        (record) =>
+          record.id === projectId &&
+          (
+            record.owner_user_id === userId ||
+            record.member_user_ids.includes(userId) ||
+            canManageProjectMembers(userRole)
+          )
+      )
+
+      if (!project) {
+        return []
+      }
+
+      return project.member_user_ids.map((memberUserId, index) => ({
+        userId: memberUserId,
+        name: project.project_member[index] ?? memberUserId,
+        email: "",
+        role: "student",
+        projectRole: "",
+        canCreateSprint: project.sprint_creator_user_ids.includes(memberUserId),
+        isOwner: false,
+      }))
+    }
+  )
+}
+
+export async function updateProjectMemberAccess(
+  projectId: string,
+  targetUserId: string,
+  input: {
+    projectRole: string
+    canCreateSprint: boolean
+  },
+  actorUserId: string,
+  actorRole: "student" | "faculty" | "admin"
+): Promise<ProjectMemberAccessView | null> {
+  return withProjectStore(
+    async () => {
+      const target = await getDb().query<{
+        owner_user_id: string
+        target_name: string
+        target_email: string
+        target_role: string
+        current_can_create_sprint: boolean
+        actor_can_access: boolean
+      }>(
+        `select
+           p.owner_user_id,
+           login.name as target_name,
+           login.email as target_email,
+           coalesce(pma.member_role, login.role, 'student') as target_role,
+           coalesce(pma.can_create_sprint, false) as current_can_create_sprint,
+           (
+             p.owner_user_id = $3
+             or $3 = any(p.member_user_ids)
+             or actor_pma.member_user_id is not null
+             or $4 in ('faculty', 'admin')
+           ) as actor_can_access
+         from projects p
+         inner join microsoft_account_logins login
+           on login.microsoft_user_id = $2
+         left join project_member_access pma
+           on pma.project_id = p.id
+          and pma.member_user_id = $2
+         left join project_member_access actor_pma
+           on actor_pma.project_id = p.id
+          and actor_pma.member_user_id = $3
+         where p.id = $1
+         limit 1`,
+        [projectId, targetUserId, actorUserId, actorRole]
+      )
+
+      const targetRow = target.rows[0]
+
+      if (
+        !targetRow ||
+        targetRow.owner_user_id === targetUserId ||
+        ["faculty", "admin"].includes(targetRow.target_role) ||
+        targetRow.actor_can_access !== true
+      ) {
+        return null
+      }
+
+      const nextProjectRole = input.projectRole.trim().slice(0, 40)
+      const nextCanCreateSprint = canManageProjectMembers(actorRole)
+        ? input.canCreateSprint === true
+        : targetRow.current_can_create_sprint === true
+
+      await getDb().query(
+        `insert into project_member_access (
+           project_id,
+           member_user_id,
+           member_role,
+           project_role,
+           can_create_sprint
+         )
+         values ($1, $2, 'student', $3, $4)
+         on conflict (project_id, member_user_id) do update
+         set project_role = excluded.project_role,
+             can_create_sprint = excluded.can_create_sprint`,
+        [projectId, targetUserId, nextProjectRole, nextCanCreateSprint]
+      )
+
+      await getDb().query(
+        `update projects
+         set member_user_ids = case
+               when $2 = any(member_user_ids) then member_user_ids
+               else array_append(member_user_ids, $2)
+             end,
+             project_member = case
+               when not ($4 = any(project_member)) then array_append(project_member, $4)
+               else project_member
+             end,
+             sprint_creator_user_ids = case
+               when $3 = true and not ($2 = any(sprint_creator_user_ids)) then array_append(sprint_creator_user_ids, $2)
+               when $3 = false then array_remove(sprint_creator_user_ids, $2)
+               else sprint_creator_user_ids
+             end
+         where id = $1`,
+        [
+          projectId,
+          targetUserId,
+          nextCanCreateSprint,
+          targetRow.target_name,
+        ]
+      )
+
+      return {
+        userId: targetUserId,
+        name: targetRow.target_name,
+        email: targetRow.target_email,
+        role: "student",
+        projectRole: nextProjectRole,
+        canCreateSprint: nextCanCreateSprint,
+        isOwner: false,
+      }
+    },
+    async () => null
+  )
+}
+
+export async function addProjectStudentMember(
+  projectId: string,
+  targetUserId: string,
+  actorUserId: string,
+  actorRole: "student" | "faculty" | "admin"
+): Promise<ProjectMemberAccessView | null> {
+  if (!canManageProjectMembers(actorRole)) {
+    return null
+  }
+
+  return withProjectStore(
+    async () => {
+      const target = await getDb().query<{
+        owner_user_id: string
+        target_name: string
+        target_email: string
+        target_role: string
+      }>(
+        `select
+           p.owner_user_id,
+           login.name as target_name,
+           login.email as target_email,
+           coalesce(login.role, 'student') as target_role
+         from projects p
+         inner join microsoft_account_logins login
+           on login.microsoft_user_id = $2
+         where p.id = $1
+           and (
+             p.owner_user_id = $3
+             or $3 = any(p.member_user_ids)
+             or $4 in ('faculty', 'admin')
+           )
+         limit 1`,
+        [projectId, targetUserId, actorUserId, actorRole]
+      )
+
+      const targetRow = target.rows[0]
+
+      if (
+        !targetRow ||
+        targetRow.owner_user_id === targetUserId ||
+        ["faculty", "admin"].includes(targetRow.target_role)
+      ) {
+        return null
+      }
+
+      await getDb().query(
+        `insert into project_member_access (
+           project_id,
+           member_user_id,
+           member_role,
+           project_role,
+           can_create_sprint
+         )
+         values ($1, $2, 'student', '', false)
+         on conflict (project_id, member_user_id) do nothing`,
+        [projectId, targetUserId]
+      )
+
+      await getDb().query(
+        `update projects
+         set member_user_ids = case
+               when $2 = any(member_user_ids) then member_user_ids
+               else array_append(member_user_ids, $2)
+             end,
+             project_member = case
+               when $3 = any(project_member) then project_member
+               else array_append(project_member, $3)
+             end,
+             sprint_creator_user_ids = array_remove(sprint_creator_user_ids, $2)
+         where id = $1`,
+        [projectId, targetUserId, targetRow.target_name]
+      )
+
+      return {
+        userId: targetUserId,
+        name: targetRow.target_name,
+        email: targetRow.target_email,
+        role: "student",
+        projectRole: "",
+        canCreateSprint: false,
+        isOwner: false,
+      }
+    },
+    async () => null
+  )
+}
+
+export async function removeProjectStudentMember(
+  projectId: string,
+  targetUserId: string,
+  actorUserId: string,
+  actorRole: "student" | "faculty" | "admin"
+): Promise<boolean> {
+  if (!canManageProjectMembers(actorRole)) {
+    return false
+  }
+
+  return withProjectStore(
+    async () => {
+      const target = await getDb().query<{
+        owner_user_id: string
+        target_name: string
+        target_role: string
+      }>(
+        `select
+           p.owner_user_id,
+           coalesce(login.name, '') as target_name,
+           coalesce(pma.member_role, login.role, 'student') as target_role
+         from projects p
+         left join project_member_access pma
+           on pma.project_id = p.id
+          and pma.member_user_id = $2
+         left join microsoft_account_logins login
+           on login.microsoft_user_id = $2
+         where p.id = $1
+           and (
+             p.owner_user_id = $3
+             or $3 = any(p.member_user_ids)
+             or $4 in ('faculty', 'admin')
+           )
+         limit 1`,
+        [projectId, targetUserId, actorUserId, actorRole]
+      )
+
+      const targetRow = target.rows[0]
+
+      if (
+        !targetRow ||
+        targetRow.owner_user_id === targetUserId ||
+        ["faculty", "admin"].includes(targetRow.target_role)
+      ) {
+        return false
+      }
+
+      await getDb().query(
+        `delete from project_member_access
+         where project_id = $1
+           and member_user_id = $2`,
+        [projectId, targetUserId]
+      )
+
+      await getDb().query(
+        `update projects
+         set member_user_ids = array_remove(member_user_ids, $2),
+             sprint_creator_user_ids = array_remove(sprint_creator_user_ids, $2),
+             project_member = case
+               when $3 <> '' then array_remove(project_member, $3)
+               else project_member
+             end
+         where id = $1`,
+        [projectId, targetUserId, targetRow.target_name]
+      )
+
+      return true
+    },
+    async () => false
   )
 }

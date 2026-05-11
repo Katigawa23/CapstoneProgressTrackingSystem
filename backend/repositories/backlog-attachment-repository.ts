@@ -17,7 +17,6 @@ export type BacklogSubmissionRow = {
   deletedByUserId: string | null
   fileName: string
   fileUrl: string
-  driveFileId?: string | null
   fileType: string
   fileSize: number
   archived: boolean
@@ -53,7 +52,6 @@ export type ArchivedBacklogAttachmentRow = {
   archivedByUserId: string | null
   fileName: string
   fileUrl: string
-  driveFileId?: string | null
   fileType: string
   fileSize: number
   label: string
@@ -71,7 +69,6 @@ type CreateBacklogSubmissionInput = {
   backlogItemId: string
   fileName: string
   fileUrl: string
-  driveFileId?: string | null
   fileType: string
   fileSize: number
   fileData: Buffer
@@ -86,7 +83,6 @@ type BacklogSubmissionRecord = {
   attachment_type: "file" | "link"
   file_name: string
   file_url: string
-  drive_file_id?: string | null
   file_type: string
   file_size: number
   link_label: string
@@ -105,7 +101,6 @@ export type BacklogSubmissionAsset = {
   fileType: string
   fileSize: number
   fileUrl: string
-  driveFileId: string | null
   uploadedAt: string
   fileData: Buffer | null
 }
@@ -159,7 +154,6 @@ function mapRecord(record: BacklogSubmissionRecord): BacklogSubmissionRow {
     deletedByUserId: record.deleted_by_user_id ?? null,
     fileName: record.file_name,
     fileUrl: record.file_url,
-    driveFileId: record.drive_file_id ?? null,
     fileType: record.file_type,
     fileSize: record.file_size,
     archived: record.is_archived ?? false,
@@ -209,7 +203,6 @@ function toRecord(row: BacklogSubmissionRow): BacklogSubmissionRecord {
     attachment_type: "file",
     file_name: row.fileName,
     file_url: row.fileUrl,
-    drive_file_id: row.driveFileId ?? null,
     file_type: row.fileType,
     file_size: row.fileSize,
     link_label: "",
@@ -257,7 +250,6 @@ async function ensureSubmissionSchema() {
           ),
           file_name text not null,
           file_url text not null,
-          drive_file_id text,
           file_type text not null default 'application/octet-stream',
           file_size integer not null default 0,
           file_data bytea,
@@ -291,12 +283,6 @@ async function ensureSubmissionSchema() {
         getDb().query(`
           alter table backlog_attachment
           add column if not exists attachment_type text not null default 'file';
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
-          add column if not exists drive_file_id text;
         `)
       )
       .then(() =>
@@ -550,7 +536,6 @@ export async function listBacklogSubmissions(
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
-          backlog_attachment.drive_file_id,
           backlog_attachment.file_type,
           backlog_attachment.file_size,
           backlog_attachment.link_label,
@@ -609,7 +594,6 @@ export async function createBacklogSubmission(
           attachment_type,
           file_name,
           file_url,
-          drive_file_id,
           file_type,
           file_size,
           file_data,
@@ -625,15 +609,14 @@ export async function createBacklogSubmission(
           $7,
           $8,
           $9,
-          $10,
-          $11
+          $10
         from backlog_items
         inner join projects
           on projects.id = backlog_items.project_id
         where backlog_items.id = $2
           and (
-            projects.owner_user_id = $12
-            or $12 = any(projects.member_user_ids)
+            projects.owner_user_id = $11
+            or $11 = any(projects.member_user_ids)
           )
         returning
           id,
@@ -643,7 +626,6 @@ export async function createBacklogSubmission(
           attachment_type,
           file_name,
           file_url,
-          drive_file_id,
           file_type,
           file_size,
           file_data,
@@ -658,7 +640,6 @@ export async function createBacklogSubmission(
             "file",
             input.fileName,
             input.fileUrl,
-            input.driveFileId ?? null,
             input.fileType,
             input.fileSize,
             input.fileData,
@@ -678,7 +659,6 @@ export async function createBacklogSubmission(
         deletedByUserId: null,
         fileName: input.fileName,
         fileUrl: input.fileUrl,
-        driveFileId: input.driveFileId ?? null,
         fileType: input.fileType,
         fileSize: input.fileSize,
         archived: false,
@@ -747,7 +727,6 @@ export async function deleteBacklogSubmission(
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
-          backlog_attachment.drive_file_id,
           backlog_attachment.file_type,
           backlog_attachment.file_size,
           backlog_attachment.link_label,
@@ -816,7 +795,6 @@ export async function getBacklogSubmissionAsset(
           backlog_attachment.attachment_type,
           backlog_attachment.file_name,
           backlog_attachment.file_url,
-          backlog_attachment.drive_file_id,
           backlog_attachment.file_type,
           backlog_attachment.file_size,
           backlog_attachment.file_data,
@@ -855,7 +833,6 @@ export async function getBacklogSubmissionAsset(
         fileType: record.file_type,
         fileSize: record.file_size,
         fileUrl: record.file_url,
-        driveFileId: record.drive_file_id ?? null,
         uploadedAt: record.uploaded_at,
         fileData: toBuffer(record.file_data),
       } satisfies BacklogSubmissionAsset
@@ -881,7 +858,6 @@ export async function getBacklogSubmissionAsset(
         fileType: record.file_type,
         fileSize: record.file_size,
         fileUrl: record.file_url,
-        driveFileId: record.drive_file_id ?? null,
         uploadedAt: record.uploaded_at,
         fileData: toBuffer(record.file_data),
       } satisfies BacklogSubmissionAsset
