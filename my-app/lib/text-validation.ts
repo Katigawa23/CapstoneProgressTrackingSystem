@@ -9,7 +9,7 @@ export function hasEmoji(value: string) {
   return stripEmoji(value) !== value
 }
 
-export const TASK_SPRINT_NAME_MAX_LENGTH = 20
+export const TASK_SPRINT_NAME_MAX_LENGTH = 40
 
 type ValidateDisplayNameOptions = {
   maxLength?: number

@@ -48,6 +48,7 @@ function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
     Array<BacklogApiItem & { parentId: string }>
   >()
   const rootDisplayIdById = new Map<string, string>()
+  const childDisplayIndexById = new Map<string, number>()
 
   for (const item of items) {
     const normalizedParentId = normalizeParentId(item.parentId)
@@ -70,21 +71,24 @@ function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
 
   for (const childItems of childItemsByParentId.values()) {
     childItems.sort((left, right) => left.sequenceNumber - right.sequenceNumber)
+
+    childItems.forEach((childItem, index) => {
+      childDisplayIndexById.set(childItem.id, index + 1)
+    })
   }
 
   return items.map((item) => {
     const normalizedParentId = normalizeParentId(item.parentId)
     const displayId = normalizedParentId
       ? (() => {
-          const siblingItems = childItemsByParentId.get(normalizedParentId) ?? []
-          const siblingIndex = siblingItems.findIndex(
-            (sibling) => sibling.id === item.id
-          )
           const parentDisplayId =
             rootDisplayIdById.get(normalizedParentId) ??
             buildTaskDisplayId(projectCode, item.sequenceNumber)
 
-          return buildSubtaskDisplayId(parentDisplayId, Math.max(siblingIndex + 1, 1))
+          return buildSubtaskDisplayId(
+            parentDisplayId,
+            childDisplayIndexById.get(item.id) ?? 1
+          )
         })()
       : rootDisplayIdById.get(item.id) ??
         buildTaskDisplayId(projectCode, item.sequenceNumber)
@@ -750,11 +754,20 @@ export function BacklogPageClient({
   )
 
   const buildStatusCounts = React.useCallback(
-    (sectionItems: WorkItem[]) =>
-      statusOptions.map((status) => ({
+    (sectionItems: WorkItem[]) => {
+      const countsByStatus = sectionItems.reduce<Record<string, number>>(
+        (counts, item) => {
+          counts[item.status] = (counts[item.status] ?? 0) + 1
+          return counts
+        },
+        {}
+      )
+
+      return statusOptions.map((status) => ({
         ...status,
-        count: sectionItems.filter((item) => item.status === status.value).length,
-      })),
+        count: countsByStatus[status.value] ?? 0,
+      }))
+    },
     []
   )
 

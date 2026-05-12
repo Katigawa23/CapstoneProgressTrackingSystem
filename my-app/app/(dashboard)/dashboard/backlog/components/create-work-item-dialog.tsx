@@ -102,9 +102,14 @@ export function CreateWorkItemDialog({
 
         <div className="space-y-3 py-1">
           <div className="space-y-1">
-            <Label htmlFor="title" className="text-slate-900 dark:text-slate-100">
-              Title <span className="text-red-500">*</span>
-            </Label>
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="title" className="text-slate-900 dark:text-slate-100">
+                Title <span className="text-red-500">*</span>
+              </Label>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {title.length}/{TASK_SPRINT_NAME_MAX_LENGTH}
+              </span>
+            </div>
             <Input
               id="title"
               value={title}
@@ -122,7 +127,7 @@ export function CreateWorkItemDialog({
             <>
               <div className="space-y-1">
                 <Label className="text-slate-900 dark:text-slate-100">
-                  Start date <span className="text-red-500">*</span>
+                  Start date
                 </Label>
                 <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                   <PopoverTrigger asChild>
@@ -164,7 +169,7 @@ export function CreateWorkItemDialog({
 
               <div className="space-y-1">
                 <Label className="text-slate-900 dark:text-slate-100">
-                  Due date <span className="text-red-500">*</span>
+                  Due date
                 </Label>
                 <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
                   <PopoverTrigger asChild>

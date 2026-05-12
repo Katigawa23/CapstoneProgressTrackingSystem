@@ -255,6 +255,15 @@ export function TaskSubtasksSection({
         return
       }
 
+      const titleValidationError = validateDisplayName(nextTitle, "Subtask name", {
+        maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
+      })
+
+      if (titleValidationError) {
+        setSubtaskTitleError(titleValidationError)
+        return
+      }
+
       const duplicateError = getDuplicateSubtaskTitleError(nextTitle, subtask.id)
 
       if (duplicateError) {
@@ -627,6 +636,7 @@ export function TaskSubtasksSection({
                               setEditingTitle(event.target.value)
                               setSubtaskTitleError(null)
                             }}
+                            maxLength={TASK_SPRINT_NAME_MAX_LENGTH}
                             onKeyDown={(event) => {
                               if (event.key === "Enter") {
                                 event.preventDefault()
@@ -642,6 +652,9 @@ export function TaskSubtasksSection({
                             autoFocus
                             className="h-8 border-blue-300 bg-white text-[13px] text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
                           />
+                          <span className="shrink-0 text-xs text-slate-500 dark:text-[#9fadbc]">
+                            {editingTitle.length}/{TASK_SPRINT_NAME_MAX_LENGTH}
+                          </span>
                           {subtaskTitleError ? (
                             <p className="min-w-36 text-xs text-red-500">
                               {subtaskTitleError}
@@ -942,6 +955,9 @@ export function TaskSubtasksSection({
                     placeholder="Create subtask title"
                     className="h-8 w-full min-w-0 border-blue-300 bg-white text-[13px] text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
                   />
+                  <span className="shrink-0 text-xs text-slate-500 dark:text-[#9fadbc]">
+                    {newSubtaskTitle.length}/{TASK_SPRINT_NAME_MAX_LENGTH}
+                  </span>
                   {createSubtaskError ? (
                     <p className="text-xs text-red-500">{createSubtaskError}</p>
                   ) : subtaskTitleError ? (

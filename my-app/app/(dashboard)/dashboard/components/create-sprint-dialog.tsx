@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { addDays, format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
+import { CalendarIcon, XIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -149,9 +149,14 @@ export function CreateSprintDialog({
 
         <div className="flex flex-col gap-2.5 py-1">
           <div className="max-w-[220px] space-y-1">
-            <Label htmlFor="sprint-name">
-              Sprint name <span className="text-red-500">*</span>
-            </Label>
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="sprint-name">
+                Sprint name <span className="text-red-500">*</span>
+              </Label>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {sprintName.length}/{TASK_SPRINT_NAME_MAX_LENGTH}
+              </span>
+            </div>
             <Input
               id="sprint-name"
               value={sprintName}
@@ -263,27 +268,48 @@ export function CreateSprintDialog({
           </div>
 
           {mode === "create" ? (
-            <div className="max-w-[220px] space-y-1">
+            <div className="w-full max-w-[220px] min-w-0 space-y-1">
               <Label htmlFor="sprint-scope">Work items</Label>
-              <Select
-                value={scopeItemId || undefined}
-                onValueChange={onScopeItemChange}
-              >
-                <SelectTrigger
-                  id="sprint-scope"
-                  disabled={scopeOptions.length === 0}
-                  className="h-7 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f]"
+              <div className="flex items-center gap-1.5">
+                <Select
+                  value={scopeItemId || undefined}
+                  onValueChange={onScopeItemChange}
                 >
-                  <SelectValue placeholder="Select work item" />
-                </SelectTrigger>
-                <SelectContent>
-                  {scopeOptions.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  <SelectTrigger
+                    id="sprint-scope"
+                    disabled={scopeOptions.length === 0}
+                    className="h-7 w-full min-w-0 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate"
+                  >
+                    <SelectValue placeholder="Select work item" />
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    className="w-[var(--radix-select-trigger-width)]"
+                  >
+                    {scopeOptions.map((option) => (
+                      <SelectItem
+                        key={option.id}
+                        value={option.id}
+                        className="[&_span:last-child]:min-w-0 [&_span:last-child]:truncate"
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {scopeItemId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Clear work item"
+                    className="h-7 w-7 shrink-0 rounded-[2px] border-slate-200 bg-white text-slate-500 hover:text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-400 dark:hover:text-slate-100"
+                    onClick={() => onScopeItemChange("")}
+                  >
+                    <XIcon className="h-3.5 w-3.5" />
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ) : null}
 

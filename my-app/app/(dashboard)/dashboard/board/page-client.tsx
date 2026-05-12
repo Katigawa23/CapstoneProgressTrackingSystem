@@ -58,7 +58,7 @@ type SprintSummary = {
   backlogItemIds: string[]
 }
 
-const BOARD_REALTIME_REFRESH_INTERVAL_MS = 500
+const BOARD_REALTIME_REFRESH_INTERVAL_MS = 5000
 const BOARD_LOCAL_MUTATION_GUARD_MS = 8000
 const BOARD_MOVE_SETTLE_MS = 1500
 
@@ -96,6 +96,58 @@ function formatSprintCountdown(startDate: string, endDate: string) {
   }
 
   return `${differenceInDays} day${differenceInDays === 1 ? "" : "s"} remaining`
+}
+
+function areTodoListsEqual(left: TodoItem[], right: TodoItem[]) {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return left.every((leftTodo, index) => {
+    const rightTodo = right[index]
+
+    return (
+      rightTodo &&
+      leftTodo.id === rightTodo.id &&
+      leftTodo.displayId === rightTodo.displayId &&
+      leftTodo.orderIndex === rightTodo.orderIndex &&
+      leftTodo.parentId === rightTodo.parentId &&
+      leftTodo.title === rightTodo.title &&
+      leftTodo.description === rightTodo.description &&
+      leftTodo.assignee === rightTodo.assignee &&
+      leftTodo.assigneeId === rightTodo.assigneeId &&
+      leftTodo.startDate === rightTodo.startDate &&
+      leftTodo.deadline === rightTodo.deadline &&
+      leftTodo.status === rightTodo.status &&
+      leftTodo.checked === rightTodo.checked &&
+      leftTodo.checklist === rightTodo.checklist &&
+      leftTodo.comments === rightTodo.comments
+    )
+  })
+}
+
+function areSprintListsEqual(left: SprintSummary[], right: SprintSummary[]) {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return left.every((leftSprint, index) => {
+    const rightSprint = right[index]
+
+    return (
+      rightSprint &&
+      leftSprint.id === rightSprint.id &&
+      leftSprint.name === rightSprint.name &&
+      leftSprint.description === rightSprint.description &&
+      leftSprint.startDate === rightSprint.startDate &&
+      leftSprint.endDate === rightSprint.endDate &&
+      leftSprint.backlogItemIds.length === rightSprint.backlogItemIds.length &&
+      leftSprint.backlogItemIds.every(
+        (backlogItemId, itemIndex) =>
+          backlogItemId === rightSprint.backlogItemIds[itemIndex]
+      )
+    )
+  })
 }
 
 export function DashboardBoardPageClient({
@@ -338,11 +390,24 @@ export function DashboardBoardPageClient({
       return
     }
 
+    const statusCounts = todos.reduce(
+      (counts, todo) => {
+        counts[todo.status] += 1
+        return counts
+      },
+      {
+        todo: 0,
+        inprogress: 0,
+        revision: 0,
+        completed: 0,
+      }
+    )
+
     writeDashboardBoardState({
-      todoCount: todos.filter((todo) => todo.status === "todo").length,
-      inprogressCount: todos.filter((todo) => todo.status === "inprogress").length,
-      revisionCount: todos.filter((todo) => todo.status === "revision").length,
-      completedCount: todos.filter((todo) => todo.status === "completed").length,
+      todoCount: statusCounts.todo,
+      inprogressCount: statusCounts.inprogress,
+      revisionCount: statusCounts.revision,
+      completedCount: statusCounts.completed,
     })
   }, [hasLoadedBoardData, todos])
 
@@ -915,7 +980,7 @@ export function DashboardBoardPageClient({
   React.useEffect(() => {
     let cancelled = false
 
-    async function loadTodosForSelectedProject() {
+    async function loadTodosForSelectedProject(forceRefresh = false) {
       const savedProjectId = getSelectedDashboardProjectId()
 
       if (!savedProjectId || !findDashboardProject(savedProjectId)) {
@@ -930,6 +995,10 @@ export function DashboardBoardPageClient({
         createAssigneeOptionsFromProject(nextProject, currentUser)
       )
 
+      if (!forceRefresh && savedProjectId === initialSelectedProjectId) {
+        return
+      }
+
       try {
         const [mappedTodos, nextSprints] = await Promise.all([
           fetchTodosForProject(savedProjectId),
@@ -937,8 +1006,14 @@ export function DashboardBoardPageClient({
         ])
 
         if (!cancelled) {
-          setTodos(mappedTodos)
-          setSprints(nextSprints)
+          setTodos((currentTodos) =>
+            areTodoListsEqual(currentTodos, mappedTodos) ? currentTodos : mappedTodos
+          )
+          setSprints((currentSprints) =>
+            areSprintListsEqual(currentSprints, nextSprints)
+              ? currentSprints
+              : nextSprints
+          )
           setSelectedSprintId((currentSelectedSprintId) =>
             nextSprints.some((sprint) => sprint.id === currentSelectedSprintId)
               ? currentSelectedSprintId
@@ -954,13 +1029,24 @@ export function DashboardBoardPageClient({
     }
 
     void loadTodosForSelectedProject()
-    window.addEventListener(PROJECT_CHANGE_EVENT, loadTodosForSelectedProject)
+    const handleProjectChange = () => {
+      void loadTodosForSelectedProject(true)
+    }
+
+    window.addEventListener(PROJECT_CHANGE_EVENT, handleProjectChange)
 
     return () => {
       cancelled = true
-      window.removeEventListener(PROJECT_CHANGE_EVENT, loadTodosForSelectedProject)
+      window.removeEventListener(PROJECT_CHANGE_EVENT, handleProjectChange)
     }
-  }, [currentUser, fetchSprintsForProject, fetchTodosForProject, initialProjects, router])
+  }, [
+    currentUser,
+    fetchSprintsForProject,
+    fetchTodosForProject,
+    initialProjects,
+    initialSelectedProjectId,
+    router,
+  ])
 
   React.useEffect(() => {
     if (!selectedProjectId) {
@@ -992,8 +1078,14 @@ export function DashboardBoardPageClient({
           return
         }
 
-        setTodos(nextTodos)
-        setSprints(nextSprints)
+        setTodos((currentTodos) =>
+          areTodoListsEqual(currentTodos, nextTodos) ? currentTodos : nextTodos
+        )
+        setSprints((currentSprints) =>
+          areSprintListsEqual(currentSprints, nextSprints)
+            ? currentSprints
+            : nextSprints
+        )
         setSelectedSprintId((currentSelectedSprintId) =>
           nextSprints.some((sprint) => sprint.id === currentSelectedSprintId)
             ? currentSelectedSprintId

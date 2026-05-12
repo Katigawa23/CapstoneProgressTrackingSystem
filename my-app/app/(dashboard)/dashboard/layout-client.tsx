@@ -11,6 +11,16 @@ import { ThemeSwitch } from "@/components/theme-switch"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 import {
   DropdownMenu,
@@ -41,6 +51,7 @@ function ProfileMenu({
   disabled?: boolean
 }) {
   const [mounted, setMounted] = React.useState(false)
+  const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false)
   const initials = (session?.user.name ?? "")
     .trim()
     .split(/\s+/)
@@ -52,6 +63,16 @@ function ProfileMenu({
   React.useEffect(() => {
     setMounted(true)
   }, [])
+
+  const handleLogout = React.useCallback(async () => {
+    const tenantId = session?.tenantId ?? "common"
+    clearClientAuthSession()
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => undefined)
+    window.location.href = createMicrosoftLogoutUrl(tenantId, "/")
+  }, [session?.tenantId])
 
   if (!mounted) {
     return (
@@ -69,51 +90,67 @@ function ProfileMenu({
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 w-9 rounded-full p-0" disabled={disabled}>
-          <span
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold tracking-tight text-[var(--brand-primary-fixed-foreground)]"
-            style={{
-              backgroundColor: "var(--brand-primary-fixed)",
-            }}
-          >
-            {initials}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-9 w-9 rounded-full p-0" disabled={disabled}>
+            <span
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold tracking-tight text-[var(--brand-primary-fixed-foreground)]"
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+              }}
+            >
+              {initials}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>
-          <div className="font-medium">{session?.user.name ?? "My Account"}</div>
-          {session?.user.email ? (
-            <div className="text-xs font-normal text-muted-foreground">{session.user.email}</div>
-          ) : null}
-        </DropdownMenuLabel>
-        <DropdownMenuItem asChild>
-          <Link href="/dashboard/profile">Profile</Link>
-        </DropdownMenuItem>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel>
+            <div className="font-medium">{session?.user.name ?? "My Account"}</div>
+            {session?.user.email ? (
+              <div className="text-xs font-normal text-muted-foreground">{session.user.email}</div>
+            ) : null}
+          </DropdownMenuLabel>
+          <DropdownMenuItem asChild>
+            <Link href="/dashboard/profile">Profile</Link>
+          </DropdownMenuItem>
 
-        <DropdownMenuItem asChild>
-          <Link href="/dashboard/settings">Settings</Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-        <DropdownMenuItem
-          onClick={async () => {
-            const tenantId = session?.tenantId ?? "common"
-            clearClientAuthSession()
-            await fetch("/api/auth/logout", {
-              method: "POST",
-              credentials: "include",
-            }).catch(() => undefined)
-            window.location.href = createMicrosoftLogoutUrl(tenantId, "/")
-          }}
-        >
-          Logout
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuItem onClick={() => setLogoutDialogOpen(true)}>
+            Logout
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <AlertDialogContent className="max-w-sm rounded-[2px] border-slate-200 bg-white text-slate-950 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+          <AlertDialogHeader className="place-items-start text-left">
+            <AlertDialogTitle>Logout?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-600 dark:text-slate-300">
+              Are you sure you want to logout?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              className="rounded-[2px]"
+              onClick={() => void handleLogout()}
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+                color: "var(--brand-primary-fixed-foreground)",
+              }}
+            >
+              Logout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
