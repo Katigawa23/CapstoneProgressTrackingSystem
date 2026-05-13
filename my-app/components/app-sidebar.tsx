@@ -228,6 +228,7 @@ export function AppSidebar({
     createProject,
     createProjectOpen,
     createProjectError,
+    handleMemberRemove,
     handleMemberSearchChange,
     handleMemberRoleToggle,
     handleMemberSelect,
@@ -302,6 +303,7 @@ export function AppSidebar({
         memberOptions={memberOptions}
         memberOptionsLoading={memberOptionsLoading}
         onCreateProject={createProject}
+        onMemberRemove={handleMemberRemove}
         onMemberSearchChange={handleMemberSearchChange}
         onMemberRoleToggle={handleMemberRoleToggle}
         onMemberSelect={handleMemberSelect}

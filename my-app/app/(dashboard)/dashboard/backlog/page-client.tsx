@@ -4,12 +4,14 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
 
-import type { BacklogApiItem } from "../types"
+import type { BacklogApiItem, TodoItem } from "../types"
+import { DashboardBoard } from "../components/dashboard-board"
 import { BacklogBoard } from "./components/backlog-board"
 import {
   BacklogToolbar,
   type BacklogSectionFilter,
 } from "./components/backlog-toolbar"
+import { BacklogLoadingSkeleton } from "./backlog-loading-skeleton"
 import { CreateSprintDialog } from "../components/create-sprint-dialog"
 import { CreateWorkItemDialog } from "./components/create-work-item-dialog"
 import { EditWorkItemDialog } from "./components/edit-work-item-dialog"
@@ -17,6 +19,7 @@ import { statusOptions, type WorkItem } from "./types"
 import {
   buildSubtaskDisplayId,
   buildTaskDisplayId,
+  normalizeTaskDescription,
 } from "../utils"
 import {
   canCreateSprintForProject,
@@ -99,7 +102,7 @@ function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
       orderIndex: item.orderIndex,
       parentId: normalizedParentId,
       title: item.title,
-      description: item.description,
+      description: normalizeTaskDescription(item.description),
       startDate: item.startDate ? new Date(item.startDate) : undefined,
       dueDate: item.dueDate ? new Date(item.dueDate) : undefined,
       status: item.status,
@@ -153,10 +156,14 @@ export function BacklogPageClient({
   const [sprintScopeItemId, setSprintScopeItemId] = React.useState("")
   const [sprintDescription, setSprintDescription] = React.useState("")
   const [isCreatingSprint, setIsCreatingSprint] = React.useState(false)
+  const [selectedTaskDetailsId, setSelectedTaskDetailsId] = React.useState<string | null>(null)
+  const [isCreatingSubtask, setIsCreatingSubtask] = React.useState(false)
+  const [createSubtaskError, setCreateSubtaskError] = React.useState<string | null>(null)
 
   const [items, setItems] = React.useState<WorkItem[]>([])
   const [sprints, setSprints] = React.useState<SprintSummary[]>([])
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
+  const [isDragDropReady, setIsDragDropReady] = React.useState(false)
 
   const [editOpen, setEditOpen] = React.useState(false)
   const [editingItemId, setEditingItemId] = React.useState<string | null>(null)
@@ -164,6 +171,10 @@ export function BacklogPageClient({
   const [editDescription, setEditDescription] = React.useState("")
   const [editStartDate, setEditStartDate] = React.useState<Date | undefined>()
   const [editDueDate, setEditDueDate] = React.useState<Date | undefined>()
+
+  React.useEffect(() => {
+    setIsDragDropReady(true)
+  }, [])
 
   React.useEffect(() => {
     const syncCurrentUser = () => {
@@ -558,6 +569,32 @@ export function BacklogPageClient({
     }
   }
 
+  const handleArchiveDetailsTodo = React.useCallback(
+    async (todo: TodoItem) => {
+      const previousItems = items
+      const nextItems = todo.parentId
+        ? items.filter((item) => item.id !== todo.id)
+        : items.filter((item) => item.id !== todo.id && item.parentId !== todo.id)
+
+      setItems(nextItems)
+
+      try {
+        const response = await fetch(`/api/backlog-items/${todo.id}/archive`, {
+          method: "POST",
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to archive item")
+        }
+      } catch (error) {
+        console.error(error)
+        setItems(previousItems)
+        throw error
+      }
+    },
+    [items]
+  )
+
   const boardItems = React.useMemo(
     () =>
       orderedItems.filter(
@@ -628,6 +665,50 @@ export function BacklogPageClient({
     [boardItems]
   )
 
+  const formatTaskDate = React.useCallback((date?: Date) => {
+    return date ? date.toISOString().slice(0, 10) : ""
+  }, [])
+
+  const buildChecklist = React.useCallback((sourceItems: WorkItem[], parentId: string) => {
+    const childItems = sourceItems.filter((item) => item.parentId === parentId)
+    const completedItems = childItems.filter((item) => item.status === "completed").length
+
+    return `${completedItems}/${childItems.length}`
+  }, [])
+
+  const detailTodos = React.useMemo<TodoItem[]>(
+    () =>
+      orderedItems.map((item) => ({
+        id: item.id,
+        displayId: item.displayId,
+        orderIndex: item.orderIndex,
+        parentId: item.parentId ?? null,
+        title: item.title,
+        description: item.description,
+        assignee: "",
+        assigneeId: item.assigneeId ?? null,
+        startDate: formatTaskDate(item.startDate),
+        deadline: formatTaskDate(item.dueDate),
+        status:
+          item.status === "inprogress" ||
+          item.status === "revision" ||
+          item.status === "completed"
+            ? item.status
+            : "todo",
+        checked: item.checked,
+        comments: 0,
+        links: 0,
+        checklist: buildChecklist(orderedItems, item.id),
+        priority:
+          item.status === "revision"
+            ? "High"
+            : item.status === "completed"
+            ? "Low"
+            : "Medium",
+      })),
+    [buildChecklist, formatTaskDate, orderedItems]
+  )
+
   const filterSectionItems = React.useCallback(
     (
       sectionItems: WorkItem[],
@@ -660,6 +741,180 @@ export function BacklogPageClient({
       })
     },
     [currentUser]
+  )
+
+  const handleTaskDetailsUpdate = React.useCallback(
+    (todoId: string, updates: Partial<TodoItem>) => {
+      const itemUpdates: Partial<WorkItem> = {}
+      const patchPayload: Record<string, string | null> = {}
+
+      if (typeof updates.title === "string") {
+        itemUpdates.title = updates.title
+        patchPayload.title = updates.title
+      }
+
+      if (typeof updates.description === "string") {
+        itemUpdates.description = updates.description
+        patchPayload.description = updates.description
+      }
+
+      if (typeof updates.startDate === "string") {
+        itemUpdates.startDate = updates.startDate ? new Date(updates.startDate) : undefined
+        patchPayload.startDate = updates.startDate || null
+      }
+
+      if (typeof updates.deadline === "string") {
+        itemUpdates.dueDate = updates.deadline ? new Date(updates.deadline) : undefined
+        patchPayload.dueDate = updates.deadline || null
+      }
+
+      if (updates.assigneeId !== undefined) {
+        itemUpdates.assigneeId = updates.assigneeId ?? null
+      }
+
+      if (updates.checked !== undefined) {
+        itemUpdates.checked = Boolean(updates.checked)
+      }
+
+      if (updates.status) {
+        itemUpdates.status = updates.status
+      }
+
+      if (Object.keys(itemUpdates).length > 0) {
+        setItems((currentItems) =>
+          currentItems.map((item) =>
+            item.id === todoId ? { ...item, ...itemUpdates } : item
+          )
+        )
+      }
+
+      if (Object.keys(patchPayload).length > 0) {
+        void fetch(`/api/backlog-items/${todoId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(patchPayload),
+        }).catch((error) => console.error(error))
+      }
+    },
+    []
+  )
+
+  const handleCreateSubtask = React.useCallback(
+    async (
+      parentTodo: TodoItem,
+      input: {
+        title: string
+        description: string
+        startDate?: string
+        dueDate?: string
+      }
+    ) => {
+      if (isCreatingSubtask) {
+        return
+      }
+
+      const selectedProjectId = getSelectedDashboardProjectId()
+
+      if (!selectedProjectId) {
+        router.replace("/dashboard")
+        return
+      }
+
+      try {
+        setIsCreatingSubtask(true)
+        setCreateSubtaskError(null)
+
+        const response = await fetch(`/api/backlog-items/${parentTodo.id}/subtasks`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            projectId: selectedProjectId,
+            title: input.title,
+            description: input.description,
+            startDate: input.startDate ?? null,
+            dueDate: input.dueDate ?? null,
+            status: "todo",
+            assigneeId: null,
+          }),
+        })
+
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as { error?: string } | null
+          throw new Error(data?.error || "Failed to create subtask")
+        }
+
+        const data = (await response.json()) as { item: BacklogApiItem }
+        const siblingCount = items.filter((item) => item.parentId === parentTodo.id).length
+
+        setItems((currentItems) => [
+          ...currentItems,
+          {
+            id: data.item.id,
+            displayId: buildSubtaskDisplayId(parentTodo.displayId, siblingCount + 1),
+            orderIndex: data.item.orderIndex,
+            parentId: parentTodo.id,
+            title: data.item.title,
+            description: data.item.description,
+            startDate: data.item.startDate ? new Date(data.item.startDate) : undefined,
+            dueDate: data.item.dueDate ? new Date(data.item.dueDate) : undefined,
+            status: data.item.status,
+            checked: data.item.checked,
+            assigneeId: data.item.assigneeId ?? null,
+          },
+        ])
+      } catch (error) {
+        setCreateSubtaskError(
+          error instanceof Error ? error.message : "Failed to create subtask"
+        )
+        throw error
+      } finally {
+        setIsCreatingSubtask(false)
+      }
+    },
+    [isCreatingSubtask, items, router]
+  )
+
+  const handleUpdateSubtask = React.useCallback(
+    async (
+      subtaskId: string,
+      updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">
+    ) => {
+      setItems((currentItems) =>
+        currentItems.map((item) =>
+          item.id === subtaskId
+            ? {
+                ...item,
+                title: updates.title,
+                description: updates.description,
+                startDate: updates.startDate ? new Date(updates.startDate) : undefined,
+                dueDate: updates.deadline ? new Date(updates.deadline) : undefined,
+              }
+            : item
+        )
+      )
+
+      const response = await fetch(`/api/backlog-items/${subtaskId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: updates.title,
+          description: updates.description,
+          startDate: updates.startDate || null,
+          dueDate: updates.deadline || null,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update subtask")
+      }
+    },
+    []
   )
 
   const filteredBoardItems = React.useMemo(
@@ -1054,6 +1309,9 @@ export function BacklogPageClient({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+        {!isDragDropReady ? (
+          <BacklogLoadingSkeleton />
+        ) : (
         <DragDropContext onDragEnd={handleBacklogDragEnd}>
         <div className="space-y-6 pb-6">
           <BacklogToolbar
@@ -1079,6 +1337,7 @@ export function BacklogPageClient({
               }
               onUpdateStatus={updateItemStatus}
               onUpdateAssignee={updateItemAssignee}
+              onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
               onEditItem={handleOpenEdit}
               onDeleteItem={handleDeleteItem}
               canMoveItems={canCreateSprint}
@@ -1117,6 +1376,7 @@ export function BacklogPageClient({
               }
               onUpdateStatus={updateItemStatus}
               onUpdateAssignee={updateItemAssignee}
+              onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
               onEditItem={handleOpenEdit}
               onDeleteItem={handleDeleteItem}
               canMoveItems={canCreateSprint}
@@ -1124,7 +1384,38 @@ export function BacklogPageClient({
           </div>
         </div>
         </DragDropContext>
+        )}
       </div>
+
+      <DashboardBoard
+        todos={detailTodos}
+        openTodoId={selectedTaskDetailsId}
+        onTaskDialogClose={() => setSelectedTaskDetailsId(null)}
+        renderColumns={false}
+        currentUserId={currentUser?.id ?? null}
+        canMoveToSprint={canCreateSprint}
+        sprints={sprints}
+        onStatusChange={(todoId, nextStatus) => updateItemStatus(todoId, nextStatus)}
+        onMoveTodo={async (todoId, _targetTodoId, nextStatus) => {
+          await updateItemStatus(todoId, nextStatus)
+        }}
+        onAssigneeChange={updateItemAssignee}
+        onAddToSprint={moveItemToSprint}
+        onMoveToBoard={moveItemToBoard}
+        onTodoUpdate={handleTaskDetailsUpdate}
+        onCreateSubtask={handleCreateSubtask}
+        isCreatingSubtask={isCreatingSubtask}
+        createSubtaskError={createSubtaskError}
+        onCreateSubtaskInputChange={() => setCreateSubtaskError(null)}
+        onUpdateSubtask={handleUpdateSubtask}
+        onDeleteSubtask={async (_parentTodoId, subtaskId) => {
+          await handleDeleteItem(subtaskId)
+        }}
+        onDeleteTodo={async (todo) => {
+          await handleDeleteItem(todo.id)
+        }}
+        onArchiveTodo={handleArchiveDetailsTodo}
+      />
 
       <CreateWorkItemDialog
         open={open}

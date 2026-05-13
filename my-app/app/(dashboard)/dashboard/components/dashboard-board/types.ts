@@ -18,6 +18,9 @@ export type CreateSubtaskInput = {
 
 export type DashboardBoardProps = {
   todos: TodoItem[]
+  openTodoId?: string | null
+  onTaskDialogClose?: () => void
+  renderColumns?: boolean
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean

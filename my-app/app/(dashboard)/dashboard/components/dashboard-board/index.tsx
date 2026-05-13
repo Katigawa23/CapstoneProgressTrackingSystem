@@ -56,9 +56,51 @@ import type {
 } from "./types"
 
 const MAX_SUBMISSION_FILE_SIZE_BYTES = 200 * 1024 * 1024
+const blockedSubmissionFileExtensions = new Set([
+  ".apng",
+  ".avif",
+  ".bmp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".ico",
+  ".jpeg",
+  ".jpg",
+  ".png",
+  ".svg",
+  ".tif",
+  ".tiff",
+  ".webp",
+  ".avi",
+  ".m4v",
+  ".mkv",
+  ".mov",
+  ".mp4",
+  ".mpeg",
+  ".mpg",
+  ".ogv",
+  ".webm",
+  ".wmv",
+])
+
+function isBlockedSubmissionFile(file: File) {
+  const fileType = file.type.toLowerCase()
+  const fileName = file.name.toLowerCase()
+  const extensionIndex = fileName.lastIndexOf(".")
+  const extension = extensionIndex >= 0 ? fileName.slice(extensionIndex) : ""
+
+  return (
+    fileType.startsWith("image/") ||
+    fileType.startsWith("video/") ||
+    blockedSubmissionFileExtensions.has(extension)
+  )
+}
 
 export function DashboardBoard({
   todos,
+  openTodoId = null,
+  onTaskDialogClose,
+  renderColumns = true,
   currentUserId = null,
   creatorNamesById = {},
   canManageOtherProjectResources = false,
@@ -147,6 +189,21 @@ export function DashboardBoard({
   const submissionInputRef = React.useRef<HTMLInputElement | null>(null)
   const initializedCommentTodoIdRef = React.useRef<string | null>(null)
   const selectedTodoId = selectedTodo?.id ?? null
+
+  React.useEffect(() => {
+    if (!openTodoId) {
+      return
+    }
+
+    const todoToOpen = todos.find((todo) => todo.id === openTodoId)
+
+    if (!todoToOpen) {
+      return
+    }
+
+    setOpenTarget("default")
+    setSelectedTodo(todoToOpen)
+  }, [openTodoId, todos])
 
   React.useEffect(() => {
     if (!selectedTodo) {
@@ -651,6 +708,16 @@ export function DashboardBoard({
         return
       }
 
+      const blockedFile = Array.from(files).find(isBlockedSubmissionFile)
+
+      if (blockedFile) {
+        setSubmissionAlertDescription(
+          "Image and video files are not available for attachment uploads."
+        )
+        setIsEmptySubmissionAlertOpen(true)
+        return
+      }
+
       const nextDrafts = Array.from(files).map((file) => ({
         id: crypto.randomUUID(),
         file,
@@ -964,7 +1031,8 @@ export function DashboardBoard({
     setEditingCommentId(null)
     setIsEmptySubmissionAlertOpen(false)
     setSubmissionAlertDescription("There is no content!")
-  }, [])
+    onTaskDialogClose?.()
+  }, [onTaskDialogClose])
 
   const handleCreateSubtask = React.useCallback(
     async (input: CreateSubtaskInput) => {
@@ -1356,6 +1424,7 @@ export function DashboardBoard({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
+      {renderColumns ? (
       <Carousel opts={{ align: "start" }} className="w-full px-2 sm:px-4 md:hidden">
         <CarouselContent className="items-stretch">
           {columns.map((column) => {
@@ -1397,7 +1466,9 @@ export function DashboardBoard({
         <CarouselPrevious className="left-0 top-1/2 size-6 border-border bg-background/95 transition-[background-color,border-color,color,box-shadow] duration-300" />
         <CarouselNext className="right-0 top-1/2 size-6 border-border bg-background/95 transition-[background-color,border-color,color,box-shadow] duration-300" />
       </Carousel>
+      ) : null}
 
+      {renderColumns ? (
       <div className="hidden min-h-0 w-full flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 lg:grid-cols-4">
         {columns.map((column) => {
           const columnTodos = getColumnTodos(column.id)
@@ -1428,6 +1499,7 @@ export function DashboardBoard({
           )
         })}
       </div>
+      ) : null}
 
       <Dialog open={selectedTodo !== null} onOpenChange={handleDialogOpenChange}>
         {selectedTodo ? (
@@ -1561,7 +1633,9 @@ export function DashboardBoard({
                     }
                     submissionDrafts={submissionDrafts[selectedTodo.id] ?? []}
                     submissionThreads={submissionThreads[selectedTodo.id] ?? []}
-                    isLoadingSubmissions={isLoadingSubmissions}
+                    isLoadingSubmissions={
+                      isLoadingSubmissions && !(selectedTodo.id in submissionThreads)
+                    }
                     isUploadingSubmission={isUploadingSubmission}
                     submissionInputRef={submissionInputRef}
                     onSubmissionActionsOpenChange={(nextOpen) =>

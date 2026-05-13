@@ -530,7 +530,7 @@ export function TaskSubmissionsSection({
           type="file"
           className="hidden"
           multiple
-          accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt"
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt"
           onChange={(event) => {
             onSubmissionAttach(selectedTodo.id, event.target.files)
             event.target.value = ""

@@ -26,6 +26,7 @@ type BacklogBoardProps = {
   onToggleAllCheckboxes: (checked: boolean) => void
   onUpdateStatus: (id: string, nextStatus: string) => void
   onUpdateAssignee: (id: string, assigneeId: string | null) => void
+  onOpenItem?: (item: WorkItem) => void
   onEditItem: (item: WorkItem) => void
   onDeleteItem: (id: string) => void
   onOpenCreate?: () => void
@@ -41,6 +42,7 @@ export function BacklogBoard({
   onToggleAllCheckboxes,
   onUpdateStatus,
   onUpdateAssignee,
+  onOpenItem,
   onEditItem,
   onDeleteItem,
   onOpenCreate,
@@ -109,8 +111,17 @@ export function BacklogBoard({
       }
     ) => (
       <div
+        role="button"
+        tabIndex={0}
+        onClick={() => (onOpenItem ?? onEditItem)(item)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault()
+            ;(onOpenItem ?? onEditItem)(item)
+          }
+        }}
         className={cn(
-          "flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-0.5 text-sm transition hover:bg-muted/30 dark:border-[#343434] dark:bg-[#1f1f1f] dark:hover:bg-[#262626]",
+          "flex cursor-pointer items-center justify-between rounded border border-gray-200 bg-white px-2 py-0.5 text-sm transition hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 dark:border-[#343434] dark:bg-[#1f1f1f] dark:hover:bg-[#262626]",
           item.parentId ? "ml-6 border-dashed" : ""
         )}
       >
@@ -119,6 +130,8 @@ export function BacklogBoard({
             <button
               type="button"
               {...dragHandleProps}
+              suppressHydrationWarning
+              onClick={(event) => event.stopPropagation()}
               className="flex h-5 w-4 shrink-0 cursor-grab items-center justify-center text-slate-400 transition hover:text-slate-600 active:cursor-grabbing dark:text-slate-500 dark:hover:text-slate-300"
               aria-label={`Drag ${item.title}`}
             >
@@ -129,7 +142,11 @@ export function BacklogBoard({
           {!item.parentId && options?.hasChildren ? (
             <button
               type="button"
-              onClick={options.onToggleChildren}
+              suppressHydrationWarning
+              onClick={(event) => {
+                event.stopPropagation()
+                options.onToggleChildren?.()
+              }}
               className="flex h-5 w-4 shrink-0 items-center justify-center text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
               aria-expanded={options.isChildrenExpanded}
               aria-label={
@@ -149,19 +166,21 @@ export function BacklogBoard({
             <span className="h-5 w-4 shrink-0" aria-hidden="true" />
           ) : null}
 
-          <Checkbox
-            checked={item.checked}
-            onCheckedChange={(checked) =>
-              onToggleCheckbox(item.id, !!checked)
-            }
-            className="h-3.5 w-3.5"
-          />
+          <div onClick={(event) => event.stopPropagation()}>
+            <Checkbox
+              checked={item.checked}
+              onCheckedChange={(checked) =>
+                onToggleCheckbox(item.id, !!checked)
+              }
+              className="h-3.5 w-3.5"
+            />
+          </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 text-left">
             <div className="truncate text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
               {item.displayId}
             </div>
-            <div className="truncate text-[11px] font-medium text-black dark:text-slate-100">
+            <div className="truncate text-[11px] font-medium text-black transition hover:text-sky-700 dark:text-slate-100 dark:hover:text-sky-300">
               {item.title}
             </div>
             <div className="text-[9px] text-slate-500 dark:text-slate-400">
@@ -178,7 +197,10 @@ export function BacklogBoard({
           </div>
         </div>
 
-        <div className="ml-2 flex items-center gap-1">
+        <div
+          className="ml-2 flex items-center gap-1"
+          onClick={(event) => event.stopPropagation()}
+        >
           <StatusCombobox
             value={item.status}
             onChange={(nextStatus) => onUpdateStatus(item.id, nextStatus)}
@@ -198,7 +220,7 @@ export function BacklogBoard({
         </div>
       </div>
     ),
-    [onDeleteItem, onEditItem, onToggleCheckbox, onUpdateAssignee, onUpdateStatus]
+    [onDeleteItem, onEditItem, onOpenItem, onToggleCheckbox, onUpdateAssignee, onUpdateStatus]
   )
 
   return (
@@ -211,6 +233,7 @@ export function BacklogBoard({
         <div className="flex items-center">
           <button
             type="button"
+            suppressHydrationWarning
             onClick={() => setIsExpanded((current) => !current)}
             className="flex h-6 w-6 items-center justify-center text-black transition hover:text-black/70 dark:text-slate-100 dark:hover:text-slate-300"
             aria-expanded={isExpanded}

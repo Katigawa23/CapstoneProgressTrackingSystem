@@ -690,7 +690,9 @@ export function TaskSubtasksSection({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Avatar size="sm">
-                              <AvatarFallback>{getInitials(createdByName)}</AvatarFallback>
+                              <AvatarFallback className="text-xs font-bold">
+                                {getInitials(createdByName)}
+                              </AvatarFallback>
                             </Avatar>
                           </TooltipTrigger>
                           <TooltipContent sideOffset={6}>
@@ -843,7 +845,7 @@ export function TaskSubtasksSection({
                         }
                         className="h-5.5 w-5.5 rounded-full border-slate-200 bg-transparent p-0 hover:bg-slate-100 dark:border-[#4c525a] dark:bg-[#3b3f45] dark:hover:bg-[#4a4f57]"
                         avatarClassName="h-5.5 w-5.5"
-                        fallbackClassName="bg-slate-100 text-[10px] font-medium text-slate-600 dark:bg-[#3b3f45] dark:text-[#dee4ea]"
+                        fallbackClassName="bg-sky-600 text-xs font-bold text-white dark:bg-[#3b3f45] dark:text-white"
                         unassignedIconClassName="text-slate-500 dark:text-[#dee4ea]"
                         contentClassName="dark:border-[#454f59] dark:bg-[#1d2125]"
                       />

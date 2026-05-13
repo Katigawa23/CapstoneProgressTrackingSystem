@@ -2,11 +2,15 @@ import type { BacklogApiItem, ColumnId, TodoItem } from "./types"
 import { getAssigneeOption } from "./backlog/types"
 import { formatTrustedDate } from "@/lib/trusted-time"
 
-const fallbackDescription =
+const legacyDefaultDescription =
   "Write a 1000-word article discussing the latest advancements and trends."
 
 export function formatDeadline(dateString: string) {
   return formatTrustedDate(dateString)
+}
+
+export function normalizeTaskDescription(description: string) {
+  return description.trim() === legacyDefaultDescription ? "" : description
 }
 
 export function getInitials(name: string) {
@@ -116,8 +120,7 @@ export function mapBacklogItemsToTodos(
         archivedByUserId: item.archivedByUserId ?? null,
         deletedByUserId: item.deletedByUserId ?? null,
         title: item.title,
-        description:
-          item.description || (normalizedParentId ? "" : fallbackDescription),
+        description: normalizeTaskDescription(item.description),
         assignee: assignee?.name ?? "",
         assigneeId: item.assigneeId ?? null,
         startDate: item.startDate ?? "",

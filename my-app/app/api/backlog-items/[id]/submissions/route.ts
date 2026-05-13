@@ -12,6 +12,46 @@ import {
 
 export const runtime = "nodejs"
 
+const blockedSubmissionFileExtensions = new Set([
+  ".apng",
+  ".avif",
+  ".bmp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".ico",
+  ".jpeg",
+  ".jpg",
+  ".png",
+  ".svg",
+  ".tif",
+  ".tiff",
+  ".webp",
+  ".avi",
+  ".m4v",
+  ".mkv",
+  ".mov",
+  ".mp4",
+  ".mpeg",
+  ".mpg",
+  ".ogv",
+  ".webm",
+  ".wmv",
+])
+
+function isBlockedSubmissionFile(file: File) {
+  const fileType = file.type.toLowerCase()
+  const fileName = file.name.toLowerCase()
+  const extensionIndex = fileName.lastIndexOf(".")
+  const extension = extensionIndex >= 0 ? fileName.slice(extensionIndex) : ""
+
+  return (
+    fileType.startsWith("image/") ||
+    fileType.startsWith("video/") ||
+    blockedSubmissionFileExtensions.has(extension)
+  )
+}
+
 function sanitizeFileName(fileName: string) {
   const trimmedName = fileName.trim()
 
@@ -23,6 +63,47 @@ function sanitizeFileName(fileName: string) {
     .replace(/[^a-zA-Z0-9._-]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
+}
+
+function splitFileName(fileName: string) {
+  const dotIndex = fileName.lastIndexOf(".")
+
+  if (dotIndex <= 0) {
+    return {
+      baseName: fileName,
+      extension: "",
+    }
+  }
+
+  return {
+    baseName: fileName.slice(0, dotIndex),
+    extension: fileName.slice(dotIndex),
+  }
+}
+
+function createVersionedFileName(fileName: string, usedFileNames: Set<string>) {
+  const trimmedName = fileName.trim() || "submission"
+  const normalizedName = trimmedName.toLowerCase()
+
+  if (!usedFileNames.has(normalizedName)) {
+    usedFileNames.add(normalizedName)
+    return trimmedName
+  }
+
+  const { baseName, extension } = splitFileName(trimmedName)
+  let version = 1
+
+  while (true) {
+    const candidate = `${baseName} (${version})${extension}`
+    const normalizedCandidate = candidate.toLowerCase()
+
+    if (!usedFileNames.has(normalizedCandidate)) {
+      usedFileNames.add(normalizedCandidate)
+      return candidate
+    }
+
+    version += 1
+  }
 }
 
 export async function GET(
@@ -69,16 +150,29 @@ export async function POST(
       return NextResponse.json({ error: "At least one file is required" }, { status: 400 })
     }
 
+    if (files.some(isBlockedSubmissionFile)) {
+      return NextResponse.json(
+        { error: "Image and video files are not available for attachment uploads." },
+        { status: 400 }
+      )
+    }
+
+    const existingSubmissions = await listBacklogSubmissions(id, user.id)
+    const usedFileNames = new Set(
+      existingSubmissions.map((submission) => submission.fileName.trim().toLowerCase())
+    )
+
     const submissions = await Promise.all(
       files.map(async (file) => {
         const submissionId = randomUUID()
-        const safeName = sanitizeFileName(file.name) || "submission"
+        const versionedFileName = createVersionedFileName(file.name, usedFileNames)
+        const safeName = sanitizeFileName(versionedFileName) || "submission"
         const bytes = Buffer.from(await file.arrayBuffer())
 
         return createBacklogSubmission({
           id: submissionId,
           backlogItemId: id,
-          fileName: file.name,
+          fileName: versionedFileName,
           fileUrl: `/api/backlog-items/${id}/submissions/file?submissionId=${encodeURIComponent(submissionId)}&filename=${encodeURIComponent(safeName)}`,
           fileType: file.type || "application/octet-stream",
           fileSize: file.size,

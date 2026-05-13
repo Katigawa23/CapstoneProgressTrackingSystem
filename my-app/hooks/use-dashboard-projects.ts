@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { readClientAuthSession, type AuthenticatedUser } from "@/lib/auth-client"
 import {
   cacheDashboardProjects,
   createDashboardProject,
@@ -23,6 +24,29 @@ export type ProjectMemberOption = {
   name: string
   role: string
   canCreateSprint: boolean
+}
+
+function normalizeMemberIdentity(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function isCurrentUserMemberOption(
+  member: ProjectMemberOption,
+  currentUser: AuthenticatedUser | null | undefined
+) {
+  if (!currentUser) {
+    return false
+  }
+
+  const currentUserId = normalizeMemberIdentity(currentUser.id)
+  const currentUserEmail = normalizeMemberIdentity(currentUser.email)
+  const memberId = normalizeMemberIdentity(member.id)
+  const memberEmail = normalizeMemberIdentity(member.email)
+
+  return (
+    (currentUserId.length > 0 && memberId === currentUserId) ||
+    (currentUserEmail.length > 0 && memberEmail === currentUserEmail)
+  )
 }
 
 export function useDashboardProjects({
@@ -156,7 +180,12 @@ export function useDashboardProjects({
           return
         }
 
-        setMemberOptions(Array.isArray(data.users) ? data.users : [])
+        const currentUser = readClientAuthSession()?.user ?? null
+        setMemberOptions(
+          Array.isArray(data.users)
+            ? data.users.filter((member) => !isCurrentUserMemberOption(member, currentUser))
+            : []
+        )
       } catch (error) {
         if ((error as Error).name === "AbortError") {
           return
@@ -184,6 +213,11 @@ export function useDashboardProjects({
   }, [])
 
   const handleMemberSelect = React.useCallback((member: ProjectMemberOption) => {
+    if (isCurrentUserMemberOption(member, readClientAuthSession()?.user)) {
+      setMemberSearch("")
+      return
+    }
+
     setSelectedMembers((currentMembers) => {
       if (currentMembers.some((currentMember) => currentMember.id === member.id)) {
         return currentMembers

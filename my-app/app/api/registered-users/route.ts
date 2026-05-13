@@ -13,7 +13,17 @@ export async function GET(request: Request) {
       tenantId: user.tenantId,
       query,
     })
-    const filteredUsers = users.filter((registeredUser) => registeredUser.id !== user.id)
+    const currentUserId = user.id.trim().toLowerCase()
+    const currentUserEmail = user.email.trim().toLowerCase()
+    const filteredUsers = users.filter((registeredUser) => {
+      const registeredUserId = registeredUser.id.trim().toLowerCase()
+      const registeredUserEmail = registeredUser.email.trim().toLowerCase()
+
+      return (
+        registeredUserId !== currentUserId &&
+        registeredUserEmail !== currentUserEmail
+      )
+    })
 
     return NextResponse.json(
       { users: filteredUsers },
