@@ -29,7 +29,7 @@ export async function ensureMicrosoftLoginSchema() {
       try {
         // Create table
         await getDb().query(`
-          create table if not exists microsoft_account_logins (
+          create table if not exists users (
             id bigserial primary key,
             microsoft_user_id text not null,
             email text not null,
@@ -43,8 +43,8 @@ export async function ensureMicrosoftLoginSchema() {
         // Try to create unique index (will fail silently if duplicates exist)
         try {
           await getDb().query(`
-            create unique index if not exists microsoft_account_logins_unique_user_idx
-            on microsoft_account_logins(microsoft_user_id);
+            create unique index if not exists users_unique_user_idx
+            on users(microsoft_user_id);
           `)
         } catch (err) {
           // Index creation can fail if duplicates exist - that's okay
@@ -53,8 +53,8 @@ export async function ensureMicrosoftLoginSchema() {
 
         // Create lookup index
         await getDb().query(`
-          create index if not exists microsoft_account_logins_lookup_idx
-          on microsoft_account_logins(microsoft_user_id, login_at desc);
+          create index if not exists users_lookup_idx
+          on users(microsoft_user_id, login_at desc);
         `)
       } catch (error) {
         schemaReady = null
@@ -73,7 +73,7 @@ export async function saveMicrosoftAccountLogin(
   await ensureMicrosoftLoginSchema()
 
   const result = await getDb().query<MicrosoftLoginRecord>(
-    `insert into microsoft_account_logins (
+    `insert into users (
       microsoft_user_id,
       email,
       name,
@@ -104,7 +104,7 @@ export async function getStoredUserRole(userId: string): Promise<string | null> 
   await ensureMicrosoftLoginSchema()
 
   const result = await getDb().query<MicrosoftLoginRecord>(
-    `select role from microsoft_account_logins where microsoft_user_id = $1 order by login_at desc limit 1`,
+    `select role from users where microsoft_user_id = $1 order by login_at desc limit 1`,
     [userId]
   )
 
@@ -115,7 +115,7 @@ export async function updateUserRole(userId: string, newRole: "student" | "facul
   await ensureMicrosoftLoginSchema()
 
   const result = await getDb().query(
-    `update microsoft_account_logins set role = $1 where microsoft_user_id = $2`,
+    `update users set role = $1 where microsoft_user_id = $2`,
     [newRole, userId]
   )
 
@@ -152,7 +152,7 @@ export async function searchRegisteredMicrosoftUsers({
          role,
          tenant_id,
          login_at
-       from microsoft_account_logins
+       from users
        where tenant_id = $1
          and (
            $2 = ''

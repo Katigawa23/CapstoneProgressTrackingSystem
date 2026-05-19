@@ -6,8 +6,7 @@ import { listProjects } from "@/lib/server-project-repository"
 import {
   listBacklogItemsWithStats,
   listProjectBacklogActivities,
-} from "@backend/repositories/backlog-repository"
-import { listSprints } from "@backend/repositories/sprint-repository"
+} from "@backend/repositories/tasks-repository"
 import {
   getUserScopedProjectCookieKey,
   PROJECT_COOKIE_KEY,
@@ -45,15 +44,6 @@ const getCachedProjectActivities = unstable_cache(
   }
 )
 
-const getCachedSprints = unstable_cache(
-  async (projectId: string, userId: string) => listSprints(projectId, userId),
-  ["dashboard-sprints"],
-  {
-    revalidate: 60,
-    tags: ["sprints", "backlog-items"],
-  }
-)
-
 export async function getDashboardProjectsData() {
   const user = await readAuthenticatedUser()
 
@@ -76,7 +66,6 @@ export async function getSelectedProjectData() {
       projects: [],
       selectedProject: null,
       items: [],
-      sprints: [],
     }
   }
 
@@ -101,19 +90,10 @@ export async function getSelectedProjectData() {
       )
     : []
 
-  const sprints = selectedProject
-    ? await (
-        useDashboardCache
-          ? getCachedSprints(selectedProject.id, user.id)
-          : listSprints(selectedProject.id, user.id)
-      )
-    : []
-
   return {
     projects,
     selectedProject,
     items,
-    sprints,
   }
 }
 

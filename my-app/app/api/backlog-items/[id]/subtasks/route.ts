@@ -11,7 +11,7 @@ import {
   BacklogItemNameConflictError,
   createBacklogItem,
   updateBacklogItem,
-} from "@backend/repositories/backlog-repository"
+} from "@backend/repositories/tasks-repository"
 
 const allowedStatuses = new Set([
   "todo",

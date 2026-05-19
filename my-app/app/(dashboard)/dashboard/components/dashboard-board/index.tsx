@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
-import { Archive, FolderCheck, GitFork, Trash2 } from "lucide-react"
+import { Archive, FolderCheck, GitFork } from "lucide-react"
 
 import {
   AlertDialog,
@@ -27,10 +27,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useIsMobile } from "@/hooks/use-mobile"
 import {
   broadcastDashboardActivitySync,
   subscribeToDashboardActivitySync,
@@ -55,22 +55,9 @@ import type {
   SubmissionDraft,
 } from "./types"
 
-const MAX_SUBMISSION_FILE_SIZE_BYTES = 200 * 1024 * 1024
-const blockedSubmissionFileExtensions = new Set([
-  ".apng",
-  ".avif",
-  ".bmp",
-  ".gif",
-  ".heic",
-  ".heif",
-  ".ico",
-  ".jpeg",
-  ".jpg",
-  ".png",
-  ".svg",
-  ".tif",
-  ".tiff",
-  ".webp",
+const DOCUMENT_ATTACHMENT_LIMIT_BYTES = 5 * 1024 * 1024
+const VIDEO_ATTACHMENT_LIMIT_BYTES = 10 * 1024 * 1024
+const videoSubmissionFileExtensions = new Set([
   ".avi",
   ".m4v",
   ".mkv",
@@ -83,17 +70,26 @@ const blockedSubmissionFileExtensions = new Set([
   ".wmv",
 ])
 
-function isBlockedSubmissionFile(file: File) {
-  const fileType = file.type.toLowerCase()
-  const fileName = file.name.toLowerCase()
-  const extensionIndex = fileName.lastIndexOf(".")
-  const extension = extensionIndex >= 0 ? fileName.slice(extensionIndex) : ""
+function getSubmissionFileExtension(fileName: string) {
+  const extensionIndex = fileName.toLowerCase().lastIndexOf(".")
+  return extensionIndex >= 0 ? fileName.toLowerCase().slice(extensionIndex) : ""
+}
 
-  return (
-    fileType.startsWith("image/") ||
-    fileType.startsWith("video/") ||
-    blockedSubmissionFileExtensions.has(extension)
-  )
+function isVideoSubmissionFile(file: File) {
+  const fileType = file.type.toLowerCase()
+  const extension = getSubmissionFileExtension(file.name)
+
+  return fileType.startsWith("video/") || videoSubmissionFileExtensions.has(extension)
+}
+
+function getSubmissionFileSizeLimit(file: File) {
+  return isVideoSubmissionFile(file)
+    ? VIDEO_ATTACHMENT_LIMIT_BYTES
+    : DOCUMENT_ATTACHMENT_LIMIT_BYTES
+}
+
+function formatAttachmentLimit(limit: number) {
+  return `${Math.round(limit / (1024 * 1024))} MB`
 }
 
 export function DashboardBoard({
@@ -104,25 +100,19 @@ export function DashboardBoard({
   currentUserId = null,
   creatorNamesById = {},
   canManageOtherProjectResources = false,
-  canMoveToSprint = true,
-  isSprintView = false,
-  currentSprintId = null,
-  sprints,
   onStatusChange,
   onMoveTodo,
   onAssigneeChange,
-  onAddToSprint,
-  onMoveToBoard,
+  onPriorityChange,
   onTodoUpdate,
   onCreateSubtask,
   isCreatingSubtask = false,
   createSubtaskError = null,
   onCreateSubtaskInputChange,
   onUpdateSubtask,
-  onDeleteSubtask,
-  onDeleteTodo,
   onArchiveTodo,
 }: DashboardBoardProps) {
+  const isMobile = useIsMobile()
   const [selectedTodo, setSelectedTodo] = React.useState<TodoItem | null>(null)
   const [openTarget, setOpenTarget] = React.useState<"default" | "comments">(
     "default"
@@ -171,16 +161,6 @@ export function DashboardBoard({
     todoId: string
     link: DashboardWebLink
   } | null>(null)
-  const [pendingDeleteSubmission, setPendingDeleteSubmission] = React.useState<{
-    todoId: string
-    submission: DashboardSubmission
-  } | null>(null)
-  const [pendingDeleteLink, setPendingDeleteLink] = React.useState<{
-    todoId: string
-    link: DashboardWebLink
-  } | null>(null)
-  const [pendingDeleteTodo, setPendingDeleteTodo] = React.useState<TodoItem | null>(null)
-  const [deleteTodoConfirmation, setDeleteTodoConfirmation] = React.useState("")
 
   const imageInputRef = React.useRef<HTMLInputElement | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -696,23 +676,16 @@ export function DashboardBoard({
         return
       }
 
-      const oversizedFile = Array.from(files).find(
-        (file) => file.size > MAX_SUBMISSION_FILE_SIZE_BYTES
-      )
+      const oversizedFile = Array.from(files).find((file) => {
+        return file.size > getSubmissionFileSizeLimit(file)
+      })
 
       if (oversizedFile) {
+        const limit = getSubmissionFileSizeLimit(oversizedFile)
         setSubmissionAlertDescription(
-          "Please choose a file that is 200 MB or smaller."
-        )
-        setIsEmptySubmissionAlertOpen(true)
-        return
-      }
-
-      const blockedFile = Array.from(files).find(isBlockedSubmissionFile)
-
-      if (blockedFile) {
-        setSubmissionAlertDescription(
-          "Image and video files are not available for attachment uploads."
+          `Please choose ${oversizedFile.name} again. The limit is ${formatAttachmentLimit(limit)} for ${
+            isVideoSubmissionFile(oversizedFile) ? "videos" : "documents and images"
+          }.`
         )
         setIsEmptySubmissionAlertOpen(true)
         return
@@ -776,16 +749,6 @@ export function DashboardBoard({
       })()
     },
     [uploadSubmissionFile]
-  )
-
-  const handleSubmissionDraftRemove = React.useCallback(
-    (todoId: string, draftId: string) => {
-      setSubmissionDrafts((current) => ({
-        ...current,
-        [todoId]: (current[todoId] ?? []).filter((draft) => draft.id !== draftId),
-      }))
-    },
-    []
   )
 
   const handleSubmissionUpload = React.useCallback(
@@ -857,43 +820,6 @@ export function DashboardBoard({
     [refreshTaskResources, submissionDrafts, uploadSubmissionFile]
   )
 
-  const handleConfirmDeleteSubmission = React.useCallback(
-    async () => {
-      if (!pendingDeleteSubmission) {
-        return
-      }
-
-      const { todoId, submission } = pendingDeleteSubmission
-
-      try {
-        const response = await fetch(
-          `/api/backlog-items/${todoId}/submissions?submissionId=${encodeURIComponent(submission.id)}`,
-          {
-            method: "DELETE",
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error("Failed to delete submission")
-        }
-
-        setSubmissionThreads((current) => ({
-          ...current,
-          [todoId]: (current[todoId] ?? []).filter(
-            (currentSubmission) => currentSubmission.id !== submission.id
-          ),
-        }))
-        broadcastDashboardActivitySync({ itemId: todoId, detailsChanged: true })
-        void refreshTaskResources(todoId)
-      } catch (error) {
-        console.error(error)
-      } finally {
-        setPendingDeleteSubmission(null)
-      }
-    },
-    [pendingDeleteSubmission, refreshTaskResources]
-  )
-
   const handleCommentSave = React.useCallback(() => {
     async function saveComment() {
       if (!selectedTodo) {
@@ -933,7 +859,18 @@ export function DashboardBoard({
             })
 
         if (!response.ok) {
-          throw new Error("Failed to save comment")
+          let errorMessage = "Failed to save comment"
+
+          try {
+            const errorData = (await response.json()) as { error?: string }
+            if (typeof errorData.error === "string" && errorData.error.trim()) {
+              errorMessage = errorData.error.trim()
+            }
+          } catch {
+            // Fall back to the generic message when the response is not JSON.
+          }
+
+          throw new Error(errorMessage)
         }
 
         const data = (await response.json()) as { comment: DashboardComment }
@@ -986,38 +923,6 @@ export function DashboardBoard({
     setEditingCommentId(comment.id)
     setIsEditingComments(true)
   }, [])
-
-  const handleDeleteComment = React.useCallback(
-    async (comment: DashboardComment) => {
-      try {
-        const response = await fetch(`/api/backlog-comments/${comment.id}`, {
-          method: "DELETE",
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to delete comment")
-        }
-
-        const currentComments = commentThreads[comment.backlogItemId] ?? []
-        const nextComments = currentComments.filter((item) => item.id !== comment.id)
-
-        setCommentThreads((current) => ({
-          ...current,
-          [comment.backlogItemId]: nextComments,
-        }))
-        onTodoUpdate(comment.backlogItemId, { comments: nextComments.length })
-
-        if (editingCommentId === comment.id) {
-          setCommentDraft("")
-          setEditingCommentId(null)
-          setIsEditingComments(false)
-        }
-      } catch (error) {
-        console.error(error)
-      }
-    },
-    [commentThreads, editingCommentId, onTodoUpdate]
-  )
 
   const handleDialogOpenChange = React.useCallback((open: boolean) => {
     if (open) {
@@ -1096,83 +1001,6 @@ export function DashboardBoard({
     [onTodoUpdate, refreshTaskResources, taskWebLinks]
   )
 
-  const handleConfirmDeleteLink = React.useCallback(
-    async () => {
-      if (!pendingDeleteLink) {
-        return
-      }
-
-      const { todoId, link } = pendingDeleteLink
-
-      try {
-        const response = await fetch(
-          `/api/backlog-items/${todoId}/links?linkId=${encodeURIComponent(link.id)}`,
-          {
-            method: "DELETE",
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error("Failed to delete web link")
-        }
-        const nextLinks = (taskWebLinks[todoId] ?? []).filter(
-          (currentLink) => currentLink.id !== link.id
-        )
-
-        setTaskWebLinks((current) => ({
-          ...current,
-          [todoId]: nextLinks,
-        }))
-        onTodoUpdate(todoId, { links: nextLinks.length })
-        broadcastDashboardActivitySync({ itemId: todoId, detailsChanged: true })
-        void refreshTaskResources(todoId)
-      } catch (error) {
-        console.error(error)
-      } finally {
-        setPendingDeleteLink(null)
-      }
-    },
-    [onTodoUpdate, pendingDeleteLink, refreshTaskResources, taskWebLinks]
-  )
-
-  const expectedDeleteTodoConfirmation = React.useMemo(
-    () => (pendingDeleteTodo ? `Delete/${pendingDeleteTodo.title}` : ""),
-    [pendingDeleteTodo]
-  )
-
-  const handleConfirmDeleteTodo = React.useCallback(async () => {
-    if (
-      !pendingDeleteTodo ||
-      deleteTodoConfirmation.trim() !== expectedDeleteTodoConfirmation
-    ) {
-      return
-    }
-
-    try {
-      if (pendingDeleteTodo.parentId && selectedTodo?.id === pendingDeleteTodo.parentId) {
-        await onDeleteSubtask(selectedTodo.id, pendingDeleteTodo.id)
-      } else {
-        await onDeleteTodo(pendingDeleteTodo)
-      }
-
-      if (selectedTodo?.id === pendingDeleteTodo.id) {
-        setSelectedTodo(null)
-      }
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setPendingDeleteTodo(null)
-      setDeleteTodoConfirmation("")
-    }
-  }, [
-    deleteTodoConfirmation,
-    expectedDeleteTodoConfirmation,
-    onDeleteSubtask,
-    onDeleteTodo,
-    pendingDeleteTodo,
-    selectedTodo,
-  ])
-
   const handleEditSubtaskTitle = React.useCallback(
     async (subtask: TodoItem, nextTitle: string) => {
       try {
@@ -1187,14 +1015,6 @@ export function DashboardBoard({
       }
     },
     [onUpdateSubtask]
-  )
-
-  const handleDeleteSubtaskRow = React.useCallback(
-    (subtask: TodoItem) => {
-      setPendingDeleteTodo(subtask)
-      setDeleteTodoConfirmation("")
-    },
-    []
   )
 
   const canArchiveTodo = React.useCallback(
@@ -1424,8 +1244,8 @@ export function DashboardBoard({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      {renderColumns ? (
-      <Carousel opts={{ align: "start" }} className="w-full px-2 sm:px-4 md:hidden">
+      {renderColumns && isMobile ? (
+      <Carousel opts={{ align: "start" }} className="w-full px-2 sm:px-4">
         <CarouselContent className="items-stretch">
           {columns.map((column) => {
             const columnTodos = getColumnTodos(column.id)
@@ -1436,28 +1256,15 @@ export function DashboardBoard({
                   column={column}
                   todos={columnTodos}
                   allTodos={todos}
-                  isSprintView={isSprintView}
-                  currentSprintId={currentSprintId}
                   currentUserId={currentUserId}
                   canManageOtherProjectResources={canManageOtherProjectResources}
-                  canMoveToSprint={canMoveToSprint}
-                  sprints={sprints}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
-                  onAddToSprint={onAddToSprint}
-                  onMoveToBoard={onMoveToBoard}
+                  onPriorityChange={onPriorityChange}
                   onOpenTask={handleOpenTask}
                   onArchiveTask={handleArchiveTodoRequest}
-                  onDeleteTask={(todo) => {
-                    setPendingDeleteTodo(todo)
-                    setDeleteTodoConfirmation("")
-                  }}
                   className="h-full"
-                  scrollAreaClassName={
-                    isSprintView
-                      ? "h-[calc(100dvh-24rem)] min-h-[320px] w-full overflow-visible sm:h-[calc(100dvh-26rem)] sm:min-h-[360px] md:h-[300px] xl:h-[360px]"
-                      : "h-[calc(100dvh-22rem)] min-h-[360px] w-full overflow-y-auto sm:h-[calc(100dvh-24rem)] sm:min-h-[420px] md:h-[340px] xl:h-[420px]"
-                  }
+                  scrollAreaClassName="h-[calc(100dvh-22rem)] min-h-[360px] w-full overflow-y-auto sm:h-[calc(100dvh-24rem)] sm:min-h-[420px] md:h-[340px] xl:h-[420px]"
                 />
               </CarouselItem>
             )
@@ -1468,8 +1275,8 @@ export function DashboardBoard({
       </Carousel>
       ) : null}
 
-      {renderColumns ? (
-      <div className="hidden min-h-0 w-full flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 lg:grid-cols-4">
+      {renderColumns && !isMobile ? (
+      <div className="min-h-0 w-full flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 lg:grid-cols-4">
         {columns.map((column) => {
           const columnTodos = getColumnTodos(column.id)
 
@@ -1479,22 +1286,13 @@ export function DashboardBoard({
               column={column}
               todos={columnTodos}
               allTodos={todos}
-              isSprintView={isSprintView}
-              currentSprintId={currentSprintId}
               currentUserId={currentUserId}
               canManageOtherProjectResources={canManageOtherProjectResources}
-              canMoveToSprint={canMoveToSprint}
-              sprints={sprints}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}
-              onAddToSprint={onAddToSprint}
-              onMoveToBoard={onMoveToBoard}
+              onPriorityChange={onPriorityChange}
               onOpenTask={handleOpenTask}
               onArchiveTask={handleArchiveTodoRequest}
-              onDeleteTask={(todo) => {
-                setPendingDeleteTodo(todo)
-                setDeleteTodoConfirmation("")
-              }}
             />
           )
         })}
@@ -1646,16 +1444,6 @@ export function DashboardBoard({
                     }
                     onSubmissionAttach={handleSubmissionAttach}
                     onSubmissionUpload={handleSubmissionUpload}
-                    onSubmissionDraftRemove={handleSubmissionDraftRemove}
-                    onSubmissionDelete={(todoId, submissionId) => {
-                      const submission = (submissionThreads[todoId] ?? []).find(
-                        (item) => item.id === submissionId
-                      )
-
-                      if (submission) {
-                        setPendingDeleteSubmission({ todoId, submission })
-                      }
-                    }}
                     onSubmissionArchive={handleArchiveSubmissionRequest}
                   />
                   <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
@@ -1666,15 +1454,6 @@ export function DashboardBoard({
                     creatorNamesById={creatorNamesById}
                     canManageOtherProjectResources={canManageOtherProjectResources}
                     onAddLink={(value) => handleAddWebLink(selectedTodo.id, value)}
-                    onRemoveLink={(value) => {
-                      const link = (taskWebLinks[selectedTodo.id] ?? []).find(
-                        (item) => item.id === value.id
-                      )
-
-                      if (link) {
-                        setPendingDeleteLink({ todoId: selectedTodo.id, link })
-                      }
-                    }}
                     onArchiveLink={(value) => handleArchiveLinkRequest(selectedTodo.id, value)}
                   />
 
@@ -1696,9 +1475,9 @@ export function DashboardBoard({
                         onOpenSubtask={handleOpenSubtask}
                         onSubtaskStatusChange={onStatusChange}
                         onSubtaskAssigneeChange={onAssigneeChange}
+                        onSubtaskPriorityChange={onPriorityChange}
                         onEditSubtaskTitle={handleEditSubtaskTitle}
                         onUpdateSubtask={onUpdateSubtask}
-                        onDeleteSubtask={handleDeleteSubtaskRow}
                         onArchiveSubtask={handleArchiveTodoRequest}
                       />
                     </>
@@ -1732,8 +1511,8 @@ export function DashboardBoard({
                 onCommentAssetAttach={handleCommentAssetAttach}
                 onReplyToComment={handleReplyToComment}
                 onEditComment={handleEditComment}
-                onDeleteComment={handleDeleteComment}
                 onStatusChange={onStatusChange}
+                onPriorityChange={onPriorityChange}
               />
             </div>
             )}
@@ -1903,149 +1682,6 @@ export function DashboardBoard({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={pendingDeleteSubmission !== null}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setPendingDeleteSubmission(null)
-          }
-        }}
-      >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
-          <AlertDialogHeader className="place-items-start text-left">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300">
-                <Trash2 className="h-4 w-4" />
-              </div>
-              <AlertDialogTitle>
-                Delete Attachment
-              </AlertDialogTitle>
-            </div>
-            <AlertDialogDescription className="space-y-2 pt-2">
-              <span className="block">
-                This attachment will be moved to the Recycle Bin.
-              </span>
-              <span className="block">
-                You can restore it within 30 days.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel size="sm" className="rounded-[2px]">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              size="sm"
-              className="rounded-[2px] bg-red-600 text-white hover:bg-red-500"
-              onClick={() => void handleConfirmDeleteSubmission()}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={pendingDeleteTodo !== null}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setPendingDeleteTodo(null)
-            setDeleteTodoConfirmation("")
-          }
-        }}
-      >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
-          <AlertDialogHeader className="place-items-start text-left">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300">
-                <Trash2 className="h-4 w-4" />
-              </div>
-              <AlertDialogTitle>
-                {pendingDeleteTodo?.parentId ? "Delete Subtask" : "Delete Task"}
-              </AlertDialogTitle>
-            </div>
-            <AlertDialogDescription className="space-y-2 pt-2">
-              <span className="block">
-                This {pendingDeleteTodo?.parentId ? "subtask" : "task"} will be moved to the Recycle Bin.
-              </span>
-              <span className="block">
-                Related items, including subtasks, attachments, web links, and comments, will be moved with it.
-              </span>
-              <span className="block">
-                Type <span className="font-semibold text-slate-900 dark:text-slate-100">{expectedDeleteTodoConfirmation}</span> to confirm.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <Input
-            value={deleteTodoConfirmation}
-            onChange={(event) => setDeleteTodoConfirmation(event.target.value)}
-            placeholder={expectedDeleteTodoConfirmation}
-            className="h-9 rounded-[2px] border-slate-200 bg-white text-sm dark:border-[#454545] dark:bg-[#1f1f1f]"
-          />
-          <AlertDialogFooter>
-            <AlertDialogCancel size="sm" className="rounded-[2px]">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              size="sm"
-              disabled={deleteTodoConfirmation.trim() !== expectedDeleteTodoConfirmation}
-              className="rounded-[2px] bg-red-600 text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={(event) => {
-                if (deleteTodoConfirmation.trim() !== expectedDeleteTodoConfirmation) {
-                  event.preventDefault()
-                  return
-                }
-
-                void handleConfirmDeleteTodo()
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={pendingDeleteLink !== null}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setPendingDeleteLink(null)
-          }
-        }}
-      >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
-          <AlertDialogHeader className="place-items-start text-left">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300">
-                <Trash2 className="h-4 w-4" />
-              </div>
-              <AlertDialogTitle>
-                Delete Web Link
-              </AlertDialogTitle>
-            </div>
-            <AlertDialogDescription className="space-y-2 pt-2">
-              <span className="block">
-                This web link will be moved to the Recycle Bin.
-              </span>
-              <span className="block">
-                You can restore it within 30 days.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel size="sm" className="rounded-[2px]">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              size="sm"
-              className="rounded-[2px] bg-red-600 text-white hover:bg-red-500"
-              onClick={() => void handleConfirmDeleteLink()}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DragDropContext>
   )
 }

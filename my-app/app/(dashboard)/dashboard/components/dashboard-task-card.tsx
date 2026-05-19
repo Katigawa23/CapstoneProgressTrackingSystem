@@ -9,11 +9,9 @@ import {
   CalendarDays,
   MessageCirclePlus,
   PencilLine,
-  FolderKanban,
   GitFork,
   MessageSquareMore,
   MoreHorizontal,
-  Trash2,
   UserRound,
 } from "lucide-react"
 
@@ -38,6 +36,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AssigneeCombobox } from "../backlog/components/assignee-combobox"
 import { assigneeOptions } from "../backlog/types"
 import { columns } from "../constants"
+import { PriorityIcon } from "./priority-icon"
 import type { TodoItem } from "../types"
 import { formatDeadline } from "../utils"
 
@@ -45,23 +44,12 @@ type DashboardTaskCardProps = {
   todo: TodoItem
   parentTaskTitle?: string | null
   isDragging?: boolean
-  isSprintView?: boolean
-  currentSprintId?: string | null
-  canMoveToSprint?: boolean
   canArchive?: boolean
-  canDelete?: boolean
-  sprints: Array<{
-    id: string
-    name: string
-    backlogItemIds: string[]
-  }>
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
-  onAddToSprint: (todoId: string, sprintId: string) => Promise<void> | void
-  onMoveToBoard: (todoId: string, sprintId: string) => Promise<void> | void
+  onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
   onOpen: (todo: TodoItem, target?: "default" | "comments") => void
   onArchive: (todo: TodoItem) => void | Promise<void>
-  onDelete: (todo: TodoItem) => void | Promise<void>
   draggableProvided?: DraggableProvided
   dragSnapshot?: DraggableStateSnapshot
 }
@@ -70,19 +58,12 @@ export function DashboardTaskCard({
   todo,
   parentTaskTitle,
   isDragging = false,
-  isSprintView = false,
-  currentSprintId = null,
-  canMoveToSprint = true,
   canArchive = true,
-  canDelete = true,
-  sprints,
   onStatusChange,
   onAssigneeChange,
-  onAddToSprint,
-  onMoveToBoard,
+  onPriorityChange,
   onOpen,
   onArchive,
-  onDelete,
   draggableProvided,
   dragSnapshot,
 }: DashboardTaskCardProps) {
@@ -96,17 +77,6 @@ export function DashboardTaskCard({
     subtaskCount === 1
       ? `${completedSubtasks}/${subtaskCount} subtask remaining`
       : `${completedSubtasks}/${subtaskCount} subtasks remaining`
-  const availableTargetSprints = React.useMemo(
-    () =>
-      sprints.filter((sprint) => {
-        if (sprint.id === currentSprintId) {
-          return false
-        }
-
-        return !sprint.backlogItemIds.includes(todo.id)
-      }),
-    [currentSprintId, sprints, todo.id]
-  )
 
   return (
     <div className="relative pt-1">
@@ -169,41 +139,6 @@ export function DashboardTaskCard({
             onClick={(event) => event.stopPropagation()}
           >
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger
-                disabled={!canMoveToSprint || Boolean(todo.parentId)}
-                className="data-[disabled]:cursor-not-allowed data-[disabled]:text-slate-300 data-[disabled]:opacity-100 data-[disabled]:focus:bg-transparent data-[disabled]:focus:text-slate-300 dark:data-[disabled]:text-slate-600 dark:data-[disabled]:focus:text-slate-600"
-              >
-                <FolderKanban className="h-4 w-4" />
-                Move to Sprint
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
-                {availableTargetSprints.length === 0 ? (
-                  <DropdownMenuItem disabled>
-                    {isSprintView ? "No other sprints" : "No sprints yet"}
-                  </DropdownMenuItem>
-                ) : (
-                  availableTargetSprints.map((sprint) => (
-                    <DropdownMenuItem
-                      key={sprint.id}
-                      onSelect={() => void onAddToSprint(todo.id, sprint.id)}
-                    >
-                      {sprint.name}
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            {isSprintView && currentSprintId ? (
-              <DropdownMenuItem
-                disabled={!canMoveToSprint}
-                className="data-[disabled]:cursor-not-allowed data-[disabled]:text-slate-300 data-[disabled]:opacity-100 data-[disabled]:focus:bg-transparent data-[disabled]:focus:text-slate-300 dark:data-[disabled]:text-slate-600 dark:data-[disabled]:focus:text-slate-600"
-                onSelect={() => void onMoveToBoard(todo.id, currentSprintId)}
-              >
-                <FolderKanban className="h-4 w-4" />
-                Move to Board
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <PencilLine className="h-4 w-4" />
                 Change status
@@ -264,6 +199,28 @@ export function DashboardTaskCard({
                 ))}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <PriorityIcon priority={todo.priority} />
+                Priority
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                {(["Low", "Medium", "High"] as const).map((priority) => (
+                  <DropdownMenuItem
+                    key={priority}
+                    className={
+                      todo.priority === priority
+                        ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                        : undefined
+                    }
+                    onSelect={() => onPriorityChange(todo.id, priority)}
+                  >
+                    <PriorityIcon priority={priority} />
+                    {priority}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuItem>
               <MessageCirclePlus className="h-4 w-4" />
               Add Comment
@@ -275,14 +232,6 @@ export function DashboardTaskCard({
             >
               <Archive className="h-4 w-4" />
               Archive
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!canDelete}
-              className="text-red-600 focus:bg-red-50 focus:text-red-700 dark:focus:bg-red-950/30 dark:focus:text-red-400"
-              onSelect={() => void onDelete(todo)}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -327,15 +276,60 @@ export function DashboardTaskCard({
           </TooltipProvider>
         </div>
 
-        <AssigneeCombobox
-          value={todo.assigneeId}
-          onChange={(assigneeId) => onAssigneeChange(todo.id, assigneeId)}
-          className="h-5 w-5 rounded-full border-slate-200 bg-transparent p-0 transition-[background-color,border-color,transform] duration-200 hover:scale-105 hover:bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#262626] dark:hover:bg-[#303030]"
-          avatarClassName="h-5 w-5"
-          fallbackClassName="text-[8px]"
-          unassignedIconClassName="h-3 w-3 text-slate-500 dark:text-slate-300"
-          contentClassName="dark:border-[#343434] dark:bg-[#262626]"
-        />
+        <div className="flex items-center gap-1.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full transition hover:bg-slate-100 dark:hover:bg-[#303030]"
+                aria-label={`Priority ${todo.priority}`}
+                title={`Priority: ${todo.priority}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <PriorityIcon
+                  priority={todo.priority}
+                  className={
+                    todo.priority === "High"
+                      ? "h-3.5 w-3.5 text-red-500"
+                      : todo.priority === "Low"
+                      ? "h-3.5 w-3.5 text-sky-500"
+                      : "h-3.5 w-3.5 text-orange-500"
+                  }
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {(["Low", "Medium", "High"] as const).map((priority) => (
+                <DropdownMenuItem
+                  key={priority}
+                  className={
+                    todo.priority === priority
+                      ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                      : undefined
+                  }
+                  onSelect={() => onPriorityChange(todo.id, priority)}
+                >
+                  <PriorityIcon priority={priority} />
+                  {priority}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <AssigneeCombobox
+            value={todo.assigneeId}
+            onChange={(assigneeId) => onAssigneeChange(todo.id, assigneeId)}
+            className="h-5 w-5 rounded-full border-slate-200 bg-transparent p-0 transition-[background-color,border-color,transform] duration-200 hover:scale-105 hover:bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#262626] dark:hover:bg-[#303030]"
+            avatarClassName="h-5 w-5"
+            fallbackClassName="text-[8px]"
+            unassignedIconClassName="h-3 w-3 text-slate-500 dark:text-slate-300"
+            contentClassName="dark:border-[#343434] dark:bg-[#262626]"
+          />
+        </div>
       </div>
       </div>
     </div>

@@ -1,0 +1,2 @@
+-- Web links now live in the attachments table.
+-- Use attachment_type = 'link' and link_label for the display text.

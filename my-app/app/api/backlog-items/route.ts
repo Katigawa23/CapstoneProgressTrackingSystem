@@ -12,7 +12,7 @@ import {
   createBacklogItem,
   listBacklogItems,
   updateBacklogItem,
-} from "@backend/repositories/backlog-repository"
+} from "@backend/repositories/tasks-repository"
 
 const allowedStatuses = new Set([
   "todo",
@@ -21,6 +21,7 @@ const allowedStatuses = new Set([
   "revision",
   "completed",
 ])
+const allowedPriorities = new Set(["Low", "Medium", "High"])
 
 function normalizeOptionalDate(value: unknown) {
   if (typeof value !== "string") {
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
       dueDate?: string | null
       status?: string
       assigneeId?: string | null
+      priority?: string
     }
 
     const rawTitle = body.title?.trim()
@@ -91,6 +93,10 @@ export async function POST(request: Request) {
       typeof body.status === "string" && allowedStatuses.has(body.status)
         ? body.status
         : "todo"
+    const priority =
+      typeof body.priority === "string" && allowedPriorities.has(body.priority)
+        ? (body.priority as "Low" | "Medium" | "High")
+        : "Medium"
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
@@ -120,6 +126,7 @@ export async function POST(request: Request) {
       status,
       checked: false,
       assigneeId: body.assigneeId ?? null,
+      priority,
     }, user.id)
 
     if (!item) {

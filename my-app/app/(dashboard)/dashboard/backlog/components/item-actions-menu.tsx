@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { MoreHorizontal, Pencil } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,12 +13,10 @@ import {
 
 type ItemActionsMenuProps = {
   onEdit: () => void
-  onDelete: () => void
 }
 
 export function ItemActionsMenu({
   onEdit,
-  onDelete,
 }: ItemActionsMenuProps) {
   return (
     <DropdownMenu>
@@ -36,14 +34,6 @@ export function ItemActionsMenu({
         <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
           <Pencil className="mr-2 h-4 w-4" />
           Edit field
-        </DropdownMenuItem>
-
-        <DropdownMenuItem
-          onClick={onDelete}
-          className="cursor-pointer text-red-600 focus:text-red-600"
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -3,12 +3,10 @@
 import * as React from "react"
 import {
   Check,
-  CheckCircle2,
   Loader2,
   Pencil,
   Plus,
   Search,
-  ShieldCheck,
   Trash2,
   UserRound,
 } from "lucide-react"
@@ -25,14 +23,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { readClientAuthSession, subscribeToAuthChange } from "@/lib/auth-client"
+import { markDashboardProjectPageSeenInSession } from "@/lib/dashboard-first-open"
 import {
   findDashboardProject,
   getSelectedDashboardProjectId,
@@ -72,8 +64,6 @@ export default function MembersPage() {
   const [savingMemberIds, setSavingMemberIds] = React.useState<string[]>([])
   const [roleDrafts, setRoleDrafts] = React.useState<Record<string, string>>({})
   const [editingRoleMemberId, setEditingRoleMemberId] = React.useState<string | null>(null)
-  const [pendingFullControlMember, setPendingFullControlMember] =
-    React.useState<ProjectMember | null>(null)
   const [pendingRemoveMember, setPendingRemoveMember] =
     React.useState<ProjectMember | null>(null)
   const [actionError, setActionError] = React.useState<string | null>(null)
@@ -99,6 +89,12 @@ export default function MembersPage() {
       unsubscribe()
     }
   }, [])
+
+  React.useEffect(() => {
+    if (projectId) {
+      markDashboardProjectPageSeenInSession("members", projectId)
+    }
+  }, [projectId])
 
   const selectedProject = React.useMemo(
     () => findDashboardProject(projectId),
@@ -224,21 +220,17 @@ export default function MembersPage() {
   const updateMember = React.useCallback(
     async (
       member: ProjectMember,
-      updates: Partial<Pick<ProjectMember, "projectRole" | "canCreateSprint">>
+      updates: Partial<Pick<ProjectMember, "projectRole">>
     ) => {
-      const isChangingFullControl = updates.canCreateSprint !== undefined
-
       if (
         !projectId ||
         member.isOwner ||
-        (isChangingFullControl && !canManageMembers) ||
-        (!isChangingFullControl && !currentUserId)
+        !currentUserId
       ) {
         return
       }
 
       const nextProjectRole = updates.projectRole ?? member.projectRole
-      const nextCanCreateSprint = updates.canCreateSprint ?? member.canCreateSprint
 
       setSavingMemberIds((current) => [...new Set([...current, member.userId])])
       setActionError(null)
@@ -252,7 +244,7 @@ export default function MembersPage() {
           body: JSON.stringify({
             userId: member.userId,
             projectRole: nextProjectRole,
-            canCreateSprint: nextCanCreateSprint,
+            canCreateSprint: false,
           }),
         })
 
@@ -626,44 +618,6 @@ export default function MembersPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           {isSaving ? (
                             <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                          ) : member.canCreateSprint ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                          ) : (
-                            <ShieldCheck className="h-4 w-4 text-slate-400" />
-                          )}
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="cursor-help text-right leading-tight">
-                            <p className="text-[10px] font-medium text-slate-700 dark:text-slate-200">
-                                    Full control
-                                  </p>
-                            <p className="text-[8px] text-slate-500 dark:text-slate-400">
-                                    Can manage project work
-                                  </p>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent sideOffset={6}>
-                                {member.canCreateSprint
-                                  ? "Full control is enabled for this member."
-                                  : "This member has standard project access."}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          {canManageMembers ? (
-                            <Switch
-                              checked={member.canCreateSprint}
-                              disabled={!canEditMember}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setPendingFullControlMember(member)
-                                  return
-                                }
-
-                                void updateMember(member, { canCreateSprint: false })
-                              }}
-                              aria-label={`Toggle full control for ${member.name}`}
-                            />
                           ) : null}
                           {canManageMembers ? (
                             <button
@@ -693,41 +647,6 @@ export default function MembersPage() {
           </table>
         </div>
       </div>
-
-      <AlertDialog
-        open={pendingFullControlMember !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingFullControlMember(null)
-          }
-        }}
-      >
-        <AlertDialogContent className="border-slate-200 bg-white text-slate-950 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Grant full control?</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-600 dark:text-slate-300">
-              This member will be able to manage project work, including moving
-              items and creating sprints. You can remove this access later.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-blue-600 text-white hover:bg-blue-700"
-              onClick={() => {
-                if (pendingFullControlMember) {
-                  void updateMember(pendingFullControlMember, {
-                    canCreateSprint: true,
-                  })
-                }
-                setPendingFullControlMember(null)
-              }}
-            >
-              Grant access
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog
         open={pendingRemoveMember !== null}

@@ -2,7 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { restoreBacklogItem } from "@backend/repositories/backlog-repository"
+import { restoreBacklogItem } from "@backend/repositories/tasks-repository"
 
 export async function POST(
   _request: Request,

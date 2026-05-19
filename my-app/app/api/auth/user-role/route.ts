@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { readClientAuthSession } from "@/lib/auth-client"
-import { updateUserRole, getStoredUserRole } from "@backend/repositories/microsoft-login-repository"
+import { updateUserRole, getStoredUserRole } from "@backend/repositories/users-repository"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"

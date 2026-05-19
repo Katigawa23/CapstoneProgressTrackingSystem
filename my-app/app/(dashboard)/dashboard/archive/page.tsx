@@ -12,7 +12,6 @@ import {
   Link2,
   RotateCcw,
   Search,
-  Trash2,
 } from "lucide-react"
 
 import {
@@ -40,6 +39,7 @@ import {
   getSelectedDashboardProjectId,
   PROJECT_CHANGE_EVENT,
 } from "@/lib/projects"
+import { markDashboardProjectPageSeenInSession } from "@/lib/dashboard-first-open"
 import { readClientAuthSession, subscribeToAuthChange } from "@/lib/auth-client"
 import type { BacklogApiItem, TodoItem } from "../types"
 import {
@@ -197,6 +197,12 @@ export default function ArchivePage() {
       unsubscribe()
     }
   }, [])
+
+  React.useEffect(() => {
+    if (projectId) {
+      markDashboardProjectPageSeenInSession("archive", projectId)
+    }
+  }, [projectId])
 
   React.useEffect(() => {
     void loadArchiveItems(projectId).catch((error) => {
@@ -381,20 +387,6 @@ export default function ArchivePage() {
     await loadArchiveItems(projectId)
   }, [loadArchiveItems, projectId, readErrorMessage])
 
-  const handleDelete = React.useCallback(async (itemId: string) => {
-    setActionError(null)
-    const response = await fetch(`/api/backlog-items/${itemId}`, {
-      method: "DELETE",
-    })
-
-    if (!response.ok) {
-      setActionError(await readErrorMessage(response, "Failed to delete archived item"))
-      return
-    }
-
-    await loadArchiveItems(projectId)
-  }, [loadArchiveItems, projectId, readErrorMessage])
-
   const handleRestoreAttachment = React.useCallback(async (item: ArchivedAttachment) => {
     setActionError(null)
     const route =
@@ -406,23 +398,6 @@ export default function ArchivePage() {
 
     if (!response.ok) {
       setActionError(await readErrorMessage(response, "Failed to restore archived resource"))
-      return
-    }
-
-    await loadArchiveItems(projectId)
-  }, [loadArchiveItems, projectId, readErrorMessage])
-
-  const handleDeleteAttachment = React.useCallback(async (item: ArchivedAttachment) => {
-    setActionError(null)
-    const route =
-      item.attachmentType === "file"
-        ? `/api/backlog-items/${item.backlogItemId}/submissions?submissionId=${encodeURIComponent(item.id)}`
-        : `/api/backlog-items/${item.backlogItemId}/links?linkId=${encodeURIComponent(item.id)}`
-
-    const response = await fetch(route, { method: "DELETE" })
-
-    if (!response.ok) {
-      setActionError(await readErrorMessage(response, "Failed to delete archived resource"))
       return
     }
 
@@ -671,14 +646,6 @@ export default function ArchivePage() {
                               <RotateCcw className="h-4 w-4" />
                               Restore
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={!canManageTask}
-                              className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
-                              onSelect={() => void handleDelete(item.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -787,14 +754,6 @@ export default function ArchivePage() {
                           >
                             <RotateCcw className="h-4 w-4" />
                             Restore
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={!canManageAttachment}
-                            className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
-                            onSelect={() => void handleDeleteAttachment(item)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

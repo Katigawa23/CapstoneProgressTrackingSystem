@@ -1,11 +1,13 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
+import { getMicrosoftTenantId } from "@backend/auth/microsoft"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   createBacklogComment,
   listBacklogComments,
-} from "@backend/repositories/backlog-comment-repository"
+} from "@backend/repositories/comments-repository"
+import { saveMicrosoftAccountLogin } from "@backend/repositories/users-repository"
 
 export async function GET(
   _request: Request,
@@ -31,6 +33,15 @@ export async function POST(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    await saveMicrosoftAccountLogin(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      user.tenantId?.trim() || getMicrosoftTenantId()
+    )
     const { id } = await params
     const body = (await request.json()) as {
       body?: string
@@ -63,7 +74,12 @@ export async function POST(
   } catch (error) {
     console.error("Failed to create backlog comment", error)
     return NextResponse.json(
-      { error: "Failed to create backlog comment" },
+      {
+        error:
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : "Failed to create backlog comment",
+      },
       { status: 500 }
     )
   }

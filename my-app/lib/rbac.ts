@@ -2,7 +2,7 @@ export type UserRole = "student" | "faculty" | "admin"
 
 export const roleLabels: Record<UserRole, string> = {
   student: "Student",
-  faculty: "Faculty",
+  faculty: "Adviser",
   admin: "Admin",
 }
 
@@ -10,44 +10,35 @@ export const rolePermissions: Record<UserRole, string[]> = {
   student: [
     "/dashboard",
     "/dashboard/board",
-    "/dashboard/active-sprint",
     "/dashboard/roadmap",
     "/dashboard/revisions",
     "/dashboard/journal",
     "/dashboard/milestones",
     "/dashboard/backlog",
     "/dashboard/archive",
-    "/dashboard/recycle-bin",
     "/dashboard/members",
-    "/dashboard/adviser",
   ],
   faculty: [
     "/dashboard",
     "/dashboard/board",
-    "/dashboard/active-sprint",
     "/dashboard/roadmap",
     "/dashboard/backlog",
     "/dashboard/revisions",
     "/dashboard/journal",
     "/dashboard/milestones",
     "/dashboard/archive",
-    "/dashboard/recycle-bin",
     "/dashboard/members",
-    "/dashboard/adviser",
   ],
   admin: [
     "/dashboard",
     "/dashboard/board",
-    "/dashboard/active-sprint",
     "/dashboard/roadmap",
     "/dashboard/revisions",
     "/dashboard/journal",
     "/dashboard/milestones",
     "/dashboard/backlog",
     "/dashboard/archive",
-    "/dashboard/recycle-bin",
     "/dashboard/members",
-    "/dashboard/adviser",
   ],
 }
 

@@ -2,7 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { archiveBacklogWebLink } from "@backend/repositories/backlog-attachment-repository"
+import { archiveBacklogWebLink } from "@backend/repositories/attachments-repository"
 
 export async function POST(
   request: Request,

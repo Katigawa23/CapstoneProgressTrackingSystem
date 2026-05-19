@@ -8,8 +8,8 @@ import {
   Eye,
   Filter,
   FileText,
+  FileVideo,
   ImageIcon,
-  Trash2,
   Upload,
 } from "lucide-react"
 
@@ -52,8 +52,6 @@ type TaskSubmissionsSectionProps = {
   onSubmissionActionsOpenChange: (nextOpen: boolean) => void
   onSubmissionAttach: (todoId: string, files: FileList | null) => void
   onSubmissionUpload: (todoId: string) => void | Promise<void>
-  onSubmissionDraftRemove: (todoId: string, draftId: string) => void
-  onSubmissionDelete: (todoId: string, submissionId: string) => void | Promise<void>
   onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
 }
 
@@ -95,6 +93,11 @@ function FilePreviewTile({
     [".png", ".jpg", ".jpeg", ".gif", ".webp"].some((extension) =>
       normalizedName.endsWith(extension)
     )
+  const isVideo =
+    fileType.startsWith("video/") ||
+    [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv"].some((extension) =>
+      normalizedName.endsWith(extension)
+    )
   const isPdf =
     fileType === "application/pdf" || normalizedName.endsWith(".pdf")
 
@@ -104,6 +107,8 @@ function FilePreviewTile({
         <div className="absolute right-0 top-0 h-1.5 w-1.5 rounded-bl-[2px] bg-slate-200 dark:bg-slate-300" />
         {isImage ? (
           <ImageIcon className="h-2 w-2" />
+        ) : isVideo ? (
+          <FileVideo className="h-2 w-2" />
         ) : isPdf ? (
           <span className="text-[6px] font-bold tracking-tight text-slate-800">PDF</span>
         ) : (
@@ -119,14 +124,12 @@ function AttachmentList({
   backlogItemId,
   currentUserId,
   canManageOtherProjectResources,
-  onSubmissionDelete,
   onSubmissionArchive,
 }: {
   submissions: DashboardSubmission[]
   backlogItemId: string
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
-  onSubmissionDelete: (todoId: string, submissionId: string) => void | Promise<void>
   onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
 }) {
   return (
@@ -142,13 +145,12 @@ function AttachmentList({
 
           <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
             {submissions.map((submission) => {
-              const canDeleteSubmission =
+              const canArchiveSubmission =
                 Boolean(currentUserId?.trim()) &&
                 (
                   submission.uploadedByUserId === currentUserId?.trim() ||
                   canManageOtherProjectResources === true
                 )
-              const canArchiveSubmission = canDeleteSubmission
 
               return (
               <div
@@ -214,14 +216,6 @@ function AttachmentList({
                         <Archive className="h-4 w-4" />
                         Archive
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!canDeleteSubmission}
-                        className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
-                        onSelect={() => void onSubmissionDelete(backlogItemId, submission.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -282,8 +276,6 @@ export function TaskSubmissionsSection({
   isUploadingSubmission,
   submissionInputRef,
   onSubmissionAttach,
-  onSubmissionDraftRemove,
-  onSubmissionDelete,
   onSubmissionArchive,
 }: TaskSubmissionsSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
@@ -383,7 +375,7 @@ export function TaskSubmissionsSection({
           </CollapsibleTrigger>
           {isExpanded ? (
             <p className="pl-6 text-sm text-slate-500 dark:text-slate-400">
-              Select files to upload. Max total size 200 MB.
+              Upload documents or images up to 5 MB. Videos up to 10 MB.
             </p>
           ) : null}
         </div>
@@ -530,7 +522,7 @@ export function TaskSubmissionsSection({
           type="file"
           className="hidden"
           multiple
-          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt"
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt,image/*,video/*"
           onChange={(event) => {
             onSubmissionAttach(selectedTodo.id, event.target.files)
             event.target.value = ""
@@ -545,7 +537,6 @@ export function TaskSubmissionsSection({
             backlogItemId={selectedTodo.id}
             currentUserId={currentUserId}
             canManageOtherProjectResources={canManageOtherProjectResources}
-            onSubmissionDelete={onSubmissionDelete}
             onSubmissionArchive={onSubmissionArchive}
           />
         ) : null}

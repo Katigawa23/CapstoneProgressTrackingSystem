@@ -14,7 +14,7 @@ import {
   ProjectNameConflictError,
   listProjects,
   updateProjectStarred,
-} from "@backend/repositories/project-repository"
+} from "@backend/repositories/projects-repository"
 
 function revalidateProjectData() {
   try {
@@ -39,6 +39,10 @@ export async function GET() {
       }
     )
   } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     console.error("Failed to load projects", error)
     return NextResponse.json({ error: "Failed to load projects" }, { status: 500 })
   }

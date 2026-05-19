@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -138,14 +137,6 @@ export default function Navbar() {
               <SheetContent side="left" className="w-[85vw] max-w-sm border-border bg-background p-0">
               <SheetHeader className="border-b border-border px-5 py-5 text-left">
                 <SheetTitle className="flex items-center gap-3 font-display text-xl">
-                  <Image
-                    src="/logoTS.png"
-                    alt="TrackSphere logo"
-                    width={30}
-                    height={30}
-                    className="h-7 w-7 object-contain"
-                    priority
-                  />
                   <span>
                     <span className="text-slate-950 dark:text-slate-50">Track</span>
                     <span className="text-sky-600">Sphere</span>
@@ -192,14 +183,6 @@ export default function Navbar() {
             onClick={handleLogoClick}
             className="flex items-center gap-3 font-display text-xl font-extrabold tracking-tight sm:text-2xl"
           >
-            <Image
-              src="/logoTS.png"
-              alt="TrackSphere logo"
-              width={30}
-              height={30}
-              className="h-7 w-7 object-contain"
-              priority
-            />
             <span>
               <span className="text-slate-950 dark:text-slate-50">Track</span>
               <span className="text-sky-600">Sphere</span>
@@ -274,7 +257,7 @@ export default function Navbar() {
                     window.location.assign("/api/auth/tester/faculty?redirect=/dashboard")
                   }}
                 >
-                  Faculty Tester
+                  Adviser Tester
                 </Button>
               </div>
             </DialogContent>

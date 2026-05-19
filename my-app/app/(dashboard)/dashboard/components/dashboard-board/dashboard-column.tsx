@@ -12,23 +12,13 @@ type DashboardColumnProps = {
   column: (typeof columns)[number]
   todos: TodoItem[]
   allTodos: TodoItem[]
-  isSprintView?: boolean
-  currentSprintId?: string | null
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
-  canMoveToSprint?: boolean
-  sprints: Array<{
-    id: string
-    name: string
-    backlogItemIds: string[]
-  }>
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
-  onAddToSprint: (todoId: string, sprintId: string) => Promise<void> | void
-  onMoveToBoard: (todoId: string, sprintId: string) => Promise<void> | void
+  onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
   onOpenTask: (todo: TodoItem, target?: OpenTaskTarget) => void
   onArchiveTask: (todo: TodoItem) => void | Promise<void>
-  onDeleteTask: (todo: TodoItem) => void | Promise<void>
   className?: string
   scrollAreaClassName?: string
 }
@@ -37,19 +27,13 @@ export function DashboardColumn({
   column,
   todos,
   allTodos,
-  isSprintView = false,
-  currentSprintId = null,
   currentUserId = null,
   canManageOtherProjectResources = false,
-  canMoveToSprint = true,
-  sprints,
   onStatusChange,
   onAssigneeChange,
-  onAddToSprint,
-  onMoveToBoard,
+  onPriorityChange,
   onOpenTask,
   onArchiveTask,
-  onDeleteTask,
   className = "",
   scrollAreaClassName,
 }: DashboardColumnProps) {
@@ -98,9 +82,7 @@ export function DashboardColumn({
                 scrollAreaClassName ??
                 `
                   board-column-scroll w-full ${
-                    isSprintView
-                      ? "h-[220px] overflow-visible sm:h-[250px] lg:h-[300px] xl:h-[360px]"
-                      : "h-[240px] overflow-y-auto sm:h-[280px] lg:h-[340px] xl:h-[420px]"
+                    "h-[240px] overflow-y-auto sm:h-[280px] lg:h-[340px] xl:h-[420px]"
                   }
                 `
               }
@@ -121,27 +103,16 @@ export function DashboardColumn({
                             : null
                         }
                         isDragging={dragSnapshot.isDragging}
-                        sprints={sprints}
-                        isSprintView={isSprintView}
-                        currentSprintId={currentSprintId}
-                        canMoveToSprint={canMoveToSprint}
                         canArchive={
-                          canManageOtherProjectResources ||
-                          (Boolean(normalizedCurrentUserId) &&
-                            todo.createdByUserId === normalizedCurrentUserId)
-                        }
-                        canDelete={
                           canManageOtherProjectResources ||
                           (Boolean(normalizedCurrentUserId) &&
                             todo.createdByUserId === normalizedCurrentUserId)
                         }
                         onStatusChange={onStatusChange}
                         onAssigneeChange={onAssigneeChange}
-                        onAddToSprint={onAddToSprint}
-                        onMoveToBoard={onMoveToBoard}
+                        onPriorityChange={onPriorityChange}
                         onOpen={onOpenTask}
                         onArchive={onArchiveTask}
-                        onDelete={onDeleteTask}
                         draggableProvided={draggableProvided}
                         dragSnapshot={dragSnapshot}
                       />

@@ -11,7 +11,6 @@ import {
   Map,
   Milestone,
   Rows3,
-  Trash2,
   Users,
 } from "lucide-react"
 import {
@@ -44,6 +43,7 @@ import { ProjectSwitcher } from "@/components/projects/project-switcher"
 import { getDashboardProjectCollections, type DashboardProject } from "@/lib/projects"
 import { useDashboardProjects } from "@/hooks/use-dashboard-projects"
 import { canAccessPath, canCreateProject, type UserRole } from "@/lib/rbac"
+import { cn } from "@/lib/utils"
 
 type NavItem = {
   title: string
@@ -59,7 +59,6 @@ const projectItems: NavItem[] = [
     title: "Board",
     href: "/dashboard/board",
     icon: LayoutDashboard,
-    children: [{ title: "Active Sprint", href: "/dashboard/active-sprint" }],
   },
   { title: "Roadmap", href: "/dashboard/roadmap", icon: Map },
   { title: "Backlog", href: "/dashboard/backlog", icon: Rows3},
@@ -69,12 +68,10 @@ const documentationItems: NavItem[] = [
   { title: "Weekly Journal", href: "/dashboard/journal", icon: BookOpen },
   { title: "Milestones", href: "/dashboard/milestones", icon: Milestone },
   { title: "Archive", href: "/dashboard/archive", icon: Archive },
-  { title: "Recycle Bin", href: "/dashboard/recycle-bin", icon: Trash2 },
 ]
 
-const getGroupItems = (role: UserRole): NavItem[] => [
+const groupItems: NavItem[] = [
   { title: "Members", href: "/dashboard/members", icon: Users },
-  { title: role === "faculty" ? "Students" : "Advisers", href: "/dashboard/adviser", icon: Users },
 ]
 
 const quickLinkItems: NavItem[] = [
@@ -230,7 +227,6 @@ export function AppSidebar({
     createProjectError,
     handleMemberRemove,
     handleMemberSearchChange,
-    handleMemberRoleToggle,
     handleMemberSelect,
     handleProjectTitleChange,
     isCreatingProject,
@@ -267,10 +263,16 @@ export function AppSidebar({
   const projectCollections = getDashboardProjectCollections(projects)
   const visibleProjectItems = filterItemsByRole(projectItems, role)
   const visibleDocumentationItems = filterItemsByRole(documentationItems, role)
-  const visibleGroupItems = filterItemsByRole(getGroupItems(role), role)
+  const visibleProjectPickerArchiveItems = filterItemsByRole(
+    [{ title: "Archive", href: "/dashboard/projects/archive", icon: Archive }],
+    role
+  )
+  const visibleGroupItems = filterItemsByRole(groupItems, role)
   const visibleQuickLinkItems = filterItemsByRole(quickLinkItems, role)
   const isProjectPickerPage =
-    pathname === "/dashboard" || pathname === "/dashboard/projects"
+    pathname === "/dashboard" ||
+    pathname === "/dashboard/projects" ||
+    pathname === "/dashboard/projects/archive"
   const canCreateProjectAccess = canCreateProject(role)
 
   React.useEffect(() => {
@@ -305,7 +307,6 @@ export function AppSidebar({
         onCreateProject={createProject}
         onMemberRemove={handleMemberRemove}
         onMemberSearchChange={handleMemberSearchChange}
-        onMemberRoleToggle={handleMemberRoleToggle}
         onMemberSelect={handleMemberSelect}
         onProjectProgramChange={setProjectProgram}
         onProjectProgramOtherChange={setProjectProgramOther}
@@ -356,17 +357,34 @@ export function AppSidebar({
           </div>
         </SidebarHeader>
 
-        <SidebarContent className="gap-2">
+        <SidebarContent className={cn("gap-2", isProjectPickerPage && "flex flex-col")}>
           {isProjectPickerPage ? (
-            <ProjectPickerContent
-              collections={projectCollections}
-              onSelectProject={(projectId) => {
-                selectProject(projectId)
-                router.push("/dashboard/board")
-              }}
-              projects={projects}
-              team={team}
-            />
+            <>
+              <ProjectPickerContent
+                collections={projectCollections}
+                onSelectProject={(projectId) => {
+                  selectProject(projectId)
+                  router.push("/dashboard/board")
+                }}
+                projects={projects}
+                team={team}
+              />
+
+              {visibleProjectPickerArchiveItems.length > 0 ? (
+                <div className="mt-auto pb-3">
+                  <Separator className="bg-blue-100 dark:bg-slate-800" />
+
+                  <SidebarGroup>
+                    <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Archive
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                      <NavList items={visibleProjectPickerArchiveItems} />
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                </div>
+              ) : null}
+            </>
           ) : (
             <>
               <SidebarGroup>

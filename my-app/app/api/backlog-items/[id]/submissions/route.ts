@@ -6,27 +6,14 @@ import { NextResponse } from "next/server"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   createBacklogSubmission,
-  deleteBacklogSubmission,
   listBacklogSubmissions,
-} from "@backend/repositories/backlog-attachment-repository"
+} from "@backend/repositories/attachments-repository"
 
 export const runtime = "nodejs"
 
-const blockedSubmissionFileExtensions = new Set([
-  ".apng",
-  ".avif",
-  ".bmp",
-  ".gif",
-  ".heic",
-  ".heif",
-  ".ico",
-  ".jpeg",
-  ".jpg",
-  ".png",
-  ".svg",
-  ".tif",
-  ".tiff",
-  ".webp",
+const DOCUMENT_ATTACHMENT_LIMIT_BYTES = 5 * 1024 * 1024
+const VIDEO_ATTACHMENT_LIMIT_BYTES = 10 * 1024 * 1024
+const videoSubmissionFileExtensions = new Set([
   ".avi",
   ".m4v",
   ".mkv",
@@ -39,17 +26,26 @@ const blockedSubmissionFileExtensions = new Set([
   ".wmv",
 ])
 
-function isBlockedSubmissionFile(file: File) {
-  const fileType = file.type.toLowerCase()
-  const fileName = file.name.toLowerCase()
-  const extensionIndex = fileName.lastIndexOf(".")
-  const extension = extensionIndex >= 0 ? fileName.slice(extensionIndex) : ""
+function getSubmissionFileExtension(fileName: string) {
+  const extensionIndex = fileName.toLowerCase().lastIndexOf(".")
+  return extensionIndex >= 0 ? fileName.toLowerCase().slice(extensionIndex) : ""
+}
 
-  return (
-    fileType.startsWith("image/") ||
-    fileType.startsWith("video/") ||
-    blockedSubmissionFileExtensions.has(extension)
-  )
+function isVideoSubmissionFile(file: File) {
+  const fileType = file.type.toLowerCase()
+  const extension = getSubmissionFileExtension(file.name)
+
+  return fileType.startsWith("video/") || videoSubmissionFileExtensions.has(extension)
+}
+
+function getSubmissionFileSizeLimit(file: File) {
+  return isVideoSubmissionFile(file)
+    ? VIDEO_ATTACHMENT_LIMIT_BYTES
+    : DOCUMENT_ATTACHMENT_LIMIT_BYTES
+}
+
+function formatAttachmentLimit(limit: number) {
+  return `${Math.round(limit / (1024 * 1024))} MB`
 }
 
 function sanitizeFileName(fileName: string) {
@@ -150,9 +146,16 @@ export async function POST(
       return NextResponse.json({ error: "At least one file is required" }, { status: 400 })
     }
 
-    if (files.some(isBlockedSubmissionFile)) {
+    const oversizedFile = files.find((file) => file.size > getSubmissionFileSizeLimit(file))
+
+    if (oversizedFile) {
+      const limit = getSubmissionFileSizeLimit(oversizedFile)
       return NextResponse.json(
-        { error: "Image and video files are not available for attachment uploads." },
+        {
+          error: `The limit is ${formatAttachmentLimit(limit)} for ${
+            isVideoSubmissionFile(oversizedFile) ? "videos" : "documents and images"
+          }.`,
+        },
         { status: 400 }
       )
     }
@@ -204,49 +207,6 @@ export async function POST(
         error: "Failed to upload backlog submissions",
         details: errorMessage,
       },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await requireAuthenticatedUser()
-    const { id } = await params
-    const url = new URL(request.url)
-    const submissionId = url.searchParams.get("submissionId")?.trim()
-
-    if (!submissionId) {
-      return NextResponse.json(
-        { error: "submissionId is required" },
-        { status: 400 }
-      )
-    }
-
-    const deletedSubmission = await deleteBacklogSubmission(
-      id,
-      submissionId,
-      user.id,
-      user.role
-    )
-
-    if (!deletedSubmission) {
-      return NextResponse.json(
-        { error: "Submission not found" },
-        { status: 404 }
-      )
-    }
-
-    revalidateTag("backlog-items", "max")
-
-    return NextResponse.json({ submission: deletedSubmission })
-  } catch (error) {
-    console.error("Failed to delete backlog submission", error)
-    return NextResponse.json(
-      { error: "Failed to delete backlog submission" },
       { status: 500 }
     )
   }

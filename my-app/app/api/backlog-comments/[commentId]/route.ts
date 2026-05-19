@@ -5,7 +5,7 @@ import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   deleteBacklogComment,
   updateBacklogComment,
-} from "@backend/repositories/backlog-comment-repository"
+} from "@backend/repositories/comments-repository"
 
 export async function PATCH(
   request: Request,

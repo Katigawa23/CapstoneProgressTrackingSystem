@@ -4,7 +4,6 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 
 import {
-  canCreateSprintForProject,
   cacheDashboardProjects,
   findDashboardProject,
   getDashboardProjectCode,
@@ -12,6 +11,7 @@ import {
   PROJECT_CHANGE_EVENT,
   type DashboardProject,
 } from "@/lib/projects"
+import { markDashboardBoardSeenInSession } from "@/lib/dashboard-first-open"
 import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
 import {
   broadcastDashboardActivitySync,
@@ -23,12 +23,11 @@ import {
   validateDisplayName,
 } from "@/lib/text-validation"
 import { DashboardBoard } from "../components/dashboard-board"
-import { getTrustedTodayDayNumber, parseDateStringToDayNumber } from "@/lib/trusted-time"
 import {
   DashboardHeader,
   type DashboardBoardFilter,
 } from "../components/dashboard-header"
-import { CreateSprintDialog } from "../components/create-sprint-dialog"
+import { BoardLoadingState } from "./board-loading-state"
 import { CreateWorkItemDialog } from "../backlog/components/create-work-item-dialog"
 import {
   buildAssigneeOptionId,
@@ -43,19 +42,8 @@ type DashboardBoardPageClientProps = {
   initialProjects: DashboardProject[]
   initialSelectedProjectId: string | null
   initialItems: BacklogApiItem[]
-  initialSprints: SprintSummary[]
-  initialSprintId?: string | null
   breadcrumbSectionLabel?: string | null
   onProjectBoardSelectPath?: string
-}
-
-type SprintSummary = {
-  id: string
-  name: string
-  description: string
-  startDate: string
-  endDate: string
-  backlogItemIds: string[]
 }
 
 const BOARD_REALTIME_REFRESH_INTERVAL_MS = 5000
@@ -67,35 +55,6 @@ function normalizeProjectPersonName(name: string) {
     .trim()
     .replace(/\s*\((student|faculty|adviser)\)\s*$/i, "")
     .replace(/\s+/g, " ")
-}
-
-function formatSprintCountdown(startDate: string, endDate: string) {
-  const sprintStartDay = parseDateStringToDayNumber(startDate)
-  const dueDay = parseDateStringToDayNumber(endDate)
-  const todayDay = getTrustedTodayDayNumber()
-
-  if (
-    Number.isNaN(sprintStartDay) ||
-    Number.isNaN(dueDay) ||
-    Number.isNaN(todayDay)
-  ) {
-    return "0 days remaining"
-  }
-
-  if (todayDay > dueDay) {
-    const overdueDays = todayDay - dueDay
-
-    return `${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`
-  }
-
-  const countdownStartDay = Math.max(todayDay, sprintStartDay)
-  const differenceInDays = dueDay - countdownStartDay + 1
-
-  if (differenceInDays === 0) {
-    return "0 days remaining"
-  }
-
-  return `${differenceInDays} day${differenceInDays === 1 ? "" : "s"} remaining`
 }
 
 function areTodoListsEqual(left: TodoItem[], right: TodoItem[]) {
@@ -126,36 +85,10 @@ function areTodoListsEqual(left: TodoItem[], right: TodoItem[]) {
   })
 }
 
-function areSprintListsEqual(left: SprintSummary[], right: SprintSummary[]) {
-  if (left.length !== right.length) {
-    return false
-  }
-
-  return left.every((leftSprint, index) => {
-    const rightSprint = right[index]
-
-    return (
-      rightSprint &&
-      leftSprint.id === rightSprint.id &&
-      leftSprint.name === rightSprint.name &&
-      leftSprint.description === rightSprint.description &&
-      leftSprint.startDate === rightSprint.startDate &&
-      leftSprint.endDate === rightSprint.endDate &&
-      leftSprint.backlogItemIds.length === rightSprint.backlogItemIds.length &&
-      leftSprint.backlogItemIds.every(
-        (backlogItemId, itemIndex) =>
-          backlogItemId === rightSprint.backlogItemIds[itemIndex]
-      )
-    )
-  })
-}
-
 export function DashboardBoardPageClient({
   initialProjects,
   initialSelectedProjectId,
   initialItems,
-  initialSprints,
-  initialSprintId = null,
   breadcrumbSectionLabel = null,
   onProjectBoardSelectPath = "/dashboard/board",
 }: DashboardBoardPageClientProps) {
@@ -163,30 +96,28 @@ export function DashboardBoardPageClient({
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
     initialSelectedProjectId
   )
-  const [todos, setTodos] = React.useState<TodoItem[]>([])
   const getCurrentProjectCode = React.useCallback((projectId?: string | null) => {
     const selectedProjectId = projectId ?? getSelectedDashboardProjectId()
     return getDashboardProjectCode(findDashboardProject(selectedProjectId))
   }, [])
+  const [todos, setTodos] = React.useState<TodoItem[]>(() =>
+    initialSelectedProjectId
+      ? mapBacklogItemsToTodos(initialItems, getCurrentProjectCode(initialSelectedProjectId))
+      : []
+  )
   const [createOpen, setCreateOpen] = React.useState(false)
   const [createTitle, setCreateTitle] = React.useState("")
   const [createTaskError, setCreateTaskError] = React.useState<string | null>(null)
   const [createStartDate, setCreateStartDate] = React.useState<Date | undefined>()
   const [createDueDate, setCreateDueDate] = React.useState<Date | undefined>()
   const [createDescription, setCreateDescription] = React.useState("")
+  const [createAssigneeId, setCreateAssigneeId] = React.useState<string | null>(null)
+  const [createPriority, setCreatePriority] =
+    React.useState<"Low" | "Medium" | "High">("Medium")
   const [isCreatingTask, setIsCreatingTask] = React.useState(false)
-  const [createSprintOpen, setCreateSprintOpen] = React.useState(false)
-  const [sprintName, setSprintName] = React.useState("")
-  const [createSprintError, setCreateSprintError] = React.useState<string | null>(null)
-  const [sprintDuration, setSprintDuration] = React.useState("2-weeks")
-  const [sprintStartDate, setSprintStartDate] = React.useState<Date | undefined>()
-  const [sprintEndDate, setSprintEndDate] = React.useState<Date | undefined>()
-  const [sprintScopeItemId, setSprintScopeItemId] = React.useState("")
-  const [sprintDescription, setSprintDescription] = React.useState("")
-  const [isCreatingSprint, setIsCreatingSprint] = React.useState(false)
-  const [sprints, setSprints] = React.useState<SprintSummary[]>([])
-  const [selectedSprintId, setSelectedSprintId] = React.useState<string | null>(initialSprintId)
-  const [hasLoadedBoardData, setHasLoadedBoardData] = React.useState(false)
+  const [hasLoadedBoardData, setHasLoadedBoardData] = React.useState(
+    () => Boolean(initialSelectedProjectId)
+  )
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
   const [searchValue, setSearchValue] = React.useState("")
   const [filterValue, setFilterValue] =
@@ -202,14 +133,8 @@ export function DashboardBoardPageClient({
       null,
     [initialProjects, selectedProjectId]
   )
-  const selectedSprint = React.useMemo(
-    () => sprints.find((sprint) => sprint.id === selectedSprintId) ?? null,
-    [selectedSprintId, sprints]
-  )
-  const canCreateSprint = React.useMemo(
-    () => canCreateSprintForProject(selectedProject, currentUser),
-    [currentUser, selectedProject]
-  )
+  const canManageProjectResources =
+    currentUser?.role === "faculty" || currentUser?.role === "admin"
   const projectPeople = React.useMemo(
     () => {
       const peopleByName = new Map<string, string>()
@@ -322,22 +247,6 @@ export function DashboardBoardPageClient({
     [getCurrentProjectCode]
   )
 
-  const fetchSprintsForProject = React.useCallback(async (projectId: string) => {
-    const response = await fetch(`/api/sprints?projectId=${projectId}`, {
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      throw new Error("Failed to load sprints")
-    }
-
-    const data = (await response.json()) as {
-      sprints: SprintSummary[]
-    }
-
-    return data.sprints
-  }, [])
-
   React.useEffect(() => {
     const syncCurrentUser = () => {
       setCurrentUser(readClientAuthSession()?.user ?? null)
@@ -370,20 +279,22 @@ export function DashboardBoardPageClient({
     }
 
     setTodos(mapBacklogItemsToTodos(initialItems, getCurrentProjectCode(initialSelectedProjectId)))
-    setSprints(initialSprints)
-    setSelectedSprintId(initialSprintId)
     setHasLoadedBoardData(true)
   }, [
     currentUser,
     getCurrentProjectCode,
     initialItems,
     initialProjects,
-    initialSprints,
     initialSelectedProjectId,
-    initialSprintId,
     selectedProject,
     hasLoadedBoardData,
   ])
+
+  React.useEffect(() => {
+    if (hasLoadedBoardData) {
+      markDashboardBoardSeenInSession(selectedProjectId)
+    }
+  }, [hasLoadedBoardData, selectedProjectId])
 
   React.useEffect(() => {
     if (!hasLoadedBoardData) {
@@ -622,31 +533,24 @@ export function DashboardBoardPageClient({
       })
 
       try {
-        await Promise.all(
-          changedRootTodos.map((todo) =>
-            fetch(`/api/backlog-items/${todo.id}`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                status: todo.status,
-                checked: todo.checked ?? false,
-                orderIndex: todo.orderIndex,
-              }),
-            }).then((response) => {
-              if (!response.ok) {
-                throw new Error("Failed to reorder backlog item")
-              }
-            })
-          )
-        )
-        const activeProjectId = getSelectedDashboardProjectId()
+        for (const todo of changedRootTodos) {
+          const response = await fetch(`/api/backlog-items/${todo.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              parentId: todo.parentId ?? null,
+              status: todo.status,
+              checked: todo.checked ?? false,
+              orderIndex: todo.orderIndex,
+            }),
+          })
 
-        if (activeProjectId) {
-          const refreshedSprints = await fetchSprintsForProject(activeProjectId)
-
-          setSprints(refreshedSprints)
+          if (!response.ok) {
+            const data = (await response.json().catch(() => null)) as { error?: string } | null
+            throw new Error(data?.error || "Failed to reorder backlog item")
+          }
         }
       } catch (error) {
         console.error(error)
@@ -662,7 +566,6 @@ export function DashboardBoardPageClient({
       }
     },
     [
-      fetchSprintsForProject,
       guardBoardSyncDuringLocalMutation,
       releaseBoardSyncGuardAfterSettle,
       todos,
@@ -676,6 +579,7 @@ export function DashboardBoardPageClient({
           todo.id === todoId ? { ...todo, ...updates } : todo
         )
       )
+
     },
     []
   )
@@ -740,6 +644,48 @@ export function DashboardBoardPageClient({
     [todos]
   )
 
+  const handlePriorityChange = React.useCallback(
+    async (todoId: string, priority: TodoItem["priority"]) => {
+      const currentTodo = todos.find((todo) => todo.id === todoId)
+
+      if (!currentTodo || currentTodo.priority === priority) {
+        return
+      }
+
+      setTodos((currentTodos) =>
+        currentTodos.map((todo) =>
+          todo.id === todoId ? { ...todo, priority } : todo
+        )
+      )
+
+      try {
+        const response = await fetch(`/api/backlog-items/${todoId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            priority,
+            parentId: currentTodo.parentId ?? null,
+          }),
+        })
+
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as { error?: string } | null
+          throw new Error(data?.error || "Failed to update backlog item priority")
+        }
+      } catch (error) {
+        console.error(error)
+        setTodos((currentTodos) =>
+          currentTodos.map((todo) =>
+            todo.id === todoId ? { ...todo, priority: currentTodo.priority } : todo
+          )
+        )
+      }
+    },
+    [todos]
+  )
+
   const handleUpdateSubtask = React.useCallback(
     async (
       subtaskId: string,
@@ -793,72 +739,6 @@ export function DashboardBoardPageClient({
       }
     },
     [todos]
-  )
-
-  const handleDeleteSubtask = React.useCallback(
-    async (parentTodoId: string, subtaskId: string) => {
-      const previousTodos = todos
-      const nextTodos = todos.filter((todo) => todo.id !== subtaskId)
-
-      setTodos(
-        nextTodos.map((todo) =>
-          todo.id === parentTodoId
-            ? { ...todo, checklist: buildChecklist(nextTodos, parentTodoId) }
-            : todo
-        )
-      )
-
-      try {
-        const response = await fetch(`/api/backlog-items/${subtaskId}`, {
-          method: "DELETE",
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to delete subtask")
-        }
-      } catch (error) {
-        console.error(error)
-        setTodos(previousTodos)
-        throw error
-      }
-    },
-    [buildChecklist, todos]
-  )
-
-  const handleDeleteTodo = React.useCallback(
-    async (todo: TodoItem) => {
-      const previousTodos = todos
-      const nextTodos = todo.parentId
-        ? todos.filter((item) => item.id !== todo.id)
-        : todos.filter((item) => item.id !== todo.id && item.parentId !== todo.id)
-
-      setTodos(() => {
-        if (!todo.parentId) {
-          return nextTodos
-        }
-
-        return nextTodos.map((item) =>
-          item.id === todo.parentId
-            ? { ...item, checklist: buildChecklist(nextTodos, todo.parentId) }
-            : item
-        )
-      })
-
-      try {
-        const response = await fetch(`/api/backlog-items/${todo.id}`, {
-          method: "DELETE",
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to delete item")
-        }
-      } catch (error) {
-        console.error(error)
-        setTodos(previousTodos)
-        throw error
-      }
-    },
-    [buildChecklist, todos]
   )
 
   const handleArchiveTodo = React.useCallback(
@@ -915,6 +795,8 @@ export function DashboardBoardPageClient({
     setCreateStartDate(undefined)
     setCreateDueDate(undefined)
     setCreateDescription("")
+    setCreateAssigneeId(null)
+    setCreatePriority("Medium")
   }
 
   const handleCreateItem = async () => {
@@ -951,7 +833,8 @@ export function DashboardBoardPageClient({
           startDate: createStartDate ? createStartDate.toISOString().slice(0, 10) : null,
           dueDate: createDueDate ? createDueDate.toISOString().slice(0, 10) : null,
           status: "todo",
-          assigneeId: null,
+          assigneeId: createAssigneeId,
+          priority: createPriority,
         }),
       })
 
@@ -1000,24 +883,11 @@ export function DashboardBoardPageClient({
       }
 
       try {
-        const [mappedTodos, nextSprints] = await Promise.all([
-          fetchTodosForProject(savedProjectId),
-          fetchSprintsForProject(savedProjectId),
-        ])
+        const mappedTodos = await fetchTodosForProject(savedProjectId)
 
         if (!cancelled) {
           setTodos((currentTodos) =>
             areTodoListsEqual(currentTodos, mappedTodos) ? currentTodos : mappedTodos
-          )
-          setSprints((currentSprints) =>
-            areSprintListsEqual(currentSprints, nextSprints)
-              ? currentSprints
-              : nextSprints
-          )
-          setSelectedSprintId((currentSelectedSprintId) =>
-            nextSprints.some((sprint) => sprint.id === currentSelectedSprintId)
-              ? currentSelectedSprintId
-              : null
           )
           setHasLoadedBoardData(true)
         }
@@ -1041,7 +911,6 @@ export function DashboardBoardPageClient({
     }
   }, [
     currentUser,
-    fetchSprintsForProject,
     fetchTodosForProject,
     initialProjects,
     initialSelectedProjectId,
@@ -1069,10 +938,7 @@ export function DashboardBoardPageClient({
       isSyncing = true
 
       try {
-        const [nextTodos, nextSprints] = await Promise.all([
-          fetchTodosForProject(selectedProjectId),
-          fetchSprintsForProject(selectedProjectId),
-        ])
+        const nextTodos = await fetchTodosForProject(selectedProjectId)
 
         if (cancelled || Date.now() < localMutationGuardUntilRef.current) {
           return
@@ -1080,16 +946,6 @@ export function DashboardBoardPageClient({
 
         setTodos((currentTodos) =>
           areTodoListsEqual(currentTodos, nextTodos) ? currentTodos : nextTodos
-        )
-        setSprints((currentSprints) =>
-          areSprintListsEqual(currentSprints, nextSprints)
-            ? currentSprints
-            : nextSprints
-        )
-        setSelectedSprintId((currentSelectedSprintId) =>
-          nextSprints.some((sprint) => sprint.id === currentSelectedSprintId)
-            ? currentSelectedSprintId
-            : null
         )
       } catch (error) {
         if (!cancelled) {
@@ -1117,7 +973,7 @@ export function DashboardBoardPageClient({
       window.clearInterval(intervalId)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  }, [fetchSprintsForProject, fetchTodosForProject, selectedProjectId])
+  }, [fetchTodosForProject, selectedProjectId])
 
   const handleCreateSubtask = React.useCallback(
     async (
@@ -1228,28 +1084,8 @@ export function DashboardBoardPageClient({
 
   const filteredTodos = React.useMemo(() => {
     const normalizedSearch = searchValue.trim().toLowerCase()
-    const sprintBacklogItemIds = new Set(selectedSprint?.backlogItemIds ?? [])
-    const allSprintBacklogItemIds = new Set(
-      sprints.flatMap((sprint) => sprint.backlogItemIds)
-    )
 
     return todos.filter((todo) => {
-      if (
-        selectedSprint &&
-        !sprintBacklogItemIds.has(todo.id) &&
-        !(todo.parentId && sprintBacklogItemIds.has(todo.parentId))
-      ) {
-        return false
-      }
-
-      if (
-        !selectedSprint &&
-        (allSprintBacklogItemIds.has(todo.id) ||
-          (todo.parentId ? allSprintBacklogItemIds.has(todo.parentId) : false))
-      ) {
-        return false
-      }
-
       if (filterValue === "subtask" && !todo.parentId) {
         return false
       }
@@ -1276,217 +1112,18 @@ export function DashboardBoardPageClient({
         value.toLowerCase().includes(normalizedSearch)
       )
     })
-  }, [currentUserAssigneeIds, filterValue, searchValue, selectedSprint, sprints, todos])
+  }, [currentUserAssigneeIds, filterValue, searchValue, todos])
 
-  const sprintScopeOptions = React.useMemo(
-    () =>
-      todos
-        .filter((todo) => !todo.parentId)
-        .map((todo) => ({
-          id: todo.id,
-          label: `${todo.displayId} - ${todo.title}`,
-        })),
-    [todos]
-  )
-
-  const resetCreateSprintForm = React.useCallback(() => {
-    setSprintName("")
-    setCreateSprintError(null)
-    setSprintDuration("2-weeks")
-    setSprintStartDate(undefined)
-    setSprintEndDate(undefined)
-    setSprintScopeItemId("")
-    setSprintDescription("")
-  }, [])
-
-  const handleCreateSprint = React.useCallback(async () => {
-    if (isCreatingSprint || !sprintName.trim() || !sprintStartDate || !sprintEndDate) {
-      return
-    }
-
-    const nameValidationError = validateDisplayName(sprintName, "Sprint name", {
-      maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
-    })
-
-    if (nameValidationError) {
-      setCreateSprintError(nameValidationError)
-      return
-    }
-
-    const activeProjectId = getSelectedDashboardProjectId()
-
-    if (!activeProjectId) {
-      router.replace("/dashboard")
-      return
-    }
-
-    try {
-      if (!canCreateSprint) {
-        return
-      }
-
-      setIsCreatingSprint(true)
-      const response = await fetch("/api/sprints", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectId: activeProjectId,
-          name: sprintName.trim(),
-          duration: sprintDuration,
-          startDate: sprintStartDate.toISOString().slice(0, 10),
-          endDate: sprintEndDate.toISOString().slice(0, 10),
-          description: sprintDescription.trim(),
-          backlogItemIds: sprintScopeItemId ? [sprintScopeItemId] : [],
-        }),
-      })
-
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(data?.error || "Failed to create sprint")
-      }
-
-      const data = (await response.json()) as {
-        sprint: SprintSummary
-      }
-
-      setSprints((currentSprints) => [data.sprint, ...currentSprints])
-      if (sprintScopeItemId) {
-        setTodos((currentTodos) =>
-          currentTodos.map((todo) =>
-            todo.id === sprintScopeItemId
-              ? { ...todo, status: "todo", checked: false }
-              : todo
-          )
-        )
-      }
-
-      setCreateSprintOpen(false)
-      resetCreateSprintForm()
-      router.push(`/dashboard/active-sprint/${data.sprint.id}`)
-    } catch (error) {
-      setCreateSprintError(
-        error instanceof Error ? error.message : "Failed to create sprint"
-      )
-    } finally {
-      setIsCreatingSprint(false)
-    }
-  }, [
-    isCreatingSprint,
-    resetCreateSprintForm,
-    router,
-    sprintDescription,
-    sprintDuration,
-    sprintEndDate,
-    sprintName,
-    sprintScopeItemId,
-    sprintStartDate,
-    canCreateSprint,
-  ])
-
-  const handleAddToSprint = React.useCallback(
-    async (todoId: string, sprintId: string) => {
-      if (!canCreateSprint) {
-        return
-      }
-
-      try {
-        const response = await fetch(`/api/sprints/${sprintId}/items`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            backlogItemId: todoId,
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to add work item to sprint")
-        }
-
-        setSprints((currentSprints) =>
-          currentSprints.map((sprint) =>
-            sprint.id === sprintId
-              ? {
-                  ...sprint,
-                  backlogItemIds: sprint.backlogItemIds.includes(todoId)
-                    ? sprint.backlogItemIds
-                    : [...sprint.backlogItemIds.filter((id) => id !== todoId), todoId],
-                }
-              : {
-                  ...sprint,
-                  backlogItemIds: sprint.backlogItemIds.filter((id) => id !== todoId),
-                }
-          )
-        )
-        setTodos((currentTodos) =>
-          currentTodos.map((todo) =>
-            todo.id === todoId ? { ...todo, status: "todo", checked: false } : todo
-          )
-        )
-      } catch (error) {
-        console.error(error)
-      }
-    },
-    [canCreateSprint]
-  )
-
-  const handleMoveToBoard = React.useCallback(
-    async (todoId: string, sprintId: string) => {
-      if (!canCreateSprint) {
-        return
-      }
-
-      try {
-        const response = await fetch(`/api/sprints/${sprintId}/items`, {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            backlogItemId: todoId,
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to move work item to board")
-        }
-
-        setSprints((currentSprints) =>
-          currentSprints.map((sprint) =>
-            sprint.id === sprintId
-              ? {
-                  ...sprint,
-                  backlogItemIds: sprint.backlogItemIds.filter((id) => id !== todoId),
-                }
-              : sprint
-          )
-        )
-      } catch (error) {
-        console.error(error)
-      }
-    },
-    [canCreateSprint]
-  )
+  if (!hasLoadedBoardData) {
+    return <BoardLoadingState />
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
       <DashboardHeader
         people={projectPeople}
         breadcrumbSectionLabel={breadcrumbSectionLabel}
-        activeSprintName={selectedSprint?.name ?? null}
-        sprintDescription={selectedSprint?.description ?? null}
-        sprintCountdownLabel={
-          selectedSprint
-            ? formatSprintCountdown(selectedSprint.startDate, selectedSprint.endDate)
-            : null
-        }
-        boardTitle={selectedSprint ? "Sprint" : "Board"}
-        showCreateButton={!selectedSprint}
-        canCreateSprint={canCreateSprint}
-        sprints={sprints}
+        boardTitle="Board"
         onProjectSelect={() => {
           router.push("/dashboard/board")
         }}
@@ -1497,21 +1134,6 @@ export function DashboardBoardPageClient({
 
           router.push(onProjectBoardSelectPath)
         }}
-        onActiveSprintSelect={() => {
-          if (!selectedSprint?.id) {
-            return
-          }
-
-          router.push(`/dashboard/active-sprint/${selectedSprint.id}`)
-        }}
-        onSprintSelect={(sprintId) => {
-          if (breadcrumbSectionLabel) {
-            router.push(`/dashboard/active-sprint/${sprintId}`)
-            return
-          }
-
-          setSelectedSprintId(sprintId)
-        }}
         searchValue={searchValue}
         onSearchChange={setSearchValue}
         filterValue={filterValue}
@@ -1519,14 +1141,6 @@ export function DashboardBoardPageClient({
         onCreate={() => {
           setCreateOpen(true)
         }}
-        onCreateSprint={() => {
-          if (!canCreateSprint) {
-            return
-          }
-
-          setCreateSprintOpen(true)
-        }}
-        onManageSprints={() => {}}
       />
       <div className="min-h-0 w-full min-w-0 flex-1 overflow-x-auto">
         <div className="min-h-0 w-full min-w-0 md:max-w-[calc(100vw-var(--sidebar-width)-3rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
@@ -1534,24 +1148,17 @@ export function DashboardBoardPageClient({
             todos={filteredTodos}
             currentUserId={currentUser?.id ?? null}
             creatorNamesById={creatorNamesById}
-            canManageOtherProjectResources={canCreateSprint}
-            canMoveToSprint={canCreateSprint}
-            isSprintView={Boolean(selectedSprint)}
-            currentSprintId={selectedSprint?.id ?? null}
-            sprints={sprints}
+            canManageOtherProjectResources={canManageProjectResources}
             onStatusChange={handleStatusChange}
             onMoveTodo={handleMoveTodo}
             onAssigneeChange={handleAssigneeChange}
-            onAddToSprint={handleAddToSprint}
-            onMoveToBoard={handleMoveToBoard}
+            onPriorityChange={handlePriorityChange}
             onTodoUpdate={handleTodoUpdate}
             onCreateSubtask={handleCreateSubtask}
             isCreatingSubtask={isCreatingSubtask}
             createSubtaskError={createSubtaskError}
             onCreateSubtaskInputChange={() => setCreateSubtaskError(null)}
             onUpdateSubtask={handleUpdateSubtask}
-            onDeleteSubtask={handleDeleteSubtask}
-            onDeleteTodo={handleDeleteTodo}
             onArchiveTodo={handleArchiveTodo}
           />
         </div>
@@ -1570,6 +1177,8 @@ export function DashboardBoardPageClient({
         startDate={createStartDate}
         dueDate={createDueDate}
         description={createDescription}
+        assigneeId={createAssigneeId}
+        priority={createPriority}
         onTitleChange={(value) => {
           setCreateTaskError(null)
           setCreateTitle(value)
@@ -1577,38 +1186,12 @@ export function DashboardBoardPageClient({
         onStartDateChange={setCreateStartDate}
         onDueDateChange={setCreateDueDate}
         onDescriptionChange={setCreateDescription}
+        onAssigneeChange={setCreateAssigneeId}
+        onPriorityChange={setCreatePriority}
         isSubmitting={isCreatingTask}
         onAddItem={handleCreateItem}
       />
 
-      <CreateSprintDialog
-        open={createSprintOpen}
-        onOpenChange={(open) => {
-          setCreateSprintOpen(open)
-          if (!open) {
-            resetCreateSprintForm()
-          }
-        }}
-        sprintName={sprintName}
-        sprintNameError={createSprintError}
-        duration={sprintDuration}
-        startDate={sprintStartDate}
-        endDate={sprintEndDate}
-        scopeItemId={sprintScopeItemId}
-        description={sprintDescription}
-        scopeOptions={sprintScopeOptions}
-        onSprintNameChange={(value) => {
-          setCreateSprintError(null)
-          setSprintName(value)
-        }}
-        onDurationChange={setSprintDuration}
-        onStartDateChange={setSprintStartDate}
-        onEndDateChange={setSprintEndDate}
-        onScopeItemChange={setSprintScopeItemId}
-        onDescriptionChange={setSprintDescription}
-        isSubmitting={isCreatingSprint}
-        onCreateSprint={handleCreateSprint}
-      />
     </div>
   )
 }

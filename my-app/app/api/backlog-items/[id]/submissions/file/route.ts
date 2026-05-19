@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { getBacklogSubmissionAsset } from "@backend/repositories/backlog-attachment-repository"
+import { getBacklogSubmissionAsset } from "@backend/repositories/attachments-repository"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 
 export const runtime = "nodejs"

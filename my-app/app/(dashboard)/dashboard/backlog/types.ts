@@ -23,6 +23,7 @@ export type WorkItem = {
   status: string
   checked: boolean
   assigneeId?: string | null
+  priority?: "Low" | "Medium" | "High"
 }
 
 export const statusOptions: StatusOption[] = [
@@ -97,7 +98,7 @@ function buildAssigneeOption(
 
 export function createAssigneeOptionsFromNames(
   names: string[],
-  currentUser?: { id?: string | null; name?: string | null; email?: string | null } | null
+  currentUser?: { id?: string | null; name?: string | null; email?: string | null; role?: string | null } | null
 ) {
   const uniqueNames = Array.from(
     new Set(
@@ -108,12 +109,15 @@ export function createAssigneeOptionsFromNames(
   )
 
   const currentUserName = currentUser?.name?.trim() ?? ""
+  const canAssignSelf = currentUser?.role === "student"
 
-  if (currentUserName && !uniqueNames.includes(currentUserName)) {
+  if (currentUserName && canAssignSelf && !uniqueNames.includes(currentUserName)) {
     uniqueNames.unshift(currentUserName)
   }
 
-  return uniqueNames.map((name) => buildAssigneeOption(name, currentUser))
+  return uniqueNames
+    .filter((name) => canAssignSelf || name !== currentUserName)
+    .map((name) => buildAssigneeOption(name, currentUser))
 }
 
 export function createAssigneeOptionsFromProject(
@@ -124,7 +128,7 @@ export function createAssigneeOptionsFromProject(
       }
     | null
     | undefined,
-  currentUser?: { id?: string | null; name?: string | null; email?: string | null } | null
+  currentUser?: { id?: string | null; name?: string | null; email?: string | null; role?: string | null } | null
 ) {
   const memberNames = (project?.members ?? [])
     .map((name) => name.trim())
@@ -132,8 +136,13 @@ export function createAssigneeOptionsFromProject(
   const memberUserIds = (project?.memberUserIds ?? []).map((id) => id.trim())
   const currentUserName = currentUser?.name?.trim() ?? ""
   const currentUserId = currentUser?.id?.trim() ?? ""
+  const canAssignSelf = currentUser?.role === "student"
 
   const options = memberNames.flatMap((name, index) => {
+    if (!canAssignSelf && name === currentUserName) {
+      return []
+    }
+
     const mappedId = memberUserIds[index]
     const resolvedId =
       currentUserName && name === currentUserName && currentUserId
@@ -148,6 +157,7 @@ export function createAssigneeOptionsFromProject(
   })
 
   if (
+    canAssignSelf &&
     currentUserName &&
     !options.some((option) => option.id === currentUserId || option.name === currentUserName)
   ) {

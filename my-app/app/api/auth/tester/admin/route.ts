@@ -6,7 +6,7 @@ import {
   createUserCookieValue,
   getAuthCookieOptions,
 } from "@backend/auth/session"
-import { saveMicrosoftAccountLogin } from "@backend/repositories/microsoft-login-repository"
+import { saveMicrosoftAccountLogin } from "@backend/repositories/users-repository"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"

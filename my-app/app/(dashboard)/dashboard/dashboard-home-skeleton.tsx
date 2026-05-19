@@ -4,13 +4,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 function ProjectCardSkeleton() {
   return (
-    <Card className="relative flex min-h-[142px] w-full flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm dark:border-[#343434] dark:bg-[#1f1f1f]">
+    <Card className="relative flex min-h-[124px] w-full flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm dark:border-[#343434] dark:bg-[#1f1f1f]">
       <div className="absolute inset-y-0 left-0 w-1.5 bg-sky-200/80 dark:bg-sky-900/60" />
-      <CardHeader className="flex-1 space-y-3 px-4 pb-3 pt-3.5">
-        <div className="space-y-2">
+      <CardHeader className="flex-1 space-y-2 px-4 pb-2.5 pt-3">
+        <div className="space-y-1.5">
           <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-5 w-3/4" />
+          <Skeleton className="h-3.5 w-1/2" />
         </div>
 
         <div className="flex justify-end">
@@ -55,7 +55,7 @@ export function DashboardHomeSkeleton({
   workedOnCount?: number
   showEmptyState?: boolean
 }) {
-  const visibleProjectSkeletons = Math.max(projectCount, 1)
+  const visibleProjectSkeletons = Math.min(Math.max(projectCount, 1), 4)
   const visibleWorkedOnSkeletons = Math.max(workedOnCount, 1)
 
   return (
@@ -78,7 +78,7 @@ export function DashboardHomeSkeleton({
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <h2 className="font-display text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-              Recent projects
+              For you
             </h2>
             <span className="text-sm font-medium text-sky-700 dark:text-sky-400">
               View all projects
@@ -86,9 +86,9 @@ export function DashboardHomeSkeleton({
           </div>
 
           {hasProjects ? (
-            <div className="flex flex-wrap gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {Array.from({ length: visibleProjectSkeletons }).map((_, index) => (
-                <div key={index} className="w-[220px] flex-none sm:w-[240px]">
+                <div key={index} className="w-full">
                   <ProjectCardSkeleton />
                 </div>
               ))}
@@ -99,16 +99,11 @@ export function DashboardHomeSkeleton({
         </section>
 
         <section className="border-t border-slate-200 pt-4 dark:border-slate-800">
-          <div className="flex flex-wrap gap-6 pt-4">
-            <span className="text-sm font-medium text-blue-700">Worked on</span>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Assigned to me</span>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Viewed</span>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Starred</span>
-          </div>
-          <div className="mt-3 h-px w-full bg-slate-200 dark:bg-slate-800" />
-
+          <h2 className="font-display text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+            Recent projects
+          </h2>
           {hasProjects ? (
-            <div className="space-y-6 pt-6">
+            <div className="space-y-6 pt-4">
               <section className="space-y-3">
                 <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                   In the last month

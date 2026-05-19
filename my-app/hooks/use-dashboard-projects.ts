@@ -49,6 +49,17 @@ function isCurrentUserMemberOption(
   )
 }
 
+function canViewMemberOption(
+  member: ProjectMemberOption,
+  currentUser: AuthenticatedUser | null | undefined
+) {
+  if (currentUser?.role !== "faculty") {
+    return true
+  }
+
+  return member.role === "student"
+}
+
 export function useDashboardProjects({
   initialProjects = [],
   initialTeam = null,
@@ -183,7 +194,11 @@ export function useDashboardProjects({
         const currentUser = readClientAuthSession()?.user ?? null
         setMemberOptions(
           Array.isArray(data.users)
-            ? data.users.filter((member) => !isCurrentUserMemberOption(member, currentUser))
+            ? data.users.filter(
+                (member) =>
+                  !isCurrentUserMemberOption(member, currentUser) &&
+                  canViewMemberOption(member, currentUser)
+              )
             : []
         )
       } catch (error) {
@@ -213,7 +228,12 @@ export function useDashboardProjects({
   }, [])
 
   const handleMemberSelect = React.useCallback((member: ProjectMemberOption) => {
-    if (isCurrentUserMemberOption(member, readClientAuthSession()?.user)) {
+    const currentUser = readClientAuthSession()?.user
+
+    if (
+      isCurrentUserMemberOption(member, currentUser) ||
+      !canViewMemberOption(member, currentUser)
+    ) {
       setMemberSearch("")
       return
     }
@@ -225,10 +245,7 @@ export function useDashboardProjects({
 
       return [
         ...currentMembers,
-        {
-          ...member,
-          canCreateSprint: member.role === "faculty",
-        },
+        member,
       ]
     })
     setMemberSearch("")
@@ -237,19 +254,6 @@ export function useDashboardProjects({
   const handleMemberRemove = React.useCallback((memberId: string) => {
     setSelectedMembers((currentMembers) =>
       currentMembers.filter((member) => member.id !== memberId)
-    )
-  }, [])
-
-  const handleMemberRoleToggle = React.useCallback((memberId: string, checked: boolean) => {
-    setSelectedMembers((currentMembers) =>
-      currentMembers.map((member) =>
-        member.id === memberId
-          ? {
-              ...member,
-              canCreateSprint: checked,
-            }
-          : member
-      )
     )
   }, [])
 
@@ -290,10 +294,6 @@ export function useDashboardProjects({
       .filter((member) => member.role === "faculty")
       .map((member) => member.name.trim())
       .filter(Boolean)
-    const sprintCreatorUserIds = selectedMembers
-      .filter((member) => member.role === "faculty" || member.canCreateSprint)
-      .map((member) => member.id.trim())
-      .filter(Boolean)
     const memberUserIds = selectedMembers
       .filter((member) => member.role === "student")
       .map((member) => member.id.trim())
@@ -302,7 +302,7 @@ export function useDashboardProjects({
       .map((member) => ({
         userId: member.id.trim(),
         role: member.role,
-        canCreateSprint: member.role === "faculty" || member.canCreateSprint,
+        canCreateSprint: false,
       }))
       .filter((member) => member.userId)
 
@@ -326,7 +326,6 @@ export function useDashboardProjects({
         name: title,
         members: memberNames,
         advisers: adviserNames,
-        sprintCreatorUserIds,
         memberUserIds,
         memberAccess,
         program,
@@ -378,7 +377,6 @@ export function useDashboardProjects({
     isCreatingProject,
     handleMemberSearchChange,
     handleMemberRemove,
-    handleMemberRoleToggle,
     handleMemberSelect,
     handleProjectTitleChange,
     memberSearch,

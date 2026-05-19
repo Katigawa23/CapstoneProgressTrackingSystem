@@ -4,25 +4,31 @@ import * as React from "react"
 import Link from "next/link"
 import {
   Archive,
-  CheckSquare2,
-  GitFork,
   MoreHorizontal,
   Pencil,
   Star,
-  Trash2,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { ProjectMonogram } from "@/components/projects/project-monogram"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Tooltip,
   TooltipContent,
@@ -32,12 +38,19 @@ import {
 import { useRouter } from "next/navigation"
 import {
   type DashboardProject,
+  type DashboardProjectAccessRecord,
+  PROJECT_CHANGE_EVENT,
   PROJECTS_CHANGE_EVENT,
+  archiveDashboardProject,
   cacheDashboardProjects,
+  getDashboardProjectAccessRecords,
   getDashboardProjects,
   setDashboardProject,
   setDashboardProjectStarred,
 } from "@/lib/projects"
+import {
+  markDashboardHomeSeenInSession,
+} from "@/lib/dashboard-first-open"
 import {
   readClientAuthSession,
   subscribeToAuthChange,
@@ -49,24 +62,8 @@ import {
   getTrustedNowDate,
 } from "@/lib/trusted-time"
 import { canCreateProject as canCreateProjectForRole, isUserRole } from "@/lib/rbac"
-import {
-  subscribeToDashboardActivitySync,
-} from "@/lib/dashboard-activity-sync"
 import { writeDashboardHomeState } from "@/lib/dashboard-home-state"
-import { buildAssigneeOptionId } from "./backlog/types"
 import type { BacklogApiItem } from "./types"
-
-type DashboardActivity = {
-  id: string
-  title: string
-  action: "Created" | "Assigned" | "Viewed" | "Starred"
-  createdAt: string
-  itemKey: string
-  isSubtask: boolean
-  projectId: string
-  projectName: string
-  projectMember: string
-}
 
 type DashboardPageClientProps = {
   initialProjects: DashboardProject[]
@@ -79,33 +76,24 @@ type DashboardPageClientProps = {
   >
 }
 
+type RecentProjectEntry = {
+  project: DashboardProject
+  accessedAt?: string
+}
+
 export function DashboardPageClient({
   initialProjects,
-  initialActivities,
 }: DashboardPageClientProps) {
   const router = useRouter()
   const [hasHydrated, setHasHydrated] = React.useState(false)
-  const recentProjectsScrollRef = React.useRef<HTMLDivElement | null>(null)
   const [projects, setProjects] = React.useState<DashboardProject[]>(initialProjects)
-  const [activityItems, setActivityItems] = React.useState(initialActivities)
+  const [projectAccessRecords, setProjectAccessRecords] = React.useState<DashboardProjectAccessRecord[]>([])
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
+  const [pendingArchiveProject, setPendingArchiveProject] = React.useState<DashboardProject | null>(null)
   const canCreateProject =
     currentUser?.role && isUserRole(currentUser.role)
       ? canCreateProjectForRole(currentUser.role)
       : false
-  const currentUserAssigneeIds = React.useMemo(() => {
-    const ids = new Set<string>()
-
-    if (currentUser?.id?.trim()) {
-      ids.add(currentUser.id.trim())
-    }
-
-    if (currentUser?.name?.trim()) {
-      ids.add(buildAssigneeOptionId(currentUser.name))
-    }
-
-    return ids
-  }, [currentUser])
 
   const getMemberInitials = React.useCallback((name: string) => {
     return name
@@ -177,48 +165,6 @@ export function DashboardPageClient({
     [projects]
   )
 
-  const buildActivityItemKeys = React.useCallback(
-    (items: BacklogApiItem[], projectType: string) => {
-      const projectCode = getProjectTypeCode(projectType)
-      const rootDisplayIdById = new Map<string, string>()
-      const childItemsByParentId = new Map<
-        string,
-        Array<BacklogApiItem & { parentId: string }>
-      >()
-
-      for (const item of items) {
-        if (!item.parentId) {
-          rootDisplayIdById.set(item.id, `${projectCode}-${item.sequenceNumber}`)
-          continue
-        }
-
-        const siblings = childItemsByParentId.get(item.parentId) ?? []
-        siblings.push(item as BacklogApiItem & { parentId: string })
-        childItemsByParentId.set(item.parentId, siblings)
-      }
-
-      for (const siblings of childItemsByParentId.values()) {
-        siblings.sort((left, right) => left.sequenceNumber - right.sequenceNumber)
-      }
-
-      return new Map(
-        items.map((item) => {
-          if (!item.parentId) {
-            return [item.id, rootDisplayIdById.get(item.id) ?? `${projectCode}-${item.sequenceNumber}`]
-          }
-
-          const siblings = childItemsByParentId.get(item.parentId) ?? []
-          const siblingIndex = siblings.findIndex((sibling) => sibling.id === item.id)
-          const parentDisplayId =
-            rootDisplayIdById.get(item.parentId) ?? `${projectCode}-${item.sequenceNumber}`
-
-          return [item.id, `${parentDisplayId} / ST-${Math.max(siblingIndex + 1, 1)}`]
-        })
-      )
-    },
-    [getProjectTypeCode]
-  )
-
   const projectDisplayIds = React.useMemo(() => {
     return new Map(
       projects.map((project) => [
@@ -231,77 +177,12 @@ export function DashboardPageClient({
     )
   }, [getProjectDisplayId, getStableProjectIndex, projects])
 
-  const activities = React.useMemo(() => {
-    const projectById = new Map(projects.map((project) => [project.id, project]))
-    const itemsByProjectId = new Map<string, BacklogApiItem[]>()
-
-    for (const item of activityItems) {
-      const projectId = item.projectId ?? ""
-      const items = itemsByProjectId.get(projectId) ?? []
-      items.push(item)
-      itemsByProjectId.set(projectId, items)
-    }
-
-    const itemKeysByProjectId = new Map<string, Map<string, string>>()
-
-    for (const [projectId, items] of itemsByProjectId.entries()) {
-      const project = projectById.get(projectId)
-
-      if (!project) {
-        continue
-      }
-
-      const sortedItems = [...items].sort(
-        (left, right) =>
-          new Date(left.createdAt ?? 0).getTime() - new Date(right.createdAt ?? 0).getTime()
-      )
-
-      itemKeysByProjectId.set(projectId, buildActivityItemKeys(sortedItems, project.projectType))
-    }
-
-    return activityItems
-      .reduce<DashboardActivity[]>((entries, item) => {
-        const project = projectById.get(item.projectId ?? "")
-
-        if (!project) {
-          return entries
-        }
-
-        const itemKeys = itemKeysByProjectId.get(project.id)
-
-        entries.push({
-          id: item.id,
-          title: item.title,
-          action: item.assigneeId && currentUserAssigneeIds.has(item.assigneeId)
-            ? "Assigned"
-            : "Created",
-          createdAt: item.createdAt ?? new Date(0).toISOString(),
-          itemKey:
-            itemKeys?.get(item.id) ??
-            `${projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, 0)}-1`,
-          isSubtask: Boolean(item.parentId),
-          projectId: project.id,
-          projectName: project.name,
-          projectMember: project.members[0] ?? "NA",
-        })
-
-        return entries
-      }, [])
-      .sort(
-        (left, right) =>
-          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
-      )
-  }, [
-    activityItems,
-    buildActivityItemKeys,
-    currentUserAssigneeIds,
-    getProjectDisplayId,
-    projectDisplayIds,
-    projects,
-  ])
-
   React.useEffect(() => {
     setHasHydrated(true)
+  }, [])
+
+  React.useEffect(() => {
+    markDashboardHomeSeenInSession()
   }, [])
 
   React.useEffect(() => {
@@ -318,65 +199,82 @@ export function DashboardPageClient({
   }, [])
 
   React.useEffect(() => {
-    setActivityItems(initialActivities)
-  }, [initialActivities])
-
-  React.useEffect(() => {
     cacheDashboardProjects(initialProjects)
     setProjects(getDashboardProjects())
 
     const syncProjects = () => {
       setProjects(getDashboardProjects())
+      setProjectAccessRecords(getDashboardProjectAccessRecords())
     }
 
+    syncProjects()
     window.addEventListener("storage", syncProjects)
+    window.addEventListener(PROJECT_CHANGE_EVENT, syncProjects)
     window.addEventListener(PROJECTS_CHANGE_EVENT, syncProjects)
 
     return () => {
       window.removeEventListener("storage", syncProjects)
+      window.removeEventListener(PROJECT_CHANGE_EVENT, syncProjects)
       window.removeEventListener(PROJECTS_CHANGE_EVENT, syncProjects)
     }
   }, [initialProjects])
 
-  React.useEffect(() => {
-    const unsubscribe = subscribeToDashboardActivitySync(({ itemId, assigneeId }) => {
-      setActivityItems((currentItems) =>
-        currentItems.map((item) =>
-          item.id === itemId
-            ? {
-                ...item,
-                assigneeId,
-              }
-            : item
-        )
-      )
+  const createdProjects = React.useMemo(() => {
+    return [...projects].sort((left, right) => {
+      const leftTime = new Date(left.createdAt).getTime()
+      const rightTime = new Date(right.createdAt).getTime()
+
+      if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) {
+        return left.name.localeCompare(right.name)
+      }
+
+      if (Number.isNaN(leftTime)) {
+        return 1
+      }
+
+      if (Number.isNaN(rightTime)) {
+        return -1
+      }
+
+      if (leftTime === rightTime) {
+        return left.name.localeCompare(right.name)
+      }
+
+      return rightTime - leftTime
     })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [])
-
-  const workedOnActivities = React.useMemo(() => activities, [activities])
-
-  const assignedActivities = React.useMemo(
-    () => activities.filter((activity) => activity.action === "Assigned"),
-    [activities]
-  )
-
-  const viewedActivities = React.useMemo(
-    () => activities.filter((activity) => activity.action === "Viewed"),
-    [activities]
-  )
-
-  const recentProjects = React.useMemo(() => {
-    return projects
   }, [projects])
 
-  const starredProjects = React.useMemo(
-    () => projects.filter((project) => project.starred),
-    [projects]
-  )
+  const orderedProjectEntries = React.useMemo(() => {
+    const projectById = new Map(projects.map((project) => [project.id, project]))
+    const includedProjectIds = new Set<string>()
+    const accessedProjects: RecentProjectEntry[] = projectAccessRecords
+      .flatMap((record) => {
+        const project = projectById.get(record.projectId)
+        return project ? [{ project, accessedAt: record.accessedAt }] : []
+      })
+      .filter((entry) => {
+        if (includedProjectIds.has(entry.project.id)) {
+          return false
+        }
+
+        includedProjectIds.add(entry.project.id)
+        return true
+      })
+
+    const remainingProjects = createdProjects
+      .filter((project) => !includedProjectIds.has(project.id))
+      .map((project) => ({ project }))
+
+    return [...accessedProjects, ...remainingProjects]
+  }, [createdProjects, projectAccessRecords, projects])
+
+  const forYouProjects = React.useMemo(() => {
+    return orderedProjectEntries.slice(0, 4).map((entry) => entry.project)
+  }, [orderedProjectEntries])
+
+  const recentProjects = React.useMemo(() => {
+    return orderedProjectEntries.slice(4)
+  }, [orderedProjectEntries])
 
   const handleToggleStarred = React.useCallback(async (projectId: string, starred: boolean) => {
     const updatedProject = await setDashboardProjectStarred(projectId, starred)
@@ -387,12 +285,35 @@ export function DashboardPageClient({
     )
   }, [])
 
+  const handleArchiveProject = React.useCallback((projectId: string) => {
+    const archivedBy =
+      currentUser?.name?.trim() ||
+      currentUser?.email?.trim() ||
+      currentUser?.id?.trim() ||
+      undefined
+    const archivedProject = archiveDashboardProject(projectId, archivedBy)
+
+    if (archivedProject) {
+      setProjects(getDashboardProjects())
+      setProjectAccessRecords(getDashboardProjectAccessRecords())
+    }
+  }, [currentUser])
+
+  const handleConfirmArchiveProject = React.useCallback(() => {
+    if (!pendingArchiveProject) {
+      return
+    }
+
+    handleArchiveProject(pendingArchiveProject.id)
+    setPendingArchiveProject(null)
+  }, [handleArchiveProject, pendingArchiveProject])
+
   React.useEffect(() => {
     writeDashboardHomeState({
-      recentProjectsCount: recentProjects.length,
-      workedOnCount: workedOnActivities.length,
+      recentProjectsCount: forYouProjects.length,
+      workedOnCount: recentProjects.length,
     })
-  }, [recentProjects.length, workedOnActivities.length])
+  }, [forYouProjects.length, recentProjects.length])
 
   const oneMonthAgo = React.useMemo(() => {
     const date = getTrustedNowDate()
@@ -400,26 +321,26 @@ export function DashboardPageClient({
     return date
   }, [])
 
-  const groupActivitiesByRecency = React.useCallback(
-    (entries: DashboardActivity[]) => ({
-      recent: entries.filter((entry) => new Date(entry.createdAt).getTime() >= oneMonthAgo.getTime()),
-      older: entries.filter((entry) => new Date(entry.createdAt).getTime() < oneMonthAgo.getTime()),
+  const groupProjectsByRecency = React.useCallback(
+    (entries: RecentProjectEntry[]) => ({
+      recent: entries.filter((entry) => new Date(entry.accessedAt ?? entry.project.createdAt).getTime() >= oneMonthAgo.getTime()),
+      older: entries.filter((entry) => new Date(entry.accessedAt ?? entry.project.createdAt).getTime() < oneMonthAgo.getTime()),
     }),
     [oneMonthAgo]
   )
 
-  const formatActivityDate = React.useCallback((value: string) => {
+  const formatProjectDate = React.useCallback((value: string) => {
     return formatTrustedDate(value)
   }, [])
 
-  const renderActivityContent = React.useCallback(
-    (entries: DashboardActivity[]) => {
-      const groupedEntries = groupActivitiesByRecency(entries)
+  const renderCreatedProjectList = React.useCallback(
+    (entries: RecentProjectEntry[]) => {
+      const groupedEntries = groupProjectsByRecency(entries)
 
       if (entries.length === 0) {
         return (
           <div className="px-1 py-6 text-sm text-muted-foreground">
-            No recent board activity yet.
+            No recent projects yet.
           </div>
         )
       }
@@ -430,149 +351,125 @@ export function DashboardPageClient({
       ].filter((section) => section.items.length > 0)
 
       return (
-        <div className="space-y-6 pt-4">
+        <div className="space-y-6">
           {sections.map((section) => (
             <section key={section.title} className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                 {section.title}
               </h3>
               <div className="space-y-2">
-                {section.items.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex items-start justify-between gap-4 rounded-lg px-1 py-1.5 transition hover:bg-slate-50 dark:hover:bg-[#242424]"
-                  >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md border border-sky-300 bg-sky-50 text-sky-600 dark:border-sky-500/40 dark:bg-[#111827] dark:text-sky-300">
-                        {activity.isSubtask ? (
-                          <GitFork className="h-3.5 w-3.5" />
-                        ) : (
-                          <CheckSquare2 className="h-3.5 w-3.5" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {activity.title}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {activity.itemKey} · {activity.projectName}
-                        </p>
-                      </div>
-                    </div>
+                {section.items.map((entry) => {
+                  const { project } = entry
+                  const dateLabel = entry.accessedAt ? "Opened" : "Created"
 
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs text-slate-600 dark:text-slate-300">
-                        {activity.action}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {formatActivityDate(activity.createdAt)}
-                      </p>
+                  return (
+                    <div
+                      key={project.id}
+                      className="flex w-full items-start justify-between gap-4 rounded-lg px-1 py-1.5 transition hover:bg-slate-50 dark:hover:bg-[#242424]"
+                    >
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                        onClick={() => {
+                          setDashboardProject(project.id)
+                          router.push("/dashboard/board")
+                        }}
+                      >
+                        <ProjectMonogram
+                          name={project.name}
+                          seed={project.id}
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                            {project.name}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {projectDisplayIds.get(project.id) ?? "PJ-000"} - {project.projectType || "No project type"}
+                          </p>
+                        </div>
+                      </button>
+
+                      <div className="flex shrink-0 items-start gap-2">
+                        <button
+                          type="button"
+                          className="text-right"
+                          onClick={() => {
+                            setDashboardProject(project.id)
+                            router.push("/dashboard/board")
+                          }}
+                        >
+                          <p className="text-xs text-slate-600 dark:text-slate-300">
+                            {dateLabel}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {formatProjectDate(entry.accessedAt ?? project.createdAt)}
+                          </p>
+                        </button>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label={`More options for ${project.name}`}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                          >
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onSelect={() => {
+                                void handleToggleStarred(project.id, !project.starred)
+                              }}
+                            >
+                              <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
+                              {project.starred ? "Remove from starred" : "Add to starred"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer">
+                              <Pencil className="h-4 w-4" />
+                              Edit project
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onSelect={() => {
+                                setPendingArchiveProject(project)
+                              }}
+                            >
+                              <Archive className="h-4 w-4" />
+                              Archive project
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </section>
           ))}
         </div>
       )
     },
-    [formatActivityDate, groupActivitiesByRecency]
+    [formatProjectDate, groupProjectsByRecency, handleToggleStarred, projectDisplayIds, router]
   )
 
-  const renderStarredProjectsContent = React.useCallback(() => {
-    if (starredProjects.length === 0) {
-      return (
-        <div className="px-1 py-6 text-sm text-muted-foreground">
-          No starred projects yet.
-        </div>
-      )
-    }
-
-    return (
-      <div className="space-y-2 pt-4">
-        {starredProjects.map((project, index) => (
-          <div
-            key={`starred-${project.id}`}
-            className="flex cursor-pointer items-start justify-between gap-4 rounded-lg px-1 py-1.5 transition hover:bg-slate-50 dark:hover:bg-[#242424]"
-            onClick={() => {
-              setDashboardProject(project.id)
-              router.push("/dashboard/board")
-            }}
-          >
-            <div className="flex min-w-0 items-start gap-3">
-              <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-amber-500 dark:border-amber-500/40 dark:bg-[#2b2110] dark:text-amber-400">
-                <Star className="h-3.5 w-3.5 fill-current" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                  {project.name}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, index)} · {project.projectType || "No project type"}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }, [getProjectDisplayId, projectDisplayIds, router, starredProjects])
-
-  const renderActivitySections = React.useMemo(
+  const renderRecentProjectSections = React.useMemo(
     () => (
       <div className="border-t border-slate-200 pt-4 dark:border-slate-800">
-        <div className="overflow-x-auto">
-          <div className="flex min-w-max flex-nowrap gap-6 text-sm text-slate-500 dark:text-slate-400">
-            <span className="border-b-2 border-blue-500 pb-2 font-medium text-blue-700 dark:text-sky-400">
-              Worked on
-            </span>
-            <span className="pb-2">Assigned to me</span>
-            <span className="pb-2">Viewed</span>
-            <span className="pb-2">Starred</span>
-          </div>
+        <h2 className="font-display text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          Recent projects
+        </h2>
+        <div className="mt-3">
+          {renderCreatedProjectList(recentProjects)}
         </div>
-        <div className="mt-[3px] h-px w-full bg-slate-200 dark:bg-slate-800" />
-        {renderActivityContent(workedOnActivities)}
       </div>
     ),
-    [renderActivityContent, workedOnActivities]
+    [recentProjects, renderCreatedProjectList]
   )
-
-  React.useEffect(() => {
-    const container = recentProjectsScrollRef.current
-
-    if (!container) {
-      return
-    }
-
-    const handleWheel = (event: WheelEvent) => {
-      if (container.scrollWidth <= container.clientWidth) {
-        return
-      }
-
-      const delta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.deltaY
-
-      if (delta === 0) {
-        return
-      }
-
-      if (event.cancelable) {
-        event.preventDefault()
-      }
-
-      container.scrollBy({
-        left: delta,
-        behavior: "smooth",
-      })
-    }
-
-    container.addEventListener("wheel", handleWheel, { passive: false })
-
-    return () => {
-      container.removeEventListener("wheel", handleWheel)
-    }
-  }, [recentProjects.length])
-
   return (
     <TooltipProvider>
       <div className="w-full">
@@ -615,7 +512,7 @@ export function DashboardPageClient({
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <h2 className="font-display text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                Recent projects
+                For you
               </h2>
               <Link
                 href="/dashboard/projects"
@@ -625,18 +522,14 @@ export function DashboardPageClient({
               </Link>
             </div>
 
-            <div
-              ref={recentProjectsScrollRef}
-              className="overflow-x-auto overflow-y-hidden overscroll-x-contain pb-3 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.55)_transparent] [touch-action:pan-x] scroll-smooth [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/80 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/80 dark:[scrollbar-color:rgba(148,163,184,0.35)_transparent] dark:[&::-webkit-scrollbar-thumb]:bg-slate-500/45 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/55"
-            >
-              <div className="flex min-w-max gap-4 px-1 sm:px-0">
-                {recentProjects.map((project, index) => (
-                  <div
-                    key={project.id}
-                    className="w-[220px] shrink-0 sm:w-[240px]"
-                  >
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {forYouProjects.map((project, index) => (
+                <div
+                  key={project.id}
+                  className="w-full"
+                >
                     <Card
-                      className="relative flex min-h-[142px] w-full cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[#343434] dark:bg-[#1f1f1f]"
+                      className="relative flex min-h-[124px] w-full cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[#343434] dark:bg-[#1f1f1f]"
                       onClick={() => {
                         setDashboardProject(project.id)
                         router.push("/dashboard/board")
@@ -677,14 +570,14 @@ export function DashboardPageClient({
                               <Pencil className="h-4 w-4" />
                               Edit project
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer">
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onSelect={() => {
+                                setPendingArchiveProject(project)
+                              }}
+                            >
                               <Archive className="h-4 w-4" />
                               Archive project
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" className="cursor-pointer">
-                              <Trash2 className="h-4 w-4" />
-                              Delete Project
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -694,7 +587,7 @@ export function DashboardPageClient({
                         </span>
                       )}
 
-                      <CardHeader className="flex-1 space-y-3 px-4 pb-3 pt-3.5">
+                      <CardHeader className="flex-1 space-y-2 px-4 pb-2.5 pt-3">
                         <div className="min-w-0 space-y-1">
                           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                             {projectDisplayIds.get(project.id) ?? getProjectDisplayId(project.projectType, index)}
@@ -712,7 +605,7 @@ export function DashboardPageClient({
                               <p>{project.name}</p>
                             </TooltipContent>
                           </Tooltip>
-                          <p className="text-sm text-slate-500 dark:text-slate-300">
+                          <p className="text-xs text-slate-500 dark:text-slate-300">
                             {project.projectType || "No project type"}
                           </p>
                         </div>
@@ -721,7 +614,7 @@ export function DashboardPageClient({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="flex items-center">
-                                {project.members.slice(0, 3).map((member, index) => (
+                                {project.members.slice(0, 4).map((member, index) => (
                                   <Avatar
                                     key={`${project.id}-${member}`}
                                     className={`h-7 w-7 border-2 border-white ${index === 0 ? "" : "-ml-2"}`}
@@ -731,11 +624,6 @@ export function DashboardPageClient({
                                     </AvatarFallback>
                                   </Avatar>
                                 ))}
-                                {project.members.length > 3 ? (
-                                  <div className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-emerald-600 text-[10px] font-bold text-white">
-                                    +{project.members.length - 3}
-                                  </div>
-                                ) : null}
                               </div>
                             </TooltipTrigger>
                             <TooltipContent align="end" className="max-w-[240px]">
@@ -751,57 +639,56 @@ export function DashboardPageClient({
                         </div>
                       </CardHeader>
                     </Card>
-                  </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </section>
 
-          {hasHydrated ? (
-            <Tabs defaultValue="worked-on" className="border-t border-slate-200 pt-4 dark:border-slate-800">
-              <div className="overflow-x-auto">
-                <TabsList
-                  variant="line"
-                  className="flex h-auto min-w-max flex-nowrap justify-start gap-6 rounded-none p-0 text-sm"
-                >
-                  <TabsTrigger
-                    value="worked-on"
-                    className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-                  >
-                    Worked on
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="assigned-to-me"
-                    className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-                  >
-                    Assigned to me
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="viewed"
-                    className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-                  >
-                    Viewed
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="starred"
-                    className="shrink-0 whitespace-nowrap px-0 pb-0.5 pt-4 hover:text-blue-700 data-[state=active]:text-blue-700 after:bottom-[2px] after:bg-blue-500"
-                  >
-                    Starred
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-              <div className="mt-[-4px] h-px w-full bg-slate-200 dark:bg-slate-800" />
-
-              <TabsContent value="worked-on">{renderActivityContent(workedOnActivities)}</TabsContent>
-              <TabsContent value="assigned-to-me">{renderActivityContent(assignedActivities)}</TabsContent>
-              <TabsContent value="viewed">{renderActivityContent(viewedActivities)}</TabsContent>
-              <TabsContent value="starred">{renderStarredProjectsContent()}</TabsContent>
-            </Tabs>
-          ) : (
-            renderActivitySections
-          )}
+          {renderRecentProjectSections}
         </div>
       </div>
+
+      <AlertDialog
+        open={pendingArchiveProject !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setPendingArchiveProject(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+          <AlertDialogHeader className="place-items-start text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
+                <Archive className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>
+                Archive Project {pendingArchiveProject?.name}
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                This project will be archived and removed from your active dashboard project lists. You won&apos;t be able to open it while it is archived.
+              </span>
+              <span className="block">
+                You can restore this project later from Archives.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" className="rounded-[2px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              size="sm"
+              className="rounded-[2px] bg-amber-400 text-white hover:bg-amber-300"
+              onClick={handleConfirmArchiveProject}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   )
 }

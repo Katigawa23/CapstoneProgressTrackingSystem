@@ -1,26 +1,26 @@
 import { cookies } from "next/headers"
 
-import { getDashboardBoardOpenCookieKey } from "@/lib/dashboard-first-open"
+import { getDashboardProjectPageOpenCookieKey } from "@/lib/dashboard-first-open"
 import { getUserScopedProjectCookieKey, PROJECT_COOKIE_KEY } from "@/lib/projects"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 
-import { BoardLoadingState } from "./board-loading-state"
+import { ArchiveLoadingSkeleton } from "./archive-loading-skeleton"
 
-export default async function DashboardBoardLoading() {
+export default async function ArchiveLoading() {
   const cookieStore = await cookies()
   const authenticatedUser = await readAuthenticatedUser()
   const selectedProjectId =
     cookieStore.get(
       getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, authenticatedUser?.id)
     )?.value ?? null
-  const hasSeenBoard =
+  const hasSeenArchive =
     cookieStore.get(
-      getDashboardBoardOpenCookieKey(selectedProjectId, authenticatedUser?.id)
+      getDashboardProjectPageOpenCookieKey("archive", selectedProjectId, authenticatedUser?.id)
     )?.value === "1"
 
-  if (hasSeenBoard) {
+  if (hasSeenArchive) {
     return null
   }
 
-  return <BoardLoadingState />
+  return <ArchiveLoadingSkeleton />
 }

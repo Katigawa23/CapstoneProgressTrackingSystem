@@ -8,7 +8,7 @@ import {
   canUseLocalFileFallback,
   shouldFallbackToLocalStore,
 } from "@backend/db/fallback"
-import { ensureMicrosoftLoginSchema } from "@backend/repositories/microsoft-login-repository"
+import { ensureMicrosoftLoginSchema } from "@backend/repositories/users-repository"
 
 export type BacklogCommentRow = {
   id: string
@@ -98,9 +98,9 @@ async function ensureCommentSchema() {
     schemaReady = ensureMicrosoftLoginSchema()
       .then(() =>
         getDb().query(`
-        create table if not exists backlog_comments (
+        create table if not exists comments (
           id uuid primary key,
-          backlog_item_id uuid not null references backlog_items(id) on delete cascade,
+          backlog_item_id uuid not null references backlog(id) on delete cascade,
           author_user_id text,
           author text not null,
           body text not null default '',
@@ -111,8 +111,38 @@ async function ensureCommentSchema() {
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_comments
+          alter table comments
+          add column if not exists backlog_item_id uuid;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table comments
           add column if not exists author_user_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table comments
+          add column if not exists author text not null default '';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table comments
+          add column if not exists body text not null default '';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table comments
+          add column if not exists attachments jsonb not null default '[]'::jsonb;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table comments
+          add column if not exists created_at timestamptz not null default now();
         `)
       )
       .then(() =>
@@ -122,11 +152,11 @@ async function ensureCommentSchema() {
             if not exists (
               select 1
               from pg_constraint
-              where conname = 'fk_backlog_comments_author_user_id'
+              where conname = 'fk_comments_author_user_id'
             ) then
-              alter table backlog_comments
-              add constraint fk_backlog_comments_author_user_id
-              foreign key (author_user_id) references microsoft_account_logins(microsoft_user_id)
+              alter table comments
+              add constraint fk_comments_author_user_id
+              foreign key (author_user_id) references users(microsoft_user_id)
               on delete set null;
             end if;
           end $$;
@@ -134,14 +164,14 @@ async function ensureCommentSchema() {
       )
       .then(() =>
         getDb().query(`
-          create index if not exists backlog_comments_backlog_item_id_idx
-          on backlog_comments(backlog_item_id, created_at asc);
+          create index if not exists comments_backlog_item_id_idx
+          on comments(backlog_item_id, created_at asc);
         `)
       )
       .then(() =>
         getDb().query(`
-          create index if not exists backlog_comments_author_user_id_idx
-          on backlog_comments(author_user_id);
+          create index if not exists comments_author_user_id_idx
+          on comments(author_user_id);
         `)
       )
       .then(() => undefined)
@@ -243,24 +273,24 @@ export async function listBacklogComments(backlogItemId: string, ownerUserId: st
     async () => {
       const result = await getDb().query<BacklogCommentRecord>(
         `select
-          backlog_comments.id,
-          backlog_comments.backlog_item_id,
-          backlog_comments.author_user_id,
-          backlog_comments.author,
-          backlog_comments.body,
-          backlog_comments.attachments,
-          backlog_comments.created_at
-        from backlog_comments
-        inner join backlog_items
-          on backlog_items.id = backlog_comments.backlog_item_id
+          comments.id,
+          comments.backlog_item_id,
+          comments.author_user_id,
+          comments.author,
+          comments.body,
+          comments.attachments,
+          comments.created_at
+        from comments
+        inner join backlog
+          on backlog.id = comments.backlog_item_id
         inner join projects
-          on projects.id = backlog_items.project_id
-        where backlog_comments.backlog_item_id = $1
+          on projects.id = backlog.project_id
+        where comments.backlog_item_id = $1
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
-        order by backlog_comments.created_at asc`,
+        order by comments.created_at asc`,
         [backlogItemId, ownerUserId]
       )
 
@@ -282,7 +312,7 @@ export async function createBacklogComment(
   return withCommentStore(
     async () => {
       const result = await getDb().query<BacklogCommentRecord>(
-        `insert into backlog_comments (
+        `insert into comments (
           id,
           backlog_item_id,
           author_user_id,
@@ -297,10 +327,10 @@ export async function createBacklogComment(
           $4,
           $5,
           $6::jsonb
-        from backlog_items
+        from backlog
         inner join projects
-          on projects.id = backlog_items.project_id
-        where backlog_items.id = $2
+          on projects.id = backlog.project_id
+        where backlog.id = $2
           and (
             projects.owner_user_id = $7
             or $7 = any(projects.member_user_ids)
@@ -373,14 +403,14 @@ export async function updateBacklogComment(
       values.push(id)
 
       const result = await getDb().query<BacklogCommentRecord>(
-        `update backlog_comments
+        `update comments
         set ${fields.join(", ")}
         where id = $${values.length}
           and backlog_item_id in (
-            select backlog_items.id
-            from backlog_items
+            select backlog.id
+            from backlog
             inner join projects
-              on projects.id = backlog_items.project_id
+              on projects.id = backlog.project_id
             where projects.owner_user_id = $${values.length + 1}
               or $${values.length + 1} = any(projects.member_user_ids)
           )
@@ -426,13 +456,13 @@ export async function deleteBacklogComment(id: string, ownerUserId: string) {
   return withCommentStore(
     async () => {
       const result = await getDb().query<{ id: string }>(
-        `delete from backlog_comments
+        `delete from comments
         where id = $1
           and backlog_item_id in (
-            select backlog_items.id
-            from backlog_items
+            select backlog.id
+            from backlog
             inner join projects
-              on projects.id = backlog_items.project_id
+              on projects.id = backlog.project_id
             where projects.owner_user_id = $2
               or $2 = any(projects.member_user_ids)
           )

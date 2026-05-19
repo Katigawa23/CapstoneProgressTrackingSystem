@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { listBacklogItems } from "@backend/repositories/backlog-repository"
-import { listArchivedBacklogAttachments } from "@backend/repositories/backlog-attachment-repository"
+import { listBacklogItems } from "@backend/repositories/tasks-repository"
+import { listArchivedBacklogAttachments } from "@backend/repositories/attachments-repository"
 
 export async function GET(request: Request) {
   try {

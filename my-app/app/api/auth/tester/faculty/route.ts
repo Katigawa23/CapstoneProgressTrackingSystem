@@ -6,15 +6,15 @@ import {
   createUserCookieValue,
   getAuthCookieOptions,
 } from "@backend/auth/session"
-import { saveMicrosoftAccountLogin } from "@backend/repositories/microsoft-login-repository"
+import { saveMicrosoftAccountLogin } from "@backend/repositories/users-repository"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 const TEST_FACULTY_USER = {
   id: "tester-faculty",
-  name: "Faculty Tester",
-  email: "faculty.tester@alabang.sti.edu.ph",
+  name: "Adviser Tester",
+  email: "adviser.tester@alabang.sti.edu.ph",
   role: "faculty" as const,
 }
 

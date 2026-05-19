@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUpRight, Check, CircleUserRound, Info, Loader2, Search, UserRound, X } from "lucide-react"
+import { ArrowUpRight, Check, CircleUserRound, Loader2, Search, UserRound, X } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -32,13 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import {
   OTHER_PROJECT_OPTION,
   PROJECT_PROGRAM_OPTIONS,
@@ -56,7 +49,6 @@ type CreateProjectDialogProps = {
   onCreateProject: () => Promise<unknown>
   onMemberRemove: (memberId: string) => void
   onMemberSearchChange: (value: string) => void
-  onMemberRoleToggle: (memberId: string, checked: boolean) => void
   onMemberSelect: (member: ProjectMemberOption) => void
   onOpenChange: (open: boolean) => void
   onProjectProgramChange: (value: string) => void
@@ -96,7 +88,7 @@ type SelectWithCustomInputProps = {
 }
 
 function getMemberRoleLabel(role: string) {
-  return role === "student" ? "Student" : "Faculty"
+  return role === "student" ? "Student" : "Adviser"
 }
 
 function getMemberDisplayName(name: string) {
@@ -172,7 +164,6 @@ export function CreateProjectDialog({
   onCreateProject,
   onMemberRemove,
   onMemberSearchChange,
-  onMemberRoleToggle,
   onMemberSelect,
   onOpenChange,
   onProjectProgramChange,
@@ -208,8 +199,7 @@ export function CreateProjectDialog({
     projectYearLevel.trim().length > 0 &&
     (projectYearLevel !== OTHER_PROJECT_OPTION || projectYearLevelOther.trim().length > 0)
   const isSyTermComplete =
-    projectSyTerm.trim().length > 0 &&
-    (projectSyTerm !== OTHER_PROJECT_OPTION || projectSyTermOther.trim().length > 0)
+    projectSyTerm.trim().length > 0
   const isProjectTypeComplete =
     projectType.trim().length > 0 &&
     (projectType !== OTHER_PROJECT_OPTION || projectTypeOther.trim().length > 0)
@@ -458,27 +448,8 @@ export function CreateProjectDialog({
             {selectedMembers.length > 0 ? (
               <div className="sm:col-span-2">
                 <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white dark:border-[#343434] dark:bg-[#1b1b1b]">
-                  <div className="grid grid-cols-[minmax(0,1fr)_64px_36px] border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 dark:border-[#343434] dark:text-slate-400">
+                  <div className="grid grid-cols-[minmax(0,1fr)_36px] border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 dark:border-[#343434] dark:text-slate-400">
                     <span>Member</span>
-                    <span className="flex items-center justify-center gap-1">
-                      <span>Access</span>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                              aria-label="Access info"
-                            >
-                              <Info className="h-3.5 w-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" sideOffset={6} className="max-w-[260px]">
-                            Gives a student elevated project access to plan work, move tasks, and manage shared project resources. Faculty members already have this access.
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </span>
                     <span className="sr-only">Remove</span>
                   </div>
 
@@ -486,25 +457,13 @@ export function CreateProjectDialog({
                     {selectedMembers.map((member) => (
                       <div
                         key={member.id}
-                        className="grid grid-cols-[minmax(0,1fr)_64px_36px] items-center gap-3 px-3 py-2"
+                        className="grid grid-cols-[minmax(0,1fr)_36px] items-center gap-3 px-3 py-2"
                       >
                         <div className="flex min-w-0 items-center gap-2">
                           <CircleUserRound className="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
                           <div className="truncate text-sm text-slate-900 dark:text-slate-100">
                             {getMemberDisplayName(member.name)} ({getMemberRoleLabel(member.role)})
                           </div>
-                        </div>
-
-                        <div className="flex justify-center">
-                          <Switch
-                            size="sm"
-                            checked={member.canCreateSprint}
-                            onCheckedChange={(checked) =>
-                              onMemberRoleToggle(member.id, checked)
-                            }
-                            disabled={member.role === "faculty"}
-                            aria-label={`Toggle sprint access for ${getMemberDisplayName(member.name)}`}
-                          />
                         </div>
 
                         <button

@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { Archive, ChevronDown, Ellipsis, Filter, Link2, Plus, X } from "lucide-react"
+import { Archive, ChevronDown, Ellipsis, Filter, Link2, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -28,7 +28,6 @@ type TaskWebLinksSectionProps = {
   creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean
   onAddLink: (value: { url: string; label: string }) => void | Promise<void>
-  onRemoveLink: (value: { id: string; url: string; label: string }) => void | Promise<void>
   onArchiveLink: (value: DashboardWebLink) => void | Promise<void>
 }
 
@@ -86,7 +85,6 @@ export function TaskWebLinksSection({
   creatorNamesById = {},
   canManageOtherProjectResources = false,
   onAddLink,
-  onRemoveLink,
   onArchiveLink,
 }: TaskWebLinksSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
@@ -495,14 +493,6 @@ export function TaskWebLinksSection({
                       >
                         <Archive className="h-4 w-4" />
                         Archive
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!canManageLink}
-                        className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
-                        onSelect={() => void onRemoveLink(link)}
-                      >
-                        <X className="h-4 w-4" />
-                        Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

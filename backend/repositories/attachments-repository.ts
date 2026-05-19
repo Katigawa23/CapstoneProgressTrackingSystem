@@ -239,9 +239,9 @@ async function ensureSubmissionSchema() {
   if (!schemaReady) {
     schemaReady = getDb()
       .query(`
-        create table if not exists backlog_attachment (
+        create table if not exists attachments (
           id uuid primary key,
-          backlog_item_id uuid not null references backlog_items(id) on delete cascade,
+          backlog_item_id uuid not null references backlog(id) on delete cascade,
           uploaded_by_user_id text,
           archived_by_user_id text,
           deleted_by_user_id text,
@@ -260,67 +260,124 @@ async function ensureSubmissionSchema() {
           deleted_at timestamptz,
           uploaded_at timestamptz not null default now()
         );
-      `)
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        create table if not exists weblinks (
+          id uuid primary key,
+          backlog_item_id uuid not null references backlog(id) on delete cascade,
+          uploaded_by_user_id text,
+          archived_by_user_id text,
+          deleted_by_user_id text,
+          url text not null,
+          label text not null default '',
+          is_archived boolean not null default false,
+          archived_at timestamptz,
+          is_deleted boolean not null default false,
+          deleted_at timestamptz,
+          uploaded_at timestamptz not null default now()
+        );
+
+        alter table attachments
+          add column if not exists backlog_item_id uuid;
+
+        alter table attachments
           add column if not exists uploaded_by_user_id text;
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        alter table attachments
           add column if not exists archived_by_user_id text;
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        alter table attachments
           add column if not exists deleted_by_user_id text;
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        alter table attachments
           add column if not exists attachment_type text not null default 'file';
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        alter table attachments
+          add column if not exists file_name text not null default '';
+
+        alter table attachments
+          add column if not exists file_url text not null default '';
+
+        alter table attachments
+          add column if not exists file_type text not null default 'application/octet-stream';
+
+        alter table attachments
+          add column if not exists file_size integer not null default 0;
+
+        alter table attachments
           add column if not exists file_data bytea;
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        alter table attachments
           add column if not exists link_label text not null default '';
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        alter table attachments
           add column if not exists is_archived boolean not null default false;
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        alter table attachments
           add column if not exists archived_at timestamptz;
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        alter table attachments
           add column if not exists is_deleted boolean not null default false;
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          alter table backlog_attachment
+
+        alter table attachments
           add column if not exists deleted_at timestamptz;
+
+        alter table attachments
+          add column if not exists uploaded_at timestamptz not null default now();
+
+        alter table attachments
+          drop constraint if exists attachments_check;
+
+        alter table weblinks
+          add column if not exists backlog_item_id uuid;
+
+        alter table weblinks
+          add column if not exists uploaded_by_user_id text;
+
+        alter table weblinks
+          add column if not exists archived_by_user_id text;
+
+        alter table weblinks
+          add column if not exists deleted_by_user_id text;
+
+        alter table weblinks
+          add column if not exists url text not null default '';
+
+        alter table weblinks
+          add column if not exists label text not null default '';
+
+        alter table weblinks
+          add column if not exists is_archived boolean not null default false;
+
+        alter table weblinks
+          add column if not exists archived_at timestamptz;
+
+        alter table weblinks
+          add column if not exists is_deleted boolean not null default false;
+
+        alter table weblinks
+          add column if not exists deleted_at timestamptz;
+
+        alter table weblinks
+          add column if not exists uploaded_at timestamptz not null default now();
+
+        alter table weblinks
+          drop constraint if exists weblinks_check;
+
+        create index if not exists attachments_backlog_item_id_idx
+          on attachments(backlog_item_id, uploaded_at desc);
+
+        create index if not exists attachments_uploaded_by_user_id_idx
+          on attachments(uploaded_by_user_id);
+
+        create index if not exists attachments_type_idx
+          on attachments(backlog_item_id, attachment_type, uploaded_at desc);
+
+        create index if not exists weblinks_backlog_item_id_idx
+          on weblinks(backlog_item_id, uploaded_at desc);
+
+        create index if not exists weblinks_uploaded_by_user_id_idx
+          on weblinks(uploaded_by_user_id);
         `)
-      )
       .then(() =>
         getDb().query(`
           do $$
@@ -330,8 +387,14 @@ async function ensureSubmissionSchema() {
               from information_schema.tables
               where table_schema = 'public'
                 and table_name = 'backlog_submissions'
+            ) and exists (
+              select 1
+              from information_schema.columns
+              where table_schema = 'public'
+                and table_name = 'backlog_submissions'
+                and column_name = 'backlog_item_id'
             ) then
-              insert into backlog_attachment (
+              insert into attachments (
                 id,
                 backlog_item_id,
                 uploaded_by_user_id,
@@ -361,25 +424,51 @@ async function ensureSubmissionSchema() {
               from backlog_submissions
               on conflict (id) do nothing;
             end if;
+
+            if exists (
+              select 1
+              from information_schema.tables
+              where table_schema = 'public'
+                and table_name = 'attachments'
+            ) and exists (
+              select 1
+              from information_schema.columns
+              where table_schema = 'public'
+                and table_name = 'attachments'
+                and column_name = 'attachment_type'
+            ) then
+              insert into weblinks (
+                id,
+                backlog_item_id,
+                uploaded_by_user_id,
+                archived_by_user_id,
+                deleted_by_user_id,
+                url,
+                label,
+                is_archived,
+                archived_at,
+                is_deleted,
+                deleted_at,
+                uploaded_at
+              )
+              select
+                attachments.id,
+                attachments.backlog_item_id,
+                attachments.uploaded_by_user_id,
+                attachments.archived_by_user_id,
+                attachments.deleted_by_user_id,
+                attachments.file_url,
+                attachments.link_label,
+                attachments.is_archived,
+                attachments.archived_at,
+                attachments.is_deleted,
+                attachments.deleted_at,
+                attachments.uploaded_at
+              from attachments
+              where attachments.attachment_type = 'link'
+              on conflict (id) do nothing;
+            end if;
           end $$;
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          create index if not exists backlog_attachment_backlog_item_id_idx
-          on backlog_attachment(backlog_item_id, uploaded_at desc);
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          create index if not exists backlog_attachment_uploaded_by_user_id_idx
-          on backlog_attachment(uploaded_by_user_id);
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          create index if not exists backlog_attachment_type_idx
-          on backlog_attachment(backlog_item_id, attachment_type, uploaded_at desc);
         `)
       )
       .then(() => undefined)
@@ -528,36 +617,36 @@ export async function listBacklogSubmissions(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
         `select
-          backlog_attachment.id,
-          backlog_attachment.backlog_item_id,
-          backlog_attachment.uploaded_by_user_id,
-          backlog_attachment.archived_by_user_id,
-          backlog_attachment.deleted_by_user_id,
-          backlog_attachment.attachment_type,
-          backlog_attachment.file_name,
-          backlog_attachment.file_url,
-          backlog_attachment.file_type,
-          backlog_attachment.file_size,
-          backlog_attachment.link_label,
-          backlog_attachment.is_archived,
-          backlog_attachment.archived_at,
-          backlog_attachment.is_deleted,
-          backlog_attachment.deleted_at,
-          backlog_attachment.uploaded_at
-        from backlog_attachment
-        inner join backlog_items
-          on backlog_items.id = backlog_attachment.backlog_item_id
+          attachments.id,
+          attachments.backlog_item_id,
+          attachments.uploaded_by_user_id,
+          attachments.archived_by_user_id,
+          attachments.deleted_by_user_id,
+          attachments.attachment_type,
+          attachments.file_name,
+          attachments.file_url,
+          attachments.file_type,
+          attachments.file_size,
+          attachments.link_label,
+          attachments.is_archived,
+          attachments.archived_at,
+          attachments.is_deleted,
+          attachments.deleted_at,
+          attachments.uploaded_at
+        from attachments
+        inner join backlog
+          on backlog.id = attachments.backlog_item_id
         inner join projects
-          on projects.id = backlog_items.project_id
-        where backlog_attachment.backlog_item_id = $1
-          and backlog_attachment.attachment_type = 'file'
-          and backlog_attachment.is_archived = false
-          and backlog_attachment.is_deleted = false
+          on projects.id = backlog.project_id
+        where attachments.backlog_item_id = $1
+          and attachments.attachment_type = 'file'
+          and attachments.is_archived = false
+          and attachments.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
-        order by backlog_attachment.uploaded_at desc`,
+        order by attachments.uploaded_at desc`,
         [backlogItemId, ownerUserId]
       )
 
@@ -587,7 +676,7 @@ export async function createBacklogSubmission(
     async () => {
       const submissionId = input.id ?? randomUUID()
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `insert into backlog_attachment (
+        `insert into attachments (
           id,
           backlog_item_id,
           uploaded_by_user_id,
@@ -610,10 +699,10 @@ export async function createBacklogSubmission(
           $8,
           $9,
           $10
-        from backlog_items
+        from backlog
         inner join projects
-          on projects.id = backlog_items.project_id
-        where backlog_items.id = $2
+          on projects.id = backlog.project_id
+        where backlog.id = $2
           and (
             projects.owner_user_id = $11
             or $11 = any(projects.member_user_ids)
@@ -689,54 +778,51 @@ export async function deleteBacklogSubmission(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `update backlog_attachment
+        `update attachments
         set is_deleted = true,
             deleted_at = now(),
             deleted_by_user_id = $3
-        where backlog_attachment.id = $1
-          and backlog_attachment.backlog_item_id = $2
-          and backlog_attachment.attachment_type = 'file'
-          and backlog_attachment.is_deleted = false
+        where attachments.id = $1
+          and attachments.backlog_item_id = $2
+          and attachments.attachment_type = 'file'
+          and attachments.is_deleted = false
           and exists (
             select 1
-            from backlog_items
+            from backlog
             inner join projects
-              on projects.id = backlog_items.project_id
-            left join project_member_access
-              on project_member_access.project_id = projects.id
-             and project_member_access.member_user_id = $3
-            where backlog_items.id = backlog_attachment.backlog_item_id
+              on projects.id = backlog.project_id
+            where backlog.id = attachments.backlog_item_id
               and (
                 projects.owner_user_id = $3
                 or $3 = any(projects.member_user_ids)
               )
               and (
-                backlog_attachment.uploaded_by_user_id = $3
+                attachments.uploaded_by_user_id = $3
                 or projects.owner_user_id = $3
                 or $4 in ('faculty', 'admin')
-                or coalesce(project_member_access.can_create_sprint, false)
+                or $3 = any(projects.sprint_creator_user_ids)
               )
           )
         returning
-          backlog_attachment.id,
-          backlog_attachment.backlog_item_id,
-          backlog_attachment.uploaded_by_user_id,
-          backlog_attachment.archived_by_user_id,
-          backlog_attachment.deleted_by_user_id,
-          backlog_attachment.deleted_by_user_id,
-          backlog_attachment.attachment_type,
-          backlog_attachment.file_name,
-          backlog_attachment.file_url,
-          backlog_attachment.file_type,
-          backlog_attachment.file_size,
-          backlog_attachment.link_label,
-          backlog_attachment.is_archived,
-          backlog_attachment.archived_at,
-          backlog_attachment.is_deleted,
-          backlog_attachment.deleted_at,
-          backlog_attachment.is_deleted,
-          backlog_attachment.deleted_at,
-          backlog_attachment.uploaded_at`,
+          attachments.id,
+          attachments.backlog_item_id,
+          attachments.uploaded_by_user_id,
+          attachments.archived_by_user_id,
+          attachments.deleted_by_user_id,
+          attachments.deleted_by_user_id,
+          attachments.attachment_type,
+          attachments.file_name,
+          attachments.file_url,
+          attachments.file_type,
+          attachments.file_size,
+          attachments.link_label,
+          attachments.is_archived,
+          attachments.archived_at,
+          attachments.is_deleted,
+          attachments.deleted_at,
+          attachments.is_deleted,
+          attachments.deleted_at,
+          attachments.uploaded_at`,
         [submissionId, backlogItemId, ownerUserId, ownerUserRole]
       )
 
@@ -788,30 +874,30 @@ export async function getBacklogSubmissionAsset(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
         `select
-          backlog_attachment.id,
-          backlog_attachment.backlog_item_id,
-          backlog_attachment.uploaded_by_user_id,
-          backlog_attachment.archived_by_user_id,
-          backlog_attachment.attachment_type,
-          backlog_attachment.file_name,
-          backlog_attachment.file_url,
-          backlog_attachment.file_type,
-          backlog_attachment.file_size,
-          backlog_attachment.file_data,
-          backlog_attachment.link_label,
-          backlog_attachment.is_archived,
-          backlog_attachment.archived_at,
-          backlog_attachment.uploaded_at
-        from backlog_attachment
-        inner join backlog_items
-          on backlog_items.id = backlog_attachment.backlog_item_id
+          attachments.id,
+          attachments.backlog_item_id,
+          attachments.uploaded_by_user_id,
+          attachments.archived_by_user_id,
+          attachments.attachment_type,
+          attachments.file_name,
+          attachments.file_url,
+          attachments.file_type,
+          attachments.file_size,
+          attachments.file_data,
+          attachments.link_label,
+          attachments.is_archived,
+          attachments.archived_at,
+          attachments.uploaded_at
+        from attachments
+        inner join backlog
+          on backlog.id = attachments.backlog_item_id
         inner join projects
-          on projects.id = backlog_items.project_id
-        where backlog_attachment.id = $1
-          and backlog_attachment.backlog_item_id = $2
-          and backlog_attachment.attachment_type = 'file'
-          and backlog_attachment.is_archived = false
-          and backlog_attachment.is_deleted = false
+          on projects.id = backlog.project_id
+        where attachments.id = $1
+          and attachments.backlog_item_id = $2
+          and attachments.attachment_type = 'file'
+          and attachments.is_archived = false
+          and attachments.is_deleted = false
           and (
             projects.owner_user_id = $3
             or $3 = any(projects.member_user_ids)
@@ -873,36 +959,35 @@ export async function listBacklogWebLinks(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
         `select
-          backlog_attachment.id,
-          backlog_attachment.backlog_item_id,
-          backlog_attachment.uploaded_by_user_id,
-          backlog_attachment.archived_by_user_id,
-          backlog_attachment.deleted_by_user_id,
-          backlog_attachment.attachment_type,
-          backlog_attachment.file_name,
-          backlog_attachment.file_url,
-          backlog_attachment.file_type,
-          backlog_attachment.file_size,
-          backlog_attachment.link_label,
-          backlog_attachment.is_archived,
-          backlog_attachment.archived_at,
-          backlog_attachment.is_deleted,
-          backlog_attachment.deleted_at,
-          backlog_attachment.uploaded_at
-        from backlog_attachment
-        inner join backlog_items
-          on backlog_items.id = backlog_attachment.backlog_item_id
+          weblinks.id,
+          weblinks.backlog_item_id,
+          weblinks.uploaded_by_user_id,
+          weblinks.archived_by_user_id,
+          weblinks.deleted_by_user_id,
+          'link' as attachment_type,
+          coalesce(nullif(weblinks.label, ''), weblinks.url) as file_name,
+          weblinks.url as file_url,
+          'text/uri-list' as file_type,
+          0 as file_size,
+          weblinks.label as link_label,
+          weblinks.is_archived,
+          weblinks.archived_at,
+          weblinks.is_deleted,
+          weblinks.deleted_at,
+          weblinks.uploaded_at
+        from weblinks
+        inner join backlog
+          on backlog.id = weblinks.backlog_item_id
         inner join projects
-          on projects.id = backlog_items.project_id
-        where backlog_attachment.backlog_item_id = $1
-          and backlog_attachment.attachment_type = 'link'
-          and backlog_attachment.is_archived = false
-          and backlog_attachment.is_deleted = false
+          on projects.id = backlog.project_id
+        where weblinks.backlog_item_id = $1
+          and weblinks.is_archived = false
+          and weblinks.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
-        order by backlog_attachment.uploaded_at desc`,
+        order by weblinks.uploaded_at desc`,
         [backlogItemId, ownerUserId]
       )
 
@@ -931,58 +1016,49 @@ export async function createBacklogWebLink(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `insert into backlog_attachment (
+        `insert into weblinks (
           id,
           backlog_item_id,
           uploaded_by_user_id,
-          attachment_type,
-          file_name,
-          file_url,
-          file_type,
-          file_size,
-          link_label
+          url,
+          label
         )
         select
           $1,
           $2,
           $3,
           $4,
-          $5,
-          $6,
-          $7,
-          $8,
-          $9
-        from backlog_items
+          $5
+        from backlog
         inner join projects
-          on projects.id = backlog_items.project_id
-        where backlog_items.id = $2
+          on projects.id = backlog.project_id
+        where backlog.id = $2
           and (
-            projects.owner_user_id = $10
-            or $10 = any(projects.member_user_ids)
+            projects.owner_user_id = $6
+            or $6 = any(projects.member_user_ids)
           )
         returning
           id,
           backlog_item_id,
           uploaded_by_user_id,
           archived_by_user_id,
-          attachment_type,
-          file_name,
-          file_url,
-          file_type,
-          file_size,
-          link_label,
+          deleted_by_user_id,
+          'link' as attachment_type,
+          coalesce(nullif(label, ''), url) as file_name,
+          url as file_url,
+          'text/uri-list' as file_type,
+          0 as file_size,
+          label as link_label,
           is_archived,
           archived_at,
+          is_deleted,
+          deleted_at,
           uploaded_at`,
           [
             randomUUID(),
             input.backlogItemId,
             ownerUserId,
-            "link",
-            input.label || input.url,
             input.url,
-            "text/uri-list",
-            0,
             input.label,
             ownerUserId,
           ]
@@ -1024,51 +1100,47 @@ export async function deleteBacklogWebLink(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `update backlog_attachment
+        `update weblinks
         set is_deleted = true,
             deleted_at = now(),
             deleted_by_user_id = $3
-        where backlog_attachment.id = $1
-          and backlog_attachment.backlog_item_id = $2
-          and backlog_attachment.attachment_type = 'link'
-          and backlog_attachment.is_deleted = false
+        where weblinks.id = $1
+          and weblinks.backlog_item_id = $2
+          and weblinks.is_deleted = false
           and exists (
             select 1
-            from backlog_items
+            from backlog
             inner join projects
-              on projects.id = backlog_items.project_id
-            left join project_member_access
-              on project_member_access.project_id = projects.id
-             and project_member_access.member_user_id = $3
-            where backlog_items.id = backlog_attachment.backlog_item_id
+              on projects.id = backlog.project_id
+            where backlog.id = weblinks.backlog_item_id
               and (
                 projects.owner_user_id = $3
                 or $3 = any(projects.member_user_ids)
               )
               and (
-                backlog_attachment.uploaded_by_user_id = $3
+                weblinks.uploaded_by_user_id = $3
                 or projects.owner_user_id = $3
                 or $4 in ('faculty', 'admin')
-                or coalesce(project_member_access.can_create_sprint, false)
+                or $3 = any(projects.sprint_creator_user_ids)
               )
           )
         returning
-          backlog_attachment.id,
-          backlog_attachment.backlog_item_id,
-          backlog_attachment.uploaded_by_user_id,
-          backlog_attachment.archived_by_user_id,
-          backlog_attachment.deleted_by_user_id,
-          backlog_attachment.attachment_type,
-          backlog_attachment.file_name,
-          backlog_attachment.file_url,
-          backlog_attachment.file_type,
-          backlog_attachment.file_size,
-          backlog_attachment.link_label,
-          backlog_attachment.is_archived,
-          backlog_attachment.archived_at,
-          backlog_attachment.is_deleted,
-          backlog_attachment.deleted_at,
-          backlog_attachment.uploaded_at`,
+          id,
+          backlog_item_id,
+          uploaded_by_user_id,
+          archived_by_user_id,
+          deleted_by_user_id,
+          'link' as attachment_type,
+          coalesce(nullif(label, ''), url) as file_name,
+          url as file_url,
+          'text/uri-list' as file_type,
+          0 as file_size,
+          label as link_label,
+          is_archived,
+          archived_at,
+          is_deleted,
+          deleted_at,
+          uploaded_at`,
         [linkId, backlogItemId, ownerUserId, ownerUserRole]
       )
 
@@ -1120,33 +1192,30 @@ export async function archiveBacklogSubmission(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `update backlog_attachment
+        `update attachments
          set is_archived = true,
              archived_at = now(),
              archived_by_user_id = $3
-         where backlog_attachment.id = $1
-           and backlog_attachment.backlog_item_id = $2
-           and backlog_attachment.attachment_type = 'file'
-           and backlog_attachment.is_archived = false
-           and backlog_attachment.is_deleted = false
+         where attachments.id = $1
+           and attachments.backlog_item_id = $2
+           and attachments.attachment_type = 'file'
+           and attachments.is_archived = false
+           and attachments.is_deleted = false
            and exists (
              select 1
-             from backlog_items
+             from backlog
              inner join projects
-               on projects.id = backlog_items.project_id
-             left join project_member_access
-               on project_member_access.project_id = projects.id
-              and project_member_access.member_user_id = $3
-             where backlog_items.id = backlog_attachment.backlog_item_id
+               on projects.id = backlog.project_id
+             where backlog.id = attachments.backlog_item_id
                and (
                  projects.owner_user_id = $3
                  or $3 = any(projects.member_user_ids)
                )
                 and (
-                  backlog_attachment.uploaded_by_user_id = $3
+                  attachments.uploaded_by_user_id = $3
                   or projects.owner_user_id = $3
                   or $4 in ('faculty', 'admin')
-                 or coalesce(project_member_access.can_create_sprint, false)
+                 or $3 = any(projects.sprint_creator_user_ids)
                )
            )
          returning
@@ -1215,33 +1284,30 @@ export async function restoreBacklogSubmission(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `update backlog_attachment
+        `update attachments
          set is_archived = false,
              archived_at = null,
              archived_by_user_id = null
-         where backlog_attachment.id = $1
-           and backlog_attachment.backlog_item_id = $2
-           and backlog_attachment.attachment_type = 'file'
-           and backlog_attachment.is_archived = true
-           and backlog_attachment.is_deleted = false
+         where attachments.id = $1
+           and attachments.backlog_item_id = $2
+           and attachments.attachment_type = 'file'
+           and attachments.is_archived = true
+           and attachments.is_deleted = false
            and exists (
              select 1
-             from backlog_items
+             from backlog
              inner join projects
-               on projects.id = backlog_items.project_id
-             left join project_member_access
-               on project_member_access.project_id = projects.id
-              and project_member_access.member_user_id = $3
-             where backlog_items.id = backlog_attachment.backlog_item_id
+               on projects.id = backlog.project_id
+             where backlog.id = attachments.backlog_item_id
                and (
                  projects.owner_user_id = $3
                  or $3 = any(projects.member_user_ids)
                )
                and (
-                 backlog_attachment.uploaded_by_user_id = $3
+                 attachments.uploaded_by_user_id = $3
                  or projects.owner_user_id = $3
                  or $4 in ('faculty', 'admin')
-                 or coalesce(project_member_access.can_create_sprint, false)
+                 or $3 = any(projects.sprint_creator_user_ids)
                )
            )
          returning
@@ -1310,33 +1376,29 @@ export async function archiveBacklogWebLink(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `update backlog_attachment
+        `update weblinks
          set is_archived = true,
              archived_at = now(),
              archived_by_user_id = $3
-         where backlog_attachment.id = $1
-           and backlog_attachment.backlog_item_id = $2
-           and backlog_attachment.attachment_type = 'link'
-           and backlog_attachment.is_archived = false
-           and backlog_attachment.is_deleted = false
+         where weblinks.id = $1
+           and weblinks.backlog_item_id = $2
+           and weblinks.is_archived = false
+           and weblinks.is_deleted = false
            and exists (
              select 1
-             from backlog_items
+             from backlog
              inner join projects
-               on projects.id = backlog_items.project_id
-             left join project_member_access
-               on project_member_access.project_id = projects.id
-              and project_member_access.member_user_id = $3
-             where backlog_items.id = backlog_attachment.backlog_item_id
+               on projects.id = backlog.project_id
+             where backlog.id = weblinks.backlog_item_id
                and (
                  projects.owner_user_id = $3
                  or $3 = any(projects.member_user_ids)
                )
                and (
-                 backlog_attachment.uploaded_by_user_id = $3
+                 weblinks.uploaded_by_user_id = $3
                  or projects.owner_user_id = $3
                  or $4 in ('faculty', 'admin')
-                 or coalesce(project_member_access.can_create_sprint, false)
+                 or $3 = any(projects.sprint_creator_user_ids)
                )
            )
          returning
@@ -1344,14 +1406,17 @@ export async function archiveBacklogWebLink(
            backlog_item_id,
            uploaded_by_user_id,
            archived_by_user_id,
-           attachment_type,
-           file_name,
-           file_url,
-           file_type,
-           file_size,
-           link_label,
+           deleted_by_user_id,
+           'link' as attachment_type,
+           coalesce(nullif(label, ''), url) as file_name,
+           url as file_url,
+           'text/uri-list' as file_type,
+           0 as file_size,
+           label as link_label,
            is_archived,
            archived_at,
+           is_deleted,
+           deleted_at,
            uploaded_at`,
         [linkId, backlogItemId, ownerUserId, ownerUserRole]
       )
@@ -1405,33 +1470,29 @@ export async function restoreBacklogWebLink(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `update backlog_attachment
+        `update weblinks
          set is_archived = false,
              archived_at = null,
              archived_by_user_id = null
-         where backlog_attachment.id = $1
-           and backlog_attachment.backlog_item_id = $2
-           and backlog_attachment.attachment_type = 'link'
-           and backlog_attachment.is_archived = true
-           and backlog_attachment.is_deleted = false
+         where weblinks.id = $1
+           and weblinks.backlog_item_id = $2
+           and weblinks.is_archived = true
+           and weblinks.is_deleted = false
            and exists (
              select 1
-             from backlog_items
+             from backlog
              inner join projects
-               on projects.id = backlog_items.project_id
-             left join project_member_access
-               on project_member_access.project_id = projects.id
-              and project_member_access.member_user_id = $3
-             where backlog_items.id = backlog_attachment.backlog_item_id
+               on projects.id = backlog.project_id
+             where backlog.id = weblinks.backlog_item_id
                and (
                  projects.owner_user_id = $3
                  or $3 = any(projects.member_user_ids)
                )
                and (
-                 backlog_attachment.uploaded_by_user_id = $3
+                 weblinks.uploaded_by_user_id = $3
                  or projects.owner_user_id = $3
                  or $4 in ('faculty', 'admin')
-                 or coalesce(project_member_access.can_create_sprint, false)
+                 or $3 = any(projects.sprint_creator_user_ids)
                )
            )
          returning
@@ -1439,14 +1500,17 @@ export async function restoreBacklogWebLink(
            backlog_item_id,
            uploaded_by_user_id,
            archived_by_user_id,
-           attachment_type,
-           file_name,
-           file_url,
-           file_type,
-           file_size,
-           link_label,
+           deleted_by_user_id,
+           'link' as attachment_type,
+           coalesce(nullif(label, ''), url) as file_name,
+           url as file_url,
+           'text/uri-list' as file_type,
+           0 as file_size,
+           label as link_label,
            is_archived,
            archived_at,
+           is_deleted,
+           deleted_at,
            uploaded_at`,
         [linkId, backlogItemId, ownerUserId, ownerUserRole]
       )
@@ -1506,7 +1570,7 @@ export async function archiveBacklogAttachmentsForItems(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query(
-        `update backlog_attachment
+        `update attachments
          set is_archived = true,
              archived_at = now(),
              archived_by_user_id = $2
@@ -1558,7 +1622,7 @@ export async function restoreBacklogAttachmentsForItems(backlogItemIds: string[]
   return withSubmissionStore(
     async () => {
       const result = await getDb().query(
-        `update backlog_attachment
+        `update attachments
          set is_archived = false,
              archived_at = null,
              archived_by_user_id = null
@@ -1611,41 +1675,83 @@ export async function listArchivedBacklogAttachments(
         }
       >(
         `select
-          backlog_attachment.id,
-          backlog_attachment.backlog_item_id,
-          backlog_attachment.uploaded_by_user_id,
-          backlog_attachment.archived_by_user_id,
-          backlog_attachment.attachment_type,
-          backlog_attachment.file_name,
-          backlog_attachment.file_url,
-          backlog_attachment.file_type,
-          backlog_attachment.file_size,
-          backlog_attachment.link_label,
-          backlog_attachment.is_archived,
-          backlog_attachment.archived_at,
-          backlog_attachment.uploaded_at,
-          backlog_items.parent_id,
-          backlog_items.sequence_number,
+          attachments.id,
+          attachments.backlog_item_id,
+          attachments.uploaded_by_user_id,
+          attachments.archived_by_user_id,
+          attachments.attachment_type,
+          attachments.file_name,
+          attachments.file_url,
+          attachments.file_type,
+          attachments.file_size,
+          attachments.link_label,
+          attachments.is_archived,
+          attachments.archived_at,
+          attachments.uploaded_at,
+          backlog.parent_id,
+          backlog.sequence_number,
           parent_item.sequence_number as parent_sequence_number
-        from backlog_attachment
-        inner join backlog_items
-          on backlog_items.id = backlog_attachment.backlog_item_id
+        from attachments
+        inner join backlog
+          on backlog.id = attachments.backlog_item_id
         inner join projects
-          on projects.id = backlog_items.project_id
-        left join backlog_items as parent_item
-          on parent_item.id = backlog_items.parent_id
-        where backlog_items.project_id = $1
-          and backlog_attachment.is_archived = true
-          and backlog_attachment.is_deleted = false
+          on projects.id = backlog.project_id
+        left join backlog as parent_item
+          on parent_item.id = backlog.parent_id
+        where backlog.project_id = $1
+          and attachments.is_archived = true
+          and attachments.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
-        order by backlog_attachment.archived_at desc nulls last, backlog_attachment.uploaded_at desc`,
+        order by attachments.archived_at desc nulls last, attachments.uploaded_at desc`,
         [projectId, ownerUserId]
       )
 
-      return result.rows.map((record) => ({
+      const linkResult = await getDb().query<
+        BacklogSubmissionRecord & {
+          parent_id: string | null
+          sequence_number: number
+          parent_sequence_number: number | null
+        }
+      >(
+        `select
+          weblinks.id,
+          weblinks.backlog_item_id,
+          weblinks.uploaded_by_user_id,
+          weblinks.archived_by_user_id,
+          'link' as attachment_type,
+          coalesce(nullif(weblinks.label, ''), weblinks.url) as file_name,
+          weblinks.url as file_url,
+          'text/uri-list' as file_type,
+          0 as file_size,
+          weblinks.label as link_label,
+          weblinks.is_archived,
+          weblinks.archived_at,
+          weblinks.uploaded_at,
+          backlog.parent_id,
+          backlog.sequence_number,
+          parent_item.sequence_number as parent_sequence_number
+        from weblinks
+        inner join backlog
+          on backlog.id = weblinks.backlog_item_id
+        inner join projects
+          on projects.id = backlog.project_id
+        left join backlog as parent_item
+          on parent_item.id = backlog.parent_id
+        where backlog.project_id = $1
+          and weblinks.is_archived = true
+          and weblinks.is_deleted = false
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+        order by weblinks.archived_at desc nulls last, weblinks.uploaded_at desc`,
+        [projectId, ownerUserId]
+      )
+
+      return [...result.rows, ...linkResult.rows].map((record) => ({
         id: record.id,
         backlogItemId: record.backlog_item_id,
         backlogItemParentId: record.parent_id,
@@ -1702,43 +1808,87 @@ export async function listDeletedBacklogAttachments(
         }
       >(
         `select
-          backlog_attachment.id,
-          backlog_attachment.backlog_item_id,
-          backlog_attachment.uploaded_by_user_id,
-          backlog_attachment.archived_by_user_id,
-          backlog_attachment.deleted_by_user_id,
-          backlog_attachment.attachment_type,
-          backlog_attachment.file_name,
-          backlog_attachment.file_url,
-          backlog_attachment.file_type,
-          backlog_attachment.file_size,
-          backlog_attachment.link_label,
-          backlog_attachment.is_archived,
-          backlog_attachment.archived_at,
-          backlog_attachment.is_deleted,
-          backlog_attachment.deleted_at,
-          backlog_attachment.uploaded_at,
-          backlog_items.parent_id,
-          backlog_items.sequence_number,
+          attachments.id,
+          attachments.backlog_item_id,
+          attachments.uploaded_by_user_id,
+          attachments.archived_by_user_id,
+          attachments.deleted_by_user_id,
+          attachments.attachment_type,
+          attachments.file_name,
+          attachments.file_url,
+          attachments.file_type,
+          attachments.file_size,
+          attachments.link_label,
+          attachments.is_archived,
+          attachments.archived_at,
+          attachments.is_deleted,
+          attachments.deleted_at,
+          attachments.uploaded_at,
+          backlog.parent_id,
+          backlog.sequence_number,
           parent_item.sequence_number as parent_sequence_number
-        from backlog_attachment
-        inner join backlog_items
-          on backlog_items.id = backlog_attachment.backlog_item_id
+        from attachments
+        inner join backlog
+          on backlog.id = attachments.backlog_item_id
         inner join projects
-          on projects.id = backlog_items.project_id
-        left join backlog_items as parent_item
-          on parent_item.id = backlog_items.parent_id
-        where backlog_items.project_id = $1
-          and backlog_attachment.is_deleted = true
+          on projects.id = backlog.project_id
+        left join backlog as parent_item
+          on parent_item.id = backlog.parent_id
+        where backlog.project_id = $1
+          and attachments.is_deleted = true
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
-        order by backlog_attachment.deleted_at desc nulls last, backlog_attachment.uploaded_at desc`,
+        order by attachments.deleted_at desc nulls last, attachments.uploaded_at desc`,
         [projectId, ownerUserId]
       )
 
-      return result.rows.map((record): DeletedBacklogAttachmentRow => ({
+      const linkResult = await getDb().query<
+        BacklogSubmissionRecord & {
+          parent_id: string | null
+          sequence_number: number
+          parent_sequence_number: number | null
+        }
+      >(
+        `select
+          weblinks.id,
+          weblinks.backlog_item_id,
+          weblinks.uploaded_by_user_id,
+          weblinks.archived_by_user_id,
+          weblinks.deleted_by_user_id,
+          'link' as attachment_type,
+          coalesce(nullif(weblinks.label, ''), weblinks.url) as file_name,
+          weblinks.url as file_url,
+          'text/uri-list' as file_type,
+          0 as file_size,
+          weblinks.label as link_label,
+          weblinks.is_archived,
+          weblinks.archived_at,
+          weblinks.is_deleted,
+          weblinks.deleted_at,
+          weblinks.uploaded_at,
+          backlog.parent_id,
+          backlog.sequence_number,
+          parent_item.sequence_number as parent_sequence_number
+        from weblinks
+        inner join backlog
+          on backlog.id = weblinks.backlog_item_id
+        inner join projects
+          on projects.id = backlog.project_id
+        left join backlog as parent_item
+          on parent_item.id = backlog.parent_id
+        where backlog.project_id = $1
+          and weblinks.is_deleted = true
+          and (
+            projects.owner_user_id = $2
+            or $2 = any(projects.member_user_ids)
+          )
+        order by weblinks.deleted_at desc nulls last, weblinks.uploaded_at desc`,
+        [projectId, ownerUserId]
+      )
+
+      return [...result.rows, ...linkResult.rows].map((record): DeletedBacklogAttachmentRow => ({
         id: record.id,
         backlogItemId: record.backlog_item_id,
         backlogItemParentId: record.parent_id,
@@ -1793,30 +1943,27 @@ export async function restoreDeletedBacklogAttachment(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `update backlog_attachment
+        `update attachments
          set is_deleted = false,
              deleted_at = null,
              deleted_by_user_id = null
-         where backlog_attachment.id = $1
-           and backlog_attachment.is_deleted = true
+         where attachments.id = $1
+           and attachments.is_deleted = true
            and exists (
              select 1
-             from backlog_items
+             from backlog
              inner join projects
-               on projects.id = backlog_items.project_id
-             left join project_member_access
-               on project_member_access.project_id = projects.id
-              and project_member_access.member_user_id = $2
-             where backlog_items.id = backlog_attachment.backlog_item_id
+               on projects.id = backlog.project_id
+             where backlog.id = attachments.backlog_item_id
                and (
                  projects.owner_user_id = $2
                  or $2 = any(projects.member_user_ids)
                )
                and (
-                 backlog_attachment.deleted_by_user_id = $2
+                 attachments.deleted_by_user_id = $2
                  or projects.owner_user_id = $2
                  or $3 in ('faculty', 'admin')
-                 or coalesce(project_member_access.can_create_sprint, false)
+                 or $2 = any(projects.sprint_creator_user_ids)
                )
            )
          returning *`,
@@ -1875,27 +2022,24 @@ export async function permanentlyDeleteBacklogAttachment(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<{ id: string }>(
-        `delete from backlog_attachment
-         where backlog_attachment.id = $1
-           and backlog_attachment.is_deleted = true
+        `delete from attachments
+         where attachments.id = $1
+           and attachments.is_deleted = true
            and exists (
              select 1
-             from backlog_items
+             from backlog
              inner join projects
-               on projects.id = backlog_items.project_id
-             left join project_member_access
-               on project_member_access.project_id = projects.id
-              and project_member_access.member_user_id = $2
-             where backlog_items.id = backlog_attachment.backlog_item_id
+               on projects.id = backlog.project_id
+             where backlog.id = attachments.backlog_item_id
                and (
                  projects.owner_user_id = $2
                  or $2 = any(projects.member_user_ids)
                )
                and (
-                 backlog_attachment.deleted_by_user_id = $2
+                 attachments.deleted_by_user_id = $2
                  or projects.owner_user_id = $2
                  or $3 in ('faculty', 'admin')
-                 or coalesce(project_member_access.can_create_sprint, false)
+                 or $2 = any(projects.sprint_creator_user_ids)
                )
            )
          returning id`,

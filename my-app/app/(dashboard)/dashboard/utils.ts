@@ -135,11 +135,12 @@ export function mapBacklogItemsToTodos(
         links: 0,
         checklist: `${completedSubtasks}/${childItems.length}`,
         priority:
-          item.status === "revision"
+          item.priority ??
+          (item.status === "revision"
             ? "High"
             : item.status === "completed"
             ? "Low"
-            : "Medium",
+            : "Medium"),
       }
     })
 }

@@ -19,6 +19,7 @@ import {
 
 import { StatusCombobox } from "../../backlog/components/status-combobox"
 import { getAssigneeOption } from "../../backlog/types"
+import { PriorityIcon } from "../priority-icon"
 import type { DashboardComment, TodoItem } from "../../types"
 import { formatDeadline, getInitials } from "../../utils"
 import { formatCommentTime } from "./utils"
@@ -41,8 +42,8 @@ type TaskCommentsPanelProps = {
   onCommentAssetAttach: (todoId: string, files: FileList | null) => void
   onReplyToComment: (author: string) => void
   onEditComment: (comment: DashboardComment) => void
-  onDeleteComment: (comment: DashboardComment) => void | Promise<void>
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
+  onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
 }
 
 function escapeRegExp(value: string) {
@@ -67,8 +68,8 @@ export function TaskCommentsPanel({
   onCommentAssetAttach,
   onReplyToComment,
   onEditComment,
-  onDeleteComment,
   onStatusChange,
+  onPriorityChange,
 }: TaskCommentsPanelProps) {
   const selectedAssignee = getAssigneeOption(selectedTodo.assigneeId)
   const normalizedCurrentUserId = currentUserId?.trim() ?? ""
@@ -90,6 +91,7 @@ export function TaskCommentsPanel({
   )
   const taskMeta = [
     { label: "Status", value: selectedTodo.status },
+    { label: "Priority", value: selectedTodo.priority },
     {
       label: "Start date",
       value: selectedTodo.startDate
@@ -199,10 +201,10 @@ export function TaskCommentsPanel({
             </h3>
           </div>
           <div className="grid grid-cols-3 gap-x-4 gap-y-2">
-            {taskMeta.map((item, index) => (
+            {taskMeta.map((item) => (
               <div
                 key={item.label}
-                className={index >= 3 ? "min-w-0 col-span-1" : "min-w-0"}
+                className="min-w-0"
               >
                 <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
                   {item.label}
@@ -215,6 +217,50 @@ export function TaskCommentsPanel({
                         onStatusChange(selectedTodo.id, value as TodoItem["status"])
                       }
                     />
+                  </div>
+                ) : item.label === "Priority" ? (
+                  <div className="mt-0.5">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex h-7 min-w-[64px] items-center gap-1.5 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-300 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100 dark:hover:bg-[#303030]"
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <PriorityIcon
+                              priority={selectedTodo.priority}
+                              className={
+                                selectedTodo.priority === "High"
+                                  ? "h-3.5 w-3.5 text-red-500"
+                                  : selectedTodo.priority === "Low"
+                                  ? "h-3.5 w-3.5 text-sky-500"
+                                  : "h-3.5 w-3.5 text-orange-500"
+                              }
+                            />
+                            {selectedTodo.priority}
+                          </span>
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="start"
+                        className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                      >
+                        {(["Low", "Medium", "High"] as const).map((priority) => (
+                          <DropdownMenuItem
+                            key={priority}
+                            className={
+                              selectedTodo.priority === priority
+                                ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                                : undefined
+                            }
+                            onSelect={() => onPriorityChange(selectedTodo.id, priority)}
+                          >
+                            <PriorityIcon priority={priority} />
+                            {priority}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ) : item.label === "Assignee" ? (
                   <div className="mt-1">
@@ -327,13 +373,6 @@ export function TaskCommentsPanel({
                               onSelect={() => onEditComment(comment)}
                             >
                               Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={!canManageComment}
-                              variant="destructive"
-                              onSelect={() => void onDeleteComment(comment)}
-                            >
-                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

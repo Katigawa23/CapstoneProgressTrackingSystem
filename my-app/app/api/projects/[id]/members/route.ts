@@ -7,7 +7,7 @@ import {
   listProjectMembers,
   removeProjectStudentMember,
   updateProjectMemberAccess,
-} from "@backend/repositories/project-repository"
+} from "@backend/repositories/projects-repository"
 
 function revalidateProjectData() {
   try {

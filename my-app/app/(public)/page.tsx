@@ -81,7 +81,7 @@ const howItWorksSteps = [
   {
     icon: KanbanSquare,
     title: "3. Manage Workflow",
-    description: "Organize tasks, update statuses, and manage project activities through boards, backlogs, and sprint workflows.",
+    description: "Organize tasks, update statuses, and manage project activities through boards and backlogs.",
   },
   {
     icon: Users,

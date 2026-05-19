@@ -17,7 +17,7 @@ export function DashboardLoadingState({
     workedOnCount: initialDashboardHomeState.workedOnCount,
   })
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const dashboardHomeState = readDashboardHomeState()
 
     setLoadingState({

@@ -4,9 +4,8 @@ import { NextResponse } from "next/server"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   BacklogItemNameConflictError,
-  deleteBacklogItem,
   updateBacklogItem,
-} from "@backend/repositories/backlog-repository"
+} from "@backend/repositories/tasks-repository"
 
 function normalizeOptionalDate(value: unknown) {
   if (typeof value !== "string") {
@@ -33,6 +32,7 @@ export async function PATCH(
       status?: string
       checked?: boolean
       assigneeId?: string | null
+      priority?: "Low" | "Medium" | "High"
       orderIndex?: number
     }
     const updates = {
@@ -57,6 +57,9 @@ export async function PATCH(
       ...(typeof body.status === "string" ? { status: body.status } : {}),
       ...(typeof body.checked === "boolean" ? { checked: body.checked } : {}),
       ...("assigneeId" in body ? { assigneeId: body.assigneeId ?? null } : {}),
+      ...(body.priority === "Low" || body.priority === "Medium" || body.priority === "High"
+        ? { priority: body.priority }
+        : {}),
       ...(typeof body.orderIndex === "number" && Number.isFinite(body.orderIndex)
         ? { orderIndex: body.orderIndex }
         : {}),
@@ -88,35 +91,6 @@ export async function PATCH(
             ? error.message
             : "Failed to update backlog item",
       },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await requireAuthenticatedUser()
-    const { id } = await params
-    const deleted = await deleteBacklogItem(id, user.id, user.role)
-
-    if (!deleted) {
-      return NextResponse.json(
-        { error: "Backlog item not found" },
-        { status: 404 }
-      )
-    }
-
-    revalidateTag("backlog-items", "max")
-    revalidateTag("backlog-comments", "max")
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Failed to delete backlog item", error)
-    return NextResponse.json(
-      { error: "Failed to delete backlog item" },
       { status: 500 }
     )
   }

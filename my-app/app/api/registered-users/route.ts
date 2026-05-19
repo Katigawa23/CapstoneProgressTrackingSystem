@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { searchRegisteredMicrosoftUsers } from "@backend/repositories/microsoft-login-repository"
+import { searchRegisteredMicrosoftUsers } from "@backend/repositories/users-repository"
 
 export async function GET(request: Request) {
   try {

@@ -24,14 +24,6 @@ export type DashboardBoardProps = {
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean
-  canMoveToSprint?: boolean
-  isSprintView?: boolean
-  currentSprintId?: string | null
-  sprints: Array<{
-    id: string
-    name: string
-    backlogItemIds: string[]
-  }>
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onMoveTodo: (
     todoId: string,
@@ -39,8 +31,7 @@ export type DashboardBoardProps = {
     nextStatus: TodoItem["status"]
   ) => Promise<void>
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
-  onAddToSprint: (todoId: string, sprintId: string) => Promise<void> | void
-  onMoveToBoard: (todoId: string, sprintId: string) => Promise<void> | void
+  onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
   onTodoUpdate: (todoId: string, updates: Partial<TodoItem>) => void
   onCreateSubtask: (
     parentTodo: TodoItem,
@@ -53,8 +44,6 @@ export type DashboardBoardProps = {
     subtaskId: string,
     updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">
   ) => Promise<void>
-  onDeleteSubtask: (parentTodoId: string, subtaskId: string) => Promise<void>
-  onDeleteTodo: (todo: TodoItem) => Promise<void>
   onArchiveTodo: (todo: TodoItem) => Promise<void>
 }
 

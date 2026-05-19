@@ -1,4 +1,4 @@
-import { ChevronDown, Filter, Plus, Search } from "lucide-react"
+import { Filter, Plus, Search } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -6,7 +6,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -36,14 +35,6 @@ type BacklogToolbarProps = {
   onFilterChange: (value: BacklogSectionFilter) => void
   showCreateTaskButton?: boolean
   onCreateTask?: () => void
-  showCreateSprintButton?: boolean
-  canCreateSprint?: boolean
-  sprints?: Array<{
-    id: string
-    name: string
-  }>
-  onCreateSprint?: () => void
-  onSprintSelect?: (sprintId: string | null) => void
 }
 
 export function BacklogToolbar({
@@ -55,11 +46,6 @@ export function BacklogToolbar({
   onFilterChange,
   showCreateTaskButton = false,
   onCreateTask,
-  showCreateSprintButton = false,
-  canCreateSprint = true,
-  sprints = [],
-  onCreateSprint,
-  onSprintSelect,
 }: BacklogToolbarProps) {
   const hasActiveFilters = filterValue !== "none"
   const activeFilterCount = hasActiveFilters ? 1 : 0
@@ -80,59 +66,6 @@ export function BacklogToolbar({
             <Plus className="h-4 w-4" />
             Create Task
           </Button>
-        ) : null}
-
-        {showCreateSprintButton ? (
-          <div className="inline-flex shrink-0 items-center overflow-hidden rounded-md border border-slate-200 bg-white shadow-xs dark:border-[#343434] dark:bg-[#262626]">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="min-h-8 rounded-none border-0 px-3 text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-[#303030]"
-              onClick={onCreateSprint}
-              disabled={!canCreateSprint}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Create Sprint
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="min-h-8 rounded-none border-0 border-l border-slate-200 px-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:border-[#343434] dark:text-slate-300 dark:hover:bg-[#303030] dark:hover:text-slate-100"
-                >
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
-                >
-                  {canCreateSprint ? (
-                    <DropdownMenuItem onSelect={onCreateSprint}>
-                      <Plus className="h-4 w-4" />
-                      Create Sprint
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem disabled>
-                      <Plus className="h-4 w-4" />
-                      Create Sprint
-                    </DropdownMenuItem>
-                  )}
-                  {sprints.length > 0 ? <DropdownMenuSeparator /> : null}
-                  {sprints.map((sprint) => (
-                    <DropdownMenuItem
-                      key={sprint.id}
-                      onSelect={() => onSprintSelect?.(sprint.id)}
-                    >
-                      <span className="truncate">{sprint.name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
         ) : null}
 
         <div className="relative min-w-0 flex-1 sm:w-[190px] sm:flex-none">

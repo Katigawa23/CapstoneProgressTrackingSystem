@@ -15,7 +15,7 @@ import {
   readStateCookieValue,
 } from "@backend/auth/session"
 
-import { saveMicrosoftAccountLogin, getStoredUserRole } from "@backend/repositories/microsoft-login-repository"
+import { saveMicrosoftAccountLogin, getStoredUserRole } from "@backend/repositories/users-repository"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"

@@ -8,7 +8,6 @@ import {
   Filter,
   Pencil,
   Plus,
-  Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -49,6 +48,7 @@ import {
 import { cn } from "@/lib/utils"
 import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
+import { PriorityIcon } from "../priority-icon"
 import type { TodoItem } from "../../types"
 import { formatDeadline, getInitials } from "../../utils"
 import type { CreateSubtaskInput } from "./types"
@@ -66,12 +66,12 @@ type TaskSubtasksSectionProps = {
   onOpenSubtask: (subtask: TodoItem) => void
   onSubtaskStatusChange: (subtaskId: string, nextStatus: TodoItem["status"]) => void
   onSubtaskAssigneeChange: (subtaskId: string, assigneeId: string | null) => void
+  onSubtaskPriorityChange: (subtaskId: string, priority: TodoItem["priority"]) => void
   onEditSubtaskTitle: (subtask: TodoItem, nextTitle: string) => void | Promise<void>
   onUpdateSubtask: (
     subtaskId: string,
     updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">
   ) => void | Promise<void>
-  onDeleteSubtask: (subtask: TodoItem) => void | Promise<void>
   onArchiveSubtask: (subtask: TodoItem) => void | Promise<void>
 }
 
@@ -113,7 +113,7 @@ function SubtaskGlyph() {
 }
 
 const subtaskGridClass =
-  "grid grid-cols-[minmax(0,1.2fr)_72px_68px_68px_84px_108px_52px] items-center gap-x-2.5"
+  "grid grid-cols-[minmax(0,1.2fr)_72px_68px_68px_84px_72px_108px_52px] items-center gap-x-2.5"
 
 type SubtaskStatusFilter = "all" | TodoItem["status"]
 type SubtaskAssigneeFilter = "all" | "me"
@@ -136,9 +136,9 @@ export function TaskSubtasksSection({
   onOpenSubtask,
   onSubtaskStatusChange,
   onSubtaskAssigneeChange,
+  onSubtaskPriorityChange,
   onEditSubtaskTitle,
   onUpdateSubtask,
-  onDeleteSubtask,
   onArchiveSubtask,
 }: TaskSubtasksSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
@@ -574,6 +574,7 @@ export function TaskSubtasksSection({
             <span className="text-center">Start</span>
             <span className="text-center">Due</span>
             <span className="text-center">Assignee</span>
+            <span className="text-center">Priority</span>
             <span className="text-center">Status</span>
             <span className="text-right">Action</span>
           </div>
@@ -595,7 +596,6 @@ export function TaskSubtasksSection({
                     canManageOtherProjectResources
                   )
                 const canUpdateSubtaskFields = Boolean(normalizedCurrentUserId)
-                const canDeleteSubtask = canManageSubtask
                 const createdByName =
                   creatorNamesById[subtask.createdByUserId ?? ""] ??
                   subtask.createdByUserId ??
@@ -855,6 +855,53 @@ export function TaskSubtasksSection({
                       className="flex justify-center"
                       onClick={(event) => event.stopPropagation()}
                     >
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={!canUpdateSubtaskFields}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#dee4ea] dark:hover:bg-[#24292f]"
+                            aria-label={`Priority ${subtask.priority}`}
+                            title={`Priority: ${subtask.priority}`}
+                          >
+                            <PriorityIcon
+                              priority={subtask.priority}
+                              className={
+                                subtask.priority === "High"
+                                  ? "h-3.5 w-3.5 text-red-500"
+                                  : subtask.priority === "Low"
+                                  ? "h-3.5 w-3.5 text-sky-500"
+                                  : "h-3.5 w-3.5 text-orange-500"
+                              }
+                            />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="center"
+                          className="w-36 rounded-[6px] border-slate-200 bg-white p-1 shadow-md dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                        >
+                          {(["Low", "Medium", "High"] as const).map((priority) => (
+                            <DropdownMenuItem
+                              key={priority}
+                              className={cn(
+                                "rounded-[4px] text-sm",
+                                subtask.priority === priority &&
+                                  "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                              )}
+                              onSelect={() => onSubtaskPriorityChange(subtask.id, priority)}
+                            >
+                              <PriorityIcon priority={priority} />
+                              {priority}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div
+                      className="flex justify-center"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <StatusCombobox
                         value={subtask.status}
                         disabled={!canUpdateSubtaskFields}
@@ -905,14 +952,6 @@ export function TaskSubtasksSection({
                           >
                             <Archive className="h-4 w-4" />
                             Archive
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={!canDeleteSubtask}
-                            className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
-                            onSelect={() => void onDeleteSubtask(subtask)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -974,6 +1013,7 @@ export function TaskSubtasksSection({
 
               <div />
 
+              <div className="h-9" />
               <div className="h-9" />
               <div className="h-9" />
 

@@ -42,6 +42,7 @@ export type BacklogApiItem = {
   status: string
   checked: boolean
   assigneeId?: string | null
+  priority?: "Low" | "Medium" | "High"
   archived?: boolean
   archivedAt?: string | null
   deleted?: boolean

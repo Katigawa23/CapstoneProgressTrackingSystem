@@ -8,21 +8,18 @@ import {
 } from "@/lib/dashboard-board-state"
 import { BoardLoadingSkeleton } from "./board-loading-skeleton"
 
-const emptyBoardState: DashboardBoardState = {
-  todoCount: 0,
-  inprogressCount: 0,
-  revisionCount: 0,
-  completedCount: 0,
-}
-
-export function BoardLoadingState() {
+export function BoardLoadingState({
+  cardCounts,
+}: {
+  cardCounts?: DashboardBoardState
+}) {
   const [boardState, setBoardState] = React.useState<DashboardBoardState>(
-    emptyBoardState
+    () => cardCounts ?? readDashboardBoardState()
   )
 
-  React.useEffect(() => {
-    setBoardState(readDashboardBoardState())
-  }, [])
+  React.useLayoutEffect(() => {
+    setBoardState(cardCounts ?? readDashboardBoardState())
+  }, [cardCounts])
 
-  return <BoardLoadingSkeleton useLiveHeader cardCounts={boardState} />
+  return <BoardLoadingSkeleton cardCounts={boardState} />
 }

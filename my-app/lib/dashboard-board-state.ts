@@ -1,4 +1,5 @@
 export const DASHBOARD_BOARD_STATE_STORAGE_KEY = "dashboard-board-state"
+export const DASHBOARD_PROJECT_STORAGE_KEY = "dashboard-project"
 
 export type DashboardBoardState = {
   todoCount: number
@@ -7,16 +8,26 @@ export type DashboardBoardState = {
   completedCount: number
 }
 
-function getUserScopedStorageKey(baseKey: string) {
+function normalizeStorageKeyPart(value: string | null | undefined, fallback: string) {
+  const normalizedValue = value?.trim()
+
+  if (!normalizedValue) {
+    return fallback
+  }
+
+  return normalizedValue.replace(/[^A-Za-z0-9_-]/g, "_")
+}
+
+function readCurrentClientUserId() {
   if (typeof window === "undefined") {
-    return baseKey
+    return null
   }
 
   try {
     const sessionValue = window.localStorage.getItem("tracksphere_auth_session")
 
     if (!sessionValue) {
-      return `${baseKey}:guest`
+      return null
     }
 
     const session = JSON.parse(sessionValue) as {
@@ -24,12 +35,40 @@ function getUserScopedStorageKey(baseKey: string) {
     }
     const userId = session?.user?.id
 
-    return typeof userId === "string" && userId.trim()
-      ? `${baseKey}:${userId.trim()}`
-      : `${baseKey}:guest`
+    return typeof userId === "string" && userId.trim() ? userId.trim() : null
   } catch {
-    return `${baseKey}:guest`
+    return null
   }
+}
+
+function readCurrentClientProjectId() {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    const userScopedProjectKey = `${DASHBOARD_PROJECT_STORAGE_KEY}:${normalizeStorageKeyPart(
+      readCurrentClientUserId(),
+      "guest"
+    )}`
+
+    const projectId = window.localStorage.getItem(userScopedProjectKey)
+
+    return typeof projectId === "string" && projectId.trim() ? projectId.trim() : null
+  } catch {
+    return null
+  }
+}
+
+function getUserScopedStorageKey(baseKey: string) {
+  if (typeof window === "undefined") {
+    return baseKey
+  }
+
+  const userKeyPart = normalizeStorageKeyPart(readCurrentClientUserId(), "guest")
+  const projectKeyPart = normalizeStorageKeyPart(readCurrentClientProjectId(), "no-project")
+
+  return `${baseKey}:${userKeyPart}:${projectKeyPart}`
 }
 
 function normalizeCount(value: unknown) {

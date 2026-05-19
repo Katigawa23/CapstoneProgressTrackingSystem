@@ -8,7 +8,7 @@ import {
   canUseLocalFileFallback,
   shouldFallbackToLocalStore,
 } from "@backend/db/fallback"
-import { ensureMicrosoftLoginSchema } from "@backend/repositories/microsoft-login-repository"
+import { ensureMicrosoftLoginSchema } from "@backend/repositories/users-repository"
 import {
   dashboardProjects,
   PROJECT_METADATA_MAX_LENGTH,
@@ -59,14 +59,6 @@ type CreateProjectInput = {
   yearLevel: string
   syTerm: string
   projectType: string
-}
-
-type ProjectMemberAccessRecord = {
-  project_id: string
-  member_user_id: string
-  member_role: string
-  project_role: string
-  can_create_sprint: boolean
 }
 
 export type ProjectMemberAccessView = {
@@ -197,14 +189,16 @@ async function ensureProjectsSchema() {
       )
       .then(() =>
         getDb().query(`
-        create table if not exists project_member_access (
+        create table if not exists groups (
+          id uuid primary key default gen_random_uuid(),
           project_id uuid not null references projects(id) on delete cascade,
-          member_user_id text not null references microsoft_account_logins(microsoft_user_id) on delete cascade,
-          member_role text not null default 'student',
-          project_role text not null default '',
-          can_create_sprint boolean not null default false,
+          group_name text not null default '',
+          adviser_user_id text references users(microsoft_user_id) on delete set null,
+          created_by_user_id text references users(microsoft_user_id) on delete set null,
+          member_user_ids text[] not null default '{}',
+          sprint_creator_user_ids text[] not null default '{}',
           created_at timestamptz not null default now(),
-          primary key (project_id, member_user_id)
+          updated_at timestamptz not null default now()
         );
       `)
       )
@@ -212,7 +206,7 @@ async function ensureProjectsSchema() {
         getDb().query(`
         create table if not exists project_starred_preferences (
           project_id uuid not null references projects(id) on delete cascade,
-          user_id text not null references microsoft_account_logins(microsoft_user_id) on delete cascade,
+          user_id text not null references users(microsoft_user_id) on delete cascade,
           created_at timestamptz not null default now(),
           primary key (project_id, user_id)
         );
@@ -250,32 +244,26 @@ async function ensureProjectsSchema() {
       )
       .then(() =>
         getDb().query(`
-          alter table project_member_access
-          add column if not exists member_role text not null default 'student';
+          alter table groups
+          add column if not exists member_user_ids text[] not null default '{}';
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table project_member_access
-          add column if not exists project_role text not null default '';
+          alter table groups
+          add column if not exists sprint_creator_user_ids text[] not null default '{}';
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table project_member_access
-          add column if not exists can_create_sprint boolean not null default false;
+          create unique index if not exists groups_project_id_idx
+          on groups(project_id);
         `)
       )
       .then(() =>
         getDb().query(`
-          create index if not exists project_member_access_member_user_id_idx
-          on project_member_access(member_user_id);
-        `)
-      )
-      .then(() =>
-        getDb().query(`
-          create index if not exists project_member_access_project_id_idx
-          on project_member_access(project_id);
+          create index if not exists groups_adviser_user_id_idx
+          on groups(adviser_user_id);
         `)
       )
       .then(() =>
@@ -317,7 +305,7 @@ async function ensureProjectsSchema() {
             ) then
               alter table projects
               add constraint fk_projects_owner_user_id
-              foreign key (owner_user_id) references microsoft_account_logins(microsoft_user_id)
+              foreign key (owner_user_id) references users(microsoft_user_id)
               on delete restrict;
             end if;
           end $$;
@@ -375,23 +363,36 @@ async function ensureProjectsSchema() {
       )
       .then(() =>
         getDb().query(`
-          insert into project_member_access (
+          update groups
+          set group_name = p.project_name,
+              created_by_user_id = p.owner_user_id,
+              member_user_ids = p.member_user_ids,
+              sprint_creator_user_ids = p.sprint_creator_user_ids,
+              updated_at = now()
+          from projects p
+          where groups.project_id = p.id;
+
+          insert into groups (
             project_id,
-            member_user_id,
-            member_role,
-            can_create_sprint
+            group_name,
+            adviser_user_id,
+            created_by_user_id,
+            member_user_ids,
+            sprint_creator_user_ids
           )
           select
             p.id,
-            login.microsoft_user_id,
-            'student',
-            login.microsoft_user_id = any(p.sprint_creator_user_ids)
+            p.project_name,
+            null,
+            p.owner_user_id,
+            p.member_user_ids,
+            p.sprint_creator_user_ids
           from projects p
-          cross join unnest(p.member_user_ids) as member_user_id
-          inner join microsoft_account_logins login
-            on login.microsoft_user_id = member_user_id
-          on conflict (project_id, member_user_id) do update
-          set can_create_sprint = excluded.can_create_sprint;
+          where not exists (
+            select 1
+            from groups g
+            where g.project_id = p.id
+          );
         `)
       )
       .then(() =>
@@ -556,6 +557,28 @@ async function writeFileStarredPreferences(records: ProjectStarredPreferenceReco
   )
 }
 
+function normalizeProjectCreatedAt(value: unknown) {
+  if (value instanceof Date) {
+    const timestamp = value.getTime()
+
+    if (!Number.isNaN(timestamp) && value.getUTCFullYear() > 1971) {
+      return value.toISOString()
+    }
+  }
+
+  if (typeof value !== "string") {
+    return new Date().toISOString()
+  }
+
+  const timestamp = new Date(value).getTime()
+
+  if (Number.isNaN(timestamp) || new Date(timestamp).getUTCFullYear() <= 1971) {
+    return new Date().toISOString()
+  }
+
+  return value
+}
+
 function mapRecord(record: ProjectRecord): DashboardProject {
   return {
     id: record.id,
@@ -572,10 +595,7 @@ function mapRecord(record: ProjectRecord): DashboardProject {
     yearLevel: typeof record.year_level === "string" ? record.year_level : "",
     syTerm: typeof record.sy_term === "string" ? record.sy_term : "",
     projectType: typeof record.project_type === "string" ? record.project_type : "",
-    createdAt:
-      typeof record.created_at === "string"
-        ? record.created_at
-        : new Date(0).toISOString(),
+    createdAt: normalizeProjectCreatedAt(record.created_at),
   }
 }
 
@@ -662,7 +682,7 @@ export async function listProjects(ownerUserId: string) {
              microsoft_user_id,
              name,
              email
-           from microsoft_account_logins
+           from users
            order by microsoft_user_id, login_at desc
          )
          select
@@ -808,6 +828,8 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
           error: error instanceof Error ? error.message : String(error),
         })
       }
+
+      await syncProjectGroupFromProject(project.id)
 
       return mapRecord(result.rows[0])
     },
@@ -984,39 +1006,90 @@ async function insertProjectMemberAccessRecords(
   const normalizedAccess = [...normalizedAccessByUserId.values()]
 
   if (normalizedAccess.length === 0) {
+    await syncProjectGroupFromProject(projectId)
     return
   }
 
-  const placeholders = normalizedAccess
-    .map((_, index) => `($1, $${index * 3 + 2}, $${index * 3 + 3}, $${index * 3 + 4})`)
-    .join(", ")
-  const parameters: Array<string | boolean> = [projectId]
+  const memberUserIds = normalizedAccess.map((member) => member.userId)
+  const sprintCreatorUserIds = normalizedAccess
+    .filter((member) => member.canCreateSprint)
+    .map((member) => member.userId)
 
-  for (const member of normalizedAccess) {
-    parameters.push(member.userId, member.role, member.canCreateSprint)
-  }
+  await getDb().query(
+    `update groups
+     set created_by_user_id = $2,
+         member_user_ids = $3::text[],
+         sprint_creator_user_ids = $4::text[],
+         updated_at = now()
+     where project_id = $1`,
+    [projectId, ownerUserId, memberUserIds, sprintCreatorUserIds]
+  )
 
-  await getDb().query<ProjectMemberAccessRecord>(
-    `insert into project_member_access (
+  await getDb().query(
+    `insert into groups (
        project_id,
-       member_user_id,
-       member_role,
-       can_create_sprint
+       group_name,
+       adviser_user_id,
+       created_by_user_id,
+       member_user_ids,
+       sprint_creator_user_ids
      )
      select
-       incoming.project_id,
-       login.microsoft_user_id,
-       incoming.member_role,
-       incoming.can_create_sprint
-     from (
-       values ${placeholders}
-     ) as incoming(project_id, member_user_id, member_role, can_create_sprint)
-     inner join microsoft_account_logins login
-       on login.microsoft_user_id = incoming.member_user_id
-     on conflict (project_id, member_user_id) do update
-     set member_role = excluded.member_role,
-         can_create_sprint = excluded.can_create_sprint`,
-    parameters
+       p.id,
+       p.project_name,
+       null,
+       $2,
+       $3::text[],
+       $4::text[]
+     from projects p
+     where p.id = $1
+       and not exists (
+         select 1
+         from groups g
+         where g.project_id = p.id
+       )`,
+    [projectId, ownerUserId, memberUserIds, sprintCreatorUserIds]
+  )
+}
+
+async function syncProjectGroupFromProject(projectId: string) {
+  await getDb().query(
+    `update groups
+     set group_name = projects.project_name,
+         created_by_user_id = projects.owner_user_id,
+         member_user_ids = projects.member_user_ids,
+         sprint_creator_user_ids = projects.sprint_creator_user_ids,
+         updated_at = now()
+     from projects
+     where projects.id = $1
+       and groups.project_id = projects.id`,
+    [projectId]
+  )
+
+  await getDb().query(
+    `insert into groups (
+       project_id,
+       group_name,
+       adviser_user_id,
+       created_by_user_id,
+       member_user_ids,
+       sprint_creator_user_ids
+     )
+     select
+       p.id,
+       p.project_name,
+       null,
+       p.owner_user_id,
+       p.member_user_ids,
+       p.sprint_creator_user_ids
+     from projects p
+     where p.id = $1
+       and not exists (
+         select 1
+         from groups g
+         where g.project_id = p.id
+       )`,
+    [projectId]
   )
 }
 
@@ -1073,12 +1146,11 @@ export async function canUserCreateSprintInProject(
       const result = await getDb().query<{ can_create_sprint: boolean }>(
         `select (
            p.owner_user_id = $2
-           or coalesce(pma.can_create_sprint, false)
+           or $2 = any(coalesce(g.sprint_creator_user_ids, p.sprint_creator_user_ids))
          ) as can_create_sprint
          from projects p
-         left join project_member_access pma
-           on pma.project_id = p.id
-          and pma.member_user_id = $2
+         left join groups g
+           on g.project_id = p.id
          where p.id = $1
            and (
              p.owner_user_id = $2
@@ -1130,14 +1202,10 @@ export async function listProjectMembers(
         `select exists (
            select 1
            from projects p
-           left join project_member_access pma
-             on pma.project_id = p.id
-            and pma.member_user_id = $2
            where p.id = $1
              and (
                p.owner_user_id = $2
                or $2 = any(p.member_user_ids)
-               or pma.member_user_id is not null
                or $3 in ('faculty', 'admin')
              )
          ) as can_access`,
@@ -1153,7 +1221,6 @@ export async function listProjectMembers(
         name: string
         email: string
         role: string
-        project_role: string
         can_create_sprint: boolean
         is_owner: boolean
       }>(
@@ -1163,16 +1230,18 @@ export async function listProjectMembers(
            where id = $1
            limit 1
          ),
+         group_scope as (
+           select *
+           from groups
+           where project_id = $1
+           limit 1
+         ),
          project_people as (
            select owner_user_id as user_id
            from project_scope
            union
            select unnest(member_user_ids) as user_id
            from project_scope
-           union
-           select member_user_id as user_id
-           from project_member_access
-           where project_id = $1
          ),
          latest_logins as (
            select distinct on (microsoft_user_id)
@@ -1180,7 +1249,7 @@ export async function listProjectMembers(
              name,
              email,
              role
-           from microsoft_account_logins
+           from users
            order by microsoft_user_id, login_at desc
          )
          select
@@ -1189,24 +1258,23 @@ export async function listProjectMembers(
            coalesce(login.email, '') as email,
            case
              when project_scope.owner_user_id = people.user_id then coalesce(nullif(login.role, ''), 'faculty')
-           else coalesce(pma.member_role, nullif(login.role, ''), 'student')
+             else coalesce(nullif(login.role, ''), 'student')
           end as role,
-          coalesce(pma.project_role, '') as project_role,
           case
             when project_scope.owner_user_id = people.user_id then true
-            when coalesce(pma.member_role, login.role) in ('faculty', 'admin') then true
-            else coalesce(pma.can_create_sprint, false)
+            else people.user_id = any(
+              coalesce(group_scope.sprint_creator_user_ids, project_scope.sprint_creator_user_ids)
+            )
            end as can_create_sprint,
            project_scope.owner_user_id = people.user_id as is_owner
          from project_people people
          cross join project_scope
+         left join group_scope
+           on true
          left join latest_logins login
            on login.microsoft_user_id = people.user_id
-         left join project_member_access pma
-           on pma.project_id = $1
-          and pma.member_user_id = people.user_id
          where project_scope.owner_user_id <> people.user_id
-           and coalesce(pma.member_role, login.role, 'student') not in ('faculty', 'admin')
+           and coalesce(login.role, 'student') not in ('faculty', 'admin')
          order by is_owner desc, name asc, email asc`,
         [projectId]
       )
@@ -1216,7 +1284,7 @@ export async function listProjectMembers(
         name: row.name,
         email: row.email,
         role: normalizeProjectMemberRole(row.role),
-        projectRole: row.project_role,
+        projectRole: "",
         canCreateSprint: row.can_create_sprint === true,
         isOwner: row.is_owner === true,
       }))
@@ -1274,23 +1342,18 @@ export async function updateProjectMemberAccess(
            p.owner_user_id,
            login.name as target_name,
            login.email as target_email,
-           coalesce(pma.member_role, login.role, 'student') as target_role,
-           coalesce(pma.can_create_sprint, false) as current_can_create_sprint,
+           coalesce(login.role, 'student') as target_role,
+           $2 = any(coalesce(g.sprint_creator_user_ids, p.sprint_creator_user_ids)) as current_can_create_sprint,
            (
              p.owner_user_id = $3
              or $3 = any(p.member_user_ids)
-             or actor_pma.member_user_id is not null
              or $4 in ('faculty', 'admin')
            ) as actor_can_access
          from projects p
-         inner join microsoft_account_logins login
+         inner join users login
            on login.microsoft_user_id = $2
-         left join project_member_access pma
-           on pma.project_id = p.id
-          and pma.member_user_id = $2
-         left join project_member_access actor_pma
-           on actor_pma.project_id = p.id
-          and actor_pma.member_user_id = $3
+         left join groups g
+           on g.project_id = p.id
          where p.id = $1
          limit 1`,
         [projectId, targetUserId, actorUserId, actorRole]
@@ -1311,21 +1374,6 @@ export async function updateProjectMemberAccess(
       const nextCanCreateSprint = canManageProjectMembers(actorRole)
         ? input.canCreateSprint === true
         : targetRow.current_can_create_sprint === true
-
-      await getDb().query(
-        `insert into project_member_access (
-           project_id,
-           member_user_id,
-           member_role,
-           project_role,
-           can_create_sprint
-         )
-         values ($1, $2, 'student', $3, $4)
-         on conflict (project_id, member_user_id) do update
-         set project_role = excluded.project_role,
-             can_create_sprint = excluded.can_create_sprint`,
-        [projectId, targetUserId, nextProjectRole, nextCanCreateSprint]
-      )
 
       await getDb().query(
         `update projects
@@ -1350,6 +1398,8 @@ export async function updateProjectMemberAccess(
           targetRow.target_name,
         ]
       )
+
+      await syncProjectGroupFromProject(projectId)
 
       return {
         userId: targetUserId,
@@ -1389,7 +1439,7 @@ export async function addProjectStudentMember(
            login.email as target_email,
            coalesce(login.role, 'student') as target_role
          from projects p
-         inner join microsoft_account_logins login
+         inner join users login
            on login.microsoft_user_id = $2
          where p.id = $1
            and (
@@ -1412,19 +1462,6 @@ export async function addProjectStudentMember(
       }
 
       await getDb().query(
-        `insert into project_member_access (
-           project_id,
-           member_user_id,
-           member_role,
-           project_role,
-           can_create_sprint
-         )
-         values ($1, $2, 'student', '', false)
-         on conflict (project_id, member_user_id) do nothing`,
-        [projectId, targetUserId]
-      )
-
-      await getDb().query(
         `update projects
          set member_user_ids = case
                when $2 = any(member_user_ids) then member_user_ids
@@ -1438,6 +1475,8 @@ export async function addProjectStudentMember(
          where id = $1`,
         [projectId, targetUserId, targetRow.target_name]
       )
+
+      await syncProjectGroupFromProject(projectId)
 
       return {
         userId: targetUserId,
@@ -1473,12 +1512,9 @@ export async function removeProjectStudentMember(
         `select
            p.owner_user_id,
            coalesce(login.name, '') as target_name,
-           coalesce(pma.member_role, login.role, 'student') as target_role
+           coalesce(login.role, 'student') as target_role
          from projects p
-         left join project_member_access pma
-           on pma.project_id = p.id
-          and pma.member_user_id = $2
-         left join microsoft_account_logins login
+         left join users login
            on login.microsoft_user_id = $2
          where p.id = $1
            and (
@@ -1501,13 +1537,6 @@ export async function removeProjectStudentMember(
       }
 
       await getDb().query(
-        `delete from project_member_access
-         where project_id = $1
-           and member_user_id = $2`,
-        [projectId, targetUserId]
-      )
-
-      await getDb().query(
         `update projects
          set member_user_ids = array_remove(member_user_ids, $2),
              sprint_creator_user_ids = array_remove(sprint_creator_user_ids, $2),
@@ -1518,6 +1547,8 @@ export async function removeProjectStudentMember(
          where id = $1`,
         [projectId, targetUserId, targetRow.target_name]
       )
+
+      await syncProjectGroupFromProject(projectId)
 
       return true
     },

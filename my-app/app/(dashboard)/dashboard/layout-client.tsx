@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Bell } from "lucide-react"
@@ -223,14 +222,6 @@ export function DashboardLayoutClient({
               href="/dashboard/board"
               className="flex items-center gap-3 font-display text-xl font-extrabold tracking-tight sm:text-2xl"
             >
-              <Image
-                src="/logoTS.png"
-                alt="TrackSphere logo"
-                width={30}
-                height={30}
-                className="h-7 w-7 object-contain"
-                priority
-              />
               <span>
                 <span className="text-slate-950 dark:text-slate-50">Track</span>
                 <span className="text-sky-600">Sphere</span>

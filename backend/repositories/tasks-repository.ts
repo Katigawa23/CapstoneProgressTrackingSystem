@@ -8,16 +8,16 @@ import {
   canUseLocalFileFallback,
   shouldFallbackToLocalStore,
 } from "@backend/db/fallback"
-import { ensureMicrosoftLoginSchema } from "@backend/repositories/microsoft-login-repository"
+import { ensureMicrosoftLoginSchema } from "@backend/repositories/users-repository"
 import {
   archiveBacklogAttachmentsForItems,
   restoreBacklogAttachmentsForItems,
-} from "@backend/repositories/backlog-attachment-repository"
+} from "@backend/repositories/attachments-repository"
 import {
   canUserCreateSprintInProject,
   ensureProjectExists,
   listProjects,
-} from "@backend/repositories/project-repository"
+} from "@backend/repositories/projects-repository"
 
 export type BacklogRow = {
   id: string
@@ -35,6 +35,7 @@ export type BacklogRow = {
   status: string
   checked: boolean
   assigneeId: string | null
+  priority: "Low" | "Medium" | "High"
   archived: boolean
   archivedAt: string | null
   deleted: boolean
@@ -53,6 +54,7 @@ type CreateBacklogItemInput = {
   status: string
   checked: boolean
   assigneeId: string | null
+  priority?: "Low" | "Medium" | "High"
 }
 
 type UpdateBacklogItemInput = {
@@ -64,6 +66,7 @@ type UpdateBacklogItemInput = {
   status?: string
   checked?: boolean
   assigneeId?: string | null
+  priority?: "Low" | "Medium" | "High"
   orderIndex?: number
 }
 
@@ -83,6 +86,7 @@ type BacklogRecord = {
   status: string
   checked: boolean
   assignee_id: string | null
+  priority: "Low" | "Medium" | "High"
   is_archived: boolean
   archived_at: string | null
   is_deleted: boolean
@@ -139,6 +143,7 @@ type RawBacklogRecord = Partial<BacklogRecord> & {
   startDate?: string | null
   dueDate?: string | null
   assigneeId?: string | null
+  priority?: "Low" | "Medium" | "High" | null
   archivedByUserId?: string | null
   deletedByUserId?: string | null
   archived?: boolean
@@ -213,6 +218,7 @@ function mapRecord(record: BacklogRecordWithStats): BacklogRow {
     status: record.status,
     checked: record.checked,
     assigneeId: record.assignee_id,
+    priority: record.priority ?? "Medium",
     archived: record.is_archived ?? false,
     archivedAt: record.archived_at ?? null,
     deleted: record.is_deleted ?? false,
@@ -244,11 +250,209 @@ function toRecord(input: BacklogRow): BacklogRecord {
     status: input.status,
     checked: input.checked,
     assignee_id: input.assigneeId,
+    priority: input.priority,
     is_archived: input.archived,
     archived_at: input.archivedAt,
     is_deleted: input.deleted ?? false,
     deleted_at: input.deletedAt ?? null,
     created_at: input.createdAt,
+  }
+}
+
+async function syncBacklogMirrorItems(backlogItemIds: string[]) {
+  const normalizedIds = Array.from(
+    new Set(backlogItemIds.map((id) => id.trim()).filter(Boolean))
+  )
+
+  if (normalizedIds.length === 0) {
+    return
+  }
+
+  const db = getDb()
+  const client = await db.connect()
+
+  try {
+    await client.query("begin")
+
+    await client.query(
+      `delete from subtasks
+       where id::text = any($1::text[])
+         and not exists (
+           select 1
+           from backlog
+           where backlog.id = subtasks.id
+             and backlog.parent_id is not null
+         )`,
+      [normalizedIds]
+    )
+
+    await client.query(
+      `delete from tasks
+       where id::text = any($1::text[])
+         and not exists (
+           select 1
+           from backlog
+           where backlog.id = tasks.id
+             and backlog.parent_id is null
+         )`,
+      [normalizedIds]
+    )
+
+    await client.query(
+      `insert into tasks (
+         id,
+         project_id,
+         sequence_number,
+         order_index,
+         created_by_user_id,
+         archived_by_user_id,
+         deleted_by_user_id,
+         title,
+         description,
+         start_date,
+         due_date,
+         status,
+         checked,
+         assignee_id,
+         priority,
+         is_archived,
+         archived_at,
+         is_deleted,
+         deleted_at,
+         created_at,
+         updated_at
+       )
+       select
+         backlog.id,
+         backlog.project_id,
+         backlog.sequence_number,
+         backlog.order_index,
+         backlog.created_by_user_id,
+         backlog.archived_by_user_id,
+         backlog.deleted_by_user_id,
+         backlog.title,
+         backlog.description,
+         backlog.start_date,
+         backlog.due_date,
+         backlog.status,
+         backlog.checked,
+         backlog.assignee_id,
+         backlog.priority,
+         backlog.is_archived,
+         backlog.archived_at,
+         backlog.is_deleted,
+         backlog.deleted_at,
+         backlog.created_at,
+         backlog.updated_at
+       from backlog
+       where backlog.id::text = any($1::text[])
+         and backlog.parent_id is null
+       on conflict (id) do update
+       set project_id = excluded.project_id,
+           sequence_number = excluded.sequence_number,
+           order_index = excluded.order_index,
+           created_by_user_id = excluded.created_by_user_id,
+           archived_by_user_id = excluded.archived_by_user_id,
+           deleted_by_user_id = excluded.deleted_by_user_id,
+           title = excluded.title,
+           description = excluded.description,
+           start_date = excluded.start_date,
+           due_date = excluded.due_date,
+           status = excluded.status,
+           checked = excluded.checked,
+           assignee_id = excluded.assignee_id,
+           priority = excluded.priority,
+           is_archived = excluded.is_archived,
+           archived_at = excluded.archived_at,
+           is_deleted = excluded.is_deleted,
+           deleted_at = excluded.deleted_at,
+           created_at = excluded.created_at,
+           updated_at = excluded.updated_at`,
+      [normalizedIds]
+    )
+
+    await client.query(
+      `insert into subtasks (
+         id,
+         task_id,
+         project_id,
+         sequence_number,
+         order_index,
+         created_by_user_id,
+         archived_by_user_id,
+         deleted_by_user_id,
+         title,
+         description,
+         start_date,
+         due_date,
+         status,
+         checked,
+         assignee_id,
+         priority,
+         is_archived,
+         archived_at,
+         is_deleted,
+         deleted_at,
+         created_at,
+         updated_at
+       )
+       select
+         backlog.id,
+         backlog.parent_id,
+         backlog.project_id,
+         backlog.sequence_number,
+         backlog.order_index,
+         backlog.created_by_user_id,
+         backlog.archived_by_user_id,
+         backlog.deleted_by_user_id,
+         backlog.title,
+         backlog.description,
+         backlog.start_date,
+         backlog.due_date,
+         backlog.status,
+         backlog.checked,
+         backlog.assignee_id,
+         backlog.priority,
+         backlog.is_archived,
+         backlog.archived_at,
+         backlog.is_deleted,
+         backlog.deleted_at,
+         backlog.created_at,
+         backlog.updated_at
+       from backlog
+       where backlog.id::text = any($1::text[])
+         and backlog.parent_id is not null
+       on conflict (id) do update
+       set task_id = excluded.task_id,
+           project_id = excluded.project_id,
+           sequence_number = excluded.sequence_number,
+           order_index = excluded.order_index,
+           created_by_user_id = excluded.created_by_user_id,
+           archived_by_user_id = excluded.archived_by_user_id,
+           deleted_by_user_id = excluded.deleted_by_user_id,
+           title = excluded.title,
+           description = excluded.description,
+           start_date = excluded.start_date,
+           due_date = excluded.due_date,
+           status = excluded.status,
+           checked = excluded.checked,
+           assignee_id = excluded.assignee_id,
+           priority = excluded.priority,
+           is_archived = excluded.is_archived,
+           archived_at = excluded.archived_at,
+           is_deleted = excluded.is_deleted,
+           deleted_at = excluded.deleted_at,
+           created_at = excluded.created_at,
+           updated_at = excluded.updated_at`,
+      [normalizedIds]
+    )
+
+    await client.query("commit")
+  } catch (error) {
+    await client.query("rollback")
+    throw error
+  } finally {
+    client.release()
   }
 }
 
@@ -296,6 +500,10 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
   const createdAt = readStringAlias(record, "created_at", "createdAt")
   const isArchived = readBooleanAlias(record, "is_archived", "archived")
   const isDeleted = readBooleanAlias(record, "is_deleted", "deleted")
+  const priority =
+    record.priority === "Low" || record.priority === "Medium" || record.priority === "High"
+      ? record.priority
+      : "Medium"
 
   return {
     id: typeof record.id === "string" ? record.id : randomUUID(),
@@ -315,6 +523,7 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
     status: typeof record.status === "string" ? record.status : "todo",
     checked: typeof record.checked === "boolean" ? record.checked : false,
     assignee_id: assigneeId,
+    priority,
     is_archived: isArchived ?? false,
     archived_at: archivedAt,
     is_deleted: isDeleted ?? false,
@@ -346,10 +555,10 @@ async function ensureBacklogSchema() {
     schemaReady = ensureMicrosoftLoginSchema()
       .then(() =>
         getDb().query(`
-          create table if not exists backlog_items (
+          create table if not exists backlog (
           id uuid primary key,
           project_id uuid references projects(id) on delete cascade,
-          parent_id uuid references backlog_items(id) on delete cascade,
+          parent_id uuid references backlog(id) on delete cascade,
           sequence_number integer,
           order_index integer,
           created_by_user_id text,
@@ -364,6 +573,7 @@ async function ensureBacklogSchema() {
           ),
           checked boolean not null default false,
           assignee_id text,
+          priority text not null default 'Medium' check (priority in ('Low', 'Medium', 'High')),
           is_archived boolean not null default false,
           archived_at timestamptz,
           is_deleted boolean not null default false,
@@ -375,123 +585,200 @@ async function ensureBacklogSchema() {
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists created_by_user_id text;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists archived_by_user_id text;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists deleted_by_user_id text;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists start_date date;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists due_date date;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists assignee_id text;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
+          add column if not exists priority text not null default 'Medium';
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table backlog
           add column if not exists is_archived boolean not null default false;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists archived_at timestamptz;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists is_deleted boolean not null default false;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists deleted_at timestamptz;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists project_id uuid references projects(id) on delete cascade;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists parent_id uuid;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists sequence_number integer;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           add column if not exists order_index integer;
         `)
       )
       .then(() =>
         getDb().query(`
-          create index if not exists backlog_items_project_order_idx
-          on backlog_items(project_id, order_index asc, created_at asc);
+          create index if not exists backlog_project_order_idx
+          on backlog(project_id, order_index asc, created_at asc);
         `)
       )
       .then(() =>
         getDb().query(`
-          create index if not exists backlog_items_created_by_user_id_idx
-          on backlog_items(created_by_user_id);
+          create index if not exists backlog_created_by_user_id_idx
+          on backlog(created_by_user_id);
         `)
       )
       .then(() =>
         getDb().query(`
-          create index if not exists backlog_items_project_parent_idx
-          on backlog_items(project_id, parent_id, sequence_number asc);
+          create index if not exists backlog_project_parent_idx
+          on backlog(project_id, parent_id, sequence_number asc);
         `)
       )
       .then(() =>
         getDb().query(`
-          create index if not exists backlog_items_parent_id_idx
-          on backlog_items(parent_id);
+          create index if not exists backlog_parent_id_idx
+          on backlog(parent_id);
         `)
       )
       .then(() =>
         getDb().query(`
-          create index if not exists backlog_items_assignee_id_idx
-          on backlog_items(assignee_id);
+          create index if not exists backlog_assignee_id_idx
+          on backlog(assignee_id);
         `)
       )
       .then(() =>
         getDb().query(`
-          create table if not exists backlog_comments (
+          create table if not exists tasks (
             id uuid primary key,
-            backlog_item_id uuid not null references backlog_items(id) on delete cascade,
+            project_id uuid references projects(id) on delete cascade,
+            sequence_number integer,
+            order_index integer,
+            created_by_user_id text,
+            archived_by_user_id text,
+            deleted_by_user_id text,
+            title text not null,
+            description text not null default '',
+            start_date date,
+            due_date date,
+            status text not null check (
+              status in ('todo', 'inprogress', 'inreview', 'revision', 'completed')
+            ),
+            checked boolean not null default false,
+            assignee_id text,
+            priority text not null default 'Medium' check (priority in ('Low', 'Medium', 'High')),
+            is_archived boolean not null default false,
+            archived_at timestamptz,
+            is_deleted boolean not null default false,
+            deleted_at timestamptz,
+            created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+
+          create table if not exists subtasks (
+            id uuid primary key,
+            task_id uuid not null references tasks(id) on delete cascade,
+            project_id uuid references projects(id) on delete cascade,
+            sequence_number integer,
+            order_index integer,
+            created_by_user_id text,
+            archived_by_user_id text,
+            deleted_by_user_id text,
+            title text not null,
+            description text not null default '',
+            start_date date,
+            due_date date,
+            status text not null check (
+              status in ('todo', 'inprogress', 'inreview', 'revision', 'completed')
+            ),
+            checked boolean not null default false,
+            assignee_id text,
+            priority text not null default 'Medium' check (priority in ('Low', 'Medium', 'High')),
+            is_archived boolean not null default false,
+            archived_at timestamptz,
+            is_deleted boolean not null default false,
+            deleted_at timestamptz,
+            created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+
+          create index if not exists tasks_project_order_idx
+            on tasks(project_id, order_index asc, created_at asc);
+
+          create index if not exists tasks_assignee_id_idx
+            on tasks(assignee_id);
+
+          create index if not exists subtasks_task_id_idx
+            on subtasks(task_id, sequence_number asc);
+
+          create index if not exists subtasks_project_order_idx
+            on subtasks(project_id, order_index asc, created_at asc);
+
+          create index if not exists subtasks_assignee_id_idx
+            on subtasks(assignee_id);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create table if not exists comments (
+            id uuid primary key,
+            backlog_item_id uuid not null references backlog(id) on delete cascade,
             author_user_id text,
             author text not null,
             body text not null default '',
@@ -502,20 +789,186 @@ async function ensureBacklogSchema() {
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_comments
+          alter table comments
+          add column if not exists backlog_item_id uuid;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table comments
           add column if not exists author_user_id text;
         `)
       )
       .then(() =>
         getDb().query(`
-          create index if not exists backlog_comments_backlog_item_id_idx
-          on backlog_comments(backlog_item_id, created_at asc);
+          create index if not exists comments_backlog_item_id_idx
+          on comments(backlog_item_id, created_at asc);
         `)
       )
       .then(() =>
         getDb().query(`
-          create index if not exists backlog_comments_author_user_id_idx
-          on backlog_comments(author_user_id);
+          create index if not exists comments_author_user_id_idx
+          on comments(author_user_id);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          delete from subtasks
+          where not exists (
+            select 1
+            from backlog
+            where backlog.id = subtasks.id
+              and backlog.parent_id is not null
+          );
+
+          delete from tasks
+          where not exists (
+            select 1
+            from backlog
+            where backlog.id = tasks.id
+              and backlog.parent_id is null
+          );
+
+          insert into tasks (
+            id,
+            project_id,
+            sequence_number,
+            order_index,
+            created_by_user_id,
+            archived_by_user_id,
+            deleted_by_user_id,
+            title,
+            description,
+            start_date,
+            due_date,
+            status,
+            checked,
+            assignee_id,
+            priority,
+            is_archived,
+            archived_at,
+            is_deleted,
+            deleted_at,
+            created_at,
+            updated_at
+          )
+          select
+            backlog.id,
+            backlog.project_id,
+            backlog.sequence_number,
+            backlog.order_index,
+            backlog.created_by_user_id,
+            backlog.archived_by_user_id,
+            backlog.deleted_by_user_id,
+            backlog.title,
+            backlog.description,
+            backlog.start_date,
+            backlog.due_date,
+            backlog.status,
+            backlog.checked,
+            backlog.assignee_id,
+            backlog.priority,
+            backlog.is_archived,
+            backlog.archived_at,
+            backlog.is_deleted,
+            backlog.deleted_at,
+            backlog.created_at,
+            backlog.updated_at
+          from backlog
+          where backlog.parent_id is null
+          on conflict (id) do update
+          set project_id = excluded.project_id,
+              sequence_number = excluded.sequence_number,
+              order_index = excluded.order_index,
+              created_by_user_id = excluded.created_by_user_id,
+              archived_by_user_id = excluded.archived_by_user_id,
+              deleted_by_user_id = excluded.deleted_by_user_id,
+              title = excluded.title,
+              description = excluded.description,
+              start_date = excluded.start_date,
+              due_date = excluded.due_date,
+              status = excluded.status,
+              checked = excluded.checked,
+              assignee_id = excluded.assignee_id,
+              priority = excluded.priority,
+              is_archived = excluded.is_archived,
+              archived_at = excluded.archived_at,
+              is_deleted = excluded.is_deleted,
+              deleted_at = excluded.deleted_at,
+              created_at = excluded.created_at,
+              updated_at = excluded.updated_at;
+
+          insert into subtasks (
+            id,
+            task_id,
+            project_id,
+            sequence_number,
+            order_index,
+            created_by_user_id,
+            archived_by_user_id,
+            deleted_by_user_id,
+            title,
+            description,
+            start_date,
+            due_date,
+            status,
+            checked,
+            assignee_id,
+            priority,
+            is_archived,
+            archived_at,
+            is_deleted,
+            deleted_at,
+            created_at,
+            updated_at
+          )
+          select
+            backlog.id,
+            backlog.parent_id,
+            backlog.project_id,
+            backlog.sequence_number,
+            backlog.order_index,
+            backlog.created_by_user_id,
+            backlog.archived_by_user_id,
+            backlog.deleted_by_user_id,
+            backlog.title,
+            backlog.description,
+            backlog.start_date,
+            backlog.due_date,
+            backlog.status,
+            backlog.checked,
+            backlog.assignee_id,
+            backlog.priority,
+            backlog.is_archived,
+            backlog.archived_at,
+            backlog.is_deleted,
+            backlog.deleted_at,
+            backlog.created_at,
+            backlog.updated_at
+          from backlog
+          where backlog.parent_id is not null
+          on conflict (id) do update
+          set task_id = excluded.task_id,
+              project_id = excluded.project_id,
+              sequence_number = excluded.sequence_number,
+              order_index = excluded.order_index,
+              created_by_user_id = excluded.created_by_user_id,
+              archived_by_user_id = excluded.archived_by_user_id,
+              deleted_by_user_id = excluded.deleted_by_user_id,
+              title = excluded.title,
+              description = excluded.description,
+              start_date = excluded.start_date,
+              due_date = excluded.due_date,
+              status = excluded.status,
+              checked = excluded.checked,
+              assignee_id = excluded.assignee_id,
+              priority = excluded.priority,
+              is_archived = excluded.is_archived,
+              archived_at = excluded.archived_at,
+              is_deleted = excluded.is_deleted,
+              deleted_at = excluded.deleted_at,
+              created_at = excluded.created_at,
+              updated_at = excluded.updated_at;
         `)
       )
       .then(() =>
@@ -527,13 +980,13 @@ async function ensureBacklogSchema() {
                 partition by project_id
                 order by created_at asc, id asc
               ) as next_sequence_number
-            from backlog_items
+            from backlog
           )
-          update backlog_items
+          update backlog
           set sequence_number = numbered_items.next_sequence_number
           from numbered_items
-          where backlog_items.id = numbered_items.id
-            and backlog_items.sequence_number is null;
+          where backlog.id = numbered_items.id
+            and backlog.sequence_number is null;
         `)
       )
       .then(() =>
@@ -545,24 +998,24 @@ async function ensureBacklogSchema() {
                 partition by project_id
                 order by created_at asc, id asc
               ) as next_order_index
-            from backlog_items
+            from backlog
           )
-          update backlog_items
+          update backlog
           set order_index = ordered_items.next_order_index
           from ordered_items
-          where backlog_items.id = ordered_items.id
-            and backlog_items.order_index is null;
+          where backlog.id = ordered_items.id
+            and backlog.order_index is null;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           alter column sequence_number set not null;
         `)
       )
       .then(() =>
         getDb().query(`
-          alter table backlog_items
+          alter table backlog
           alter column order_index set not null;
         `)
       )
@@ -573,11 +1026,11 @@ async function ensureBacklogSchema() {
             if not exists (
               select 1
               from pg_constraint
-              where conname = 'fk_backlog_items_parent_id'
+              where conname = 'fk_backlog_parent_id'
             ) then
-              alter table backlog_items
-              add constraint fk_backlog_items_parent_id
-              foreign key (parent_id) references backlog_items(id) on delete cascade;
+              alter table backlog
+              add constraint fk_backlog_parent_id
+              foreign key (parent_id) references backlog(id) on delete cascade;
             end if;
           end $$;
         `)
@@ -589,11 +1042,11 @@ async function ensureBacklogSchema() {
             if not exists (
               select 1
               from pg_constraint
-              where conname = 'fk_backlog_items_assignee_id'
+              where conname = 'fk_backlog_assignee_id'
             ) then
-              alter table backlog_items
-              add constraint fk_backlog_items_assignee_id
-              foreign key (assignee_id) references microsoft_account_logins(microsoft_user_id)
+              alter table backlog
+              add constraint fk_backlog_assignee_id
+              foreign key (assignee_id) references users(microsoft_user_id)
               on delete set null;
             end if;
           end $$;
@@ -715,52 +1168,53 @@ export async function listBacklogItemsWithStats(
       const offset = Math.max(0, options.offset ?? 0)
       const result = await getDb().query<BacklogRecordWithStats>(
         `select
-          backlog_items.id,
-          backlog_items.project_id,
-          backlog_items.parent_id,
-          backlog_items.sequence_number,
-          backlog_items.order_index,
-          backlog_items.created_by_user_id,
-          backlog_items.archived_by_user_id,
-          backlog_items.deleted_by_user_id,
-          backlog_items.deleted_by_user_id,
-          backlog_items.title,
-          backlog_items.description,
-          backlog_items.start_date,
-          backlog_items.due_date,
-          backlog_items.status,
-          backlog_items.checked,
-          backlog_items.assignee_id,
-          backlog_items.is_archived,
-          backlog_items.archived_at,
-          backlog_items.is_deleted,
-          backlog_items.deleted_at,
-          backlog_items.is_deleted,
-          backlog_items.deleted_at,
-          backlog_items.created_at,
+          backlog.id,
+          backlog.project_id,
+          backlog.parent_id,
+          backlog.sequence_number,
+          backlog.order_index,
+          backlog.created_by_user_id,
+          backlog.archived_by_user_id,
+          backlog.deleted_by_user_id,
+          backlog.deleted_by_user_id,
+          backlog.title,
+          backlog.description,
+          backlog.start_date,
+          backlog.due_date,
+          backlog.status,
+          backlog.checked,
+          backlog.assignee_id,
+          backlog.priority,
+          backlog.is_archived,
+          backlog.archived_at,
+          backlog.is_deleted,
+          backlog.deleted_at,
+          backlog.is_deleted,
+          backlog.deleted_at,
+          backlog.created_at,
           coalesce(comment_counts.comment_count, 0) as comment_count
-        from backlog_items
+        from backlog
         inner join projects
-          on projects.id = backlog_items.project_id
+          on projects.id = backlog.project_id
         left join (
           select
-            backlog_comments.backlog_item_id,
+            comments.backlog_item_id,
             count(*)::int as comment_count
-          from backlog_comments
-          inner join backlog_items as scoped_items
-            on scoped_items.id = backlog_comments.backlog_item_id
+          from comments
+          inner join backlog as scoped_items
+            on scoped_items.id = comments.backlog_item_id
           where scoped_items.project_id = $1
-          group by backlog_comments.backlog_item_id
+          group by comments.backlog_item_id
         ) as comment_counts
-          on comment_counts.backlog_item_id = backlog_items.id
-        where backlog_items.project_id = $1
-          and backlog_items.is_archived = $3
-          and backlog_items.is_deleted = $6
+          on comment_counts.backlog_item_id = backlog.id
+        where backlog.project_id = $1
+          and backlog.is_archived = $3
+          and backlog.is_deleted = $6
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
-        order by backlog_items.order_index asc, backlog_items.created_at asc
+        order by backlog.order_index asc, backlog.created_at asc
         limit $4
         offset $5`,
         [projectId, ownerUserId, archived, limit, offset, deleted]
@@ -804,46 +1258,47 @@ export async function listProjectBacklogActivities(
         }
       >(
         `select
-          backlog_items.id,
-          backlog_items.project_id,
-          backlog_items.parent_id,
-          backlog_items.sequence_number,
-          backlog_items.order_index,
-          backlog_items.created_by_user_id,
-          backlog_items.archived_by_user_id,
-          backlog_items.title,
-          backlog_items.description,
-          backlog_items.start_date,
-          backlog_items.due_date,
-          backlog_items.status,
-          backlog_items.checked,
-          backlog_items.assignee_id,
-          backlog_items.is_archived,
-          backlog_items.archived_at,
-          backlog_items.created_at,
+          backlog.id,
+          backlog.project_id,
+          backlog.parent_id,
+          backlog.sequence_number,
+          backlog.order_index,
+          backlog.created_by_user_id,
+          backlog.archived_by_user_id,
+          backlog.title,
+          backlog.description,
+          backlog.start_date,
+          backlog.due_date,
+          backlog.status,
+          backlog.checked,
+          backlog.assignee_id,
+          backlog.priority,
+          backlog.is_archived,
+          backlog.archived_at,
+          backlog.created_at,
           coalesce(comment_counts.comment_count, 0) as comment_count,
           projects.project_name,
           projects.project_type,
           projects.project_member
-        from backlog_items
+        from backlog
         inner join projects
-          on projects.id = backlog_items.project_id
+          on projects.id = backlog.project_id
         left join (
           select
-            backlog_comments.backlog_item_id,
+            comments.backlog_item_id,
             count(*)::int as comment_count
-          from backlog_comments
-          group by backlog_comments.backlog_item_id
+          from comments
+          group by comments.backlog_item_id
         ) as comment_counts
-          on comment_counts.backlog_item_id = backlog_items.id
-        where backlog_items.project_id = any($1::uuid[])
-          and backlog_items.is_archived = false
-          and backlog_items.is_deleted = false
+          on comment_counts.backlog_item_id = backlog.id
+        where backlog.project_id = any($1::uuid[])
+          and backlog.is_archived = false
+          and backlog.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
-        order by backlog_items.created_at desc`,
+        order by backlog.created_at desc`,
         [projectIds, ownerUserId]
       )
 
@@ -881,18 +1336,18 @@ export async function createBacklogItem(
       const duplicateType = input.parentId ? "subtask" : "task"
 
       const duplicateResult = await getDb().query<{ id: string }>(
-        `select backlog_items.id
-         from backlog_items
+        `select backlog.id
+         from backlog
          inner join projects
-           on projects.id = backlog_items.project_id
-         where backlog_items.project_id = $1
+           on projects.id = backlog.project_id
+         where backlog.project_id = $1
            and (
-             ($2::uuid is null and backlog_items.parent_id is null)
-             or backlog_items.parent_id = $2::uuid
+             ($2::uuid is null and backlog.parent_id is null)
+             or backlog.parent_id = $2::uuid
            )
-           and lower(regexp_replace(btrim(backlog_items.title), '\\s+', ' ', 'g')) = $3
-           and backlog_items.is_archived = false
-           and backlog_items.is_deleted = false
+           and lower(regexp_replace(btrim(backlog.title), '\\s+', ' ', 'g')) = $3
+           and backlog.is_archived = false
+           and backlog.is_deleted = false
            and (
              projects.owner_user_id = $4
              or $4 = any(projects.member_user_ids)
@@ -908,14 +1363,14 @@ export async function createBacklogItem(
       const result = await getDb().query<BacklogRecord>(
         `with next_sequence as (
           select coalesce(max(sequence_number), 0) + 1 as value
-          from backlog_items
+          from backlog
           where project_id = $2
         ), next_order as (
           select coalesce(max(order_index), 0) + 1 as value
-          from backlog_items
+          from backlog
           where project_id = $2
         )
-        insert into backlog_items (
+        insert into backlog (
           id,
           project_id,
           parent_id,
@@ -928,7 +1383,8 @@ export async function createBacklogItem(
           due_date,
           status,
           checked,
-          assignee_id
+          assignee_id,
+          priority
         )
         select
           $1,
@@ -943,12 +1399,13 @@ export async function createBacklogItem(
           $8,
           $9,
           $10,
-          $11
+          $11,
+          $12
         from next_sequence, next_order, projects
         where projects.id = $2
           and (
-            projects.owner_user_id = $12
-            or $12 = any(projects.member_user_ids)
+            projects.owner_user_id = $13
+            or $13 = any(projects.member_user_ids)
           )
         returning
           id,
@@ -964,6 +1421,7 @@ export async function createBacklogItem(
           status,
           checked,
           assignee_id,
+          priority,
           created_at`,
         [
           randomUUID(),
@@ -973,12 +1431,13 @@ export async function createBacklogItem(
           normalizedTitle,
           input.description,
           input.startDate,
-            input.dueDate,
-            input.status,
-            input.checked,
-            input.assigneeId,
-            ownerUserId,
-          ]
+          input.dueDate,
+          input.status,
+          input.checked,
+          input.assigneeId,
+          input.priority ?? "Medium",
+          ownerUserId,
+        ]
       )
 
       if (!result.rows[0]) {
@@ -991,7 +1450,7 @@ export async function createBacklogItem(
       // comes back without parent_id for any reason.
       if (input.parentId && !createdRecord.parentId) {
         const repaired = await getDb().query<BacklogRecord>(
-          `update backlog_items
+          `update backlog
           set parent_id = $1, updated_at = now()
           where id = $2
           returning
@@ -1008,6 +1467,7 @@ export async function createBacklogItem(
             status,
             checked,
             assignee_id,
+            priority,
             created_at`,
           [input.parentId, createdRecord.id]
         )
@@ -1016,6 +1476,8 @@ export async function createBacklogItem(
           createdRecord = mapRecord(repaired.rows[0])
         }
       }
+
+      await syncBacklogMirrorItems([createdRecord.id])
 
       return createdRecord
     },
@@ -1068,6 +1530,7 @@ export async function createBacklogItem(
         status: input.status,
         checked: input.checked,
         assigneeId: input.assigneeId,
+        priority: input.priority ?? "Medium",
         archived: false,
         archivedAt: null,
         deleted: false,
@@ -1134,6 +1597,11 @@ export async function updateBacklogItem(
         values.push(input.assigneeId ?? null)
       }
 
+      if (input.priority === "Low" || input.priority === "Medium" || input.priority === "High") {
+        fields.push(`priority = $${fields.length + 1}`)
+        values.push(input.priority)
+      }
+
       if (typeof input.orderIndex === "number" && Number.isFinite(input.orderIndex)) {
         fields.push(`order_index = $${fields.length + 1}`)
         values.push(input.orderIndex)
@@ -1145,11 +1613,11 @@ export async function updateBacklogItem(
 
       if (typeof input.title === "string" || "parentId" in input) {
         const currentResult = await getDb().query<BacklogRecord>(
-          `select backlog_items.*
-           from backlog_items
+          `select backlog.*
+           from backlog
            inner join projects
-             on projects.id = backlog_items.project_id
-           where backlog_items.id = $1
+             on projects.id = backlog.project_id
+           where backlog.id = $1
              and (
                projects.owner_user_id = $2
                or $2 = any(projects.member_user_ids)
@@ -1168,7 +1636,7 @@ export async function updateBacklogItem(
           const duplicateType = nextParentId ? "subtask" : "task"
           const duplicateResult = await getDb().query<{ id: string }>(
             `select id
-             from backlog_items
+             from backlog
              where project_id = $1
                and id <> $2
                and is_archived = false
@@ -1197,35 +1665,37 @@ export async function updateBacklogItem(
       values.push(id)
 
       const result = await getDb().query<BacklogRecord>(
-        `update backlog_items
+        `update backlog
         set ${fields.join(", ")}
         from projects
-        left join project_member_access
-          on project_member_access.project_id = projects.id
-         and project_member_access.member_user_id = $${values.length + 2}
-        where backlog_items.id = $${values.length}
-          and projects.id = backlog_items.project_id
+        where backlog.id = $${values.length}
+          and projects.id = backlog.project_id
           and (
             projects.owner_user_id = $${values.length + 1}
             or $${values.length + 1} = any(projects.member_user_ids)
           )
         returning
-          backlog_items.id,
-          backlog_items.project_id,
-          backlog_items.parent_id,
-          backlog_items.sequence_number,
-          backlog_items.order_index,
-          backlog_items.created_by_user_id,
-          backlog_items.title,
-          backlog_items.description,
-          backlog_items.start_date,
-          backlog_items.due_date,
-          backlog_items.status,
-          backlog_items.checked,
-          backlog_items.assignee_id,
-          backlog_items.created_at`,
-        [...values, ownerUserId, ownerUserRole]
+          backlog.id,
+          backlog.project_id,
+          backlog.parent_id,
+          backlog.sequence_number,
+          backlog.order_index,
+          backlog.created_by_user_id,
+          backlog.title,
+          backlog.description,
+          backlog.start_date,
+          backlog.due_date,
+          backlog.status,
+          backlog.checked,
+          backlog.assignee_id,
+          backlog.priority,
+          backlog.created_at`,
+        [...values, ownerUserId]
       )
+
+      if (result.rows[0]) {
+        await syncBacklogMirrorItems([result.rows[0].id])
+      }
 
       return result.rows[0] ? mapRecord(result.rows[0]) : null
     },
@@ -1258,6 +1728,7 @@ export async function updateBacklogItem(
           typeof input.checked === "boolean" ? input.checked : current.checked,
         assigneeId:
           "assigneeId" in input ? input.assigneeId ?? null : current.assigneeId,
+        priority: input.priority ?? current.priority,
         orderIndex:
           typeof input.orderIndex === "number" && Number.isFinite(input.orderIndex)
             ? input.orderIndex
@@ -1301,29 +1772,26 @@ export async function deleteBacklogItem(
   return withBacklogStore(
     async () => {
       const result = await getDb().query<{ id: string }>(
-        `update backlog_items
+        `update backlog
         set is_deleted = true,
             deleted_at = now(),
             deleted_by_user_id = $2,
             updated_at = now()
         from projects
-        left join project_member_access
-          on project_member_access.project_id = projects.id
-         and project_member_access.member_user_id = $2
-        where (backlog_items.id = $1 or backlog_items.parent_id = $1)
-          and projects.id = backlog_items.project_id
-          and backlog_items.is_deleted = false
+        where (backlog.id = $1 or backlog.parent_id = $1)
+          and projects.id = backlog.project_id
+          and backlog.is_deleted = false
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
           and (
-            backlog_items.created_by_user_id = $2
+            backlog.created_by_user_id = $2
             or projects.owner_user_id = $2
             or $3 in ('faculty', 'admin')
-            or coalesce(project_member_access.can_create_sprint, false)
+            or $2 = any(projects.sprint_creator_user_ids)
           )
-        returning backlog_items.id`,
+        returning backlog.id`,
         [id, ownerUserId, ownerUserRole]
       )
 
@@ -1390,29 +1858,26 @@ export async function restoreDeletedBacklogItem(
   return withBacklogStore(
     async () => {
       const result = await getDb().query<{ id: string }>(
-        `update backlog_items
+        `update backlog
         set is_deleted = false,
             deleted_at = null,
             deleted_by_user_id = null,
             updated_at = now()
         from projects
-        left join project_member_access
-          on project_member_access.project_id = projects.id
-         and project_member_access.member_user_id = $2
-        where (backlog_items.id = $1 or backlog_items.parent_id = $1)
-          and projects.id = backlog_items.project_id
-          and backlog_items.is_deleted = true
+        where (backlog.id = $1 or backlog.parent_id = $1)
+          and projects.id = backlog.project_id
+          and backlog.is_deleted = true
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
           and (
-            backlog_items.deleted_by_user_id = $2
+            backlog.deleted_by_user_id = $2
             or projects.owner_user_id = $2
             or $3 in ('faculty', 'admin')
-            or coalesce(project_member_access.can_create_sprint, false)
+            or $2 = any(projects.sprint_creator_user_ids)
           )
-        returning backlog_items.id`,
+        returning backlog.id`,
         [id, ownerUserId, ownerUserRole]
       )
 
@@ -1469,25 +1934,22 @@ export async function permanentlyDeleteBacklogItem(
   return withBacklogStore(
     async () => {
       const result = await getDb().query<{ id: string }>(
-        `delete from backlog_items
+        `delete from backlog
         using projects
-        left join project_member_access
-          on project_member_access.project_id = projects.id
-         and project_member_access.member_user_id = $2
-        where (backlog_items.id = $1 or backlog_items.parent_id = $1)
-          and projects.id = backlog_items.project_id
-          and backlog_items.is_deleted = true
+        where (backlog.id = $1 or backlog.parent_id = $1)
+          and projects.id = backlog.project_id
+          and backlog.is_deleted = true
           and (
             projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
           and (
-            backlog_items.deleted_by_user_id = $2
+            backlog.deleted_by_user_id = $2
             or projects.owner_user_id = $2
             or $3 in ('faculty', 'admin')
-            or coalesce(project_member_access.can_create_sprint, false)
+            or $2 = any(projects.sprint_creator_user_ids)
           )
-        returning backlog_items.id`,
+        returning backlog.id`,
         [id, ownerUserId, ownerUserRole]
       )
 
@@ -1533,25 +1995,22 @@ export async function archiveBacklogItem(
   return withBacklogStore(
     async () => {
       const targetResult = await getDb().query<BacklogRecord>(
-        `select backlog_items.*
-         from backlog_items
+        `select backlog.*
+         from backlog
          inner join projects
-           on projects.id = backlog_items.project_id
-         left join project_member_access
-           on project_member_access.project_id = projects.id
-          and project_member_access.member_user_id = $2
-         where backlog_items.id = $1
-           and backlog_items.is_archived = false
-           and backlog_items.is_deleted = false
+           on projects.id = backlog.project_id
+         where backlog.id = $1
+          and backlog.is_archived = false
+           and backlog.is_deleted = false
            and (
              projects.owner_user_id = $2
              or $2 = any(projects.member_user_ids)
            )
            and (
-             backlog_items.created_by_user_id = $2
+             backlog.created_by_user_id = $2
              or projects.owner_user_id = $2
              or $3 in ('faculty', 'admin')
-             or coalesce(project_member_access.can_create_sprint, false)
+             or $2 = any(projects.sprint_creator_user_ids)
            )
          limit 1`,
         [id, ownerUserId, ownerUserRole]
@@ -1564,7 +2023,7 @@ export async function archiveBacklogItem(
       }
 
       const result = await getDb().query<BacklogRecord>(
-        `update backlog_items
+        `update backlog
          set is_archived = true,
              archived_at = now(),
              archived_by_user_id = $2,
@@ -1586,6 +2045,7 @@ export async function archiveBacklogItem(
            status,
            checked,
            assignee_id,
+           priority,
            is_archived,
            archived_at,
            created_at`,
@@ -1672,26 +2132,23 @@ export async function restoreBacklogItem(
   return withBacklogStore(
     async () => {
       const targetResult = await getDb().query<BacklogRecord>(
-        `select backlog_items.*
-         from backlog_items
+        `select backlog.*
+         from backlog
          inner join projects
-           on projects.id = backlog_items.project_id
-         left join project_member_access
-           on project_member_access.project_id = projects.id
-          and project_member_access.member_user_id = $2
-         where backlog_items.id = $1
-           and backlog_items.is_archived = true
-           and backlog_items.is_deleted = false
+           on projects.id = backlog.project_id
+         where backlog.id = $1
+          and backlog.is_archived = true
+           and backlog.is_deleted = false
            and (
              projects.owner_user_id = $2
              or $2 = any(projects.member_user_ids)
            )
            and (
-             backlog_items.parent_id is null
-             or backlog_items.created_by_user_id = $2
+             backlog.parent_id is null
+             or backlog.created_by_user_id = $2
              or projects.owner_user_id = $2
              or $3 in ('faculty', 'admin')
-             or coalesce(project_member_access.can_create_sprint, false)
+             or $2 = any(projects.sprint_creator_user_ids)
            )
          limit 1`,
         [id, ownerUserId, ownerUserRole]
@@ -1704,7 +2161,7 @@ export async function restoreBacklogItem(
       }
 
       const result = await getDb().query<BacklogRecord>(
-        `update backlog_items
+        `update backlog
          set is_archived = false,
              archived_at = null,
              archived_by_user_id = null,
@@ -1726,6 +2183,7 @@ export async function restoreBacklogItem(
            status,
            checked,
            assignee_id,
+           priority,
            is_archived,
            archived_at,
            created_at`,

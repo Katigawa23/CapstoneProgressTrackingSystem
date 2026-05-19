@@ -8,7 +8,7 @@ SELECT
   name,
   role,
   login_at
-FROM microsoft_account_logins
+FROM users
 ORDER BY login_at DESC;
 
 -- View a specific user by email
@@ -18,18 +18,18 @@ SELECT
   name,
   role,
   login_at
-FROM microsoft_account_logins
+FROM users
 WHERE email = 'student@example.com'
 ORDER BY login_at DESC
 LIMIT 1;
 
 -- Update a student to faculty role for testing
-UPDATE microsoft_account_logins
+UPDATE users
 SET role = 'adviser'
 WHERE email = 'student@example.com';
 
 -- Update a faculty to student role for testing
-UPDATE microsoft_account_logins
+UPDATE users
 SET role = 'student'
 WHERE email = 'faculty@example.com';
 
@@ -37,7 +37,7 @@ WHERE email = 'faculty@example.com';
 SELECT 
   email,
   role
-FROM microsoft_account_logins
+FROM users
 WHERE email = 'student@example.com'
 ORDER BY login_at DESC
 LIMIT 1;

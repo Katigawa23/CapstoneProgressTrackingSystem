@@ -1,10 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { Search, Users } from "lucide-react"
+import { Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { ProjectMonogram } from "@/components/projects/project-monogram"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import {
   Tooltip,
@@ -105,6 +106,72 @@ function getProjectDisplayId(projectType: string, index: number) {
   return `${getProjectTypeCode(projectType)}-${year}${String(index + 1).padStart(3, "0")}`
 }
 
+function getProjectAdvisers(project: DashboardProject) {
+  const advisers = [
+    project.ownerName?.trim() ||
+      project.ownerEmail?.trim() ||
+      project.ownerUserId?.trim() ||
+      "",
+    ...project.advisers,
+  ]
+
+  return advisers.filter((adviser, index) => {
+    const normalizedAdviser = adviser.trim().toLowerCase()
+
+    if (!normalizedAdviser) {
+      return false
+    }
+
+    return advisers.findIndex((candidate) => candidate.trim().toLowerCase() === normalizedAdviser) === index
+  })
+}
+
+function getProjectAdviser(project: DashboardProject) {
+  return getProjectAdvisers(project)[0] ?? ""
+}
+
+function getInitials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0] ?? "")
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+function ProjectAdviserAvatar({ project }: { project: DashboardProject }) {
+  const adviserName = getProjectAdviser(project)
+  const adviserEmail = project.ownerEmail?.trim() ?? ""
+
+  if (!adviserName) {
+    return <span className="text-xs text-slate-400 dark:text-slate-500">-</span>
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Avatar className="h-8 w-8">
+          <AvatarFallback className="bg-sky-600 text-[10px] font-semibold text-white dark:bg-sky-600">
+            {getInitials(adviserName)}
+          </AvatarFallback>
+        </Avatar>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[240px]">
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em]">
+            Adviser
+          </p>
+          <p className="text-xs">{adviserName}</p>
+          {adviserEmail && adviserEmail !== adviserName ? (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">{adviserEmail}</p>
+          ) : null}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 function ProjectPeopleIndicator({
   emptyLabel,
   people,
@@ -119,11 +186,19 @@ function ProjectPeopleIndicator({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="relative inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-600 text-white shadow-sm">
-          <Users className="h-3.5 w-3.5" />
-          <span className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full border border-white bg-slate-900 px-1 text-[9px] font-semibold leading-none text-white dark:border-[#1f1f1f] dark:bg-slate-100 dark:text-slate-900">
-            {people.length}
-          </span>
+        <div className="flex items-center">
+          {people.slice(0, 4).map((person, index) => (
+            <Avatar
+              key={`${emptyLabel}-${person}`}
+              className={`h-7 w-7 border-2 border-white dark:border-[#1f1f1f] ${
+                index === 0 ? "" : "-ml-2"
+              }`}
+            >
+              <AvatarFallback className="bg-sky-600 text-[10px] font-semibold text-white dark:bg-sky-600">
+                {getInitials(person)}
+              </AvatarFallback>
+            </Avatar>
+          ))}
         </div>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[240px]">
@@ -198,7 +273,7 @@ export default function DashboardProjectsPage() {
         projectDisplayIds.get(project.id) ?? "",
         project.projectType,
         project.members.join(" "),
-        project.advisers.join(" "),
+        getProjectAdviser(project),
         project.program,
       ].some((value) => value.toLowerCase().includes(normalizedQuery))
     })
@@ -237,7 +312,7 @@ export default function DashboardProjectsPage() {
                   <th className="px-3 py-2 font-semibold">Key</th>
                   <th className="px-3 py-2 font-semibold">Type</th>
                   <th className="px-3 py-2 font-semibold">Member</th>
-                  <th className="px-3 py-2 font-semibold">Faculty</th>
+                  <th className="px-3 py-2 font-semibold">Adviser</th>
                 </tr>
               </thead>
               <tbody>
@@ -276,7 +351,7 @@ export default function DashboardProjectsPage() {
                           <ProjectPeopleIndicator emptyLabel="Members" people={project.members} />
                         </td>
                         <td className="px-3 py-2.5">
-                          <ProjectPeopleIndicator emptyLabel="Faculty" people={project.advisers} />
+                          <ProjectAdviserAvatar project={project} />
                         </td>
                       </tr>
                     )

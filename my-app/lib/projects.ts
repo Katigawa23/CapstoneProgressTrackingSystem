@@ -6,6 +6,8 @@ export const PROJECTS_COOKIE_KEY = "dashboard-projects"
 export const PROJECT_CHANGE_EVENT = "dashboard-project-change"
 export const PROJECTS_STORAGE_KEY = "dashboard-projects"
 export const PROJECTS_CHANGE_EVENT = "dashboard-projects-change"
+export const PROJECT_ACCESS_STORAGE_KEY = "dashboard-project-access"
+export const PROJECT_ARCHIVE_STORAGE_KEY = "dashboard-project-archive"
 export const PROJECT_TITLE_MAX_LENGTH = 40
 export const PROJECT_METADATA_MAX_LENGTH = 60
 export const OTHER_PROJECT_OPTION = "__other__"
@@ -28,15 +30,11 @@ export const PROJECT_YEAR_LEVEL_OPTIONS = [
 export const PROJECT_SY_TERM_OPTIONS = [
   "1st term",
   "2nd term",
-  "Other",
 ] as const
 
 export const PROJECT_TYPE_OPTIONS = [
   "Capstone",
   "Thesis",
-  "Research",
-  "System Development",
-  "Other",
 ] as const
 
 export type DashboardProject = {
@@ -66,6 +64,16 @@ export type ProjectMemberAccessInput = {
 export type DashboardProjectCollection = {
   label: string
   items: DashboardProject[]
+}
+
+export type DashboardProjectAccessRecord = {
+  projectId: string
+  accessedAt: string
+}
+
+export type DashboardArchivedProject = DashboardProject & {
+  archivedAt: string
+  archivedBy?: string
 }
 
 type CookieStoreLike = {
@@ -151,6 +159,60 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string")
 }
 
+function normalizeProjectCreatedAt(value: unknown) {
+  if (typeof value !== "string") {
+    return new Date().toISOString()
+  }
+
+  const timestamp = new Date(value).getTime()
+
+  if (Number.isNaN(timestamp) || new Date(timestamp).getUTCFullYear() <= 1971) {
+    return new Date().toISOString()
+  }
+
+  return value
+}
+
+function normalizeProjectAccessRecord(record: unknown): DashboardProjectAccessRecord | null {
+  if (!record || typeof record !== "object") {
+    return null
+  }
+
+  const candidate = record as Record<string, unknown>
+
+  if (typeof candidate.projectId !== "string" || typeof candidate.accessedAt !== "string") {
+    return null
+  }
+
+  if (Number.isNaN(new Date(candidate.accessedAt).getTime())) {
+    return null
+  }
+
+  return {
+    projectId: candidate.projectId,
+    accessedAt: candidate.accessedAt,
+  }
+}
+
+function normalizeArchivedProject(project: unknown): DashboardArchivedProject | null {
+  const normalizedProject = normalizeStoredProject(project)
+
+  if (!normalizedProject || !project || typeof project !== "object") {
+    return null
+  }
+
+  const candidate = project as Record<string, unknown>
+
+  return {
+    ...normalizedProject,
+    archivedAt: normalizeProjectCreatedAt(candidate.archivedAt),
+    archivedBy:
+      typeof candidate.archivedBy === "string" && candidate.archivedBy.trim()
+        ? candidate.archivedBy.trim()
+        : undefined,
+  }
+}
+
 function normalizeStoredProject(project: unknown): DashboardProject | null {
   if (!project || typeof project !== "object") {
     return null
@@ -186,8 +248,7 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
     yearLevel: typeof candidate.yearLevel === "string" ? candidate.yearLevel : "",
     syTerm: typeof candidate.syTerm === "string" ? candidate.syTerm : "",
     projectType: typeof candidate.projectType === "string" ? candidate.projectType : "",
-    createdAt:
-      typeof candidate.createdAt === "string" ? candidate.createdAt : new Date(0).toISOString(),
+    createdAt: normalizeProjectCreatedAt(candidate.createdAt),
   }
 }
 
@@ -262,7 +323,126 @@ export function getDashboardProjects() {
 }
 
 export function cacheDashboardProjects(projects: DashboardProject[]) {
-  writeStoredProjects(prioritizeProject(projects, getSelectedDashboardProjectId()))
+  const archivedProjectIds =
+    typeof window === "undefined"
+      ? new Set<string>()
+      : new Set(getArchivedDashboardProjects().map((project) => project.id))
+  const activeProjects = projects.filter((project) => !archivedProjectIds.has(project.id))
+
+  writeStoredProjects(prioritizeProject(activeProjects, getSelectedDashboardProjectId()))
+}
+
+function writeArchivedDashboardProjects(projects: DashboardArchivedProject[]) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.localStorage.setItem(
+    getUserScopedStorageKey(PROJECT_ARCHIVE_STORAGE_KEY),
+    JSON.stringify(projects)
+  )
+  window.dispatchEvent(new CustomEvent(PROJECTS_CHANGE_EVENT, { detail: getDashboardProjects() }))
+}
+
+export function getArchivedDashboardProjects() {
+  if (typeof window === "undefined") {
+    return [] as DashboardArchivedProject[]
+  }
+
+  try {
+    const storedProjects = window.localStorage.getItem(
+      getUserScopedStorageKey(PROJECT_ARCHIVE_STORAGE_KEY)
+    )
+
+    if (!storedProjects) {
+      return []
+    }
+
+    const parsedProjects = JSON.parse(storedProjects) as unknown
+
+    if (!Array.isArray(parsedProjects)) {
+      return []
+    }
+
+    return parsedProjects
+      .map(normalizeArchivedProject)
+      .filter((project): project is DashboardArchivedProject => project !== null)
+      .sort(
+        (left, right) =>
+          new Date(right.archivedAt).getTime() - new Date(left.archivedAt).getTime()
+      )
+  } catch {
+    return []
+  }
+}
+
+function clearSelectedDashboardProject() {
+  const projectCookieKey = getClientProjectCookieKey(PROJECT_COOKIE_KEY)
+
+  window.localStorage.removeItem(getUserScopedStorageKey(PROJECT_STORAGE_KEY))
+  document.cookie = `${projectCookieKey}=; path=/; max-age=0; samesite=lax`
+  expireLegacyCookie(PROJECT_COOKIE_KEY)
+  window.dispatchEvent(new CustomEvent(PROJECT_CHANGE_EVENT, { detail: null }))
+}
+
+export function archiveDashboardProject(projectId: string, archivedBy?: string) {
+  const project = getDashboardProjects().find((item) => item.id === projectId)
+
+  if (!project) {
+    return null
+  }
+
+  const archivedProject: DashboardArchivedProject = {
+    ...project,
+    archivedAt: new Date().toISOString(),
+    archivedBy: archivedBy?.trim() || undefined,
+  }
+  const nextArchivedProjects = [
+    archivedProject,
+    ...getArchivedDashboardProjects().filter((item) => item.id !== projectId),
+  ]
+  const nextProjects = getDashboardProjects().filter((item) => item.id !== projectId)
+
+  writeArchivedDashboardProjects(nextArchivedProjects)
+  cacheDashboardProjects(nextProjects)
+
+  if (getSelectedDashboardProjectId() === projectId) {
+    const nextProjectId = nextProjects[0]?.id
+
+    if (nextProjectId) {
+      setDashboardProject(nextProjectId)
+    } else {
+      clearSelectedDashboardProject()
+    }
+  }
+
+  return archivedProject
+}
+
+export function restoreArchivedDashboardProject(projectId: string) {
+  const archivedProject = getArchivedDashboardProjects().find(
+    (project) => project.id === projectId
+  )
+
+  if (!archivedProject) {
+    return null
+  }
+
+  const project = normalizeStoredProject(archivedProject)
+
+  if (!project) {
+    return null
+  }
+
+  writeArchivedDashboardProjects(
+    getArchivedDashboardProjects().filter((item) => item.id !== projectId)
+  )
+  cacheDashboardProjects([
+    project,
+    ...getDashboardProjects().filter((item) => item.id !== projectId),
+  ])
+
+  return project
 }
 
 export async function refreshDashboardProjects() {
@@ -483,12 +663,57 @@ export async function setDashboardProjectStarred(projectId: string, starred: boo
   return data.project
 }
 
+export function getDashboardProjectAccessRecords() {
+  if (typeof window === "undefined") {
+    return [] as DashboardProjectAccessRecord[]
+  }
+
+  try {
+    const storedRecords = window.localStorage.getItem(
+      getUserScopedStorageKey(PROJECT_ACCESS_STORAGE_KEY)
+    )
+
+    if (!storedRecords) {
+      return []
+    }
+
+    const parsedRecords = JSON.parse(storedRecords) as unknown
+
+    if (!Array.isArray(parsedRecords)) {
+      return []
+    }
+
+    return parsedRecords
+      .map(normalizeProjectAccessRecord)
+      .filter((record): record is DashboardProjectAccessRecord => record !== null)
+      .sort(
+        (left, right) =>
+          new Date(right.accessedAt).getTime() - new Date(left.accessedAt).getTime()
+      )
+  } catch {
+    return []
+  }
+}
+
+function recordDashboardProjectAccess(projectId: string) {
+  const nextRecords = [
+    { projectId, accessedAt: new Date().toISOString() },
+    ...getDashboardProjectAccessRecords().filter((record) => record.projectId !== projectId),
+  ].slice(0, 20)
+
+  window.localStorage.setItem(
+    getUserScopedStorageKey(PROJECT_ACCESS_STORAGE_KEY),
+    JSON.stringify(nextRecords)
+  )
+}
+
 export function setDashboardProject(projectId: string) {
   const projectCookieKey = getClientProjectCookieKey(PROJECT_COOKIE_KEY)
 
   window.localStorage.setItem(getUserScopedStorageKey(PROJECT_STORAGE_KEY), projectId)
   document.cookie = `${projectCookieKey}=${encodeURIComponent(projectId)}; path=/; max-age=31536000; samesite=lax`
   expireLegacyCookie(PROJECT_COOKIE_KEY)
+  recordDashboardProjectAccess(projectId)
   writeStoredProjects(prioritizeProject(getDashboardProjects(), projectId))
   window.dispatchEvent(new CustomEvent(PROJECT_CHANGE_EVENT, { detail: projectId }))
 }

@@ -28,7 +28,6 @@ type BacklogBoardProps = {
   onUpdateAssignee: (id: string, assigneeId: string | null) => void
   onOpenItem?: (item: WorkItem) => void
   onEditItem: (item: WorkItem) => void
-  onDeleteItem: (id: string) => void
   onOpenCreate?: () => void
   canMoveItems?: boolean
 }
@@ -44,7 +43,6 @@ export function BacklogBoard({
   onUpdateAssignee,
   onOpenItem,
   onEditItem,
-  onDeleteItem,
   onOpenCreate,
   canMoveItems = true,
 }: BacklogBoardProps) {
@@ -215,12 +213,11 @@ export function BacklogBoard({
 
           <ItemActionsMenu
             onEdit={() => onEditItem(item)}
-            onDelete={() => onDeleteItem(item.id)}
           />
         </div>
       </div>
     ),
-    [onDeleteItem, onEditItem, onOpenItem, onToggleCheckbox, onUpdateAssignee, onUpdateStatus]
+    [onEditItem, onOpenItem, onToggleCheckbox, onUpdateAssignee, onUpdateStatus]
   )
 
   return (
