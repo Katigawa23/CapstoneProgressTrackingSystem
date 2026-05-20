@@ -33,33 +33,40 @@ export function BacklogLoadingSkeleton() {
         <Skeleton className="h-9 w-20 rounded-md" />
       </div>
 
-      <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-[#343434] dark:bg-[#1f1f1f]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-4 w-4 rounded-sm" />
+      {["Board", "Backlog"].map((label) => (
+        <div
+          key={label}
+          className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-[#343434] dark:bg-[#1f1f1f]"
+        >
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-black dark:text-slate-100">Board</span>
-              <span className="text-sm text-black/60 dark:text-slate-400">(4 work items)</span>
+              <Skeleton className="h-4 w-4 rounded-sm" />
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-black dark:text-slate-100">{label}</span>
+                <span className="text-sm text-black/60 dark:text-slate-400">(4 work items)</span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-5 w-5 rounded" />
+              ))}
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
+          <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-5 w-5 rounded" />
+              <BacklogRowSkeleton key={index} />
             ))}
           </div>
-        </div>
 
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <BacklogRowSkeleton key={index} />
-          ))}
+          <div className="flex">
+            <span className="text-sm font-medium text-black dark:text-slate-100">
+              {label === "Backlog" ? "Create Backlog Item" : "Create"}
+            </span>
+          </div>
         </div>
-
-        <div className="flex">
-          <span className="text-sm font-medium text-black dark:text-slate-100">Create</span>
-        </div>
-      </div>
+      ))}
     </div>
   )
 }

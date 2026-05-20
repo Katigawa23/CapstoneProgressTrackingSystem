@@ -67,6 +67,18 @@ export function DashboardTaskCard({
   draggableProvided,
   dragSnapshot,
 }: DashboardTaskCardProps) {
+  const getPriorityCircleClassName = React.useCallback((priority: TodoItem["priority"]) => {
+    if (priority === "High") {
+      return "border-red-200 bg-red-50 text-red-500 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/40"
+    }
+
+    if (priority === "Low") {
+      return "border-[color:rgba(var(--brand-primary-rgb),0.2)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] hover:bg-[color:rgba(var(--brand-primary-rgb),0.14)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.18)] dark:text-[#9bc2e2] dark:hover:bg-[color:rgba(var(--brand-primary-rgb),0.24)]"
+    }
+
+    return "border-orange-200 bg-orange-50 text-orange-500 hover:bg-orange-100 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-300 dark:hover:bg-orange-950/40"
+  }, [])
+
   const [completedSubtasksRaw = "0", totalSubtasksRaw = "0"] = todo.checklist.split("/")
   const completedSubtasks = Number.parseInt(completedSubtasksRaw, 10) || 0
   const subtaskCount = Number.parseInt(totalSubtasksRaw, 10) || 0
@@ -281,7 +293,7 @@ export function DashboardTaskCard({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex h-5 w-5 items-center justify-center rounded-full transition hover:bg-slate-100 dark:hover:bg-[#303030]"
+                className={`inline-flex h-6 w-6 items-center justify-center rounded-full border transition ${getPriorityCircleClassName(todo.priority)}`}
                 aria-label={`Priority ${todo.priority}`}
                 title={`Priority: ${todo.priority}`}
                 onClick={(event) => event.stopPropagation()}
@@ -290,10 +302,10 @@ export function DashboardTaskCard({
                   priority={todo.priority}
                   className={
                     todo.priority === "High"
-                      ? "h-3.5 w-3.5 text-red-500"
+                      ? "h-3 w-3 text-red-500"
                       : todo.priority === "Low"
-                      ? "h-3.5 w-3.5 text-[var(--brand-primary-fixed)]"
-                      : "h-3.5 w-3.5 text-orange-500"
+                      ? "h-3 w-3 text-[var(--brand-primary-fixed)]"
+                      : "h-3 w-3 text-orange-500"
                   }
                 />
               </button>

@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { type StatusOption, type WorkItem } from "../types"
 import { AssigneeCombobox } from "./assignee-combobox"
 import { ItemActionsMenu } from "./item-actions-menu"
+import { PriorityCombobox } from "./priority-combobox"
 import { StatusCombobox } from "./status-combobox"
 
 type BacklogBoardProps = {
@@ -26,10 +27,13 @@ type BacklogBoardProps = {
   onToggleAllCheckboxes: (checked: boolean) => void
   onUpdateStatus: (id: string, nextStatus: string) => void
   onUpdateAssignee: (id: string, assigneeId: string | null) => void
+  onUpdatePriority: (id: string, nextPriority: "Low" | "Medium" | "High") => void
   onOpenItem?: (item: WorkItem) => void
   onEditItem: (item: WorkItem) => void
   onOpenCreate?: () => void
   canMoveItems?: boolean
+  emptyLabel?: string
+  createLabel?: string
 }
 
 export function BacklogBoard({
@@ -41,10 +45,13 @@ export function BacklogBoard({
   onToggleAllCheckboxes,
   onUpdateStatus,
   onUpdateAssignee,
+  onUpdatePriority,
   onOpenItem,
   onEditItem,
   onOpenCreate,
   canMoveItems = true,
+  emptyLabel,
+  createLabel = "Create",
 }: BacklogBoardProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
   const [expandedParentIds, setExpandedParentIds] = React.useState<Set<string>>(
@@ -83,6 +90,27 @@ export function BacklogBoard({
       ),
     [items, rootItemIds]
   )
+  const visibleRowCount = Math.max(rootItems.length + orphanItems.length, 1)
+  const shouldUseScrollableHeight = visibleRowCount >= 5
+  const dynamicMinHeightClassName = (() => {
+    if (visibleRowCount <= 1) {
+      return "min-h-[104px]"
+    }
+
+    if (visibleRowCount === 2) {
+      return "min-h-[144px]"
+    }
+
+    if (visibleRowCount === 3) {
+      return "min-h-[188px]"
+    }
+
+    if (visibleRowCount === 4) {
+      return "min-h-[232px]"
+    }
+
+    return "min-h-[280px]"
+  })()
 
   React.useEffect(() => {
     setExpandedParentIds((current) => {
@@ -196,9 +224,14 @@ export function BacklogBoard({
         </div>
 
         <div
-          className="ml-2 flex items-center gap-1"
+          className="ml-3 flex items-center gap-2"
           onClick={(event) => event.stopPropagation()}
         >
+          <PriorityCombobox
+            value={item.priority ?? "Medium"}
+            onChange={(nextPriority) => onUpdatePriority(item.id, nextPriority)}
+          />
+
           <StatusCombobox
             value={item.status}
             onChange={(nextStatus) => onUpdateStatus(item.id, nextStatus)}
@@ -217,13 +250,24 @@ export function BacklogBoard({
         </div>
       </div>
     ),
-    [onEditItem, onOpenItem, onToggleCheckbox, onUpdateAssignee, onUpdateStatus]
+    [
+      onEditItem,
+      onOpenItem,
+      onToggleCheckbox,
+      onUpdateAssignee,
+      onUpdatePriority,
+      onUpdateStatus,
+    ]
   )
 
   return (
     <Card
       className={`flex flex-col gap-2.5 overflow-hidden border border-gray-200 bg-white p-2.5 dark:border-[#343434] dark:bg-[#1f1f1f] ${
-        isExpanded ? "h-[280px] min-h-[280px]" : "h-auto min-h-0"
+        isExpanded
+          ? shouldUseScrollableHeight
+            ? "h-[280px] min-h-[280px]"
+            : `${dynamicMinHeightClassName} h-auto`
+          : "h-auto min-h-0"
       } rounded-sm`}
     >
       <div className="flex items-center justify-between">
@@ -287,7 +331,7 @@ export function BacklogBoard({
                 snapshot.isDraggingOver ? "border-[color:rgba(var(--brand-primary-rgb),0.28)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] dark:border-[color:rgba(var(--brand-primary-rgb),0.55)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.14)]" : ""
               )}
             >
-              There&apos;s nothing on this board
+              {emptyLabel ?? `There's nothing on this ${title.toLowerCase()}`}
               {provided.placeholder}
             </div>
           )}
@@ -376,7 +420,7 @@ export function BacklogBoard({
             onClick={onOpenCreate}
           >
             <Plus className="h-3.5 w-3.5" />
-            Create
+            {createLabel}
           </Button>
         </div>
       ) : null}

@@ -821,90 +821,70 @@ export function BacklogPageClient({
     []
   )
 
-  const reorderRootItems = React.useCallback(
-    async (orderedVisibleItems: WorkItem[], draggedItemId: string, targetItemId: string | null) => {
-      const allRootItems = items
-        .filter((item) => !item.parentId)
-        .sort((left, right) => left.orderIndex - right.orderIndex)
-      const visibleRootIds = orderedVisibleItems
-        .filter((item) => !item.parentId)
-        .map((item) => item.id)
-
-      if (!visibleRootIds.includes(draggedItemId)) {
-        return
-      }
-
-      const currentVisibleRoots = allRootItems.filter((item) =>
-        visibleRootIds.includes(item.id)
-      )
-      const movedRoot = currentVisibleRoots.find((item) => item.id === draggedItemId)
-
-      if (!movedRoot) {
-        return
-      }
-
-      const reorderedVisibleRoots = currentVisibleRoots.filter(
-        (item) => item.id !== draggedItemId
-      )
-      const destinationIndex =
-        targetItemId === null
-          ? reorderedVisibleRoots.length
-          : Math.max(
-              reorderedVisibleRoots.findIndex((item) => item.id === targetItemId),
-              0
-            )
-
-      reorderedVisibleRoots.splice(destinationIndex, 0, movedRoot)
-
-      let visibleIndex = 0
-      const nextRootItems = allRootItems.map((item) =>
-        visibleRootIds.includes(item.id)
-          ? reorderedVisibleRoots[visibleIndex++] ?? item
-          : item
-      )
-
-      const nextOrderIndexById = new Map(
-        nextRootItems.map((item, index) => [item.id, index + 1])
-      )
-      const previousItems = items
-      const nextItems = items.map((item) =>
-        item.parentId
-          ? item
-          : {
-              ...item,
-              orderIndex: nextOrderIndexById.get(item.id) ?? item.orderIndex,
-            }
-      )
-
-      setItems(nextItems)
-
-      try {
-        await Promise.all(
-          nextRootItems.map((item, index) =>
-            fetch(`/api/backlog-items/${item.id}`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ orderIndex: index + 1 }),
-            }).then((response) => {
-              if (!response.ok) {
-                throw new Error("Failed to reorder backlog item")
-              }
-            })
-          )
-        )
-      } catch (error) {
-        console.error(error)
-        setItems(previousItems)
-      }
-    },
-    [items]
-  )
-
   const filteredBoardItems = React.useMemo(
     () => filterSectionItems(orderedItems, boardSearchValue, boardFilterValue),
     [boardFilterValue, boardSearchValue, filterSectionItems, orderedItems]
+  )
+
+  const buildSectionTree = React.useCallback((sourceItems: WorkItem[], predicate: (item: WorkItem) => boolean) => {
+    const childItemsByParentId = new Map<string, WorkItem[]>()
+
+    for (const item of sourceItems) {
+      if (!item.parentId) {
+        continue
+      }
+
+      const currentChildren = childItemsByParentId.get(item.parentId) ?? []
+      currentChildren.push(item)
+      childItemsByParentId.set(item.parentId, currentChildren)
+    }
+
+    const scopedItems: WorkItem[] = []
+    const appendTree = (item: WorkItem) => {
+      scopedItems.push(item)
+
+      const childItems = childItemsByParentId.get(item.id) ?? []
+
+      for (const childItem of childItems) {
+        appendTree(childItem)
+      }
+    }
+
+    for (const item of sourceItems) {
+      if (item.parentId || !predicate(item)) {
+        continue
+      }
+
+      appendTree(item)
+    }
+
+    return scopedItems
+  }, [])
+
+  const boardItems = React.useMemo(
+    () =>
+      buildSectionTree(
+        filteredBoardItems,
+        (item) => item.status !== "todo"
+      ),
+    [buildSectionTree, filteredBoardItems]
+  )
+
+  const backlogItems = React.useMemo(
+    () =>
+      buildSectionTree(
+        filteredBoardItems,
+        (item) => item.status === "todo"
+      ),
+    [buildSectionTree, filteredBoardItems]
+  )
+
+  const visibleRootItemsByDroppable = React.useMemo(
+    () => ({
+      "backlog-board": boardItems.filter((item) => !item.parentId),
+      "backlog-priority": backlogItems.filter((item) => !item.parentId),
+    }),
+    [backlogItems, boardItems]
   )
 
   const buildStatusCounts = React.useCallback(
@@ -966,18 +946,121 @@ export function BacklogPageClient({
 
   const getRootItemsForDroppable = React.useCallback(
     (droppableId: string) => {
-      if (droppableId === "backlog-board") {
-        return filteredBoardItems.filter((item) => !item.parentId)
+      return visibleRootItemsByDroppable[
+        droppableId as keyof typeof visibleRootItemsByDroppable
+      ] ?? []
+    },
+    [visibleRootItemsByDroppable]
+  )
+
+  const moveRootItem = React.useCallback(
+    async (result: DropResult) => {
+      const { source, destination, draggableId } = result
+
+      if (!destination) {
+        return
       }
 
-      return []
+      const sourceRootItems = getRootItemsForDroppable(source.droppableId)
+      const destinationRootItems = getRootItemsForDroppable(destination.droppableId)
+      const movedItem = sourceRootItems.find((item) => item.id === draggableId)
+
+      if (!movedItem) {
+        return
+      }
+
+      const nextStatus =
+        destination.droppableId === "backlog-priority"
+          ? "todo"
+          : movedItem.status === "todo"
+          ? "inprogress"
+          : movedItem.status
+
+      const nextSourceRootItems = sourceRootItems.filter((item) => item.id !== draggableId)
+      const nextDestinationRootItems =
+        source.droppableId === destination.droppableId
+          ? [...nextSourceRootItems]
+          : destinationRootItems.filter((item) => item.id !== draggableId)
+
+      nextDestinationRootItems.splice(destination.index, 0, {
+        ...movedItem,
+        status: nextStatus,
+      })
+
+      const nextBoardRootItems =
+        destination.droppableId === "backlog-board"
+          ? nextDestinationRootItems
+          : source.droppableId === "backlog-board"
+          ? nextSourceRootItems
+          : visibleRootItemsByDroppable["backlog-board"]
+      const nextBacklogRootItems =
+        destination.droppableId === "backlog-priority"
+          ? nextDestinationRootItems
+          : source.droppableId === "backlog-priority"
+          ? nextSourceRootItems
+          : visibleRootItemsByDroppable["backlog-priority"]
+
+      const nextRootOrderIndexById = new Map<string, number>()
+      let nextOrderIndex = 1
+
+      for (const item of [...nextBoardRootItems, ...nextBacklogRootItems]) {
+        nextRootOrderIndexById.set(item.id, nextOrderIndex++)
+      }
+
+      const previousItems = items
+      const nextItems = items.map((item) => {
+        if (item.parentId) {
+          return item
+        }
+
+        if (item.id === movedItem.id) {
+          return {
+            ...item,
+            status: nextStatus,
+            orderIndex: nextRootOrderIndexById.get(item.id) ?? item.orderIndex,
+          }
+        }
+
+        return {
+          ...item,
+          orderIndex: nextRootOrderIndexById.get(item.id) ?? item.orderIndex,
+        }
+      })
+
+      setItems(nextItems)
+
+      try {
+        await Promise.all(
+          nextItems
+            .filter((item) => !item.parentId)
+            .map((item) =>
+              fetch(`/api/backlog-items/${item.id}`, {
+                method: "PATCH",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  orderIndex: item.orderIndex,
+                  ...(item.id === movedItem.id ? { status: nextStatus } : {}),
+                }),
+              }).then((response) => {
+                if (!response.ok) {
+                  throw new Error("Failed to reorder backlog item")
+                }
+              })
+            )
+        )
+      } catch (error) {
+        console.error(error)
+        setItems(previousItems)
+      }
     },
-    [filteredBoardItems]
+    [getRootItemsForDroppable, items, visibleRootItemsByDroppable]
   )
 
   const handleBacklogDragEnd = React.useCallback(
     (result: DropResult) => {
-      const { source, destination, draggableId } = result
+      const { source, destination } = result
 
       if (!destination) {
         return
@@ -991,15 +1074,9 @@ export function BacklogPageClient({
         return
       }
 
-      if (source.droppableId === destination.droppableId) {
-        const rootItems = getRootItemsForDroppable(destination.droppableId)
-        const reorderedRootItems = rootItems.filter((item) => item.id !== draggableId)
-        const targetItem = reorderedRootItems[destination.index] ?? null
-
-        void reorderRootItems(rootItems, draggableId, targetItem?.id ?? null)
-      }
+      void moveRootItem(result)
     },
-    [getRootItemsForDroppable, reorderRootItems]
+    [moveRootItem]
   )
 
   return (
@@ -1023,19 +1100,45 @@ export function BacklogPageClient({
 
           <div className="w-full max-w-[1080px]">
             <BacklogBoard
-              title="Board"
-              droppableId="backlog-board"
-              items={filteredBoardItems}
-              statusCounts={buildStatusCounts(filteredBoardItems)}
+              title="Backlog"
+              droppableId="backlog-priority"
+              items={backlogItems}
+              statusCounts={buildStatusCounts(backlogItems)}
               onToggleCheckbox={toggleCheckbox}
               onToggleAllCheckboxes={(checked) =>
-                void toggleSectionCheckboxes(filteredBoardItems, checked)
+                void toggleSectionCheckboxes(backlogItems, checked)
               }
               onUpdateStatus={updateItemStatus}
               onUpdateAssignee={updateItemAssignee}
+              onUpdatePriority={(itemId, nextPriority) => {
+                void updateItemPriority(itemId, nextPriority)
+              }}
               onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
               onEditItem={handleOpenEdit}
               canMoveItems
+              emptyLabel="There's nothing in this backlog"
+            />
+          </div>
+
+          <div className="w-full max-w-[1080px]">
+            <BacklogBoard
+              title="Board"
+              droppableId="backlog-board"
+              items={boardItems}
+              statusCounts={buildStatusCounts(boardItems)}
+              onToggleCheckbox={toggleCheckbox}
+              onToggleAllCheckboxes={(checked) =>
+                void toggleSectionCheckboxes(boardItems, checked)
+              }
+              onUpdateStatus={updateItemStatus}
+              onUpdateAssignee={updateItemAssignee}
+              onUpdatePriority={(itemId, nextPriority) => {
+                void updateItemPriority(itemId, nextPriority)
+              }}
+              onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
+              onEditItem={handleOpenEdit}
+              canMoveItems
+              emptyLabel="There's nothing on this board"
             />
           </div>
         </div>
