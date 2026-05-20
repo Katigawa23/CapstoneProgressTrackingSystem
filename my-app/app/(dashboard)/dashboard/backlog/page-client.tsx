@@ -34,7 +34,6 @@ import {
   type DashboardProject,
 } from "@/lib/projects"
 import {
-  hasSeenDashboardProjectPageInSession,
   markDashboardProjectPageSeenInSession,
 } from "@/lib/dashboard-first-open"
 import {
@@ -162,9 +161,7 @@ export function BacklogPageClient({
     initialSelectedProjectId ? mapApiItems(initialItems, initialProjectCode) : []
   )
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
-  const [isDragDropReady, setIsDragDropReady] = React.useState(() =>
-    hasSeenDashboardProjectPageInSession("backlog", initialSelectedProjectId)
-  )
+  const [isDragDropReady, setIsDragDropReady] = React.useState(false)
 
   const [editOpen, setEditOpen] = React.useState(false)
   const [editingItemId, setEditingItemId] = React.useState<string | null>(null)
@@ -824,11 +821,6 @@ export function BacklogPageClient({
     []
   )
 
-  const filteredBoardItems = React.useMemo(
-    () => filterSectionItems(orderedItems, boardSearchValue, boardFilterValue),
-    [boardFilterValue, boardSearchValue, filterSectionItems, orderedItems]
-  )
-
   const reorderRootItems = React.useCallback(
     async (orderedVisibleItems: WorkItem[], draggedItemId: string, targetItemId: string | null) => {
       const allRootItems = items
@@ -908,6 +900,11 @@ export function BacklogPageClient({
       }
     },
     [items]
+  )
+
+  const filteredBoardItems = React.useMemo(
+    () => filterSectionItems(orderedItems, boardSearchValue, boardFilterValue),
+    [boardFilterValue, boardSearchValue, filterSectionItems, orderedItems]
   )
 
   const buildStatusCounts = React.useCallback(

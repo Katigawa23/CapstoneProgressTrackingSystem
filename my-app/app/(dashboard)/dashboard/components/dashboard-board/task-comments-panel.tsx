@@ -1,4 +1,4 @@
-import { Ellipsis, File, ImageIcon, Paperclip, Reply, ThumbsUp } from "lucide-react"
+import { Ellipsis, File, ImageIcon, Paperclip, Reply, ThumbsUp, Trash2 } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -16,6 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 
 import { StatusCombobox } from "../../backlog/components/status-combobox"
 import { getAssigneeOption } from "../../backlog/types"
@@ -42,6 +44,7 @@ type TaskCommentsPanelProps = {
   onCommentAssetAttach: (todoId: string, files: FileList | null) => void
   onReplyToComment: (author: string) => void
   onEditComment: (comment: DashboardComment) => void
+  onDeleteComment: (comment: DashboardComment) => void
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
 }
@@ -68,6 +71,7 @@ export function TaskCommentsPanel({
   onCommentAssetAttach,
   onReplyToComment,
   onEditComment,
+  onDeleteComment,
   onStatusChange,
   onPriorityChange,
 }: TaskCommentsPanelProps) {
@@ -176,7 +180,7 @@ export function TaskCommentsPanel({
       segment.type === "mention" ? (
         <span
           key={`${comment.id}-mention-${index}`}
-          className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
+          className="rounded-full bg-[color:rgba(var(--brand-primary-rgb),0.1)] px-2 py-0.5 text-xs font-medium text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.2)] dark:text-[#9bc2e2]"
         >
           {segment.value}
         </span>
@@ -224,7 +228,7 @@ export function TaskCommentsPanel({
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="inline-flex h-7 min-w-[64px] items-center gap-1.5 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-300 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100 dark:hover:bg-[#303030]"
+                          className="inline-flex h-7 min-w-[64px] items-center gap-1.5 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[color:rgba(var(--brand-primary-rgb),0.28)] dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100 dark:hover:bg-[#303030]"
                         >
                           <span className="inline-flex items-center gap-1.5">
                             <PriorityIcon
@@ -233,7 +237,7 @@ export function TaskCommentsPanel({
                                 selectedTodo.priority === "High"
                                   ? "h-3.5 w-3.5 text-red-500"
                                   : selectedTodo.priority === "Low"
-                                  ? "h-3.5 w-3.5 text-sky-500"
+                                  ? "h-3.5 w-3.5 text-[var(--brand-primary-fixed)]"
                                   : "h-3.5 w-3.5 text-orange-500"
                               }
                             />
@@ -322,20 +326,22 @@ export function TaskCommentsPanel({
         </section>
 
         <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-[2px] border border-slate-200 bg-white p-4 dark:border-[#343434] dark:bg-[#1f1f1f]">
-          <div className="mb-4">
+          <div className="mb-4 shrink-0">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               Comments
             </h3>
           </div>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="flex min-h-full flex-col">
               {isLoadingComments ? (
-                <>
+                <div className="space-y-4">
                   {Array.from({ length: 2 }).map((_, index) => (
                     <div key={index}>{renderCommentSkeleton()}</div>
                   ))}
-                </>
+                </div>
               ) : comments.length > 0 ? (
-                comments.map((comment) => {
+                <div className="space-y-4">
+                {comments.map((comment) => {
                   const canManageComment =
                     Boolean(normalizedCurrentUserId) &&
                     comment.authorUserId === normalizedCurrentUserId
@@ -373,6 +379,15 @@ export function TaskCommentsPanel({
                               onSelect={() => onEditComment(comment)}
                             >
                               Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              disabled={!canManageComment}
+                              className="text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
+                              onSelect={() => onDeleteComment(comment)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -415,13 +430,17 @@ export function TaskCommentsPanel({
                     </div>
                   </div>
                   )
-                })
+                })}
+                </div>
               ) : (
-                <p className="text-sm text-slate-500 dark:text-slate-400">No comments yet.</p>
+                <div className="flex flex-1 items-center justify-center rounded-[2px] border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center dark:border-[#343434] dark:bg-[#202020]">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No comments yet.</p>
+                </div>
               )}
+              </div>
           </div>
 
-          <div className="mt-auto pt-4">
+          <div className="shrink-0 border-t border-slate-200 pt-4 dark:border-[#343434]">
             {isEditingComments ? (
               <div className="space-y-2 rounded-[2px] border border-slate-200 bg-white p-3 dark:border-[#343434] dark:bg-[#1f1f1f]">
                 <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[#343434]">
@@ -466,10 +485,21 @@ export function TaskCommentsPanel({
                 <Textarea
                   autoFocus
                   value={commentDraft}
-                  onChange={(event) => onCommentDraftChange(event.target.value)}
+                  onChange={(event) =>
+                    onCommentDraftChange(
+                      event.target.value.slice(0, COMMENT_BODY_MAX_LENGTH)
+                    )
+                  }
+                  maxLength={COMMENT_BODY_MAX_LENGTH}
                   placeholder="Add a comment..."
-                  className="min-h-10 resize-none border-0 px-0 text-sm text-slate-700 shadow-none focus-visible:ring-0 dark:bg-transparent dark:text-slate-200 sm:min-h-12"
+                  className="min-h-10 max-h-40 resize-none overflow-y-auto border-0 px-0 text-sm text-slate-700 shadow-none focus-visible:ring-0 dark:bg-transparent dark:text-slate-200 sm:min-h-12"
                 />
+                <div className="flex items-center justify-between gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>Maximum {COMMENT_BODY_MAX_LENGTH} characters</span>
+                  <span>
+                    {commentDraft.length}/{COMMENT_BODY_MAX_LENGTH}
+                  </span>
+                </div>
                 {commentAssets.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {commentAssets.map((asset) => (
@@ -483,7 +513,7 @@ export function TaskCommentsPanel({
                     ))}
                   </div>
                 )}
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <Button
                     type="button"
                     size="sm"

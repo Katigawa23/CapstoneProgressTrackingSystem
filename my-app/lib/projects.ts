@@ -16,7 +16,6 @@ export const PROJECT_PROGRAM_OPTIONS = [
   "BS Information Technology",
   "BS Computer Science",
   "BS Information Systems",
-  "Other",
 ] as const
 
 export const PROJECT_YEAR_LEVEL_OPTIONS = [
@@ -24,7 +23,6 @@ export const PROJECT_YEAR_LEVEL_OPTIONS = [
   "2nd Year",
   "3rd Year",
   "4th Year",
-  "Other",
 ] as const
 
 export const PROJECT_SY_TERM_OPTIONS = [

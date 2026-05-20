@@ -152,7 +152,7 @@ function ProjectAdviserAvatar({ project }: { project: DashboardProject }) {
     <Tooltip>
       <TooltipTrigger asChild>
         <Avatar className="h-8 w-8">
-          <AvatarFallback className="bg-sky-600 text-[10px] font-semibold text-white dark:bg-sky-600">
+          <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-[10px] font-semibold text-white dark:bg-[var(--brand-primary-fixed)]">
             {getInitials(adviserName)}
           </AvatarFallback>
         </Avatar>
@@ -194,7 +194,7 @@ function ProjectPeopleIndicator({
                 index === 0 ? "" : "-ml-2"
               }`}
             >
-              <AvatarFallback className="bg-sky-600 text-[10px] font-semibold text-white dark:bg-sky-600">
+              <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-[10px] font-semibold text-white dark:bg-[var(--brand-primary-fixed)]">
                 {getInitials(person)}
               </AvatarFallback>
             </Avatar>
@@ -327,7 +327,7 @@ export default function DashboardProjectsPage() {
                     return (
                       <tr
                         key={project.id}
-                        className="cursor-pointer border-t border-slate-200 transition hover:bg-sky-50/60 dark:border-[#343434] dark:hover:bg-[#242424]"
+                        className="cursor-pointer border-t border-slate-200 transition hover:bg-[color:rgba(var(--brand-primary-rgb),0.06)] dark:border-[#343434] dark:hover:bg-[#242424]"
                         onClick={() => {
                           setDashboardProject(project.id)
                           router.push("/dashboard/board")

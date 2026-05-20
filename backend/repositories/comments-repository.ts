@@ -33,6 +33,10 @@ type UpdateBacklogCommentInput = {
   attachments?: string[]
 }
 
+function hasCommentContent(body: string, attachments: string[]) {
+  return body.trim().length > 0 || attachments.length > 0
+}
+
 type BacklogCommentRecord = {
   id: string
   backlog_item_id: string
@@ -105,6 +109,10 @@ async function ensureCommentSchema() {
           author text not null,
           body text not null default '',
           attachments jsonb not null default '[]'::jsonb,
+          constraint comments_check check (
+            nullif(btrim(body), '') is not null
+            or jsonb_array_length(attachments) > 0
+          ),
           created_at timestamptz not null default now()
         );
       `)
@@ -143,6 +151,22 @@ async function ensureCommentSchema() {
         getDb().query(`
           alter table comments
           add column if not exists created_at timestamptz not null default now();
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table comments
+          drop constraint if exists comments_check;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table comments
+          add constraint comments_check
+          check (
+            nullif(btrim(body), '') is not null
+            or jsonb_array_length(attachments) > 0
+          );
         `)
       )
       .then(() =>
@@ -309,6 +333,10 @@ export async function createBacklogComment(
   input: CreateBacklogCommentInput,
   ownerUserId: string
 ) {
+  if (!hasCommentContent(input.body, input.attachments)) {
+    throw new Error("A comment must include text or at least one attachment.")
+  }
+
   return withCommentStore(
     async () => {
       const result = await getDb().query<BacklogCommentRecord>(
@@ -383,6 +411,45 @@ export async function updateBacklogComment(
 ) {
   return withCommentStore(
     async () => {
+      if (typeof input.body === "string" || Array.isArray(input.attachments)) {
+        const currentResult = await getDb().query<BacklogCommentRecord>(
+          `select
+            id,
+            backlog_item_id,
+            author_user_id,
+            author,
+            body,
+            attachments,
+            created_at
+          from comments
+          where id = $1
+            and backlog_item_id in (
+              select backlog.id
+              from backlog
+              inner join projects
+                on projects.id = backlog.project_id
+              where projects.owner_user_id = $2
+                or $2 = any(projects.member_user_ids)
+            )`,
+          [id, ownerUserId]
+        )
+
+        const current = currentResult.rows[0]
+        if (!current) {
+          return null
+        }
+
+        const nextBody =
+          typeof input.body === "string" ? input.body : current.body
+        const nextAttachments = Array.isArray(input.attachments)
+          ? input.attachments
+          : current.attachments ?? []
+
+        if (!hasCommentContent(nextBody, nextAttachments)) {
+          throw new Error("A comment must include text or at least one attachment.")
+        }
+      }
+
       const fields: string[] = []
       const values: Array<string> = []
 
@@ -442,6 +509,10 @@ export async function updateBacklogComment(
         attachments: Array.isArray(input.attachments)
           ? input.attachments
           : current.attachments,
+      }
+
+      if (!hasCommentContent(next.body, next.attachments)) {
+        throw new Error("A comment must include text or at least one attachment.")
       }
 
       records[index] = toRecord(next)

@@ -119,7 +119,7 @@ export function BacklogBoard({
           }
         }}
         className={cn(
-          "flex cursor-pointer items-center justify-between rounded border border-gray-200 bg-white px-2 py-0.5 text-sm transition hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 dark:border-[#343434] dark:bg-[#1f1f1f] dark:hover:bg-[#262626]",
+          "flex cursor-pointer items-center justify-between rounded border border-gray-200 bg-white px-2 py-0.5 text-sm transition hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:border-[#343434] dark:bg-[#1f1f1f] dark:hover:bg-[#262626]",
           item.parentId ? "ml-6 border-dashed" : ""
         )}
       >
@@ -178,7 +178,7 @@ export function BacklogBoard({
             <div className="truncate text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
               {item.displayId}
             </div>
-            <div className="truncate text-[11px] font-medium text-black transition hover:text-sky-700 dark:text-slate-100 dark:hover:text-sky-300">
+            <div className="truncate text-[11px] font-medium text-black transition hover:text-[var(--brand-primary-fixed)] dark:text-slate-100 dark:hover:text-[#9bc2e2]">
               {item.title}
             </div>
             <div className="text-[9px] text-slate-500 dark:text-slate-400">
@@ -284,7 +284,7 @@ export function BacklogBoard({
               {...provided.droppableProps}
               className={cn(
                 "flex min-h-0 flex-1 items-center justify-center rounded-md border border-dashed border-gray-300 py-10 text-center text-sm text-black/60 dark:border-[#3a3a3a] dark:text-slate-400",
-                snapshot.isDraggingOver ? "border-sky-300 bg-sky-50/50 dark:border-sky-700 dark:bg-sky-950/20" : ""
+                snapshot.isDraggingOver ? "border-[color:rgba(var(--brand-primary-rgb),0.28)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] dark:border-[color:rgba(var(--brand-primary-rgb),0.55)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.14)]" : ""
               )}
             >
               There&apos;s nothing on this board
@@ -322,7 +322,7 @@ export function BacklogBoard({
                           {...draggableProvided.draggableProps}
                           className={cn(
                             "space-y-1",
-                            dragSnapshot.isDragging ? "rounded-sm ring-2 ring-sky-200 dark:ring-sky-800" : ""
+                            dragSnapshot.isDragging ? "rounded-sm ring-2 ring-[color:rgba(var(--brand-primary-rgb),0.18)] dark:ring-[color:rgba(var(--brand-primary-rgb),0.45)]" : ""
                           )}
                           style={draggableProvided.draggableProps.style}
                         >

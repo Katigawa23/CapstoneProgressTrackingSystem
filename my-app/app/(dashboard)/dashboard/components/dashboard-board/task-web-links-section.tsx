@@ -229,14 +229,14 @@ export function TaskWebLinksSection({
                 className={`relative h-9 w-9 rounded-[2px] p-0 dark:border-[#3a3a3a] dark:bg-[#262626] dark:hover:bg-[#303030] ${
                   creatorFilter === "all"
                     ? "text-slate-700 dark:text-slate-200"
-                    : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300"
+                    : "border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.14)] dark:text-[#9bc2e2]"
                 }`}
                 aria-label="Filter web links"
                 title="Filter web links"
               >
                 <Filter className="h-4 w-4" />
                 {creatorFilter !== "all" ? (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold leading-none text-white">
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-primary-fixed)] px-1 text-[10px] font-semibold leading-none text-white">
                     1
                   </span>
                 ) : null}

@@ -30,7 +30,7 @@ export const statusOptions: StatusOption[] = [
   {
     value: "todo",
     label: "Todo",
-    color: "border-blue-200 bg-blue-100 text-blue-700",
+    color: "border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)]",
   },
   {
     value: "inprogress",

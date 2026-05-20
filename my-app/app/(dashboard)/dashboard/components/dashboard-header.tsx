@@ -35,7 +35,7 @@ function normalizePersonName(name: string) {
 export type DashboardBoardFilter = "none" | "assignee" | "subtask"
 
 const activeHeaderFilterItemClassName =
-  "bg-blue-50 text-blue-700 data-[highlighted]:bg-blue-100 data-[highlighted]:text-blue-800 dark:bg-blue-500/20 dark:text-blue-200 dark:data-[highlighted]:bg-blue-500/30 dark:data-[highlighted]:text-blue-100"
+  "bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.12)] data-[highlighted]:text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2] dark:data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.28)] dark:data-[highlighted]:text-[#c3dbef]"
 
 type DashboardHeaderProps = {
   people: Person[]
@@ -172,7 +172,7 @@ export function DashboardHeader({
                       <Filter className="h-3.5 w-3.5" />
                       <span>Filter</span>
                       {hasActiveFilters ? (
-                        <span className="inline-flex min-w-5 items-center justify-center rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-200">
+                        <span className="inline-flex min-w-5 items-center justify-center rounded bg-[color:rgba(var(--brand-primary-rgb),0.1)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2]">
                           {activeFilterCount}
                         </span>
                       ) : null}

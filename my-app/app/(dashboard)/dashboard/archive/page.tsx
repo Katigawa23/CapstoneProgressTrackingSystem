@@ -80,7 +80,7 @@ type ArchiveGroup = {
 }
 
 const activeHeaderFilterItemClassName =
-  "bg-blue-50 text-blue-700 data-[highlighted]:bg-blue-100 data-[highlighted]:text-blue-800 dark:bg-blue-500/20 dark:text-blue-200 dark:data-[highlighted]:bg-blue-500/30 dark:data-[highlighted]:text-blue-100"
+  "bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.12)] data-[highlighted]:text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2] dark:data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.28)] dark:data-[highlighted]:text-[#c3dbef]"
 
 function getStartOfDay(value: Date) {
   const nextDate = new Date(value)
@@ -448,7 +448,7 @@ export default function ArchivePage() {
                   <Filter className="h-3.5 w-3.5" />
                   <span>Filter</span>
                   {hasActiveFilters ? (
-                    <span className="inline-flex min-w-5 items-center justify-center rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-200">
+                    <span className="inline-flex min-w-5 items-center justify-center rounded bg-[color:rgba(var(--brand-primary-rgb),0.1)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2]">
                       {activeFilterCount}
                     </span>
                   ) : null}
@@ -791,7 +791,7 @@ export default function ArchivePage() {
         <AlertDialogContent className="max-w-sm border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#3a3a3a] dark:bg-[#2f3033] dark:text-slate-100">
           <AlertDialogHeader className="place-items-start text-left">
             <AlertDialogTitle className="flex items-center gap-3 text-xl font-semibold leading-tight text-slate-950 dark:text-slate-100">
-              <ArchiveRestore className="h-5 w-5 shrink-0 text-blue-600 dark:text-amber-400" />
+              <ArchiveRestore className="h-5 w-5 shrink-0 text-[var(--brand-primary-fixed)] dark:text-amber-400" />
               You&apos;re about to restore this work item
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm leading-relaxed text-slate-600 dark:text-slate-200">
@@ -810,7 +810,7 @@ export default function ArchivePage() {
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-blue-600 text-white hover:bg-blue-500 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300"
+              className="bg-[var(--brand-primary-fixed)] text-white hover:bg-[#084a7d] dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300"
               onClick={() => void handleConfirmRestore()}
             >
               Restore

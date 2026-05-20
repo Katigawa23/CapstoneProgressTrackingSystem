@@ -139,7 +139,7 @@ export default function Navbar() {
                 <SheetTitle className="flex items-center gap-3 font-display text-xl">
                   <span>
                     <span className="text-slate-950 dark:text-slate-50">Track</span>
-                    <span className="text-sky-600">Sphere</span>
+                    <span className="text-[var(--brand-primary-fixed)]">Sphere</span>
                   </span>
                 </SheetTitle>
               </SheetHeader>
@@ -185,7 +185,7 @@ export default function Navbar() {
           >
             <span>
               <span className="text-slate-950 dark:text-slate-50">Track</span>
-              <span className="text-sky-600">Sphere</span>
+              <span className="text-[var(--brand-primary-fixed)]">Sphere</span>
             </span>
           </Link>
         </div>

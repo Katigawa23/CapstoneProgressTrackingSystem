@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 import {
   deleteBacklogComment,
   updateBacklogComment,
@@ -18,12 +19,39 @@ export async function PATCH(
       body?: string
       attachments?: string[]
     }
+    const trimmedBody =
+      typeof body.body === "string" ? body.body.trim() : undefined
+    const normalizedAttachments = Array.isArray(body.attachments)
+      ? body.attachments.map((item) => String(item).trim()).filter(Boolean)
+      : undefined
+
+    if (
+      typeof trimmedBody === "string" &&
+      Array.isArray(normalizedAttachments) &&
+      !trimmedBody &&
+      normalizedAttachments.length === 0
+    ) {
+      return NextResponse.json(
+        { error: "A comment must include text or at least one attachment." },
+        { status: 400 }
+      )
+    }
+
+    if (
+      typeof trimmedBody === "string" &&
+      trimmedBody.length > COMMENT_BODY_MAX_LENGTH
+    ) {
+      return NextResponse.json(
+        {
+          error: `Comment must be ${COMMENT_BODY_MAX_LENGTH} characters or fewer.`,
+        },
+        { status: 400 }
+      )
+    }
 
     const comment = await updateBacklogComment(commentId, user.id, {
-      body: typeof body.body === "string" ? body.body.trim() : undefined,
-      attachments: Array.isArray(body.attachments)
-        ? body.attachments.map((item) => String(item).trim()).filter(Boolean)
-        : undefined,
+      body: trimmedBody,
+      attachments: normalizedAttachments,
     })
 
     if (!comment) {

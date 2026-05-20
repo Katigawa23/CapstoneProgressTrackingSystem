@@ -13,7 +13,7 @@ export function PriorityIcon({ priority, className }: PriorityIconProps) {
   }
 
   if (priority === "Low") {
-    return <ChevronsDown className={className ?? "h-4 w-4 text-sky-500"} />
+    return <ChevronsDown className={className ?? "h-4 w-4 text-[var(--brand-primary-fixed)]"} />
   }
 
   return <Equal className={className ?? "h-4 w-4 text-orange-500"} />

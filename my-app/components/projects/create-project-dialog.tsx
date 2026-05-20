@@ -52,26 +52,22 @@ type CreateProjectDialogProps = {
   onMemberSelect: (member: ProjectMemberOption) => void
   onOpenChange: (open: boolean) => void
   onProjectProgramChange: (value: string) => void
-  onProjectProgramOtherChange: (value: string) => void
   onProjectSyTermChange: (value: string) => void
   onProjectSyTermOtherChange: (value: string) => void
   onProjectTitleChange: (value: string) => void
   onProjectTypeChange: (value: string) => void
   onProjectTypeOtherChange: (value: string) => void
   onProjectYearLevelChange: (value: string) => void
-  onProjectYearLevelOtherChange: (value: string) => void
   titleError?: string | null
   isSubmitting?: boolean
   open: boolean
   projectProgram: string
-  projectProgramOther: string
   projectSyTerm: string
   projectSyTermOther: string
   projectTitle: string
   projectType: string
   projectTypeOther: string
   projectYearLevel: string
-  projectYearLevelOther: string
   selectedMembers: ProjectMemberOption[]
 }
 
@@ -167,37 +163,29 @@ export function CreateProjectDialog({
   onMemberSelect,
   onOpenChange,
   onProjectProgramChange,
-  onProjectProgramOtherChange,
   onProjectSyTermChange,
   onProjectSyTermOtherChange,
   onProjectTitleChange,
   onProjectTypeChange,
   onProjectTypeOtherChange,
   onProjectYearLevelChange,
-  onProjectYearLevelOtherChange,
   titleError = null,
   isSubmitting = false,
   open,
   projectProgram,
-  projectProgramOther,
   projectSyTerm,
   projectSyTermOther,
   projectTitle,
   projectType,
   projectTypeOther,
   projectYearLevel,
-  projectYearLevelOther,
   selectedMembers,
 }: CreateProjectDialogProps) {
   const [memberPickerOpen, setMemberPickerOpen] = React.useState(false)
   const [memberPickerWidth, setMemberPickerWidth] = React.useState(0)
   const memberPickerRef = React.useRef<HTMLDivElement | null>(null)
-  const isProgramComplete =
-    projectProgram.trim().length > 0 &&
-    (projectProgram !== OTHER_PROJECT_OPTION || projectProgramOther.trim().length > 0)
-  const isYearLevelComplete =
-    projectYearLevel.trim().length > 0 &&
-    (projectYearLevel !== OTHER_PROJECT_OPTION || projectYearLevelOther.trim().length > 0)
+  const isProgramComplete = projectProgram.trim().length > 0
+  const isYearLevelComplete = projectYearLevel.trim().length > 0
   const isSyTermComplete =
     projectSyTerm.trim().length > 0
   const isProjectTypeComplete =
@@ -287,8 +275,8 @@ export function CreateProjectDialog({
               onValueChange={onProjectProgramChange}
               options={PROJECT_PROGRAM_OPTIONS}
               placeholder="Select a program"
-              customValue={projectProgramOther}
-              onCustomValueChange={onProjectProgramOtherChange}
+              customValue=""
+              onCustomValueChange={() => undefined}
               customInputPlaceholder="Enter program"
             />
 
@@ -311,8 +299,8 @@ export function CreateProjectDialog({
               onValueChange={onProjectYearLevelChange}
               options={PROJECT_YEAR_LEVEL_OPTIONS}
               placeholder="Select a year level"
-              customValue={projectYearLevelOther}
-              onCustomValueChange={onProjectYearLevelOtherChange}
+              customValue=""
+              onCustomValueChange={() => undefined}
               customInputPlaceholder="Enter year level"
             />
 
@@ -420,7 +408,7 @@ export function CreateProjectDialog({
 
                                   <Check
                                     className={`mt-1 h-4 w-4 ${
-                                      isSelected ? "opacity-100 text-sky-600 dark:text-sky-400" : "opacity-0"
+                                      isSelected ? "opacity-100 text-[var(--brand-primary-fixed)] dark:text-[#63a0d6]" : "opacity-0"
                                     }`}
                                   />
                                 </CommandItem>
@@ -469,7 +457,7 @@ export function CreateProjectDialog({
                         <button
                           type="button"
                           onClick={() => onMemberRemove(member.id)}
-                          className="inline-flex h-7 w-7 items-center justify-center justify-self-end rounded-[2px] text-slate-400 transition hover:bg-slate-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-red-400"
+                          className="inline-flex h-7 w-7 items-center justify-center justify-self-end rounded-[2px] text-slate-400 transition hover:bg-slate-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-red-400"
                           aria-label={`Remove ${getMemberDisplayName(member.name)}`}
                         >
                           <X className="h-4 w-4" />

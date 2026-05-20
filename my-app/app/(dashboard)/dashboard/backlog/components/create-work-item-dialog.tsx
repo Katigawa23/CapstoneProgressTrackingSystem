@@ -324,7 +324,7 @@ export function CreateWorkItemDialog({
                               priority === "High"
                                 ? "h-3.5 w-3.5 text-red-500"
                                 : priority === "Low"
-                                ? "h-3.5 w-3.5 text-sky-500"
+                                ? "h-3.5 w-3.5 text-[var(--brand-primary-fixed)]"
                                 : "h-3.5 w-3.5 text-orange-500"
                             }
                           />

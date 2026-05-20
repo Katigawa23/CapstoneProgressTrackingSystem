@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 
 import { getMicrosoftTenantId } from "@backend/auth/microsoft"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 import {
   createBacklogComment,
   listBacklogComments,
@@ -47,17 +48,35 @@ export async function POST(
       body?: string
       attachments?: string[]
     }
+    const trimmedBody = body.body?.trim() ?? ""
+    const normalizedAttachments = Array.isArray(body.attachments)
+      ? body.attachments
+          .map((item) => String(item).trim())
+          .filter(Boolean)
+      : []
+
+    if (!trimmedBody && normalizedAttachments.length === 0) {
+      return NextResponse.json(
+        { error: "A comment must include text or at least one attachment." },
+        { status: 400 }
+      )
+    }
+
+    if (trimmedBody.length > COMMENT_BODY_MAX_LENGTH) {
+      return NextResponse.json(
+        {
+          error: `Comment must be ${COMMENT_BODY_MAX_LENGTH} characters or fewer.`,
+        },
+        { status: 400 }
+      )
+    }
 
     const comment = await createBacklogComment({
       backlogItemId: id,
       authorUserId: user.id,
       author: user.name?.trim() || user.email?.trim() || "Unknown User",
-      body: body.body?.trim() ?? "",
-      attachments: Array.isArray(body.attachments)
-        ? body.attachments
-            .map((item) => String(item).trim())
-            .filter(Boolean)
-        : [],
+      body: trimmedBody,
+      attachments: normalizedAttachments,
     }, user.id)
 
     if (!comment) {

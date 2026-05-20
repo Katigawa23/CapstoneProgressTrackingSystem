@@ -10,6 +10,7 @@ export function hasEmoji(value: string) {
 }
 
 export const TASK_SPRINT_NAME_MAX_LENGTH = 40
+export const COMMENT_BODY_MAX_LENGTH = 500
 
 type ValidateDisplayNameOptions = {
   maxLength?: number

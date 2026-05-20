@@ -86,13 +86,13 @@ export function DashboardTaskCard({
         {...draggableProvided?.dragHandleProps}
         role="button"
         tabIndex={0}
-        className={`w-full border border-[var(--board-task-border)] bg-[var(--board-task-bg)] p-2 text-left shadow-[var(--board-task-shadow)] transition-[background-color,border-color,box-shadow] duration-300 hover:border-sky-200 hover:bg-sky-50/60 hover:shadow-[var(--board-task-shadow-hover)] focus:outline-none focus:ring-2 focus:ring-slate-300 dark:hover:border-sky-700/70 dark:hover:bg-sky-950/20 dark:focus:ring-[#4a4a4a] ${
+        className={`w-full border border-[var(--board-task-border)] bg-[var(--board-task-bg)] p-2 text-left shadow-[var(--board-task-shadow)] transition-[background-color,border-color,box-shadow] duration-300 hover:border-[color:rgba(var(--brand-primary-rgb),0.2)] hover:bg-[color:rgba(var(--brand-primary-rgb),0.06)] hover:shadow-[var(--board-task-shadow-hover)] focus:outline-none focus:ring-2 focus:ring-slate-300 dark:hover:border-[color:rgba(var(--brand-primary-rgb),0.55)] dark:hover:bg-[color:rgba(var(--brand-primary-rgb),0.14)] dark:focus:ring-[#4a4a4a] ${
           isSubtask
-            ? "cursor-grab border-l-2 border-l-sky-400 active:cursor-grabbing"
+            ? "cursor-grab border-l-2 border-l-[var(--brand-primary-fixed)] active:cursor-grabbing"
             : "cursor-grab active:cursor-grabbing"
         } ${
           isDragging || dragSnapshot?.isDragging
-            ? "ring-2 ring-sky-300 dark:ring-sky-700"
+            ? "ring-2 ring-[color:rgba(var(--brand-primary-rgb),0.28)] dark:ring-[color:rgba(var(--brand-primary-rgb),0.55)]"
             : ""
         }`}
         style={draggableProvided?.draggableProps.style}
@@ -292,7 +292,7 @@ export function DashboardTaskCard({
                     todo.priority === "High"
                       ? "h-3.5 w-3.5 text-red-500"
                       : todo.priority === "Low"
-                      ? "h-3.5 w-3.5 text-sky-500"
+                      ? "h-3.5 w-3.5 text-[var(--brand-primary-fixed)]"
                       : "h-3.5 w-3.5 text-orange-500"
                   }
                 />

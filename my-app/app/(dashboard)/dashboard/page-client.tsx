@@ -5,7 +5,6 @@ import Link from "next/link"
 import {
   Archive,
   MoreHorizontal,
-  Pencil,
   Star,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -411,7 +410,7 @@ export function DashboardPageClient({
                             <button
                               type="button"
                               aria-label={`More options for ${project.name}`}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
                             >
                               <MoreHorizontal className="h-4 w-4" />
                             </button>
@@ -428,10 +427,6 @@ export function DashboardPageClient({
                             >
                               <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
                               {project.starred ? "Remove from starred" : "Add to starred"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer">
-                              <Pencil className="h-4 w-4" />
-                              Edit project
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="cursor-pointer"
@@ -516,7 +511,7 @@ export function DashboardPageClient({
               </h2>
               <Link
                 href="/dashboard/projects"
-                className="text-sm font-medium text-sky-700 transition hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300"
+                className="text-sm font-medium text-[var(--brand-primary-fixed)] transition hover:text-[#084a7d] dark:text-[#63a0d6] dark:hover:text-[#9bc2e2]"
               >
                 View all projects
               </Link>
@@ -535,14 +530,14 @@ export function DashboardPageClient({
                         router.push("/dashboard/board")
                       }}
                     >
-                      <div className="absolute inset-y-0 left-0 w-1.5 bg-sky-600 dark:bg-sky-500" />
+                      <div className="absolute inset-y-0 left-0 w-1.5 bg-[var(--brand-primary-fixed)] dark:bg-[var(--brand-primary-fixed)]" />
                       {hasHydrated ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
                               aria-label={`More options for ${project.name}`}
-                              className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                              className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
                               onClick={(event) => {
                                 event.stopPropagation()
                               }}
@@ -565,10 +560,6 @@ export function DashboardPageClient({
                             >
                               <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
                               {project.starred ? "Remove from starred" : "Add to starred"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer">
-                              <Pencil className="h-4 w-4" />
-                              Edit project
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="cursor-pointer"

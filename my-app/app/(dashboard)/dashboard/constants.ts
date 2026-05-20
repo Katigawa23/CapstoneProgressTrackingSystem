@@ -1,7 +1,7 @@
 import type { ColumnId } from "./types"
 
 export const columns: { id: ColumnId; title: string; color: string }[] = [
-  { id: "todo", title: "To-do", color: "bg-blue-500" },
+  { id: "todo", title: "To-do", color: "bg-[var(--brand-primary-fixed)]" },
   { id: "inprogress", title: "In Progress", color: "bg-yellow-500" },
   { id: "revision", title: "Revision", color: "bg-orange-500" },
   { id: "completed", title: "Completed", color: "bg-green-500" },

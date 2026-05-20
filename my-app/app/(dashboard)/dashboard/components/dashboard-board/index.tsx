@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
-import { Archive, FolderCheck, GitFork } from "lucide-react"
+import { Archive, CircleAlert, FolderCheck, GitFork } from "lucide-react"
 
 import {
   AlertDialog,
@@ -35,6 +35,7 @@ import {
   broadcastDashboardActivitySync,
   subscribeToDashboardActivitySync,
 } from "@/lib/dashboard-activity-sync"
+import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 
 import { columns } from "../../constants"
 import type {
@@ -57,6 +58,7 @@ import type {
 
 const DOCUMENT_ATTACHMENT_LIMIT_BYTES = 5 * 1024 * 1024
 const VIDEO_ATTACHMENT_LIMIT_BYTES = 10 * 1024 * 1024
+const SUBMISSION_BATCH_MAX_FILES = 3
 const videoSubmissionFileExtensions = new Set([
   ".avi",
   ".m4v",
@@ -676,6 +678,14 @@ export function DashboardBoard({
         return
       }
 
+      if (files.length > SUBMISSION_BATCH_MAX_FILES) {
+        setSubmissionAlertDescription(
+          `Please upload only ${SUBMISSION_BATCH_MAX_FILES} attachments at a time.`
+        )
+        setIsEmptySubmissionAlertOpen(true)
+        return
+      }
+
       const oversizedFile = Array.from(files).find((file) => {
         return file.size > getSubmissionFileSizeLimit(file)
       })
@@ -909,13 +919,13 @@ export function DashboardBoard({
   ])
 
   const handleReplyToComment = React.useCallback((author: string) => {
-    setCommentDraft(`@${author} `)
+    setCommentDraft(`@${author} `.slice(0, COMMENT_BODY_MAX_LENGTH))
     setIsEditingComments(true)
     setEditingCommentId(null)
   }, [])
 
   const handleEditComment = React.useCallback((comment: DashboardComment) => {
-    setCommentDraft(comment.body)
+    setCommentDraft(comment.body.slice(0, COMMENT_BODY_MAX_LENGTH))
     setCommentAssets((current) => ({
       ...current,
       [comment.backlogItemId]: comment.attachments,
@@ -923,6 +933,64 @@ export function DashboardBoard({
     setEditingCommentId(comment.id)
     setIsEditingComments(true)
   }, [])
+
+  const handleDeleteComment = React.useCallback(
+    async (comment: DashboardComment) => {
+      if (!selectedTodo) {
+        return
+      }
+
+      const confirmed = window.confirm("Delete this comment?")
+      if (!confirmed) {
+        return
+      }
+
+      try {
+        const response = await fetch(`/api/backlog-comments/${comment.id}`, {
+          method: "DELETE",
+        })
+
+        if (!response.ok) {
+          let errorMessage = "Failed to delete comment"
+
+          try {
+            const errorData = (await response.json()) as { error?: string }
+            if (typeof errorData.error === "string" && errorData.error.trim()) {
+              errorMessage = errorData.error.trim()
+            }
+          } catch {
+            // Fall back to the generic message when the response is not JSON.
+          }
+
+          throw new Error(errorMessage)
+        }
+
+        const currentComments = commentThreads[selectedTodo.id] ?? []
+        const nextComments = currentComments.filter(
+          (currentComment) => currentComment.id !== comment.id
+        )
+
+        setCommentThreads((current) => ({
+          ...current,
+          [selectedTodo.id]: nextComments,
+        }))
+        onTodoUpdate(selectedTodo.id, { comments: nextComments.length })
+
+        if (editingCommentId === comment.id) {
+          setCommentDraft("")
+          setCommentAssets((current) => ({
+            ...current,
+            [selectedTodo.id]: [],
+          }))
+          setEditingCommentId(null)
+          setIsEditingComments(false)
+        }
+      } catch (error) {
+        console.error(error)
+      }
+    },
+    [commentThreads, editingCommentId, onTodoUpdate, selectedTodo]
+  )
 
   const handleDialogOpenChange = React.useCallback((open: boolean) => {
     if (open) {
@@ -1368,7 +1436,7 @@ export function DashboardBoard({
                           </span>
                           <button
                             type="button"
-                            className="rounded-sm transition hover:text-blue-600 hover:underline dark:hover:text-sky-400"
+                            className="rounded-sm transition hover:text-[var(--brand-primary-fixed)] hover:underline dark:hover:text-[#9bc2e2]"
                             onClick={() => {
                               if (selectedParentTodo) {
                                 handleOpenTask(selectedParentTodo)
@@ -1388,7 +1456,7 @@ export function DashboardBoard({
                               </span>
                               <button
                                 type="button"
-                                className="rounded-sm transition hover:text-blue-600 hover:underline dark:hover:text-sky-400"
+                                className="rounded-sm transition hover:text-[var(--brand-primary-fixed)] hover:underline dark:hover:text-[#9bc2e2]"
                                 onClick={() => handleOpenTask(selectedTodo)}
                               >
                                 {selectedTodoIdParts.subtaskId}
@@ -1511,6 +1579,7 @@ export function DashboardBoard({
                 onCommentAssetAttach={handleCommentAssetAttach}
                 onReplyToComment={handleReplyToComment}
                 onEditComment={handleEditComment}
+                onDeleteComment={handleDeleteComment}
                 onStatusChange={onStatusChange}
                 onPriorityChange={onPriorityChange}
               />
@@ -1524,15 +1593,22 @@ export function DashboardBoard({
         open={isEmptySubmissionAlertOpen}
         onOpenChange={setIsEmptySubmissionAlertOpen}
       >
-        <AlertDialogContent size="sm">
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
           <AlertDialogHeader className="place-items-start text-left">
-            <AlertDialogTitle>Alert</AlertDialogTitle>
-            <AlertDialogDescription>{submissionAlertDescription}</AlertDialogDescription>
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
+                <CircleAlert className="h-4 w-4" />
+              </div>
+              <AlertDialogTitle>Alert</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">{submissionAlertDescription}</span>
+            </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="justify-start sm:justify-start">
+          <AlertDialogFooter>
             <AlertDialogAction
-              size="xs"
-              className="min-w-16 px-3"
+              size="sm"
+              className="rounded-[2px] bg-amber-400 text-white hover:bg-amber-300"
               onClick={() => setIsEmptySubmissionAlertOpen(false)}
             >
               OK

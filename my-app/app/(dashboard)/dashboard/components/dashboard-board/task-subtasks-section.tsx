@@ -103,7 +103,7 @@ function normalizeSubtaskTitle(value: string) {
 
 function SubtaskGlyph() {
   return (
-    <span className="relative h-4 w-4 shrink-0 text-blue-400">
+    <span className="relative h-4 w-4 shrink-0 text-[var(--brand-primary-fixed)]">
       <span className="absolute left-0.5 top-0.5 h-1.5 w-1.5 rounded-[2px] border border-current" />
       <span className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-[2px] border border-current" />
       <span className="absolute left-[7px] top-[7px] h-px w-[6px] bg-current" />
@@ -119,7 +119,7 @@ type SubtaskStatusFilter = "all" | TodoItem["status"]
 type SubtaskAssigneeFilter = "all" | "me"
 
 const activeAssigneeFilterItemClassName =
-  "bg-blue-50 text-blue-700 data-[highlighted]:bg-blue-100 data-[highlighted]:text-blue-800 dark:bg-blue-500/20 dark:text-blue-200 dark:data-[highlighted]:bg-blue-500/30 dark:data-[highlighted]:text-blue-100"
+  "bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.12)] data-[highlighted]:text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2] dark:data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.28)] dark:data-[highlighted]:text-[#c3dbef]"
 const activeStatusFilterItemClassName =
   "bg-slate-100 text-slate-900 data-[highlighted]:bg-slate-200 data-[highlighted]:text-slate-950 dark:bg-[#303030] dark:text-slate-100 dark:data-[highlighted]:bg-[#3a3a3a] dark:data-[highlighted]:text-white"
 
@@ -430,7 +430,7 @@ export function TaskSubtasksSection({
                 >
                   <Filter className="h-4 w-4" />
                   {hasActiveFilters ? (
-                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold leading-none text-white dark:bg-blue-500">
+                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-primary-fixed)] px-1 text-[10px] font-semibold leading-none text-white dark:bg-[var(--brand-primary-fixed)]">
                       {activeFilterCount}
                     </span>
                   ) : null}
@@ -473,7 +473,7 @@ export function TaskSubtasksSection({
                       )}
                       onSelect={() => setStatusFilter("todo")}
                     >
-                      <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand-primary-fixed)]" />
                       To do
                     </DropdownMenuItem>
                     <DropdownMenuItem
@@ -622,7 +622,7 @@ export function TaskSubtasksSection({
                         onOpenSubtask(subtask)
                       }
                     }}
-                    className={`${subtaskGridClass} group bg-white px-3 py-2 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset dark:bg-[#1f1f23] dark:hover:bg-[#24292f] ${
+                    className={`${subtaskGridClass} group bg-white px-3 py-2 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] focus-visible:ring-inset dark:bg-[#1f1f23] dark:hover:bg-[#24292f] ${
                       isEditingCurrentSubtask ? "" : "cursor-pointer"
                     }`}
                   >
@@ -650,7 +650,7 @@ export function TaskSubtasksSection({
                               }
                             }}
                             autoFocus
-                            className="h-8 border-blue-300 bg-white text-[13px] text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
+                            className="h-8 border-[color:rgba(var(--brand-primary-rgb),0.28)] bg-white text-[13px] text-slate-900 shadow-none dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:bg-[#1d2125] dark:text-[#dee4ea]"
                           />
                           <span className="shrink-0 text-xs text-slate-500 dark:text-[#9fadbc]">
                             {editingTitle.length}/{TASK_SPRINT_NAME_MAX_LENGTH}
@@ -674,7 +674,7 @@ export function TaskSubtasksSection({
                         </div>
                       ) : (
                         <span
-                          className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left text-[13px] text-slate-900 transition group-hover:text-blue-600 dark:text-[#dee4ea] dark:group-hover:text-[#8ab4ff]"
+                          className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left text-[13px] text-slate-900 transition group-hover:text-[var(--brand-primary-fixed)] dark:text-[#dee4ea] dark:group-hover:text-[#9bc2e2]"
                           title={`Open ${subtask.title}`}
                         >
                           <SubtaskGlyph />
@@ -729,7 +729,7 @@ export function TaskSubtasksSection({
                               className={cn(
                                 "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
                                 subtask.startDate
-                                  ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
+                                  ? "border-[color:rgba(var(--brand-primary-rgb),0.28)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:text-[#9bc2e2]"
                                   : ""
                               )}
                               aria-label={
@@ -791,7 +791,7 @@ export function TaskSubtasksSection({
                               className={cn(
                                 "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
                                 subtask.deadline
-                                  ? "border-blue-300 text-blue-600 dark:border-blue-500/60 dark:text-blue-300"
+                                  ? "border-[color:rgba(var(--brand-primary-rgb),0.28)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:text-[#9bc2e2]"
                                   : ""
                               )}
                               aria-label={
@@ -845,7 +845,7 @@ export function TaskSubtasksSection({
                         }
                         className="h-5.5 w-5.5 rounded-full border-slate-200 bg-transparent p-0 hover:bg-slate-100 dark:border-[#4c525a] dark:bg-[#3b3f45] dark:hover:bg-[#4a4f57]"
                         avatarClassName="h-5.5 w-5.5"
-                        fallbackClassName="bg-sky-600 text-xs font-bold text-white dark:bg-[#3b3f45] dark:text-white"
+                        fallbackClassName="bg-[var(--brand-primary-fixed)] text-xs font-bold text-white dark:bg-[#3b3f45] dark:text-white"
                         unassignedIconClassName="text-slate-500 dark:text-[#dee4ea]"
                         contentClassName="dark:border-[#454f59] dark:bg-[#1d2125]"
                       />
@@ -870,7 +870,7 @@ export function TaskSubtasksSection({
                                 subtask.priority === "High"
                                   ? "h-3.5 w-3.5 text-red-500"
                                   : subtask.priority === "Low"
-                                  ? "h-3.5 w-3.5 text-sky-500"
+                                  ? "h-3.5 w-3.5 text-[var(--brand-primary-fixed)]"
                                   : "h-3.5 w-3.5 text-orange-500"
                               }
                             />
@@ -994,7 +994,7 @@ export function TaskSubtasksSection({
                     }}
                     autoFocus
                     placeholder="Create subtask title"
-                    className="h-8 w-full min-w-0 border-blue-300 bg-white text-[13px] text-slate-900 shadow-none dark:border-blue-500/60 dark:bg-[#1d2125] dark:text-[#dee4ea]"
+                    className="h-8 w-full min-w-0 border-[color:rgba(var(--brand-primary-rgb),0.28)] bg-white text-[13px] text-slate-900 shadow-none dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:bg-[#1d2125] dark:text-[#dee4ea]"
                   />
                   <span className="shrink-0 text-xs text-slate-500 dark:text-[#9fadbc]">
                     {newSubtaskTitle.length}/{TASK_SPRINT_NAME_MAX_LENGTH}

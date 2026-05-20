@@ -224,7 +224,7 @@ export function DashboardLayoutClient({
             >
               <span>
                 <span className="text-slate-950 dark:text-slate-50">Track</span>
-                <span className="text-sky-600">Sphere</span>
+                <span className="text-[var(--brand-primary-fixed)]">Sphere</span>
               </span>
             </Link>
           </div>
@@ -237,7 +237,7 @@ export function DashboardLayoutClient({
               size="icon"
               aria-label="Notifications"
               disabled={authLoading}
-              className="rounded-full text-slate-600 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400"
+              className="rounded-full text-slate-600 hover:bg-[color:rgba(var(--brand-primary-rgb),0.08)] hover:text-[var(--brand-primary-fixed)] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-[#63a0d6]"
             >
               <Bell className="h-5 w-5" />
             </Button>
@@ -248,7 +248,7 @@ export function DashboardLayoutClient({
 
         <AppSidebar role={role} initialProjects={initialProjects} initialTeam={initialTeam} />
 
-        <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-blue-50/60 pt-16 dark:from-[#212121] dark:to-[#171717]">
+        <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] pt-16 dark:from-[#212121] dark:to-[#171717]">
           <main
             className={`flex h-full min-w-0 flex-col p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10 ${
               pathname === "/dashboard" ? "overflow-y-auto" : "overflow-hidden"

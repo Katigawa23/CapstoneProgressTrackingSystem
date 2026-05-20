@@ -72,9 +72,7 @@ export function useDashboardProjects({
   const [createProjectOpen, setCreateProjectOpen] = React.useState(false)
   const [projectTitle, setProjectTitle] = React.useState("")
   const [projectProgram, setProjectProgram] = React.useState("")
-  const [projectProgramOther, setProjectProgramOther] = React.useState("")
   const [projectYearLevel, setProjectYearLevel] = React.useState("")
-  const [projectYearLevelOther, setProjectYearLevelOther] = React.useState("")
   const [projectSyTerm, setProjectSyTerm] = React.useState("")
   const [projectSyTermOther, setProjectSyTermOther] = React.useState("")
   const [projectType, setProjectType] = React.useState("")
@@ -148,9 +146,7 @@ export function useDashboardProjects({
   const resetCreateProjectForm = React.useCallback(() => {
     setProjectTitle("")
     setProjectProgram("")
-    setProjectProgramOther("")
     setProjectYearLevel("")
-    setProjectYearLevelOther("")
     setProjectSyTerm("")
     setProjectSyTermOther("")
     setProjectType("")
@@ -278,10 +274,8 @@ export function useDashboardProjects({
     }
 
     const title = projectTitle.trim()
-    const program =
-      (projectProgram === OTHER_PROJECT_OPTION ? projectProgramOther : projectProgram).trim()
-    const yearLevel =
-      (projectYearLevel === OTHER_PROJECT_OPTION ? projectYearLevelOther : projectYearLevel).trim()
+    const program = projectProgram.trim()
+    const yearLevel = projectYearLevel.trim()
     const syTerm =
       (projectSyTerm === OTHER_PROJECT_OPTION ? projectSyTermOther : projectSyTerm).trim()
     const resolvedProjectType =
@@ -358,14 +352,12 @@ export function useDashboardProjects({
   }, [
     isCreatingProject,
     projectProgram,
-    projectProgramOther,
     projectSyTerm,
     projectSyTermOther,
     projectTitle,
     projectType,
     projectTypeOther,
     projectYearLevel,
-    projectYearLevelOther,
     resetCreateProjectForm,
     selectedMembers,
   ])
@@ -383,27 +375,23 @@ export function useDashboardProjects({
     memberOptions,
     memberOptionsLoading,
     projectProgram,
-    projectProgramOther,
     projectSyTerm,
     projectSyTermOther,
     projectTitle,
     projectType,
     projectTypeOther,
     projectYearLevel,
-    projectYearLevelOther,
     projects,
     resetCreateProjectForm,
     selectedMembers,
     selectProject,
     setCreateProjectOpen,
     setProjectProgram,
-    setProjectProgramOther,
     setProjectSyTerm,
     setProjectSyTermOther,
     setProjectType,
     setProjectTypeOther,
     setProjectYearLevel,
-    setProjectYearLevelOther,
     team,
   }
 }

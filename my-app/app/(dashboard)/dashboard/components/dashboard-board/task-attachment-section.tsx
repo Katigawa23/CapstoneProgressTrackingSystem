@@ -161,7 +161,7 @@ function AttachmentList({
                   href={submission.fileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left transition hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:hover:text-blue-300 dark:focus-visible:ring-offset-[#262626]"
+                  className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left transition hover:text-[var(--brand-primary-fixed)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] focus-visible:ring-offset-2 dark:hover:text-[#9bc2e2] dark:focus-visible:ring-offset-[#262626]"
                   title={`Open ${submission.fileName}`}
                 >
                   <FilePreviewTile
@@ -390,14 +390,14 @@ export function TaskSubmissionsSection({
                 className={`relative h-9 w-9 rounded-[2px] p-0 dark:border-[#3a3a3a] dark:bg-[#262626] dark:hover:bg-[#303030] ${
                   uploaderFilter === "all"
                     ? "text-slate-700 dark:text-slate-200"
-                    : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300"
+                    : "border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.14)] dark:text-[#9bc2e2]"
                 }`}
                 aria-label="Filter attachments"
                 title="Filter attachments"
               >
                 <Filter className="h-4 w-4" />
                 {uploaderFilter !== "all" ? (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold leading-none text-white">
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-primary-fixed)] px-1 text-[10px] font-semibold leading-none text-white">
                     1
                   </span>
                 ) : null}
@@ -489,11 +489,11 @@ export function TaskSubmissionsSection({
             {submissionDrafts.map((draft) => (
               <div
                 key={draft.id}
-                className="relative overflow-hidden rounded-[2px] border border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-950/20"
+                className="relative overflow-hidden rounded-[2px] border border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.14)]"
               >
                 <Progress
                   value={draft.progress}
-                  className="absolute inset-0 h-full rounded-none border-0 bg-transparent [&_[data-slot=progress-indicator]]:bg-sky-400"
+                  className="absolute inset-0 h-full rounded-none border-0 bg-transparent [&_[data-slot=progress-indicator]]:bg-[var(--brand-primary-fixed)]"
                 />
                 <div className="relative z-10 flex items-center gap-2 px-3 py-2">
                   <div className="min-w-0 flex-1">
@@ -501,7 +501,7 @@ export function TaskSubmissionsSection({
                       <p className="truncate font-medium">
                         {draft.file.name} ({formatSubmissionSize(draft.file.size)})
                       </p>
-                      <span className="shrink-0 font-medium text-sky-900 dark:text-sky-300">
+                      <span className="shrink-0 font-medium text-[var(--brand-primary-fixed)] dark:text-[#9bc2e2]">
                         {draft.progress}%
                       </span>
                     </div>

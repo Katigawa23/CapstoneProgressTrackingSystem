@@ -783,6 +783,10 @@ async function ensureBacklogSchema() {
             author text not null,
             body text not null default '',
             attachments jsonb not null default '[]'::jsonb,
+            constraint comments_check check (
+              nullif(btrim(body), '') is not null
+              or jsonb_array_length(attachments) > 0
+            ),
             created_at timestamptz not null default now()
           );
         `)

@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 function ProjectCardSkeleton() {
   return (
     <Card className="relative flex min-h-[124px] w-full flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm dark:border-[#343434] dark:bg-[#1f1f1f]">
-      <div className="absolute inset-y-0 left-0 w-1.5 bg-sky-200/80 dark:bg-sky-900/60" />
+      <div className="absolute inset-y-0 left-0 w-1.5 bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.35)]" />
       <CardHeader className="flex-1 space-y-2 px-4 pb-2.5 pt-3">
         <div className="space-y-1.5">
           <Skeleton className="h-3 w-20" />
@@ -80,7 +80,7 @@ export function DashboardHomeSkeleton({
             <h2 className="font-display text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
               For you
             </h2>
-            <span className="text-sm font-medium text-sky-700 dark:text-sky-400">
+            <span className="text-sm font-medium text-[var(--brand-primary-fixed)] dark:text-[#63a0d6]">
               View all projects
             </span>
           </div>

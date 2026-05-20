@@ -252,7 +252,7 @@ export default function DashboardProjectArchivePage() {
                     <td colSpan={7} className="px-3 py-2">
                       <button
                         type="button"
-                        className="inline-flex items-center gap-2 rounded-[2px] text-sm font-medium text-slate-700 transition hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-slate-200 dark:hover:text-white"
+                        className="inline-flex items-center gap-2 rounded-[2px] text-sm font-medium text-slate-700 transition hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-200 dark:hover:text-white"
                         onClick={() => toggleArchiveGroup(group.id)}
                         aria-expanded={!collapsedGroupIds.includes(group.id)}
                       >

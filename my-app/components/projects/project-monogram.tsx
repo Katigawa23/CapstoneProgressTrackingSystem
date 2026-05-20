@@ -20,7 +20,7 @@ const PROJECT_MONOGRAM_STYLES = [
   "border-emerald-200 bg-emerald-500 text-white dark:border-emerald-400/40 dark:bg-emerald-500 dark:text-white",
   "border-teal-200 bg-teal-500 text-white dark:border-teal-400/40 dark:bg-teal-500 dark:text-white",
   "border-cyan-200 bg-cyan-500 text-white dark:border-cyan-400/40 dark:bg-cyan-500 dark:text-white",
-  "border-sky-200 bg-sky-500 text-white dark:border-sky-400/40 dark:bg-sky-500 dark:text-white",
+  "border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[#0B5793] text-white dark:border-[color:rgba(var(--brand-primary-rgb),0.4)] dark:bg-[#0B5793] dark:text-white",
   "border-indigo-200 bg-indigo-500 text-white dark:border-indigo-400/40 dark:bg-indigo-500 dark:text-white",
   "border-violet-200 bg-violet-500 text-white dark:border-violet-400/40 dark:bg-violet-500 dark:text-white",
   "border-fuchsia-200 bg-fuchsia-500 text-white dark:border-fuchsia-400/40 dark:bg-fuchsia-500 dark:text-white",
@@ -59,7 +59,7 @@ export function ProjectMonogram({
         size === "large" ? "h-8 w-8 text-[11px]" : "h-7 w-7 text-[10px]",
         Icon
           ? active
-            ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-[#111827] dark:text-sky-300"
+            ? "border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.4)] dark:bg-[#111827] dark:text-[#63a0d6]"
             : "border-slate-200 bg-slate-50 text-slate-600 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-300"
           : monogramStyle,
         className

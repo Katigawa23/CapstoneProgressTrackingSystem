@@ -113,7 +113,7 @@ function NavList({ items }: { items: NavItem[] }) {
                   asChild
                   tooltip={item.title}
                   isActive={active}
-                  className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm dark:text-slate-300 dark:hover:text-sky-400 dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-sky-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
+                  className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-[var(--brand-primary-fixed)] data-[active=true]:bg-white data-[active=true]:text-[var(--brand-primary-fixed)] data-[active=true]:shadow-sm dark:text-slate-300 dark:hover:text-[#63a0d6] dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-[#63a0d6] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
                 >
                   <Link
                     href={item.href}
@@ -135,7 +135,7 @@ function NavList({ items }: { items: NavItem[] }) {
                 </SidebarMenuButton>
                 <CollapsibleTrigger asChild>
                   <SidebarMenuAction
-                    className="text-slate-500 hover:bg-transparent hover:text-blue-700 dark:text-slate-400 dark:hover:bg-transparent dark:hover:text-sky-400 group-data-[collapsible=icon]:hidden"
+                    className="text-slate-500 hover:bg-transparent hover:text-[var(--brand-primary-fixed)] dark:text-slate-400 dark:hover:bg-transparent dark:hover:text-[#63a0d6] group-data-[collapsible=icon]:hidden"
                     showOnHover={false}
                   >
                     <ChevronRight className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -151,7 +151,7 @@ function NavList({ items }: { items: NavItem[] }) {
                           <SidebarMenuSubButton
                             asChild
                             isActive={childActive}
-                            className="h-8 rounded-lg px-3 text-sm font-normal text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 dark:text-slate-300 dark:hover:text-sky-400 dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-sky-400"
+                            className="h-8 rounded-lg px-3 text-sm font-normal text-slate-600 hover:text-[var(--brand-primary-fixed)] data-[active=true]:bg-white data-[active=true]:text-[var(--brand-primary-fixed)] dark:text-slate-300 dark:hover:text-[#63a0d6] dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-[#63a0d6]"
                           >
                             <Link href={child.href}>
                               <span>{child.title}</span>
@@ -168,7 +168,7 @@ function NavList({ items }: { items: NavItem[] }) {
                 asChild
                 isActive={active}
                 tooltip={item.title}
-                className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-blue-700 data-[active=true]:bg-white data-[active=true]:text-blue-700 data-[active=true]:shadow-sm dark:text-slate-300 dark:hover:text-sky-400 dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-sky-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
+                className="rounded-xl px-3 py-2.5 text-slate-600 hover:text-[var(--brand-primary-fixed)] data-[active=true]:bg-white data-[active=true]:text-[var(--brand-primary-fixed)] data-[active=true]:shadow-sm dark:text-slate-300 dark:hover:text-[#63a0d6] dark:data-[active=true]:bg-slate-900 dark:data-[active=true]:text-[#63a0d6] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:gap-0"
               >
                 <Link
                   href={item.href}
@@ -234,27 +234,23 @@ export function AppSidebar({
     memberOptions,
     memberOptionsLoading,
     projectProgram,
-    projectProgramOther,
     projectSyTerm,
     projectSyTermOther,
     projectTitle,
     projectType,
     projectTypeOther,
     projectYearLevel,
-    projectYearLevelOther,
     projects,
     resetCreateProjectForm,
     selectedMembers,
     selectProject,
     setCreateProjectOpen,
     setProjectProgram,
-    setProjectProgramOther,
     setProjectSyTerm,
     setProjectSyTermOther,
     setProjectType,
     setProjectTypeOther,
     setProjectYearLevel,
-    setProjectYearLevelOther,
     team,
   } = useDashboardProjects({
     initialProjects,
@@ -309,31 +305,27 @@ export function AppSidebar({
         onMemberSearchChange={handleMemberSearchChange}
         onMemberSelect={handleMemberSelect}
         onProjectProgramChange={setProjectProgram}
-        onProjectProgramOtherChange={setProjectProgramOther}
         onProjectSyTermChange={setProjectSyTerm}
         onProjectSyTermOtherChange={setProjectSyTermOther}
         onProjectTitleChange={handleProjectTitleChange}
         onProjectTypeChange={setProjectType}
         onProjectTypeOtherChange={setProjectTypeOther}
         onProjectYearLevelChange={setProjectYearLevel}
-        onProjectYearLevelOtherChange={setProjectYearLevelOther}
         titleError={createProjectError}
         isSubmitting={isCreatingProject}
         projectProgram={projectProgram}
-        projectProgramOther={projectProgramOther}
         projectSyTerm={projectSyTerm}
         projectSyTermOther={projectSyTermOther}
         projectTitle={projectTitle}
         projectType={projectType}
         projectTypeOther={projectTypeOther}
         projectYearLevel={projectYearLevel}
-        projectYearLevelOther={projectYearLevelOther}
         selectedMembers={selectedMembers}
       />
 
       <Sidebar
         collapsible="icon"
-        className="relative top-16 h-[calc(100vh-64px)] border-r border-blue-100/70 shadow-[10px_0_26px_-20px_rgba(15,23,42,0.28)] after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-blue-200/85 [--sidebar:#f7fbff] [--sidebar-border:#dbeafe] [--sidebar-accent:#e8f1ff] [--sidebar-accent-foreground:#2563eb] [--sidebar-foreground:#334155] dark:border-[#3a3a3a] dark:shadow-[10px_0_26px_-20px_rgba(0,0,0,0.85)] dark:after:bg-[#3a3a3a] dark:[--sidebar:#171717] dark:[--sidebar-border:#2f2f2f] dark:[--sidebar-accent:#242424] dark:[--sidebar-accent-foreground:#ffffff] dark:[--sidebar-foreground:#e5e5e5]"
+        className="relative top-16 h-[calc(100vh-64px)] shadow-[10px_0_26px_-20px_rgba(15,23,42,0.28)] [--sidebar:#f7fbff] [--sidebar-border:#dbeafe] [--sidebar-accent:#e8f1ff] [--sidebar-accent-foreground:#0B5793] [--sidebar-foreground:#334155] dark:shadow-[10px_0_26px_-20px_rgba(0,0,0,0.85)] dark:[--sidebar:#171717] dark:[--sidebar-border:#2f2f2f] dark:[--sidebar-accent:#242424] dark:[--sidebar-accent-foreground:#ffffff] dark:[--sidebar-foreground:#e5e5e5]"
       >
         <SidebarHeader className="gap-4 px-3 pt-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1">
           <div className="rounded-xl bg-transparent">
@@ -372,7 +364,7 @@ export function AppSidebar({
 
               {visibleProjectPickerArchiveItems.length > 0 ? (
                 <div className="mt-auto pb-3">
-                  <Separator className="bg-blue-100 dark:bg-slate-800" />
+                  <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
 
                   <SidebarGroup>
                     <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -396,7 +388,7 @@ export function AppSidebar({
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              <Separator className="bg-blue-100 dark:bg-slate-800" />
+              <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
 
               <SidebarGroup>
                 <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -407,7 +399,7 @@ export function AppSidebar({
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              <Separator className="bg-blue-100 dark:bg-slate-800" />
+              <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
 
               <SidebarGroup>
                 <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -418,7 +410,7 @@ export function AppSidebar({
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              <Separator className="bg-blue-100 dark:bg-slate-800" />
+              <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
 
               <SidebarGroup>
                 <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -433,7 +425,7 @@ export function AppSidebar({
         </SidebarContent>
 
         <SidebarFooter className="hidden px-2 pb-3 pt-0 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5">
-          <SidebarTrigger className="h-10 w-full justify-start rounded-xl px-3 text-slate-500 hover:bg-white hover:text-blue-700 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-sky-400 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />
+          <SidebarTrigger className="h-10 w-full justify-start rounded-xl px-3 text-slate-500 hover:bg-white hover:text-[var(--brand-primary-fixed)] dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-[#63a0d6] group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />
         </SidebarFooter>
 
         <SidebarRail />
