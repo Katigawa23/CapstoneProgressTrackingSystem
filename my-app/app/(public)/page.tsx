@@ -222,7 +222,7 @@ export default function LandingPage() {
 
           <ScrollReveal className="mx-auto mt-6 max-w-md md:mx-0" delay={120}>
             <p className="text-base text-gray-600 dark:text-slate-300 sm:text-lg">
-             kupal your capstone and thesis projects with ease through real-time tracking, smooth collaboration, and clear workflows.
+             kupal kour capstone and thesis projects with ease through real-time tracking, smooth collaboration, and clear workflows.
             </p>
           </ScrollReveal>
 
