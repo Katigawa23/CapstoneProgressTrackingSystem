@@ -215,7 +215,7 @@ export default function LandingPage() {
             />
             <ScrollReveal className="block" delay={340} yOffset={16}>
               <span className="block text-xl text-slate-600 dark:text-slate-300 sm:text-2xl md:text-3xl">
-                Capstone & Thesis Progress Tracking
+                Capstone & Thesis Progress HAHAHAHAH
               </span>
             </ScrollReveal>
           </h1>
