@@ -11,6 +11,7 @@ import {
   Map,
   Milestone,
   Rows3,
+  UserRoundCheck,
   Users,
 } from "lucide-react"
 import {
@@ -72,6 +73,7 @@ const documentationItems: NavItem[] = [
 
 const groupItems: NavItem[] = [
   { title: "Members", href: "/dashboard/members", icon: Users },
+  { title: "Adviser", href: "/dashboard/advisers", icon: UserRoundCheck },
 ]
 
 const quickLinkItems: NavItem[] = [
