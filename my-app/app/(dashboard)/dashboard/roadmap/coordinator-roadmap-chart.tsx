@@ -8,17 +8,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-
-const roadmapData = [
-  { month: "August", value: 0 },
-  { month: "September", value: 18 },
-  { month: "October", value: 36 },
-  { month: "November", value: 55 },
-  { month: "December", value: 74 },
-  { month: "January", value: 90 },
-]
-
-const mockGroupCreatedAt = "August 31, 2026"
+import type { BacklogApiItem } from "../types"
 
 const chartConfig = {
   value: {
@@ -27,7 +17,65 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function CoordinatorRoadmapChart() {
+export function CoordinatorRoadmapChart({
+  groupCreatedAt,
+  items,
+}: {
+  groupCreatedAt: string
+  items: BacklogApiItem[]
+}) {
+  const createdAt = new Date(groupCreatedAt)
+  const safeCreatedAt = Number.isNaN(createdAt.getTime()) ? new Date() : createdAt
+  const today = new Date()
+  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+  const rootItems = items.filter((item) => !item.parentId)
+  const roadmapData = Array.from({ length: 5 }, (_, index) => {
+    const monthStart = new Date(
+      safeCreatedAt.getFullYear(),
+      safeCreatedAt.getMonth() + index,
+      1
+    )
+    const monthEnd = new Date(
+      safeCreatedAt.getFullYear(),
+      safeCreatedAt.getMonth() + index + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    )
+
+    if (monthStart > currentMonthStart) {
+      return {
+        month: monthStart.toLocaleDateString("en-US", { month: "short" }),
+        value: null,
+      }
+    }
+
+    const availableItems = rootItems.filter((item) => {
+      const itemCreatedAt = item.createdAt ? new Date(item.createdAt) : safeCreatedAt
+      return !Number.isNaN(itemCreatedAt.getTime()) && itemCreatedAt <= monthEnd
+    })
+    const completedItems = availableItems.filter((item) => {
+      if (item.status !== "completed") return false
+      const referenceDate = new Date(item.dueDate ?? item.createdAt ?? groupCreatedAt)
+      return !Number.isNaN(referenceDate.getTime()) && referenceDate <= monthEnd
+    })
+
+    return {
+      month: monthStart.toLocaleDateString("en-US", { month: "short" }),
+      value:
+        availableItems.length > 0
+          ? Math.round((completedItems.length / availableItems.length) * 100)
+          : 0,
+    }
+  })
+  const groupCreatedLabel = safeCreatedAt.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  })
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3 dark:border-[#3a414b] dark:bg-[#202329]">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -45,7 +93,7 @@ export function CoordinatorRoadmapChart() {
             Group created
           </p>
           <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
-            {mockGroupCreatedAt}
+            {groupCreatedLabel}
           </p>
         </div>
       </div>

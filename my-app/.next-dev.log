@@ -1,4 +1,16 @@
 
 > my-app@0.1.0 dev
-> next dev --webpack
+> next dev --turbopack
 
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.8.105:3001
+- Environments: .env.local
+
+✓ Starting...
+Creating turbopack project {
+  dir: 'C:\\Users\\Janryl\\CapstoneProgressTrackingSystem\\my-app',
+  testMode: true
+}
+✓ Ready in 9.6s
+[?25h
