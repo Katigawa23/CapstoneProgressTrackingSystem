@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     // âœ… NEW: store redirect destination
     response.cookies.set("redirect_after_login", redirect, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
     })

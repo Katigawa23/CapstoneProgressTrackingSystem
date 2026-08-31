@@ -7,17 +7,20 @@ export function DashboardLayoutShell({
   initialAuthSession,
   initialProjects,
   initialTeam,
+  coordinatorMode = false,
 }: {
   children: React.ReactNode
   initialAuthSession: AuthSession | null
   initialProjects: DashboardProject[]
   initialTeam: DashboardProject | null
+  coordinatorMode?: boolean
 }) {
   return (
     <DashboardLayoutClient
       initialAuthSession={initialAuthSession}
       initialProjects={initialProjects}
       initialTeam={initialTeam}
+      coordinatorMode={coordinatorMode}
     >
       {children}
     </DashboardLayoutClient>

@@ -23,6 +23,7 @@ import {
 import {
   buildSubtaskDisplayId,
   buildTaskDisplayId,
+  compareTasksByPriority,
   normalizeTaskDescription,
 } from "../utils"
 import {
@@ -156,6 +157,7 @@ export function BacklogPageClient({
   const [selectedTaskDetailsId, setSelectedTaskDetailsId] = React.useState<string | null>(null)
   const [isCreatingSubtask, setIsCreatingSubtask] = React.useState(false)
   const [createSubtaskError, setCreateSubtaskError] = React.useState<string | null>(null)
+  const isMovingRootItemRef = React.useRef(false)
 
   const [items, setItems] = React.useState<WorkItem[]>(() =>
     initialSelectedProjectId ? mapApiItems(initialItems, initialProjectCode) : []
@@ -212,9 +214,7 @@ export function BacklogPageClient({
   }, [currentUser, initialItems, initialProjects, initialSelectedProjectId])
 
   const orderedItems = React.useMemo(() => {
-    const sortedItems = [...items].sort(
-      (left, right) => left.orderIndex - right.orderIndex
-    )
+    const sortedItems = [...items].sort(compareTasksByPriority)
     const childItemsByParentId = new Map<string, WorkItem[]>()
 
     for (const item of sortedItems) {
@@ -957,7 +957,7 @@ export function BacklogPageClient({
     async (result: DropResult) => {
       const { source, destination, draggableId } = result
 
-      if (!destination) {
+      if (!destination || isMovingRootItemRef.current) {
         return
       }
 
@@ -968,6 +968,8 @@ export function BacklogPageClient({
       if (!movedItem) {
         return
       }
+
+      isMovingRootItemRef.current = true
 
       const nextStatus =
         destination.droppableId === "backlog-priority"
@@ -1026,13 +1028,30 @@ export function BacklogPageClient({
           orderIndex: nextRootOrderIndexById.get(item.id) ?? item.orderIndex,
         }
       })
+      const previousRootItemById = new Map(
+        previousItems
+          .filter((item) => !item.parentId)
+          .map((item) => [item.id, item])
+      )
+      const rootItemsToPersist = nextItems.filter((item) => {
+        if (item.parentId) {
+          return false
+        }
+
+        const previousItem = previousRootItemById.get(item.id)
+
+        return (
+          !previousItem ||
+          previousItem.status !== item.status ||
+          previousItem.orderIndex !== item.orderIndex
+        )
+      })
 
       setItems(nextItems)
 
       try {
         await Promise.all(
-          nextItems
-            .filter((item) => !item.parentId)
+          rootItemsToPersist
             .map((item) =>
               fetch(`/api/backlog-items/${item.id}`, {
                 method: "PATCH",
@@ -1053,6 +1072,8 @@ export function BacklogPageClient({
       } catch (error) {
         console.error(error)
         setItems(previousItems)
+      } finally {
+        isMovingRootItemRef.current = false
       }
     },
     [getRootItemsForDroppable, items, visibleRootItemsByDroppable]

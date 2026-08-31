@@ -109,7 +109,6 @@ export async function POST(request: Request) {
     const normalizedMemberUserIds =
       memberAccess.length > 0
         ? memberAccess
-            .filter((member) => member.role !== "faculty" && member.role !== "admin")
             .map((member) => member.userId)
         : memberUserIds
 

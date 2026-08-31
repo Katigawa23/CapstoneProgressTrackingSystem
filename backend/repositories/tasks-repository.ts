@@ -1625,6 +1625,18 @@ export async function updateBacklogItem(
              and (
                projects.owner_user_id = $2
                or $2 = any(projects.member_user_ids)
+               or exists (
+                 select 1
+                 from users adviser_login
+                 where adviser_login.microsoft_user_id = $2
+                   and adviser_login.name = any(projects.project_adviser)
+               )
+               or exists (
+                 select 1
+                 from groups project_group
+                 where project_group.project_id = projects.id
+                   and $2 = any(project_group.member_user_ids)
+               )
              )
            limit 1`,
           [id, ownerUserId]
@@ -1677,6 +1689,18 @@ export async function updateBacklogItem(
           and (
             projects.owner_user_id = $${values.length + 1}
             or $${values.length + 1} = any(projects.member_user_ids)
+            or exists (
+              select 1
+              from users adviser_login
+              where adviser_login.microsoft_user_id = $${values.length + 1}
+                and adviser_login.name = any(projects.project_adviser)
+            )
+            or exists (
+              select 1
+              from groups project_group
+              where project_group.project_id = projects.id
+                and $${values.length + 1} = any(project_group.member_user_ids)
+            )
           )
         returning
           backlog.id,

@@ -81,9 +81,14 @@ export function useDashboardProjects({
   const [memberOptions, setMemberOptions] = React.useState<ProjectMemberOption[]>([])
   const [memberOptionsLoading, setMemberOptionsLoading] = React.useState(false)
   const [selectedMembers, setSelectedMembers] = React.useState<ProjectMemberOption[]>([])
+  const [adviserSearch, setAdviserSearch] = React.useState("")
+  const [adviserOptions, setAdviserOptions] = React.useState<ProjectMemberOption[]>([])
+  const [adviserOptionsLoading, setAdviserOptionsLoading] = React.useState(false)
+  const [selectedAdvisers, setSelectedAdvisers] = React.useState<ProjectMemberOption[]>([])
   const [isCreatingProject, setIsCreatingProject] = React.useState(false)
   const [createProjectError, setCreateProjectError] = React.useState<string | null>(null)
   const latestMemberRequestId = React.useRef(0)
+  const latestAdviserRequestId = React.useRef(0)
 
   const syncProjectState = React.useCallback(() => {
     const savedProjectId = getSelectedDashboardProjectId()
@@ -154,6 +159,9 @@ export function useDashboardProjects({
     setMemberSearch("")
     setMemberOptions([])
     setSelectedMembers([])
+    setAdviserSearch("")
+    setAdviserOptions([])
+    setSelectedAdvisers([])
     setCreateProjectError(null)
   }, [])
 
@@ -170,7 +178,7 @@ export function useDashboardProjects({
         setMemberOptionsLoading(true)
 
         const response = await fetch(
-          `/api/registered-users?q=${encodeURIComponent(memberSearch.trim())}`,
+          `/api/registered-users?role=student&q=${encodeURIComponent(memberSearch.trim())}`,
           {
             method: "GET",
             cache: "no-store",
@@ -218,6 +226,56 @@ export function useDashboardProjects({
       window.clearTimeout(timeoutId)
     }
   }, [createProjectOpen, memberSearch])
+
+  React.useEffect(() => {
+    if (!createProjectOpen) return
+
+    const controller = new AbortController()
+    const requestId = latestAdviserRequestId.current + 1
+    latestAdviserRequestId.current = requestId
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setAdviserOptionsLoading(true)
+        const response = await fetch(
+          `/api/registered-users?role=faculty&q=${encodeURIComponent(adviserSearch.trim())}`,
+          { method: "GET", cache: "no-store", signal: controller.signal }
+        )
+        if (!response.ok) throw new Error("Failed to load advisers")
+
+        const data = (await response.json()) as { users?: ProjectMemberOption[] }
+        if (latestAdviserRequestId.current !== requestId) return
+
+        setAdviserOptions(
+          Array.isArray(data.users)
+            ? data.users.filter((user) => user.role === "faculty" || user.role === "adviser")
+            : []
+        )
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          console.error("Failed to load advisers", error)
+          if (latestAdviserRequestId.current === requestId) setAdviserOptions([])
+        }
+      } finally {
+        if (latestAdviserRequestId.current === requestId) setAdviserOptionsLoading(false)
+      }
+    }, 180)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timeoutId)
+    }
+  }, [adviserSearch, createProjectOpen])
+
+  const handleAdviserSelect = React.useCallback((adviser: ProjectMemberOption) => {
+    setSelectedAdvisers((current) =>
+      current.some((item) => item.id === adviser.id) ? current : [...current, adviser]
+    )
+    setAdviserSearch("")
+  }, [])
+
+  const handleAdviserRemove = React.useCallback((adviserId: string) => {
+    setSelectedAdvisers((current) => current.filter((item) => item.id !== adviserId))
+  }, [])
 
   const handleMemberSearchChange = React.useCallback((value: string) => {
     setMemberSearch(value)
@@ -284,15 +342,15 @@ export function useDashboardProjects({
       .filter((member) => member.role === "student")
       .map((member) => member.name.trim())
       .filter(Boolean)
-    const adviserNames = selectedMembers
-      .filter((member) => member.role === "faculty")
+    const adviserNames = [...selectedMembers, ...selectedAdvisers]
+      .filter((member) => member.role === "faculty" || member.role === "adviser")
       .map((member) => member.name.trim())
       .filter(Boolean)
     const memberUserIds = selectedMembers
       .filter((member) => member.role === "student")
       .map((member) => member.id.trim())
       .filter(Boolean)
-    const memberAccess = selectedMembers
+    const memberAccess = [...selectedMembers, ...selectedAdvisers]
       .map((member) => ({
         userId: member.id.trim(),
         role: member.role,
@@ -359,15 +417,21 @@ export function useDashboardProjects({
     projectTypeOther,
     projectYearLevel,
     resetCreateProjectForm,
+    selectedAdvisers,
     selectedMembers,
   ])
 
   return {
+    adviserOptions,
+    adviserOptionsLoading,
+    adviserSearch,
     createProject,
     createProjectOpen,
     createProjectError,
     isCreatingProject,
     handleMemberSearchChange,
+    handleAdviserRemove,
+    handleAdviserSelect,
     handleMemberRemove,
     handleMemberSelect,
     handleProjectTitleChange,
@@ -384,8 +448,10 @@ export function useDashboardProjects({
     projects,
     resetCreateProjectForm,
     selectedMembers,
+    selectedAdvisers,
     selectProject,
     setCreateProjectOpen,
+    setAdviserSearch,
     setProjectProgram,
     setProjectSyTerm,
     setProjectSyTermOther,

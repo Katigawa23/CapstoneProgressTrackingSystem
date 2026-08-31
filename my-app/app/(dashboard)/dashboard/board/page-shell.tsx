@@ -13,10 +13,14 @@ export function DashboardBoardPageShell({
   initialProjects,
   initialSelectedProjectId,
   initialItems,
+  breadcrumbSectionLabel,
+  onProjectBoardSelectPath,
 }: {
   initialProjects: DashboardProject[]
   initialSelectedProjectId: string | null
   initialItems: BacklogApiItem[]
+  breadcrumbSectionLabel?: string | null
+  onProjectBoardSelectPath?: string
 }) {
   const initialBoardState = React.useMemo<DashboardBoardState>(() => {
     return initialItems.reduce(
@@ -70,6 +74,8 @@ export function DashboardBoardPageShell({
       initialProjects={initialProjects}
       initialSelectedProjectId={initialSelectedProjectId}
       initialItems={initialItems}
+      breadcrumbSectionLabel={breadcrumbSectionLabel}
+      onProjectBoardSelectPath={onProjectBoardSelectPath}
     />
   )
 }

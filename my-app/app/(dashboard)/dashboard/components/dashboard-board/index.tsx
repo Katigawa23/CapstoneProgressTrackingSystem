@@ -44,6 +44,7 @@ import type {
   DashboardWebLink,
   TodoItem,
 } from "../../types"
+import { compareTasksByPriority } from "../../utils"
 import { DashboardColumn } from "./dashboard-column"
 import { TaskCommentsPanel } from "./task-comments-panel"
 import { TaskDetailsSection } from "./task-details-section"
@@ -102,6 +103,7 @@ export function DashboardBoard({
   currentUserId = null,
   creatorNamesById = {},
   canManageOtherProjectResources = false,
+  isDragDisabled = false,
   onStatusChange,
   onMoveTodo,
   onAssigneeChange,
@@ -1227,12 +1229,16 @@ export function DashboardBoard({
     (columnId: TodoItem["status"]) =>
       todos
         .filter((todo) => todo.status === columnId && !todo.parentId)
-        .sort((left, right) => left.orderIndex - right.orderIndex),
+        .sort(compareTasksByPriority),
     [todos]
   )
 
   const handleDragEnd = React.useCallback(
     (result: DropResult) => {
+      if (isDragDisabled) {
+        return
+      }
+
       const { destination, draggableId } = result
 
       if (!destination) {
@@ -1276,7 +1282,7 @@ export function DashboardBoard({
 
       void onMoveTodo(draggableId, targetTodo?.id ?? null, destinationColumnId)
     },
-    [getColumnTodos, onMoveTodo, onStatusChange, todos]
+    [getColumnTodos, isDragDisabled, onMoveTodo, onStatusChange, todos]
   )
 
   const selectedTodoIdParts = React.useMemo(() => {
@@ -1326,6 +1332,7 @@ export function DashboardBoard({
                   allTodos={todos}
                   currentUserId={currentUserId}
                   canManageOtherProjectResources={canManageOtherProjectResources}
+                  isDragDisabled={isDragDisabled}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
                   onPriorityChange={onPriorityChange}
@@ -1356,6 +1363,7 @@ export function DashboardBoard({
               allTodos={todos}
               currentUserId={currentUserId}
               canManageOtherProjectResources={canManageOtherProjectResources}
+              isDragDisabled={isDragDisabled}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}
               onPriorityChange={onPriorityChange}

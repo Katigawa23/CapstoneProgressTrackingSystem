@@ -5,6 +5,23 @@ import { formatTrustedDate } from "@/lib/trusted-time"
 const legacyDefaultDescription =
   "Write a 1000-word article discussing the latest advancements and trends."
 
+const taskPriorityRank: Record<TodoItem["priority"], number> = {
+  High: 0,
+  Medium: 1,
+  Low: 2,
+}
+
+export function compareTasksByPriority(
+  left: { priority?: TodoItem["priority"]; orderIndex: number },
+  right: { priority?: TodoItem["priority"]; orderIndex: number }
+) {
+  const priorityDifference =
+    taskPriorityRank[left.priority ?? "Medium"] -
+    taskPriorityRank[right.priority ?? "Medium"]
+
+  return priorityDifference || left.orderIndex - right.orderIndex
+}
+
 export function formatDeadline(dateString: string) {
   return formatTrustedDate(dateString)
 }

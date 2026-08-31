@@ -124,8 +124,10 @@ export function DashboardBoardPageClient({
     React.useState<DashboardBoardFilter>("none")
   const [isCreatingSubtask, setIsCreatingSubtask] = React.useState(false)
   const [createSubtaskError, setCreateSubtaskError] = React.useState<string | null>(null)
+  const isMovingTodoRef = React.useRef(false)
   const localMutationGuardUntilRef = React.useRef(0)
   const localMutationReleaseTimerRef = React.useRef<number | null>(null)
+  const isCoordinatorBoard = breadcrumbSectionLabel === "Coordinator"
   const selectedProject = React.useMemo(
     () =>
       initialProjects.find((project) => project.id === selectedProjectId) ??
@@ -459,12 +461,18 @@ export function DashboardBoardPageClient({
       targetTodoId: string | null,
       nextStatus: TodoItem["status"]
     ) => {
+      if (isCoordinatorBoard) {
+        return
+      }
+
       const previousTodos = todos
       const currentTodo = previousTodos.find((todo) => todo.id === todoId)
 
-      if (!currentTodo) {
+      if (!currentTodo || isMovingTodoRef.current) {
         return
       }
+
+      isMovingTodoRef.current = true
 
       const sourceStatus = currentTodo.status
       const rootTodos = previousTodos.filter((todo) => !todo.parentId)
@@ -514,6 +522,17 @@ export function DashboardBoardPageClient({
         ...normalizedSourceTodos,
         ...normalizedDestinationTodos,
       ]
+      const rootTodoById = new Map(rootTodos.map((todo) => [todo.id, todo]))
+      const todosToPersist = changedRootTodos.filter((todo) => {
+        const previousTodo = rootTodoById.get(todo.id)
+
+        return (
+          !previousTodo ||
+          previousTodo.status !== todo.status ||
+          Boolean(previousTodo.checked) !== Boolean(todo.checked) ||
+          previousTodo.orderIndex !== todo.orderIndex
+        )
+      })
       const nonRootTodos = previousTodos.filter((todo) => Boolean(todo.parentId))
       const nextTodos = [
         ...unchangedRootTodos,
@@ -533,7 +552,7 @@ export function DashboardBoardPageClient({
       })
 
       try {
-        for (const todo of changedRootTodos) {
+        for (const todo of todosToPersist) {
           const response = await fetch(`/api/backlog-items/${todo.id}`, {
             method: "PATCH",
             headers: {
@@ -562,11 +581,13 @@ export function DashboardBoardPageClient({
         })
         setTodos(previousTodos)
       } finally {
+        isMovingTodoRef.current = false
         releaseBoardSyncGuardAfterSettle()
       }
     },
     [
       guardBoardSyncDuringLocalMutation,
+      isCoordinatorBoard,
       releaseBoardSyncGuardAfterSettle,
       todos,
     ]
@@ -1124,8 +1145,11 @@ export function DashboardBoardPageClient({
         people={projectPeople}
         breadcrumbSectionLabel={breadcrumbSectionLabel}
         boardTitle="Board"
+        showCreateButton={Boolean(
+          currentUser && currentUser.id !== "tester-coordinator"
+        )}
         onProjectSelect={() => {
-          router.push("/dashboard/board")
+          router.push(onProjectBoardSelectPath)
         }}
         onBreadcrumbSectionSelect={() => {
           if (!breadcrumbSectionLabel) {
@@ -1149,6 +1173,7 @@ export function DashboardBoardPageClient({
             currentUserId={currentUser?.id ?? null}
             creatorNamesById={creatorNamesById}
             canManageOtherProjectResources={canManageProjectResources}
+            isDragDisabled={isCoordinatorBoard || currentUser?.id === "tester-coordinator"}
             onStatusChange={handleStatusChange}
             onMoveTodo={handleMoveTodo}
             onAssigneeChange={handleAssigneeChange}

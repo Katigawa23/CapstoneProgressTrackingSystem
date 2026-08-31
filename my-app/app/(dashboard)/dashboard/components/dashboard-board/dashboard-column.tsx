@@ -14,6 +14,7 @@ type DashboardColumnProps = {
   allTodos: TodoItem[]
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
+  isDragDisabled?: boolean
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
   onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
@@ -29,6 +30,7 @@ export function DashboardColumn({
   allTodos,
   currentUserId = null,
   canManageOtherProjectResources = false,
+  isDragDisabled = false,
   onStatusChange,
   onAssigneeChange,
   onPriorityChange,
@@ -93,6 +95,7 @@ export function DashboardColumn({
                     key={todo.id}
                     draggableId={todo.id}
                     index={index}
+                    isDragDisabled={isDragDisabled}
                   >
                     {(draggableProvided, dragSnapshot) => (
                       <DashboardTaskCard
