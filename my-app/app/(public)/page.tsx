@@ -215,14 +215,14 @@ export default function LandingPage() {
             />
             <ScrollReveal className="block" delay={340} yOffset={16}>
               <span className="block text-xl text-slate-600 dark:text-slate-300 sm:text-2xl md:text-3xl">
-                Capstone & Thesis Progress HAHAHAHAH
+                Capstone & Thesis Progress Evaluation and Tracking System
               </span>
             </ScrollReveal>
           </h1>
 
           <ScrollReveal className="mx-auto mt-6 max-w-md md:mx-0" delay={120}>
             <p className="text-base text-gray-600 dark:text-slate-300 sm:text-lg">
-             kupal kour capstone and thesis projects with ease through real-time tracking, smooth collaboration, and clear workflows.
+             Manage your capstone and thesis projects with ease through real-time tracking, smooth collaboration, and clear workflows.
             </p>
           </ScrollReveal>
 

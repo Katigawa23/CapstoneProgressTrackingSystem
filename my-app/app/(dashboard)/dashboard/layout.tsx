@@ -16,6 +16,7 @@ export default async function DashboardLayout({
 }) {
   const cookieStore = await cookies()
   const authenticatedUser = await readAuthenticatedUser()
+
   const initialProjects = await getDashboardProjectsData()
   const selectedProjectId =
     cookieStore.get(
@@ -26,6 +27,7 @@ export default async function DashboardLayout({
 
   return (
     <DashboardLayoutShell
+      coordinatorMode={authenticatedUser?.id === "tester-coordinator"}
       initialAuthSession={
         authenticatedUser?.id
           ? {

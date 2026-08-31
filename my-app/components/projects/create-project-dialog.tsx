@@ -43,10 +43,16 @@ import {
 import type { ProjectMemberOption } from "@/hooks/use-dashboard-projects"
 
 type CreateProjectDialogProps = {
+  adviserOptions: ProjectMemberOption[]
+  adviserOptionsLoading: boolean
+  adviserSearch: string
   memberSearch: string
   memberOptions: ProjectMemberOption[]
   memberOptionsLoading: boolean
   onCreateProject: () => Promise<unknown>
+  onAdviserRemove: (adviserId: string) => void
+  onAdviserSearchChange: (value: string) => void
+  onAdviserSelect: (adviser: ProjectMemberOption) => void
   onMemberRemove: (memberId: string) => void
   onMemberSearchChange: (value: string) => void
   onMemberSelect: (member: ProjectMemberOption) => void
@@ -69,6 +75,9 @@ type CreateProjectDialogProps = {
   projectTypeOther: string
   projectYearLevel: string
   selectedMembers: ProjectMemberOption[]
+  selectedAdvisers: ProjectMemberOption[]
+  showAdviserField?: boolean
+  useGroupTerminology?: boolean
 }
 
 type SelectWithCustomInputProps = {
@@ -154,10 +163,16 @@ function SelectWithCustomInput({
 }
 
 export function CreateProjectDialog({
+  adviserOptions,
+  adviserOptionsLoading,
+  adviserSearch,
   memberSearch,
   memberOptions,
   memberOptionsLoading,
   onCreateProject,
+  onAdviserRemove,
+  onAdviserSearchChange,
+  onAdviserSelect,
   onMemberRemove,
   onMemberSearchChange,
   onMemberSelect,
@@ -180,8 +195,12 @@ export function CreateProjectDialog({
   projectTypeOther,
   projectYearLevel,
   selectedMembers,
+  selectedAdvisers,
+  showAdviserField = false,
+  useGroupTerminology = false,
 }: CreateProjectDialogProps) {
   const [memberPickerOpen, setMemberPickerOpen] = React.useState(false)
+  const [adviserPickerOpen, setAdviserPickerOpen] = React.useState(false)
   const [memberPickerWidth, setMemberPickerWidth] = React.useState(0)
   const memberPickerRef = React.useRef<HTMLDivElement | null>(null)
   const isProgramComplete = projectProgram.trim().length > 0
@@ -195,6 +214,7 @@ export function CreateProjectDialog({
   React.useEffect(() => {
     if (!open) {
       setMemberPickerOpen(false)
+      setAdviserPickerOpen(false)
     }
   }, [open])
 
@@ -241,7 +261,7 @@ export function CreateProjectDialog({
         <div className="border-b border-border/70 pb-2 dark:border-[#343434]">
           <DialogHeader className="gap-2 text-left">
             <DialogTitle className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-              Create new project
+              Create new {useGroupTerminology ? "group" : "project"}
             </DialogTitle>
           </DialogHeader>
         </div>
@@ -250,7 +270,7 @@ export function CreateProjectDialog({
           <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <label htmlFor="project-title" className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                Project title <span className="text-red-500">*</span>
+                {useGroupTerminology ? "Group" : "Project"} title <span className="text-red-500">*</span>
               </label>
               <Input
                 id="project-title"
@@ -282,7 +302,7 @@ export function CreateProjectDialog({
 
             <SelectWithCustomInput
               id="project-type"
-              label="Project type"
+              label={useGroupTerminology ? "Group type" : "Project type"}
               value={projectType}
               onValueChange={onProjectTypeChange}
               options={PROJECT_TYPE_OPTIONS}
@@ -316,9 +336,82 @@ export function CreateProjectDialog({
               customInputPlaceholder="Enter academic term"
             />
 
+            {showAdviserField ? (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="project-adviser" className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  Adviser <span className="text-red-500">*</span>
+                </label>
+                <Popover open={adviserPickerOpen} onOpenChange={setAdviserPickerOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3 top-[18px] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        id="project-adviser"
+                        value={adviserSearch}
+                        onFocus={() => setAdviserPickerOpen(true)}
+                        onClick={() => setAdviserPickerOpen(true)}
+                        onChange={(event) => {
+                          onAdviserSearchChange(event.target.value)
+                          setAdviserPickerOpen(true)
+                        }}
+                        placeholder="Search advisers"
+                        autoComplete="off"
+                        className="h-8 rounded-[2px] border-border/70 bg-white pl-9 text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+                      />
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent align="start" sideOffset={6} className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 dark:border-[#343434] dark:bg-[#1b1b1b]">
+                    {adviserOptionsLoading ? (
+                      <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" /> Loading advisers...
+                      </div>
+                    ) : adviserOptions.length ? (
+                      <Command className="bg-transparent">
+                        <CommandList className="max-h-[220px]">
+                          <CommandGroup className="p-0">
+                            {adviserOptions.map((adviser) => {
+                              const selected = selectedAdvisers.some((item) => item.id === adviser.id)
+                              return (
+                                <CommandItem
+                                  key={adviser.id}
+                                  value={`${adviser.name} ${adviser.email}`}
+                                  onSelect={() => {
+                                    onAdviserSelect(adviser)
+                                    setAdviserPickerOpen(false)
+                                  }}
+                                  className="flex items-center gap-3 px-3 py-2"
+                                >
+                                  <Avatar className="size-8"><AvatarFallback className="text-[10px]">{getInitials(adviser.name)}</AvatarFallback></Avatar>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[13px] font-medium">{getMemberDisplayName(adviser.name)}</p>
+                                    <p className="truncate text-[11px] text-muted-foreground">{adviser.email}</p>
+                                  </div>
+                                  <Check className={`size-4 ${selected ? "opacity-100" : "opacity-0"}`} />
+                                </CommandItem>
+                              )
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    ) : (
+                      <div className="px-3 py-6 text-center text-sm text-muted-foreground">No advisers found.</div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+                {selectedAdvisers.map((adviser) => (
+                  <div key={adviser.id} className="flex items-center justify-between rounded-[2px] border px-3 py-2 text-sm dark:border-[#343434]">
+                    <span className="truncate">{getMemberDisplayName(adviser.name)} (Adviser)</span>
+                    <button type="button" onClick={() => onAdviserRemove(adviser.id)} aria-label={`Remove ${adviser.name}`} className="text-slate-400 hover:text-red-500">
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-2">
               <label htmlFor="project-member" className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                Members <span className="text-red-500">*</span>
+                {showAdviserField ? "Students" : "Members"} <span className="text-red-500">*</span>
               </label>
               <Popover open={memberPickerOpen} onOpenChange={setMemberPickerOpen}>
                 <PopoverAnchor asChild>
@@ -339,7 +432,7 @@ export function CreateProjectDialog({
                           setMemberPickerOpen(false)
                         }
                       }}
-                      placeholder="Search members"
+                      placeholder={showAdviserField ? "Search students" : "Search members"}
                       autoComplete="off"
                       className="h-8 rounded-[2px] border-border/70 bg-white pr-9 pl-9 text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
                     />
@@ -375,7 +468,9 @@ export function CreateProjectDialog({
                       <Command className="rounded-lg bg-transparent">
                         <CommandList className="max-h-[260px]">
                           <CommandGroup className="p-0">
-                            {memberOptions.map((member) => {
+                            {memberOptions
+                              .filter((member) => !showAdviserField || member.role === "student")
+                              .map((member) => {
                               const isSelected = selectedMembers.some(
                                 (selectedMember) => selectedMember.id === member.id
                               )
@@ -428,7 +523,7 @@ export function CreateProjectDialog({
               </Popover>
               <p className="text-xs text-muted-foreground">
                 {selectedMembers.length > 0
-                  ? `${selectedMembers.length} participant${selectedMembers.length === 1 ? "" : "s"} selected`
+                  ? `${selectedMembers.length} ${showAdviserField ? `student${selectedMembers.length === 1 ? "" : "s"}` : `participant${selectedMembers.length === 1 ? "" : "s"}`} selected`
                   : ""}
               </p>
             </div>
@@ -437,7 +532,7 @@ export function CreateProjectDialog({
               <div className="sm:col-span-2">
                 <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white dark:border-[#343434] dark:bg-[#1b1b1b]">
                   <div className="grid grid-cols-[minmax(0,1fr)_36px] border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 dark:border-[#343434] dark:text-slate-400">
-                    <span>Member</span>
+                    <span>{showAdviserField ? "Student" : "Member"}</span>
                     <span className="sr-only">Remove</span>
                   </div>
 
@@ -496,10 +591,13 @@ export function CreateProjectDialog({
                 !isYearLevelComplete ||
                 !isSyTermComplete ||
                 !isProjectTypeComplete ||
+                (showAdviserField && selectedAdvisers.length === 0) ||
                 selectedMembers.length === 0
               }
             >
-              {isSubmitting ? "Creating..." : "Create project"}
+              {isSubmitting
+                ? "Creating..."
+                : `Create ${useGroupTerminology ? "group" : "project"}`}
               <ArrowUpRight className="h-4 w-4" />
             </Button>
           </DialogFooter>

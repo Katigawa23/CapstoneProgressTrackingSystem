@@ -148,6 +148,10 @@ function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
 }
 
 function shouldUseFileFallback(error: unknown) {
+  if (process.env.LOCAL_STORAGE_MODE?.trim().toLowerCase() === "database") {
+    return false
+  }
+
   return shouldFallbackToLocalStore(error)
 }
 
@@ -419,6 +423,29 @@ async function ensureProjectsSchema() {
           add column if not exists project_type text not null default '';
         `)
       )
+      .then(() =>
+        getDb().query(`
+          update projects p
+          set member_user_ids = (
+            select coalesce(array_agg(distinct access_user_id), '{}')
+            from (
+              select unnest(p.member_user_ids) as access_user_id
+              union
+              select u.microsoft_user_id
+              from users u
+              where u.name = any(p.project_adviser)
+                and lower(u.role) in ('faculty', 'adviser')
+            ) access_users
+          )
+          where cardinality(p.project_adviser) > 0;
+
+          update groups g
+          set member_user_ids = p.member_user_ids,
+              updated_at = now()
+          from projects p
+          where g.project_id = p.id;
+        `)
+      )
       .then(() => undefined)
       .catch((error) => {
         schemaReady = null
@@ -681,7 +708,8 @@ export async function listProjects(ownerUserId: string) {
            select distinct on (microsoft_user_id)
              microsoft_user_id,
              name,
-             email
+             email,
+             role
            from users
            order by microsoft_user_id, login_at desc
          )
@@ -711,12 +739,25 @@ export async function listProjects(ownerUserId: string) {
            from unnest(projects.member_user_ids) as member_user_id
            inner join latest_logins login
              on login.microsoft_user_id = member_user_id
+           where login.role not in ('faculty', 'adviser', 'admin')
          ) as member_logins on true
          left join project_starred_preferences
            on project_starred_preferences.project_id = projects.id
           and project_starred_preferences.user_id = $1
          where projects.owner_user_id = $1
             or $1 = any(projects.member_user_ids)
+            or exists (
+              select 1
+              from users adviser_login
+              where adviser_login.microsoft_user_id = $1
+                and adviser_login.name = any(projects.project_adviser)
+            )
+            or exists (
+              select 1
+              from groups project_group
+              where project_group.project_id = projects.id
+                and $1 = any(project_group.member_user_ids)
+            )
          order by projects.created_at desc`,
         [ownerUserId]
       )
@@ -815,6 +856,8 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
         ]
       )
 
+      await syncProjectGroupFromProject(project.id)
+
       try {
         await insertProjectMemberAccessRecords(
           project.id,
@@ -828,8 +871,6 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
           error: error instanceof Error ? error.message : String(error),
         })
       }
-
-      await syncProjectGroupFromProject(project.id)
 
       return mapRecord(result.rows[0])
     },
@@ -990,9 +1031,11 @@ async function insertProjectMemberAccessRecords(
     }
 
     const role =
-      member.role === "faculty" || member.role === "admin" || member.role === "student"
-        ? member.role
-        : "student"
+      member.role === "adviser"
+        ? "faculty"
+        : member.role === "faculty" || member.role === "admin" || member.role === "student"
+          ? member.role
+          : "student"
     const canCreateSprint =
       role === "faculty" || role === "admin" ? true : member.canCreateSprint === true
 

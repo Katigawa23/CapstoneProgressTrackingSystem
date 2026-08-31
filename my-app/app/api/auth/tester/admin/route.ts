@@ -39,7 +39,16 @@ function createCompletionUrl(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const tenantId = getMicrosoftTenantId()
-  await saveMicrosoftAccountLogin(TEST_ADMIN_USER, tenantId)
+
+  try {
+    await saveMicrosoftAccountLogin(TEST_ADMIN_USER, tenantId)
+  } catch (error) {
+    // Tester sign-in must remain usable when a local database is not configured.
+    console.warn(
+      "Could not persist the admin tester login:",
+      error instanceof Error ? error.message : error
+    )
+  }
 
   const response = NextResponse.redirect(createCompletionUrl(request))
   response.cookies.set(

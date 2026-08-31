@@ -1,11 +1,40 @@
 [
   {
+    "id": "35fa0748-2068-4cc8-90af-3ceed40b5c4a",
+    "owner_user_id": "tester-coordinator",
+    "member_user_ids": [
+      "fd0ee80d-3c7b-432d-9566-6fbe825cd887",
+      "1867c307-a87a-4e5b-acee-94e85215078d",
+      "b75ac4e6-13ae-4827-a13f-616723e73b89"
+    ],
+    "sprint_creator_user_ids": [],
+    "project_name": "Try",
+    "project_member": [
+      "Lucero, Princess (Student)",
+      "Morte, Kerby Bryan (Student)",
+      "Yanag, Janryl Carl (Student)"
+    ],
+    "project_adviser": [
+      "Holgado, Kristopher Rose G. (Faculty)"
+    ],
+    "is_starred": false,
+    "program": "BS Computer Science",
+    "year_level": "3rd Year",
+    "sy_term": "2nd term",
+    "project_type": "Thesis",
+    "created_at": "2026-08-30T19:30:35.272Z"
+  },
+  {
     "id": "a0a362bc-e1f8-4aed-a71d-d19bb8b4936e",
+    "owner_user_id": "",
+    "member_user_ids": [],
+    "sprint_creator_user_ids": [],
     "project_name": "capstone1 progress tracking and research",
-    "project_description": "sd",
     "project_member": [
       "K"
     ],
+    "project_adviser": [],
+    "is_starred": false,
     "program": "BS Information Systems",
     "year_level": "2nd Year",
     "sy_term": "1st term",
@@ -14,11 +43,15 @@
   },
   {
     "id": "bb799805-9ad7-4396-b8c4-d3dee1ea2f52",
+    "owner_user_id": "",
+    "member_user_ids": [],
+    "sprint_creator_user_ids": [],
     "project_name": "capstone1 progress tracking and evaluati",
-    "project_description": "d",
     "project_member": [
       "K"
     ],
+    "project_adviser": [],
+    "is_starred": false,
     "program": "BS Information Systems",
     "year_level": "3rd Year",
     "sy_term": "2nd term",
@@ -27,11 +60,15 @@
   },
   {
     "id": "26efaa38-ae02-4712-8f7c-8e98464706b6",
+    "owner_user_id": "",
+    "member_user_ids": [],
+    "sprint_creator_user_ids": [],
     "project_name": "Capstone 1",
-    "project_description": "for capstone 1 only",
     "project_member": [
       "K"
     ],
+    "project_adviser": [],
+    "is_starred": false,
     "program": "BS Information Technology",
     "year_level": "2nd Year",
     "sy_term": "2nd term",
@@ -40,11 +77,19 @@
   },
   {
     "id": "4275e3fd-9a16-4601-b41e-9c6cfebf971a",
+    "owner_user_id": "",
+    "member_user_ids": [],
+    "sprint_creator_user_ids": [],
     "project_name": "test",
-    "project_description": "asdasd",
     "project_member": [
       "L"
     ],
+    "project_adviser": [],
+    "is_starred": false,
+    "program": "",
+    "year_level": "",
+    "sy_term": "",
+    "project_type": "",
     "created_at": "2026-03-30T02:54:11.638Z"
   }
 ]

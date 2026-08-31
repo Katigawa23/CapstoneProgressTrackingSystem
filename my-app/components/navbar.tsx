@@ -245,8 +245,24 @@ export default function Navbar() {
                   variant="outline"
                   className="w-full font-semibold"
                   type="button"
+                  onClick={() => {
+                    setIsLoginOpen(false)
+                    window.location.assign("/api/auth/tester/admin?redirect=/dashboard")
+                  }}
                 >
                   Admin Login
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full font-semibold"
+                  type="button"
+                  onClick={() => {
+                    setIsLoginOpen(false)
+                    window.location.assign("/api/auth/tester/coordinator?redirect=/coordinator")
+                  }}
+                >
+                  Coordinator Login
                 </Button>
 
                 <Button

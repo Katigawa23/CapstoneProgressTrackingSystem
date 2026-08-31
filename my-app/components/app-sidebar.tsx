@@ -214,19 +214,26 @@ export function AppSidebar({
   role,
   initialProjects = [],
   initialTeam = null,
+  coordinatorMode = false,
 }: {
   role: UserRole
   initialProjects?: DashboardProject[]
   initialTeam?: DashboardProject | null
+  coordinatorMode?: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
   const {
+    adviserOptions,
+    adviserOptionsLoading,
+    adviserSearch,
     createProject,
     createProjectOpen,
     createProjectError,
     handleMemberRemove,
     handleMemberSearchChange,
+    handleAdviserRemove,
+    handleAdviserSelect,
     handleMemberSelect,
     handleProjectTitleChange,
     isCreatingProject,
@@ -243,8 +250,10 @@ export function AppSidebar({
     projects,
     resetCreateProjectForm,
     selectedMembers,
+    selectedAdvisers,
     selectProject,
     setCreateProjectOpen,
+    setAdviserSearch,
     setProjectProgram,
     setProjectSyTerm,
     setProjectSyTermOther,
@@ -257,15 +266,21 @@ export function AppSidebar({
     initialTeam,
   })
   const projectCollections = getDashboardProjectCollections(projects)
-  const visibleProjectItems = filterItemsByRole(projectItems, role)
-  const visibleDocumentationItems = filterItemsByRole(documentationItems, role)
+  const visibleProjectItems = filterItemsByRole(projectItems, role).filter(
+    (item) => !coordinatorMode || item.href !== "/dashboard/backlog"
+  )
+  const visibleDocumentationItems = filterItemsByRole(documentationItems, role).filter(
+    (item) => !coordinatorMode || item.href !== "/dashboard/archive"
+  )
   const visibleProjectPickerArchiveItems = filterItemsByRole(
     [{ title: "Archive", href: "/dashboard/projects/archive", icon: Archive }],
     role
-  )
+  ).filter(() => !coordinatorMode)
   const visibleGroupItems = filterItemsByRole(groupItems, role)
   const visibleQuickLinkItems = filterItemsByRole(quickLinkItems, role)
+  const isCoordinatorGroupPickerPage = coordinatorMode && pathname === "/coordinator"
   const isProjectPickerPage =
+    isCoordinatorGroupPickerPage ||
     pathname === "/dashboard" ||
     pathname === "/dashboard/projects" ||
     pathname === "/dashboard/projects/archive"
@@ -290,6 +305,9 @@ export function AppSidebar({
   return (
     <>
       <CreateProjectDialog
+        adviserOptions={adviserOptions}
+        adviserOptionsLoading={adviserOptionsLoading}
+        adviserSearch={adviserSearch}
         open={createProjectOpen}
         onOpenChange={(open) => {
           setCreateProjectOpen(open)
@@ -301,6 +319,9 @@ export function AppSidebar({
         memberOptions={memberOptions}
         memberOptionsLoading={memberOptionsLoading}
         onCreateProject={createProject}
+        onAdviserRemove={handleAdviserRemove}
+        onAdviserSearchChange={setAdviserSearch}
+        onAdviserSelect={handleAdviserSelect}
         onMemberRemove={handleMemberRemove}
         onMemberSearchChange={handleMemberSearchChange}
         onMemberSelect={handleMemberSelect}
@@ -321,6 +342,9 @@ export function AppSidebar({
         projectTypeOther={projectTypeOther}
         projectYearLevel={projectYearLevel}
         selectedMembers={selectedMembers}
+        selectedAdvisers={selectedAdvisers}
+        showAdviserField={coordinatorMode}
+        useGroupTerminology={coordinatorMode}
       />
 
       <Sidebar
@@ -331,7 +355,13 @@ export function AppSidebar({
           <div className="rounded-xl bg-transparent">
             <ProjectSwitcher
               canCreateProject={canCreateProjectAccess}
-              displayName={isProjectPickerPage ? "Choose project" : undefined}
+              displayName={
+                isCoordinatorGroupPickerPage
+                  ? "Choose group"
+                  : isProjectPickerPage
+                    ? "Choose project"
+                    : undefined
+              }
               onCreateProject={() => {
                 if (!canCreateProjectAccess) {
                   return
@@ -341,7 +371,7 @@ export function AppSidebar({
               }}
               onSelectProject={(projectId) => {
                 selectProject(projectId)
-                router.push("/dashboard/board")
+                router.push(coordinatorMode ? "/coordinator/board" : "/dashboard/board")
               }}
               projects={projects}
               team={team}
@@ -356,7 +386,7 @@ export function AppSidebar({
                 collections={projectCollections}
                 onSelectProject={(projectId) => {
                   selectProject(projectId)
-                  router.push("/dashboard/board")
+                  router.push(coordinatorMode ? "/coordinator/board" : "/dashboard/board")
                 }}
                 projects={projects}
                 team={team}

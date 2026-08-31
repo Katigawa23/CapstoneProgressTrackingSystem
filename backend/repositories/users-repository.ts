@@ -23,6 +23,72 @@ export type RegisteredMicrosoftUser = {
 
 let schemaReady: Promise<void> | null = null
 
+function getSupabaseServerConfig() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "")
+  const key =
+    process.env.SUPABASE_SECRET_KEY?.trim() ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+
+  return url && key ? { url, key } : null
+}
+
+async function saveMicrosoftAccountLoginWithSupabase(
+  user: MicrosoftUser,
+  tenantId: string
+) {
+  const config = getSupabaseServerConfig()
+  if (!config) {
+    throw new Error("DATABASE_URL or a Supabase server secret is required")
+  }
+
+  const url = new URL(`${config.url}/rest/v1/users`)
+  url.searchParams.set("on_conflict", "microsoft_user_id")
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      apikey: config.key,
+      Authorization: `Bearer ${config.key}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=representation",
+    },
+    body: JSON.stringify({
+      microsoft_user_id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role || "student",
+      tenant_id: tenantId,
+      login_at: new Date().toISOString(),
+    }),
+    cache: "no-store",
+  })
+
+  if (!response.ok) {
+    const details = await response.text()
+    throw new Error(`Supabase user save failed (${response.status}): ${details}`)
+  }
+
+  return (await response.json()) as MicrosoftLoginRecord[]
+}
+
+async function getStoredUserRoleWithSupabase(userId: string) {
+  const config = getSupabaseServerConfig()
+  if (!config) return null
+
+  const url = new URL(`${config.url}/rest/v1/users`)
+  url.searchParams.set("select", "role")
+  url.searchParams.set("microsoft_user_id", `eq.${userId}`)
+  url.searchParams.set("order", "login_at.desc")
+  url.searchParams.set("limit", "1")
+  const response = await fetch(url, {
+    headers: { apikey: config.key, Authorization: `Bearer ${config.key}` },
+    cache: "no-store",
+  })
+
+  if (!response.ok) return null
+  const rows = (await response.json()) as Array<{ role?: string }>
+  return rows[0]?.role ?? null
+}
+
 export async function ensureMicrosoftLoginSchema() {
   if (!schemaReady) {
     schemaReady = (async () => {
@@ -70,6 +136,11 @@ export async function saveMicrosoftAccountLogin(
   user: MicrosoftUser,
   tenantId: string
 ) {
+  if (!process.env.DATABASE_URL?.trim()) {
+    const rows = await saveMicrosoftAccountLoginWithSupabase(user, tenantId)
+    return rows[0]
+  }
+
   await ensureMicrosoftLoginSchema()
 
   const result = await getDb().query<MicrosoftLoginRecord>(
@@ -101,6 +172,10 @@ export async function saveMicrosoftAccountLogin(
 }
 
 export async function getStoredUserRole(userId: string): Promise<string | null> {
+  if (!process.env.DATABASE_URL?.trim()) {
+    return getStoredUserRoleWithSupabase(userId)
+  }
+
   await ensureMicrosoftLoginSchema()
 
   const result = await getDb().query<MicrosoftLoginRecord>(

@@ -48,6 +48,8 @@ function createPool() {
       : false,
     max: Number.isNaN(maxConnections) ? 4 : maxConnections,
     idleTimeoutMillis: 30_000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
     connectionTimeoutMillis: Number.isNaN(connectionTimeoutMillis)
       ? 2_000
       : connectionTimeoutMillis,

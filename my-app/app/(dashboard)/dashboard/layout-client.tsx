@@ -171,11 +171,13 @@ export function DashboardLayoutClient({
   initialAuthSession,
   initialProjects,
   initialTeam,
+  coordinatorMode = false,
 }: {
   children: React.ReactNode
   initialAuthSession: AuthSession | null
   initialProjects: DashboardProject[]
   initialTeam: DashboardProject | null
+  coordinatorMode?: boolean
 }) {
   const pathname = usePathname()
   const [session, setSession] = React.useState<AuthSession | null>(initialAuthSession)
@@ -210,7 +212,16 @@ export function DashboardLayoutClient({
   }, [initialAuthSession])
 
   const role: UserRole = isUserRole(session?.user.role) ? session.user.role : "student"
-  const hasAccess = canAccessPath(role, pathname)
+  const isCoordinatorRestrictedPath =
+    pathname === "/dashboard/backlog" ||
+    pathname.startsWith("/dashboard/backlog/") ||
+    pathname === "/dashboard/archive" ||
+    pathname.startsWith("/dashboard/archive/") ||
+    pathname === "/dashboard/projects/archive" ||
+    pathname.startsWith("/dashboard/projects/archive/")
+  const hasAccess = coordinatorMode
+    ? !isCoordinatorRestrictedPath
+    : canAccessPath(role, pathname)
 
   return (
     <RoleProvider role={role}>
@@ -219,7 +230,7 @@ export function DashboardLayoutClient({
           <div className="flex items-center gap-3">
             <SidebarTrigger className="md:hidden" />
             <Link
-              href="/dashboard/board"
+              href={coordinatorMode ? "/coordinator" : "/dashboard/board"}
               className="flex items-center gap-3 font-display text-xl font-extrabold tracking-tight sm:text-2xl"
             >
               <span>
@@ -246,12 +257,17 @@ export function DashboardLayoutClient({
           </div>
         </header>
 
-        <AppSidebar role={role} initialProjects={initialProjects} initialTeam={initialTeam} />
+        <AppSidebar
+          role={role}
+          initialProjects={initialProjects}
+          initialTeam={initialTeam}
+          coordinatorMode={coordinatorMode}
+        />
 
         <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] pt-16 dark:from-[#212121] dark:to-[#171717]">
           <main
             className={`flex h-full min-w-0 flex-col p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10 ${
-              pathname === "/dashboard" ? "overflow-y-auto" : "overflow-hidden"
+              pathname === "/dashboard" || pathname === "/coordinator" ? "overflow-y-auto" : "overflow-hidden"
             }`}
           >
             {authLoading
