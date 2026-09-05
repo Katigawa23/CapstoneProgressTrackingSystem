@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { unstable_cache } from "next/cache"
 import { cookies } from "next/headers"
 
@@ -44,7 +45,7 @@ const getCachedProjectActivities = unstable_cache(
   }
 )
 
-export async function getDashboardProjectsData() {
+export const getDashboardProjectsData = cache(async () => {
   const user = await readAuthenticatedUser()
 
   if (!user?.id) {
@@ -56,7 +57,7 @@ export async function getDashboardProjectsData() {
   }
 
   return listProjects(user.id)
-}
+})
 
 export async function getSelectedProjectData() {
   const user = await readAuthenticatedUser()
@@ -69,10 +70,10 @@ export async function getSelectedProjectData() {
     }
   }
 
-  const projects = await (
-    useDashboardCache ? getCachedProjects(user.id) : listProjects(user.id)
-  )
-  const cookieStore = await cookies()
+  const [projects, cookieStore] = await Promise.all([
+    getDashboardProjectsData(),
+    cookies(),
+  ])
   const selectedProjectId =
     cookieStore.get(getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, user.id))
       ?.value ?? null
@@ -107,10 +108,10 @@ export async function getDashboardHomeData() {
     }
   }
 
-  const projects = await (
-    useDashboardCache ? getCachedProjects(user.id) : listProjects(user.id)
-  )
-  const cookieStore = await cookies()
+  const [projects, cookieStore] = await Promise.all([
+    getDashboardProjectsData(),
+    cookies(),
+  ])
   const selectedProjectId =
     cookieStore.get(getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, user.id))
       ?.value ?? null
