@@ -14,10 +14,11 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const cookieStore = await cookies()
-  const authenticatedUser = await readAuthenticatedUser()
-
-  const initialProjects = await getDashboardProjectsData()
+  const [cookieStore, authenticatedUser, initialProjects] = await Promise.all([
+    cookies(),
+    readAuthenticatedUser(),
+    getDashboardProjectsData(),
+  ])
   const selectedProjectId =
     cookieStore.get(
       getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, authenticatedUser?.id)
