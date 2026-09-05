@@ -12,7 +12,6 @@ import {
   OTHER_PROJECT_OPTION,
   PROJECT_CHANGE_EVENT,
   PROJECTS_CHANGE_EVENT,
-  refreshDashboardProjects,
   setDashboardProject,
   type DashboardProject,
 } from "@/lib/projects"
@@ -118,35 +117,6 @@ export function useDashboardProjects({
       window.removeEventListener(PROJECTS_CHANGE_EVENT, syncProjectState)
     }
   }, [initialProjects, initialTeam, syncProjectState])
-
-  React.useEffect(() => {
-    let active = true
-
-    void refreshDashboardProjects()
-      .then((nextProjects) => {
-        if (!active) {
-          return
-        }
-
-        setProjects(nextProjects)
-        const savedProjectId = getSelectedDashboardProjectId()
-        setTeam((currentTeam) =>
-          nextProjects.find((project) => project.id === savedProjectId) ??
-          (currentTeam
-            ? nextProjects.find((project) => project.id === currentTeam.id) ?? null
-            : null) ??
-          nextProjects[0] ??
-          null
-        )
-      })
-      .catch((error) => {
-        console.error("Failed to refresh projects", error)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [])
 
   const resetCreateProjectForm = React.useCallback(() => {
     setProjectTitle("")

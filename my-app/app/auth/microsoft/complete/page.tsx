@@ -61,7 +61,6 @@ export default function MicrosoftAuthCompletePage() {
 
     const timeoutId = window.setTimeout(() => {
       router.replace(result.redirect)
-      router.refresh()
     }, 150)
 
     return () => {
