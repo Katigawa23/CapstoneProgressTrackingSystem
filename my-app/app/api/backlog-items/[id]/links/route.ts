@@ -3,12 +3,26 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import {
   createBacklogWebLink,
   listBacklogWebLinks,
 } from "@backend/repositories/attachments-repository"
 
 export const runtime = "nodejs"
+
+function toActiveWebLinkResponse(
+  link: Awaited<ReturnType<typeof listBacklogWebLinks>>[number]
+) {
+  return {
+    id: link.id,
+    backlogItemId: link.backlogItemId,
+    uploadedByUserId: link.uploadedByUserId,
+    url: link.url,
+    label: link.label,
+    uploadedAt: link.uploadedAt,
+  }
+}
 
 export async function GET(
   _request: Request,
@@ -19,7 +33,7 @@ export async function GET(
     const { id } = await params
     const links = await listBacklogWebLinks(id, user.id)
 
-    return NextResponse.json({ links })
+    return NextResponse.json({ links: links.map(toActiveWebLinkResponse) })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const isAuthError = errorMessage === "Unauthorized"
@@ -32,7 +46,6 @@ export async function GET(
     return NextResponse.json(
       { 
         error: "Failed to load backlog web links",
-        details: errorMessage,
         code: isAuthError ? "UNAUTHORIZED" : "INTERNAL_ERROR"
       },
       { status: isAuthError ? 401 : 500 }
@@ -46,6 +59,8 @@ export async function POST(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     const { id } = await params
     const body = (await request.json()) as {
       url?: string
@@ -76,7 +91,10 @@ export async function POST(
 
     revalidateTag("backlog-items", "max")
 
-    return NextResponse.json({ link }, { status: 201 })
+    return NextResponse.json(
+      { link: toActiveWebLinkResponse(link) },
+      { status: 201 }
+    )
   } catch (error) {
     console.error("Failed to save backlog web link", error)
     return NextResponse.json(

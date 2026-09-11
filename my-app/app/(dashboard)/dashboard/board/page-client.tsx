@@ -135,8 +135,10 @@ export function DashboardBoardPageClient({
       null,
     [initialProjects, selectedProjectId]
   )
+  const isSuperAdminViewer = currentUser?.id === "tester-admin"
   const canManageProjectResources =
-    currentUser?.role === "faculty" || currentUser?.role === "admin"
+    !isSuperAdminViewer &&
+    (currentUser?.role === "faculty" || currentUser?.role === "admin")
   const projectPeople = React.useMemo(
     () => {
       const peopleByName = new Map<string, string>()
@@ -1146,7 +1148,9 @@ export function DashboardBoardPageClient({
         breadcrumbSectionLabel={breadcrumbSectionLabel}
         boardTitle="Board"
         showCreateButton={Boolean(
-          currentUser && currentUser.id !== "tester-coordinator"
+          currentUser &&
+          currentUser.role !== "admin" &&
+          currentUser.id !== "tester-coordinator"
         )}
         onProjectSelect={() => {
           router.push(onProjectBoardSelectPath)
@@ -1173,7 +1177,11 @@ export function DashboardBoardPageClient({
             currentUserId={currentUser?.id ?? null}
             creatorNamesById={creatorNamesById}
             canManageOtherProjectResources={canManageProjectResources}
-            isDragDisabled={isCoordinatorBoard || currentUser?.id === "tester-coordinator"}
+            isDragDisabled={
+              isCoordinatorBoard ||
+              currentUser?.id === "tester-coordinator" ||
+              isSuperAdminViewer
+            }
             onStatusChange={handleStatusChange}
             onMoveTodo={handleMoveTodo}
             onAssigneeChange={handleAssigneeChange}

@@ -101,7 +101,8 @@ export default function MembersPage() {
     [projectId]
   )
   const canManageMembers =
-    currentUserRole === "faculty" || currentUserRole === "admin"
+    currentUserId !== "tester-admin" &&
+    (currentUserRole === "faculty" || currentUserRole === "admin")
 
   const loadMembers = React.useCallback(async () => {
     if (!projectId) {

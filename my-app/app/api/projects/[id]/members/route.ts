@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import {
   addProjectStudentMember,
   listProjectMembers,
@@ -58,6 +59,8 @@ export async function PATCH(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     const { id } = await params
     const projectId = id.trim()
     const body = (await request.json()) as {
@@ -114,6 +117,8 @@ export async function POST(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     const { id } = await params
     const projectId = id.trim()
     const body = (await request.json()) as { userId?: string }
@@ -160,6 +165,8 @@ export async function DELETE(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     const { id } = await params
     const projectId = id.trim()
     const { searchParams } = new URL(request.url)

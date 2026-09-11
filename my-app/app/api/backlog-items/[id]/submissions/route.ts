@@ -4,6 +4,7 @@ import { randomUUID } from "crypto"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import {
   createBacklogSubmission,
   listBacklogSubmissions,
@@ -25,6 +26,21 @@ const videoSubmissionFileExtensions = new Set([
   ".webm",
   ".wmv",
 ])
+
+function toActiveSubmissionResponse(
+  submission: Awaited<ReturnType<typeof listBacklogSubmissions>>[number]
+) {
+  return {
+    id: submission.id,
+    backlogItemId: submission.backlogItemId,
+    uploadedByUserId: submission.uploadedByUserId,
+    fileName: submission.fileName,
+    fileUrl: submission.fileUrl,
+    fileType: submission.fileType,
+    fileSize: submission.fileSize,
+    uploadedAt: submission.uploadedAt,
+  }
+}
 
 function getSubmissionFileExtension(fileName: string) {
   const extensionIndex = fileName.toLowerCase().lastIndexOf(".")
@@ -111,7 +127,9 @@ export async function GET(
     const { id } = await params
     const submissions = await listBacklogSubmissions(id, user.id)
 
-    return NextResponse.json({ submissions })
+    return NextResponse.json({
+      submissions: submissions.map(toActiveSubmissionResponse),
+    })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const isAuthError = errorMessage === "Unauthorized"
@@ -124,7 +142,6 @@ export async function GET(
     return NextResponse.json(
       { 
         error: "Failed to load backlog submissions",
-        details: errorMessage,
         code: isAuthError ? "UNAUTHORIZED" : "INTERNAL_ERROR"
       },
       { status: isAuthError ? 401 : 500 }
@@ -138,6 +155,8 @@ export async function POST(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     const { id } = await params
     const formData = await request.formData()
     const files = formData.getAll("files").filter((value): value is File => value instanceof File)
@@ -198,7 +217,10 @@ export async function POST(
 
     revalidateTag("backlog-items", "max")
 
-    return NextResponse.json({ submissions: createdSubmissions }, { status: 201 })
+    return NextResponse.json(
+      { submissions: createdSubmissions.map(toActiveSubmissionResponse) },
+      { status: 201 }
+    )
   } catch (error) {
     console.error("Failed to upload backlog submissions", error)
     const errorMessage = error instanceof Error ? error.message : String(error)

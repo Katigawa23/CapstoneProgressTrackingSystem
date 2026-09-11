@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 
 import { getMicrosoftTenantId } from "@backend/auth/microsoft"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 import {
   createBacklogComment,
@@ -34,6 +35,8 @@ export async function POST(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     await saveMicrosoftAccountLogin(
       {
         id: user.id,

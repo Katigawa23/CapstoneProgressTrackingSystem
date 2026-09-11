@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import {
   stripEmoji,
   TASK_SPRINT_NAME_MAX_LENGTH,
@@ -36,6 +37,8 @@ export async function POST(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     const { id: parentId } = await params
     const body = (await request.json()) as {
       projectId?: string

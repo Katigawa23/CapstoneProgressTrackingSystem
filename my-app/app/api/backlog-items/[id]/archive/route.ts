@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import { archiveBacklogItem } from "@backend/repositories/tasks-repository"
 
 export async function POST(
@@ -10,6 +11,8 @@ export async function POST(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     const { id } = await params
     const items = await archiveBacklogItem(id, user.id, user.role)
 
