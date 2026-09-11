@@ -23,6 +23,26 @@ const allowedStatuses = new Set([
 ])
 const allowedPriorities = new Set(["Low", "Medium", "High"])
 
+function toActiveBacklogItemResponse(item: Awaited<ReturnType<typeof listBacklogItems>>[number]) {
+  return {
+    id: item.id,
+    parentId: item.parentId,
+    sequenceNumber: item.sequenceNumber,
+    orderIndex: item.orderIndex,
+    createdByUserId: item.createdByUserId,
+    title: item.title,
+    description: item.description,
+    startDate: item.startDate,
+    dueDate: item.dueDate,
+    status: item.status,
+    checked: item.checked,
+    assigneeId: item.assigneeId,
+    priority: item.priority,
+    createdAt: item.createdAt,
+    commentCount: item.commentCount,
+  }
+}
+
 function normalizeOptionalDate(value: unknown) {
   if (typeof value !== "string") {
     return null
@@ -51,7 +71,7 @@ export async function GET(request: Request) {
       offset: Number.isNaN(offsetValue) ? undefined : offsetValue,
     })
     return NextResponse.json(
-      { items },
+      { items: items.map(toActiveBacklogItemResponse) },
       {
         headers: {
           "Cache-Control": "no-store, max-age=0",
@@ -70,6 +90,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireAuthenticatedUser()
+
+    if (user.role === "admin") {
+      return NextResponse.json(
+        { error: "Administrators cannot create tasks." },
+        { status: 403 }
+      )
+    }
+
     const body = (await request.json()) as {
       projectId?: string
       parentId?: string | null
@@ -146,7 +174,10 @@ export async function POST(request: Request) {
     revalidateTag("backlog-items", "max")
     revalidateTag("backlog-comments", "max")
 
-    return NextResponse.json({ item: nextItem ?? item }, { status: 201 })
+    return NextResponse.json(
+      { item: toActiveBacklogItemResponse(nextItem ?? item) },
+      { status: 201 }
+    )
   } catch (error) {
     if (error instanceof BacklogItemNameConflictError) {
       return NextResponse.json({ error: error.message }, { status: 409 })

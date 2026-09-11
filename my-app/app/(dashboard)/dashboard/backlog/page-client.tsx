@@ -1115,7 +1115,7 @@ export function BacklogPageClient({
             onSearchChange={setBoardSearchValue}
             filterValue={boardFilterValue}
             onFilterChange={setBoardFilterValue}
-            showCreateTaskButton
+            showCreateTaskButton={Boolean(currentUser && currentUser.role !== "admin")}
             onCreateTask={() => setOpen(true)}
           />
 

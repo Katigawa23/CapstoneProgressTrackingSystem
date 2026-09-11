@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   try {
     const user = await requireAuthenticatedUser()
 
-    if (!isUserRole(user.role) || !canCreateProject(user.role)) {
+    if (!isUserRole(user.role) || !canCreateProject(user.role, user.id)) {
       return NextResponse.json(
         { error: "You do not have permission to create a project." },
         { status: 403 }

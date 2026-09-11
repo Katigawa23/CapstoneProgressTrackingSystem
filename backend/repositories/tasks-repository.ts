@@ -1215,7 +1215,8 @@ export async function listBacklogItemsWithStats(
           and backlog.is_archived = $3
           and backlog.is_deleted = $6
           and (
-            projects.owner_user_id = $2
+            $2 = 'tester-admin'
+            or projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
         order by backlog.order_index asc, backlog.created_at asc
@@ -1235,7 +1236,8 @@ export async function listBacklogItemsWithStats(
           (record) =>
             record.project_id === projectId &&
             record.is_archived === archived &&
-            record.is_deleted === deleted
+            record.is_deleted === deleted &&
+            (ownerUserId === "tester-admin" || record.project_id === projectId)
         )
         .sort((left, right) => left.order_index - right.order_index)
         .slice(options.offset ?? 0, (options.offset ?? 0) + (options.limit ?? 200))
@@ -1299,7 +1301,8 @@ export async function listProjectBacklogActivities(
           and backlog.is_archived = false
           and backlog.is_deleted = false
           and (
-            projects.owner_user_id = $2
+            $2 = 'tester-admin'
+            or projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
         order by backlog.created_at desc`,

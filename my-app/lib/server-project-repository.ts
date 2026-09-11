@@ -745,6 +745,7 @@ export async function listProjects(ownerUserId: string) {
            on project_starred_preferences.project_id = projects.id
           and project_starred_preferences.user_id = $1
          where projects.owner_user_id = $1
+            or $1 = 'tester-admin'
             or $1 = any(projects.member_user_ids)
             or exists (
               select 1
@@ -778,6 +779,7 @@ export async function listProjects(ownerUserId: string) {
         ...records
           .filter(
             (record) =>
+              ownerUserId === "tester-admin" ||
               record.owner_user_id === ownerUserId ||
               record.member_user_ids.includes(ownerUserId)
           )

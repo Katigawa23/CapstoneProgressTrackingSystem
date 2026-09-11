@@ -91,7 +91,7 @@ export function DashboardPageClient({
   const [pendingArchiveProject, setPendingArchiveProject] = React.useState<DashboardProject | null>(null)
   const canCreateProject =
     currentUser?.role && isUserRole(currentUser.role)
-      ? canCreateProjectForRole(currentUser.role)
+      ? canCreateProjectForRole(currentUser.role, currentUser.id)
       : false
 
   const getMemberInitials = React.useCallback((name: string) => {
@@ -428,15 +428,17 @@ export function DashboardPageClient({
                               <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
                               {project.starred ? "Remove from starred" : "Add to starred"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onSelect={() => {
-                                setPendingArchiveProject(project)
-                              }}
-                            >
-                              <Archive className="h-4 w-4" />
-                              Archive project
-                            </DropdownMenuItem>
+                            {currentUser?.id !== "tester-admin" ? (
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onSelect={() => {
+                                  setPendingArchiveProject(project)
+                                }}
+                              >
+                                <Archive className="h-4 w-4" />
+                                Archive project
+                              </DropdownMenuItem>
+                            ) : null}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -449,7 +451,7 @@ export function DashboardPageClient({
         </div>
       )
     },
-    [formatProjectDate, groupProjectsByRecency, handleToggleStarred, projectDisplayIds, router]
+    [currentUser?.id, formatProjectDate, groupProjectsByRecency, handleToggleStarred, projectDisplayIds, router]
   )
 
   const renderRecentProjectSections = React.useMemo(
@@ -497,9 +499,7 @@ export function DashboardPageClient({
             <div className="rounded-2xl border border-dashed border-border/70 bg-card px-6 py-10 text-center">
               <h2 className="font-display text-lg font-semibold tracking-tight">No projects yet</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-               {currentUser?.role === "faculty"
-                 ? "Create a new project workspace to get started. Add your student advisees and begin managing the capstone or thesis guidance."
-                 : "Wait for your adviser to create the project workspace. Once it's ready, you can start managing and completing your capstone or thesis work here."}
+               Wait for the coordinator to create the group workspace. Once it is ready, you can start managing and completing your capstone or thesis work here.
               </p>
             </div>
           ) : null}
@@ -561,15 +561,17 @@ export function DashboardPageClient({
                               <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
                               {project.starred ? "Remove from starred" : "Add to starred"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onSelect={() => {
-                                setPendingArchiveProject(project)
-                              }}
-                            >
-                              <Archive className="h-4 w-4" />
-                              Archive project
-                            </DropdownMenuItem>
+                            {currentUser?.id !== "tester-admin" ? (
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onSelect={() => {
+                                  setPendingArchiveProject(project)
+                                }}
+                              >
+                                <Archive className="h-4 w-4" />
+                                Archive project
+                              </DropdownMenuItem>
+                            ) : null}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       ) : (

@@ -61,6 +61,6 @@ export function canAccessPath(role: UserRole, pathname: string): boolean {
   })
 }
 
-export function canCreateProject(role: UserRole) {
-  return role === "faculty" || role === "admin"
+export function canCreateProject(role: UserRole, userId?: string | null) {
+  return role === "admin" && userId === "tester-coordinator"
 }

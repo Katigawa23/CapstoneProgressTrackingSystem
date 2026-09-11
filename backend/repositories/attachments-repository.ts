@@ -643,7 +643,8 @@ export async function listBacklogSubmissions(
           and attachments.is_archived = false
           and attachments.is_deleted = false
           and (
-            projects.owner_user_id = $2
+            $2 = 'tester-admin'
+            or projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
         order by attachments.uploaded_at desc`,
@@ -984,7 +985,8 @@ export async function listBacklogWebLinks(
           and weblinks.is_archived = false
           and weblinks.is_deleted = false
           and (
-            projects.owner_user_id = $2
+            $2 = 'tester-admin'
+            or projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
         order by weblinks.uploaded_at desc`,

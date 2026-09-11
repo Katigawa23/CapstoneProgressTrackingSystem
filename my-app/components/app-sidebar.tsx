@@ -43,7 +43,7 @@ import { ProjectPickerContent } from "@/components/projects/project-picker-conte
 import { ProjectSwitcher } from "@/components/projects/project-switcher"
 import { getDashboardProjectCollections, type DashboardProject } from "@/lib/projects"
 import { useDashboardProjects } from "@/hooks/use-dashboard-projects"
-import { canAccessPath, canCreateProject, type UserRole } from "@/lib/rbac"
+import { canAccessPath, type UserRole } from "@/lib/rbac"
 import { cn } from "@/lib/utils"
 
 type NavItem = {
@@ -286,7 +286,7 @@ export function AppSidebar({
     pathname === "/dashboard" ||
     pathname === "/dashboard/projects" ||
     pathname === "/dashboard/projects/archive"
-  const canCreateProjectAccess = canCreateProject(role)
+  const canCreateProjectAccess = coordinatorMode
 
   React.useEffect(() => {
     const handleOpenCreateProject = () => {

@@ -485,31 +485,6 @@ export function DashboardBoard({
   )
 
   React.useEffect(() => {
-    if (!selectedTodoId) {
-      return
-    }
-
-    const controller = new AbortController()
-    const todoId = selectedTodoId
-
-    const syncSelectedTaskResources = async () => {
-      await refreshTaskResources(todoId, { signal: controller.signal })
-    }
-
-    void syncSelectedTaskResources()
-
-    const intervalId = window.setInterval(
-      () => void syncSelectedTaskResources(),
-      1000
-    )
-
-    return () => {
-      controller.abort()
-      window.clearInterval(intervalId)
-    }
-  }, [refreshTaskResources, selectedTodoId])
-
-  React.useEffect(() => {
     return subscribeToDashboardActivitySync((payload) => {
       if (!payload.detailsChanged) {
         return
