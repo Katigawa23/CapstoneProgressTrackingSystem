@@ -12,6 +12,7 @@ import { validateDisplayName } from "@/lib/text-validation"
 import {
   createProject,
   ProjectNameConflictError,
+  StudentAlreadyAssignedError,
   listProjects,
   updateProjectStarred,
 } from "@backend/repositories/projects-repository"
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
         role?: string
         canCreateSprint?: boolean
       }>
+      transferMemberUserIds?: string[]
       program?: string
       yearLevel?: string
       syTerm?: string
@@ -111,6 +113,9 @@ export async function POST(request: Request) {
         ? memberAccess
             .map((member) => member.userId)
         : memberUserIds
+    const transferMemberUserIds = Array.isArray(body.transferMemberUserIds)
+      ? body.transferMemberUserIds.filter((userId) => typeof userId === "string" && userId.trim())
+      : []
 
     if (!name) {
       return NextResponse.json({ error: "Project title is required" }, { status: 400 })
@@ -124,6 +129,13 @@ export async function POST(request: Request) {
 
     if (members.length === 0) {
       return NextResponse.json({ error: "Member is required" }, { status: 400 })
+    }
+
+    if (advisers.length > 1) {
+      return NextResponse.json(
+        { error: "Only one adviser can be assigned to a group." },
+        { status: 400 }
+      )
     }
 
     if (!program) {
@@ -149,7 +161,9 @@ export async function POST(request: Request) {
       sprintCreatorUserIds,
       starred: body.starred === true,
       memberUserIds: normalizedMemberUserIds,
+      exclusiveStudentUserIds: memberUserIds,
       memberAccess,
+      transferMemberUserIds,
       program: program.slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.slice(0, PROJECT_METADATA_MAX_LENGTH),
       syTerm: syTerm.slice(0, PROJECT_METADATA_MAX_LENGTH),
@@ -161,6 +175,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ project }, { status: 201 })
   } catch (error) {
     if (error instanceof ProjectNameConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+
+    if (error instanceof StudentAlreadyAssignedError) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
 

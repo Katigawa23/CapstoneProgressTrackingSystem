@@ -85,6 +85,7 @@ export type CreateDashboardProjectInput = {
   sprintCreatorUserIds?: string[]
   memberUserIds?: string[]
   memberAccess?: ProjectMemberAccessInput[]
+  transferMemberUserIds?: string[]
   program: string
   yearLevel: string
   syTerm: string
@@ -600,6 +601,7 @@ export function createDashboardProject({
   sprintCreatorUserIds,
   memberUserIds,
   memberAccess,
+  transferMemberUserIds,
   program,
   yearLevel,
   syTerm,
@@ -618,6 +620,7 @@ export function createDashboardProject({
       starred: false,
       memberUserIds: Array.isArray(memberUserIds) ? memberUserIds : [],
       memberAccess: Array.isArray(memberAccess) ? memberAccess : [],
+      transferMemberUserIds: Array.isArray(transferMemberUserIds) ? transferMemberUserIds : [],
       program: program.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       yearLevel: yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       syTerm: syTerm.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),

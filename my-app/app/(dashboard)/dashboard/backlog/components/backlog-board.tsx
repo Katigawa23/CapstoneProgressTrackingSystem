@@ -34,6 +34,7 @@ type BacklogBoardProps = {
   canMoveItems?: boolean
   emptyLabel?: string
   createLabel?: string
+  lockedPriorityItemIds?: ReadonlySet<string>
 }
 
 export function BacklogBoard({
@@ -52,6 +53,7 @@ export function BacklogBoard({
   canMoveItems = true,
   emptyLabel,
   createLabel = "Create",
+  lockedPriorityItemIds,
 }: BacklogBoardProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
   const [expandedParentIds, setExpandedParentIds] = React.useState<Set<string>>(
@@ -230,6 +232,7 @@ export function BacklogBoard({
           <PriorityCombobox
             value={item.priority ?? "Medium"}
             onChange={(nextPriority) => onUpdatePriority(item.id, nextPriority)}
+            disabled={lockedPriorityItemIds?.has(item.id) === true}
           />
 
           <StatusCombobox
@@ -257,6 +260,7 @@ export function BacklogBoard({
       onUpdateAssignee,
       onUpdatePriority,
       onUpdateStatus,
+      lockedPriorityItemIds,
     ]
   )
 
@@ -356,7 +360,7 @@ export function BacklogBoard({
                   return (
                     <Draggable
                       key={item.id}
-                      draggableId={item.id}
+                      draggableId={`${droppableId}:${item.id}`}
                       index={index}
                       isDragDisabled={!canMoveItems}
                     >

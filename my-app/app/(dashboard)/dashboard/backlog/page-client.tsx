@@ -42,6 +42,7 @@ import {
   validateDisplayName,
 } from "@/lib/text-validation"
 import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
+import { getLocalDateString, getTrustedTodayDateString } from "@/lib/trusted-time"
 
 function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
   const normalizeParentId = (parentId?: string | null) => {
@@ -162,6 +163,21 @@ export function BacklogPageClient({
   const [items, setItems] = React.useState<WorkItem[]>(() =>
     initialSelectedProjectId ? mapApiItems(initialItems, initialProjectCode) : []
   )
+  const overdueItemIds = React.useMemo(() => {
+    const today = getTrustedTodayDateString()
+
+    return new Set(
+      items
+        .filter(
+          (item) =>
+            !item.parentId &&
+            Boolean(item.dueDate) &&
+            getLocalDateString(item.dueDate!) < today &&
+            item.status !== "completed"
+        )
+        .map((item) => item.id)
+    )
+  }, [items])
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
   const [isDragDropReady, setIsDragDropReady] = React.useState(false)
 
@@ -308,7 +324,12 @@ export function BacklogPageClient({
   }
 
   const handleAddItem = async () => {
-    if (isCreatingTask || !title.trim()) return
+    if (isCreatingTask) return
+
+    if (!title.trim() || !startDate || !dueDate) {
+      setCreateTaskError("Title, start date, and due date are required")
+      return
+    }
 
     const selectedProjectId = getSelectedDashboardProjectId()
     const selectedProject = findDashboardProject(selectedProjectId)
@@ -339,8 +360,8 @@ export function BacklogPageClient({
           parentId: null,
           title: title.trim(),
           description: description.trim(),
-          startDate: startDate ? startDate.toISOString().slice(0, 10) : null,
-          dueDate: dueDate ? dueDate.toISOString().slice(0, 10) : null,
+          startDate: startDate ? getLocalDateString(startDate) : null,
+          dueDate: dueDate ? getLocalDateString(dueDate) : null,
           assigneeId,
           priority,
         }),
@@ -449,6 +470,10 @@ export function BacklogPageClient({
       return
     }
 
+    if (overdueItemIds.has(id) && priority !== "High") {
+      return
+    }
+
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, priority } : item))
     )
@@ -515,8 +540,8 @@ export function BacklogPageClient({
         body: JSON.stringify({
           title: editTitle.trim(),
           description: editDescription.trim(),
-          startDate: editStartDate ? editStartDate.toISOString().slice(0, 10) : null,
-          dueDate: editDueDate ? editDueDate.toISOString().slice(0, 10) : null,
+          startDate: editStartDate ? getLocalDateString(editStartDate) : null,
+          dueDate: editDueDate ? getLocalDateString(editDueDate) : null,
         }),
       })
 
@@ -565,7 +590,7 @@ export function BacklogPageClient({
     currentUser?.role === "faculty" || currentUser?.role === "admin"
 
   const formatTaskDate = React.useCallback((date?: Date) => {
-    return date ? date.toISOString().slice(0, 10) : ""
+    return date ? getLocalDateString(date) : ""
   }, [])
 
   const buildChecklist = React.useCallback((sourceItems: WorkItem[], parentId: string) => {
@@ -645,6 +670,14 @@ export function BacklogPageClient({
 
   const handleTaskDetailsUpdate = React.useCallback(
     (todoId: string, updates: Partial<TodoItem>) => {
+      if (
+        updates.priority &&
+        updates.priority !== "High" &&
+        overdueItemIds.has(todoId)
+      ) {
+        return
+      }
+
       const itemUpdates: Partial<WorkItem> = {}
       const patchPayload: Record<string, string | null> = {}
 
@@ -702,7 +735,7 @@ export function BacklogPageClient({
         }).catch((error) => console.error(error))
       }
     },
-    []
+    [overdueItemIds]
   )
 
   const handleCreateSubtask = React.useCallback(
@@ -865,7 +898,7 @@ export function BacklogPageClient({
     () =>
       buildSectionTree(
         filteredBoardItems,
-        (item) => item.status !== "todo"
+        () => true
       ),
     [buildSectionTree, filteredBoardItems]
   )
@@ -874,10 +907,35 @@ export function BacklogPageClient({
     () =>
       buildSectionTree(
         filteredBoardItems,
-        (item) => item.status === "todo"
+        (item) => overdueItemIds.has(item.id)
       ),
-    [buildSectionTree, filteredBoardItems]
+    [buildSectionTree, filteredBoardItems, overdueItemIds]
   )
+
+  React.useEffect(() => {
+    const itemsToPromote = items.filter(
+      (item) => overdueItemIds.has(item.id) && item.priority !== "High"
+    )
+
+    if (itemsToPromote.length === 0) return
+
+    setItems((currentItems) =>
+      currentItems.map((item) =>
+        overdueItemIds.has(item.id) ? { ...item, priority: "High" } : item
+      )
+    )
+
+    void Promise.all(
+      itemsToPromote.map(async (item) => {
+        const response = await fetch(`/api/backlog-items/${item.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ priority: "High" }),
+        })
+        if (!response.ok) throw new Error("Failed to save overdue priority")
+      })
+    ).catch((error) => console.error("Failed to promote overdue task priority", error))
+  }, [items, overdueItemIds])
 
   const visibleRootItemsByDroppable = React.useMemo(
     () => ({
@@ -956,6 +1014,9 @@ export function BacklogPageClient({
   const moveRootItem = React.useCallback(
     async (result: DropResult) => {
       const { source, destination, draggableId } = result
+      const itemId = draggableId.startsWith(`${source.droppableId}:`)
+        ? draggableId.slice(source.droppableId.length + 1)
+        : draggableId
 
       if (!destination || isMovingRootItemRef.current) {
         return
@@ -963,7 +1024,7 @@ export function BacklogPageClient({
 
       const sourceRootItems = getRootItemsForDroppable(source.droppableId)
       const destinationRootItems = getRootItemsForDroppable(destination.droppableId)
-      const movedItem = sourceRootItems.find((item) => item.id === draggableId)
+      const movedItem = sourceRootItems.find((item) => item.id === itemId)
 
       if (!movedItem) {
         return
@@ -978,11 +1039,11 @@ export function BacklogPageClient({
           ? "inprogress"
           : movedItem.status
 
-      const nextSourceRootItems = sourceRootItems.filter((item) => item.id !== draggableId)
+      const nextSourceRootItems = sourceRootItems.filter((item) => item.id !== itemId)
       const nextDestinationRootItems =
         source.droppableId === destination.droppableId
           ? [...nextSourceRootItems]
-          : destinationRootItems.filter((item) => item.id !== draggableId)
+          : destinationRootItems.filter((item) => item.id !== itemId)
 
       nextDestinationRootItems.splice(destination.index, 0, {
         ...movedItem,
@@ -1121,28 +1182,6 @@ export function BacklogPageClient({
 
           <div className="w-full max-w-[1080px]">
             <BacklogBoard
-              title="Backlog"
-              droppableId="backlog-priority"
-              items={backlogItems}
-              statusCounts={buildStatusCounts(backlogItems)}
-              onToggleCheckbox={toggleCheckbox}
-              onToggleAllCheckboxes={(checked) =>
-                void toggleSectionCheckboxes(backlogItems, checked)
-              }
-              onUpdateStatus={updateItemStatus}
-              onUpdateAssignee={updateItemAssignee}
-              onUpdatePriority={(itemId, nextPriority) => {
-                void updateItemPriority(itemId, nextPriority)
-              }}
-              onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
-              onEditItem={handleOpenEdit}
-              canMoveItems
-              emptyLabel="There's nothing in this backlog"
-            />
-          </div>
-
-          <div className="w-full max-w-[1080px]">
-            <BacklogBoard
               title="Board"
               droppableId="backlog-board"
               items={boardItems}
@@ -1159,7 +1198,31 @@ export function BacklogPageClient({
               onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
               onEditItem={handleOpenEdit}
               canMoveItems
+              lockedPriorityItemIds={overdueItemIds}
               emptyLabel="There's nothing on this board"
+            />
+          </div>
+
+          <div className="w-full max-w-[1080px]">
+            <BacklogBoard
+              title="Backlog"
+              droppableId="backlog-priority"
+              items={backlogItems}
+              statusCounts={buildStatusCounts(backlogItems)}
+              onToggleCheckbox={toggleCheckbox}
+              onToggleAllCheckboxes={(checked) =>
+                void toggleSectionCheckboxes(backlogItems, checked)
+              }
+              onUpdateStatus={updateItemStatus}
+              onUpdateAssignee={updateItemAssignee}
+              onUpdatePriority={(itemId, nextPriority) => {
+                void updateItemPriority(itemId, nextPriority)
+              }}
+              onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
+              onEditItem={handleOpenEdit}
+              canMoveItems
+              lockedPriorityItemIds={overdueItemIds}
+              emptyLabel="There's nothing in this backlog"
             />
           </div>
         </div>
@@ -1180,6 +1243,7 @@ export function BacklogPageClient({
         }}
         onAssigneeChange={updateItemAssignee}
         onPriorityChange={async (todoId, nextPriority) => {
+          if (overdueItemIds.has(todoId) && nextPriority !== "High") return
           await updateItemPriority(todoId, nextPriority)
           handleTaskDetailsUpdate(todoId, { priority: nextPriority })
         }}

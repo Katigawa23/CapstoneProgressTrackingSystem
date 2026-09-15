@@ -27,11 +27,13 @@ import { readClientAuthSession, subscribeToAuthChange } from "@/lib/auth-client"
 import { markDashboardProjectPageSeenInSession } from "@/lib/dashboard-first-open"
 import {
   findDashboardProject,
+  getDashboardProjects,
   getSelectedDashboardProjectId,
   PROJECT_CHANGE_EVENT,
   refreshDashboardProjects,
 } from "@/lib/projects"
 import { getInitials } from "../utils"
+import { canCreateProject, isUserRole } from "@/lib/rbac"
 
 type ProjectMember = {
   userId: string
@@ -66,6 +68,10 @@ export default function MembersPage() {
   const [editingRoleMemberId, setEditingRoleMemberId] = React.useState<string | null>(null)
   const [pendingRemoveMember, setPendingRemoveMember] =
     React.useState<ProjectMember | null>(null)
+  const [pendingAddMember, setPendingAddMember] = React.useState<{
+    member: RegisteredUserOption
+    currentGroupName: string | null
+  } | null>(null)
   const [actionError, setActionError] = React.useState<string | null>(null)
   const latestMemberRequestId = React.useRef(0)
 
@@ -101,8 +107,7 @@ export default function MembersPage() {
     [projectId]
   )
   const canManageMembers =
-    currentUserId !== "tester-admin" &&
-    (currentUserRole === "faculty" || currentUserRole === "admin")
+    isUserRole(currentUserRole) && canCreateProject(currentUserRole, currentUserId)
 
   const loadMembers = React.useCallback(async () => {
     if (!projectId) {
@@ -284,7 +289,7 @@ export default function MembersPage() {
   )
 
   const addMember = React.useCallback(
-    async (member: RegisteredUserOption) => {
+    async (member: RegisteredUserOption, transferApproved = false) => {
       if (!projectId || !canManageMembers) {
         return
       }
@@ -298,7 +303,7 @@ export default function MembersPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ userId: member.id }),
+          body: JSON.stringify({ userId: member.id, transferApproved }),
         })
 
         if (!response.ok) {
@@ -441,7 +446,18 @@ export default function MembersPage() {
                       type="button"
                       className="flex w-full items-center gap-2 rounded-[5px] px-2 py-2 text-left transition hover:bg-slate-50 dark:hover:bg-[#252734]"
                       onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => void addMember(member)}
+                      onClick={() => {
+                        const currentGroup = getDashboardProjects().find(
+                          (project) =>
+                            project.id !== projectId &&
+                            project.memberUserIds.includes(member.id)
+                        )
+                        setPendingAddMember({
+                          member,
+                          currentGroupName: currentGroup?.name ?? null,
+                        })
+                        setIsMemberOptionsOpen(false)
+                      }}
                     >
                       <Avatar className="h-7 w-7">
                         <AvatarFallback className="text-[10px]">
@@ -648,6 +664,55 @@ export default function MembersPage() {
           </table>
         </div>
       </div>
+
+      <AlertDialog
+        open={pendingAddMember !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingAddMember(null)
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle>
+              {pendingAddMember?.currentGroupName ? "Transfer student?" : "Add student?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-slate-600 dark:text-slate-300">
+              {pendingAddMember?.currentGroupName ? (
+                <>
+                  <span className="block">
+                    This student is already assigned to another group. Do you want to transfer them to this group?
+                  </span>
+                  <span className="block font-medium text-slate-900 dark:text-slate-100">
+                    {pendingAddMember.member.name} is currently in {pendingAddMember.currentGroupName}.
+                  </span>
+                </>
+              ) : (
+                "Are you sure you want to add this student to the group?"
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingAddMember) {
+                  void addMember(
+                    pendingAddMember.member,
+                    Boolean(pendingAddMember.currentGroupName)
+                  )
+                }
+                setPendingAddMember(null)
+              }}
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+                color: "var(--brand-primary-fixed-foreground)",
+              }}
+            >
+              {pendingAddMember?.currentGroupName ? "Transfer Student" : "Add Student"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={pendingRemoveMember !== null}

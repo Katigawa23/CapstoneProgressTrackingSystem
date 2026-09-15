@@ -80,6 +80,13 @@ export function useDashboardProjects({
   const [memberOptions, setMemberOptions] = React.useState<ProjectMemberOption[]>([])
   const [memberOptionsLoading, setMemberOptionsLoading] = React.useState(false)
   const [selectedMembers, setSelectedMembers] = React.useState<ProjectMemberOption[]>([])
+  const [transferMemberUserIds, setTransferMemberUserIds] = React.useState<Set<string>>(
+    () => new Set()
+  )
+  const [pendingStudentTransfer, setPendingStudentTransfer] = React.useState<{
+    member: ProjectMemberOption
+    groupName: string
+  } | null>(null)
   const [adviserSearch, setAdviserSearch] = React.useState("")
   const [adviserOptions, setAdviserOptions] = React.useState<ProjectMemberOption[]>([])
   const [adviserOptionsLoading, setAdviserOptionsLoading] = React.useState(false)
@@ -129,6 +136,8 @@ export function useDashboardProjects({
     setMemberSearch("")
     setMemberOptions([])
     setSelectedMembers([])
+    setTransferMemberUserIds(new Set())
+    setPendingStudentTransfer(null)
     setAdviserSearch("")
     setAdviserOptions([])
     setSelectedAdvisers([])
@@ -237,9 +246,7 @@ export function useDashboardProjects({
   }, [adviserSearch, createProjectOpen])
 
   const handleAdviserSelect = React.useCallback((adviser: ProjectMemberOption) => {
-    setSelectedAdvisers((current) =>
-      current.some((item) => item.id === adviser.id) ? current : [...current, adviser]
-    )
+    setSelectedAdvisers([adviser])
     setAdviserSearch("")
   }, [])
 
@@ -262,6 +269,16 @@ export function useDashboardProjects({
       return
     }
 
+    const currentGroup = projects.find((project) =>
+      project.memberUserIds.some((memberUserId) => memberUserId === member.id)
+    )
+
+    if (currentGroup) {
+      setPendingStudentTransfer({ member, groupName: currentGroup.name })
+      setMemberSearch("")
+      return
+    }
+
     setSelectedMembers((currentMembers) => {
       if (currentMembers.some((currentMember) => currentMember.id === member.id)) {
         return currentMembers
@@ -273,12 +290,32 @@ export function useDashboardProjects({
       ]
     })
     setMemberSearch("")
+  }, [projects])
+
+  const confirmStudentTransfer = React.useCallback(() => {
+    if (!pendingStudentTransfer) return
+
+    const { member } = pendingStudentTransfer
+    setTransferMemberUserIds((current) => new Set(current).add(member.id))
+    setSelectedMembers((current) =>
+      current.some((selected) => selected.id === member.id) ? current : [...current, member]
+    )
+    setPendingStudentTransfer(null)
+  }, [pendingStudentTransfer])
+
+  const cancelStudentTransfer = React.useCallback(() => {
+    setPendingStudentTransfer(null)
   }, [])
 
   const handleMemberRemove = React.useCallback((memberId: string) => {
     setSelectedMembers((currentMembers) =>
       currentMembers.filter((member) => member.id !== memberId)
     )
+    setTransferMemberUserIds((current) => {
+      const next = new Set(current)
+      next.delete(memberId)
+      return next
+    })
   }, [])
 
   const handleProjectTitleChange = React.useCallback((value: string) => {
@@ -350,6 +387,7 @@ export function useDashboardProjects({
         advisers: adviserNames,
         memberUserIds,
         memberAccess,
+        transferMemberUserIds: [...transferMemberUserIds],
         program,
         yearLevel,
         syTerm,
@@ -365,9 +403,27 @@ export function useDashboardProjects({
     }
 
     setDashboardProject(nextProject.id)
+    const transferredMemberNames = new Set(
+      selectedMembers
+        .filter((member) => transferMemberUserIds.has(member.id))
+        .map((member) => member.name)
+    )
     const nextProjects = [
       nextProject,
-      ...getDashboardProjects().filter((project) => project.id !== nextProject.id),
+      ...getDashboardProjects()
+        .filter((project) => project.id !== nextProject.id)
+        .map((project) => ({
+          ...project,
+          memberUserIds: project.memberUserIds.filter(
+            (memberUserId) => !transferMemberUserIds.has(memberUserId)
+          ),
+          sprintCreatorUserIds: project.sprintCreatorUserIds.filter(
+            (memberUserId) => !transferMemberUserIds.has(memberUserId)
+          ),
+          members: project.members.filter(
+            (memberName) => !transferredMemberNames.has(memberName)
+          ),
+        })),
     ]
 
     cacheDashboardProjects(nextProjects)
@@ -389,6 +445,7 @@ export function useDashboardProjects({
     resetCreateProjectForm,
     selectedAdvisers,
     selectedMembers,
+    transferMemberUserIds,
   ])
 
   return {
@@ -398,6 +455,9 @@ export function useDashboardProjects({
     createProject,
     createProjectOpen,
     createProjectError,
+    pendingStudentTransfer,
+    confirmStudentTransfer,
+    cancelStudentTransfer,
     isCreatingProject,
     handleMemberSearchChange,
     handleAdviserRemove,

@@ -144,13 +144,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
     }
 
+    const startDate = normalizeOptionalDate(body.startDate)
+    const dueDate = normalizeOptionalDate(body.dueDate)
+
+    if (!requestedParentId && !startDate) {
+      return NextResponse.json({ error: "Start date is required" }, { status: 400 })
+    }
+
+    if (!requestedParentId && !dueDate) {
+      return NextResponse.json({ error: "Due date is required" }, { status: 400 })
+    }
+
+    if (!requestedParentId && startDate && dueDate && dueDate < startDate) {
+      return NextResponse.json(
+        { error: "Due date cannot be before the start date" },
+        { status: 400 }
+      )
+    }
+
     const item = await createBacklogItem({
       projectId,
       parentId: requestedParentId,
       title,
       description: body.description?.trim() ?? "",
-      startDate: normalizeOptionalDate(body.startDate),
-      dueDate: normalizeOptionalDate(body.dueDate),
+      startDate,
+      dueDate,
       status,
       checked: false,
       assigneeId: body.assigneeId ?? null,
