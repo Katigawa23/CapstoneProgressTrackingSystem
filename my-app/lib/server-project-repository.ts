@@ -50,11 +50,13 @@ type CreateProjectInput = {
   starred?: boolean
   sprintCreatorUserIds?: string[]
   memberUserIds: string[]
+  exclusiveStudentUserIds?: string[]
   memberAccess?: Array<{
     userId: string
     role: string
     canCreateSprint: boolean
   }>
+  transferMemberUserIds?: string[]
   program: string
   yearLevel: string
   syTerm: string
@@ -153,6 +155,13 @@ function shouldUseFileFallback(error: unknown) {
   }
 
   return shouldFallbackToLocalStore(error)
+}
+
+export class StudentAlreadyAssignedError extends Error {
+  constructor() {
+    super("One or more students are already assigned to another group.")
+    this.name = "StudentAlreadyAssignedError"
+  }
 }
 
 function showFallbackWarning(error: unknown) {
@@ -812,6 +821,60 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
         throw new ProjectNameConflictError(project.name)
       }
 
+      const requestedMemberUserIds = input.memberUserIds.filter(
+        (memberUserId) => memberUserId !== ownerUserId
+      )
+      const requestedStudentUserIds = (input.exclusiveStudentUserIds ?? input.memberUserIds).filter(
+        (memberUserId) => memberUserId !== ownerUserId
+      )
+      const approvedTransferIds = new Set(input.transferMemberUserIds ?? [])
+      const assignedResult = await getDb().query<{ member_user_id: string }>(
+        `select distinct member_user_id
+         from projects
+         cross join unnest(member_user_ids) as assigned(member_user_id)
+         where assigned.member_user_id = any($1::text[])`,
+        [requestedStudentUserIds]
+      )
+      const assignedIds = assignedResult.rows.map((row) => row.member_user_id)
+
+      if (assignedIds.some((memberUserId) => !approvedTransferIds.has(memberUserId))) {
+        throw new StudentAlreadyAssignedError()
+      }
+
+      const transferIds = assignedIds.filter((memberUserId) =>
+        approvedTransferIds.has(memberUserId)
+      )
+
+      if (transferIds.length > 0) {
+        const transferredFrom = await getDb().query<{ id: string }>(
+          `update projects
+           set member_user_ids = array(
+                 select existing.member_user_id
+                 from unnest(member_user_ids) as existing(member_user_id)
+                 where not (existing.member_user_id = any($1::text[]))
+               ),
+               sprint_creator_user_ids = array(
+                 select existing.member_user_id
+                 from unnest(sprint_creator_user_ids) as existing(member_user_id)
+                 where not (existing.member_user_id = any($1::text[]))
+               ),
+               project_member = array(
+                 select existing.member_name
+                 from unnest(project_member) as existing(member_name)
+                 where existing.member_name not in (
+                   select name from users where microsoft_user_id = any($1::text[])
+                 )
+               )
+           where member_user_ids && $1::text[]
+           returning id`,
+          [transferIds]
+        )
+
+        for (const previousProject of transferredFrom.rows) {
+          await syncProjectGroupFromProject(previousProject.id)
+        }
+      }
+
       const result = await getDb().query<ProjectRecord>(
         `insert into projects (
            id,
@@ -845,7 +908,7 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
         [
           project.id,
           ownerUserId,
-          input.memberUserIds.filter((memberUserId) => memberUserId !== ownerUserId),
+          requestedMemberUserIds,
           (input.sprintCreatorUserIds ?? []).filter((memberUserId) => memberUserId !== ownerUserId),
           project.name,
           project.members,
@@ -890,9 +953,43 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
         throw new ProjectNameConflictError(project.name)
       }
 
+      const requestedMemberUserIds = input.memberUserIds.filter(
+        (memberUserId) => memberUserId !== ownerUserId
+      )
+      const requestedStudentUserIds = (input.exclusiveStudentUserIds ?? input.memberUserIds).filter(
+        (memberUserId) => memberUserId !== ownerUserId
+      )
+      const approvedTransferIds = new Set(input.transferMemberUserIds ?? [])
+      const assignedIds = new Set(
+        records.flatMap((record) =>
+          record.member_user_ids.filter((memberUserId) =>
+            requestedStudentUserIds.includes(memberUserId)
+          )
+        )
+      )
+
+      if ([...assignedIds].some((memberUserId) => !approvedTransferIds.has(memberUserId))) {
+        throw new StudentAlreadyAssignedError()
+      }
+
+      const transferredNames = new Set(
+        input.members.filter((_, index) => approvedTransferIds.has(requestedStudentUserIds[index]))
+      )
+      for (const record of records) {
+        record.member_user_ids = record.member_user_ids.filter(
+          (memberUserId) => !approvedTransferIds.has(memberUserId)
+        )
+        record.sprint_creator_user_ids = record.sprint_creator_user_ids.filter(
+          (memberUserId) => !approvedTransferIds.has(memberUserId)
+        )
+        record.project_member = record.project_member.filter(
+          (memberName) => !transferredNames.has(memberName)
+        )
+      }
+
       records.unshift({
         ...toRecord(project, ownerUserId),
-        member_user_ids: input.memberUserIds.filter((memberUserId) => memberUserId !== ownerUserId),
+        member_user_ids: requestedMemberUserIds,
         sprint_creator_user_ids: (input.sprintCreatorUserIds ?? []).filter(
           (memberUserId) => memberUserId !== ownerUserId
         ),
@@ -1464,7 +1561,8 @@ export async function addProjectStudentMember(
   projectId: string,
   targetUserId: string,
   actorUserId: string,
-  actorRole: "student" | "faculty" | "admin"
+  actorRole: "student" | "faculty" | "admin",
+  transferApproved = false
 ): Promise<ProjectMemberAccessView | null> {
   if (!canManageProjectMembers(actorRole)) {
     return null
@@ -1504,6 +1602,34 @@ export async function addProjectStudentMember(
         ["faculty", "admin"].includes(targetRow.target_role)
       ) {
         return null
+      }
+
+      const existingAssignments = await getDb().query<{ id: string }>(
+        `select id
+         from projects
+         where id <> $1
+           and $2 = any(member_user_ids)`,
+        [projectId, targetUserId]
+      )
+
+      if ((existingAssignments.rowCount ?? 0) > 0 && !transferApproved) {
+        throw new StudentAlreadyAssignedError()
+      }
+
+      if ((existingAssignments.rowCount ?? 0) > 0) {
+        await getDb().query(
+          `update projects
+           set member_user_ids = array_remove(member_user_ids, $1),
+               sprint_creator_user_ids = array_remove(sprint_creator_user_ids, $1),
+               project_member = array_remove(project_member, $2)
+           where id <> $3
+             and $1 = any(member_user_ids)`,
+          [targetUserId, targetRow.target_name, projectId]
+        )
+
+        for (const previousProject of existingAssignments.rows) {
+          await syncProjectGroupFromProject(previousProject.id)
+        }
       }
 
       await getDb().query(

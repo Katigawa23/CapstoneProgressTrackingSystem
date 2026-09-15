@@ -286,7 +286,7 @@ export function TaskSubtasksSection({
     async (subtask: TodoItem, nextDate?: Date) => {
       setOpenStartDateSubtaskId(null)
 
-      const nextStartDate = nextDate ? nextDate.toISOString().slice(0, 10) : ""
+      const nextStartDate = nextDate ? getLocalDateString(nextDate) : ""
       const currentDueDate = subtask.deadline || ""
       const nextDueDate =
         nextDate &&
@@ -319,7 +319,7 @@ export function TaskSubtasksSection({
         title: subtask.title,
         description: subtask.description,
         startDate: subtask.startDate,
-        deadline: nextDate ? nextDate.toISOString().slice(0, 10) : "",
+        deadline: nextDate ? getLocalDateString(nextDate) : "",
       })
     },
     [onUpdateSubtask]
@@ -362,10 +362,10 @@ export function TaskSubtasksSection({
         title: nextTitle,
         description: "",
         startDate: newSubtaskStartDate
-          ? newSubtaskStartDate.toISOString().slice(0, 10)
+          ? getLocalDateString(newSubtaskStartDate)
           : undefined,
         dueDate: newSubtaskDueDate
-          ? newSubtaskDueDate.toISOString().slice(0, 10)
+          ? getLocalDateString(newSubtaskDueDate)
           : undefined,
       })
       setSubtaskTitleError(null)

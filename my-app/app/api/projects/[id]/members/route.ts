@@ -3,10 +3,12 @@ import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
+import { canCreateProject, isUserRole } from "@/lib/rbac"
 import {
   addProjectStudentMember,
   listProjectMembers,
   removeProjectStudentMember,
+  StudentAlreadyAssignedError,
   updateProjectMemberAccess,
 } from "@backend/repositories/projects-repository"
 
@@ -61,6 +63,12 @@ export async function PATCH(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    if (!isUserRole(user.role) || !canCreateProject(user.role, user.id)) {
+      return NextResponse.json(
+        { error: "Only the coordinator can manage group members." },
+        { status: 403 }
+      )
+    }
     const { id } = await params
     const projectId = id.trim()
     const body = (await request.json()) as {
@@ -119,9 +127,15 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    if (!isUserRole(user.role) || !canCreateProject(user.role, user.id)) {
+      return NextResponse.json(
+        { error: "Only the coordinator can manage group members." },
+        { status: 403 }
+      )
+    }
     const { id } = await params
     const projectId = id.trim()
-    const body = (await request.json()) as { userId?: string }
+    const body = (await request.json()) as { userId?: string; transferApproved?: boolean }
     const targetUserId = body.userId?.trim()
 
     if (!projectId || !targetUserId) {
@@ -135,7 +149,8 @@ export async function POST(
       projectId,
       targetUserId,
       user.id,
-      user.role
+      user.role,
+      body.transferApproved === true
     )
 
     if (!member) {
@@ -149,6 +164,9 @@ export async function POST(
 
     return NextResponse.json({ member }, { status: 201 })
   } catch (error) {
+    if (error instanceof StudentAlreadyAssignedError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
     const errorMessage = error instanceof Error ? error.message : String(error)
     const isAuthError = errorMessage === "Unauthorized"
 
@@ -167,6 +185,12 @@ export async function DELETE(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    if (!isUserRole(user.role) || !canCreateProject(user.role, user.id)) {
+      return NextResponse.json(
+        { error: "Only the coordinator can manage group members." },
+        { status: 403 }
+      )
+    }
     const { id } = await params
     const projectId = id.trim()
     const { searchParams } = new URL(request.url)

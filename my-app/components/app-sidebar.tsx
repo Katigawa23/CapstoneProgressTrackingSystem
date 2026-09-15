@@ -232,6 +232,9 @@ export function AppSidebar({
     createProject,
     createProjectOpen,
     createProjectError,
+    pendingStudentTransfer,
+    confirmStudentTransfer,
+    cancelStudentTransfer,
     handleMemberRemove,
     handleMemberSearchChange,
     handleAdviserRemove,
@@ -327,6 +330,9 @@ export function AppSidebar({
         onMemberRemove={handleMemberRemove}
         onMemberSearchChange={handleMemberSearchChange}
         onMemberSelect={handleMemberSelect}
+        pendingStudentTransfer={pendingStudentTransfer}
+        onConfirmStudentTransfer={confirmStudentTransfer}
+        onCancelStudentTransfer={cancelStudentTransfer}
         onProjectProgramChange={setProjectProgram}
         onProjectSyTermChange={setProjectSyTerm}
         onProjectSyTermOtherChange={setProjectSyTermOther}

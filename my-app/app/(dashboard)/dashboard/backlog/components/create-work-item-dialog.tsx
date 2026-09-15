@@ -148,7 +148,7 @@ export function CreateWorkItemDialog({
             <>
               <div className="min-w-0 space-y-1">
                 <Label className="text-slate-900 dark:text-slate-100">
-                  Start date
+                  Start date <span className="text-red-500">*</span>
                 </Label>
                 <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                   <PopoverTrigger asChild>
@@ -190,7 +190,7 @@ export function CreateWorkItemDialog({
 
               <div className="min-w-0 space-y-1">
                 <Label className="text-slate-900 dark:text-slate-100">
-                  Due date
+                  Due date <span className="text-red-500">*</span>
                 </Label>
                 <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
                   <PopoverTrigger asChild>
@@ -400,7 +400,11 @@ export function CreateWorkItemDialog({
               size="sm"
             className="h-8 min-w-24 rounded-[2px] px-3 text-sm hover:opacity-90"
             onClick={onAddItem}
-            disabled={isSubmitting || !title.trim()}
+            disabled={
+              isSubmitting ||
+              !title.trim() ||
+              (!isSubtaskMode && (!startDate || !dueDate))
+            }
           >
             {isSubmitting
               ? isSubtaskMode

@@ -37,6 +37,7 @@ import {
 } from "../backlog/types"
 import type { BacklogApiItem, TodoItem } from "../types"
 import { buildSubtaskDisplayId, mapBacklogItemsToTodos } from "../utils"
+import { getLocalDateString } from "@/lib/trusted-time"
 
 type DashboardBoardPageClientProps = {
   initialProjects: DashboardProject[]
@@ -823,7 +824,12 @@ export function DashboardBoardPageClient({
   }
 
   const handleCreateItem = async () => {
-    if (isCreatingTask || !createTitle.trim()) return
+    if (isCreatingTask) return
+
+    if (!createTitle.trim() || !createStartDate || !createDueDate) {
+      setCreateTaskError("Title, start date, and due date are required")
+      return
+    }
 
     const titleValidationError = validateDisplayName(createTitle, "Task name", {
       maxLength: TASK_SPRINT_NAME_MAX_LENGTH,
@@ -853,8 +859,8 @@ export function DashboardBoardPageClient({
           parentId: null,
           title: createTitle.trim(),
           description: createDescription.trim(),
-          startDate: createStartDate ? createStartDate.toISOString().slice(0, 10) : null,
-          dueDate: createDueDate ? createDueDate.toISOString().slice(0, 10) : null,
+          startDate: createStartDate ? getLocalDateString(createStartDate) : null,
+          dueDate: createDueDate ? getLocalDateString(createDueDate) : null,
           status: "todo",
           assigneeId: createAssigneeId,
           priority: createPriority,

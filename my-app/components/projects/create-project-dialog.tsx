@@ -6,6 +6,16 @@ import { ArrowUpRight, Check, CircleUserRound, Loader2, Search, UserRound, X } f
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -78,6 +88,9 @@ type CreateProjectDialogProps = {
   selectedAdvisers: ProjectMemberOption[]
   showAdviserField?: boolean
   useGroupTerminology?: boolean
+  pendingStudentTransfer?: { member: ProjectMemberOption; groupName: string } | null
+  onConfirmStudentTransfer?: () => void
+  onCancelStudentTransfer?: () => void
 }
 
 type SelectWithCustomInputProps = {
@@ -198,6 +211,9 @@ export function CreateProjectDialog({
   selectedAdvisers,
   showAdviserField = false,
   useGroupTerminology = false,
+  pendingStudentTransfer = null,
+  onConfirmStudentTransfer,
+  onCancelStudentTransfer,
 }: CreateProjectDialogProps) {
   const [memberPickerOpen, setMemberPickerOpen] = React.useState(false)
   const [adviserPickerOpen, setAdviserPickerOpen] = React.useState(false)
@@ -256,6 +272,7 @@ export function CreateProjectDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-[2px] border-border/70 bg-white px-5 py-4 dark:border-[#343434] dark:bg-[#171717] sm:max-w-xl">
         <div className="border-b border-border/70 pb-2 dark:border-[#343434]">
@@ -604,5 +621,40 @@ export function CreateProjectDialog({
         </form>
       </DialogContent>
     </Dialog>
+      <AlertDialog
+        open={Boolean(pendingStudentTransfer)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) onCancelStudentTransfer?.()
+        }}
+      >
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle>Transfer student?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-slate-600 dark:text-slate-300">
+              <span className="block">
+                This student is already assigned to another group. Do you want to transfer them to this group?
+              </span>
+              {pendingStudentTransfer ? (
+                <span className="block font-medium text-slate-900 dark:text-slate-100">
+                  {getMemberDisplayName(pendingStudentTransfer.member.name)} is currently in {pendingStudentTransfer.groupName}.
+                </span>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={onCancelStudentTransfer}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onConfirmStudentTransfer}
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+                color: "var(--brand-primary-fixed-foreground)",
+              }}
+            >
+              Transfer Student
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
