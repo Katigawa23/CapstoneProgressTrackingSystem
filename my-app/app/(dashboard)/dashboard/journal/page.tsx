@@ -32,6 +32,10 @@ export default async function JournalPage() {
       projectName={selectedProject.name}
       initialNow={new Date().toISOString()}
       canApprove={user.id === "tester-coordinator"}
+      projectId={selectedProject.id}
+      userRole={user.role}
+      members={selectedProject.members ?? []}
+      advisers={selectedProject.advisers ?? []}
     />
   )
 }
