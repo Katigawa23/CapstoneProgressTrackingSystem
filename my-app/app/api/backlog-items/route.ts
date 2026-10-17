@@ -13,6 +13,7 @@ import {
   listBacklogItems,
   updateBacklogItem,
 } from "@backend/repositories/tasks-repository"
+import { createNotification } from "@/lib/server-notification-repository"
 
 const allowedStatuses = new Set([
   "todo",
@@ -189,11 +190,26 @@ export async function POST(request: Request) {
           }, user.role)
         : item
 
+    const createdItem = nextItem ?? item
+    if (createdItem.assigneeId) {
+      await createNotification({
+        recipientUserId: createdItem.assigneeId,
+        actorUserId: user.id,
+        projectId: createdItem.projectId,
+        backlogItemId: createdItem.id,
+        type: "task_assigned",
+        title: "New task assigned",
+        message: `${user.name} assigned “${createdItem.title}” to you.`,
+        href: `/dashboard/board?taskId=${encodeURIComponent(createdItem.id)}`,
+        dedupeKey: `task-assigned:${createdItem.id}:${createdItem.assigneeId}`,
+      })
+    }
+
     revalidateTag("backlog-items", "max")
     revalidateTag("backlog-comments", "max")
 
     return NextResponse.json(
-      { item: toActiveBacklogItemResponse(nextItem ?? item) },
+      { item: toActiveBacklogItemResponse(createdItem) },
       { status: 201 }
     )
   } catch (error) {

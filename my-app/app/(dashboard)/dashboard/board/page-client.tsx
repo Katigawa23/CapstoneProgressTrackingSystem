@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import {
   cacheDashboardProjects,
@@ -94,6 +94,8 @@ export function DashboardBoardPageClient({
   onProjectBoardSelectPath = "/dashboard/board",
 }: DashboardBoardPageClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const openTaskId = searchParams.get("taskId")
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
     initialSelectedProjectId
   )
@@ -1180,6 +1182,13 @@ export function DashboardBoardPageClient({
         <div className="min-h-0 w-full min-w-0 md:max-w-[calc(100vw-var(--sidebar-width)-3rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
           <DashboardBoard
             todos={filteredTodos}
+            openTodoId={openTaskId}
+            onTaskDialogClose={() => {
+              const nextParams = new URLSearchParams(searchParams.toString())
+              nextParams.delete("taskId")
+              const query = nextParams.toString()
+              router.replace(query ? `/dashboard/board?${query}` : "/dashboard/board")
+            }}
             currentUserId={currentUser?.id ?? null}
             creatorNamesById={creatorNamesById}
             canManageOtherProjectResources={canManageProjectResources}

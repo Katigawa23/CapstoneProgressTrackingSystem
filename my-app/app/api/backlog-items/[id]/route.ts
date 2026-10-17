@@ -7,6 +7,7 @@ import {
   BacklogItemNameConflictError,
   updateBacklogItem,
 } from "@backend/repositories/tasks-repository"
+import { createNotification, notifyProjectAdvisers } from "@/lib/server-notification-repository"
 
 function normalizeOptionalDate(value: unknown) {
   if (typeof value !== "string") {
@@ -75,6 +76,44 @@ export async function PATCH(
         { error: "Backlog item not found or unchanged" },
         { status: 404 }
       )
+    }
+
+    if ("assigneeId" in body && item.assigneeId) {
+      await createNotification({
+        recipientUserId: item.assigneeId,
+        actorUserId: user.id,
+        projectId: item.projectId,
+        backlogItemId: item.id,
+        type: "task_assigned",
+        title: "Task assigned to you",
+        message: `${user.name} assigned “${item.title}” to you.`,
+        href: `/dashboard/board?taskId=${encodeURIComponent(item.id)}`,
+        dedupeKey: `task-assigned:${item.id}:${item.assigneeId}`,
+      })
+    }
+
+    if (user.role === "faculty" && body.status === "completed" && item.assigneeId) {
+      await createNotification({
+        recipientUserId: item.assigneeId,
+        actorUserId: user.id,
+        projectId: item.projectId,
+        backlogItemId: item.id,
+        type: "task_approved",
+        title: "Task approved by adviser",
+        message: `${user.name} approved “${item.title}”.`,
+        href: `/dashboard/board?taskId=${encodeURIComponent(item.id)}`,
+        dedupeKey: `task-approved:${item.id}`,
+      })
+    }
+
+    if (user.role === "student" && (body.status === "inreview" || body.status === "completed")) {
+      await notifyProjectAdvisers({
+        projectId: item.projectId,
+        actorUserId: user.id,
+        backlogItemId: item.id,
+        taskTitle: item.title,
+        actorName: user.name,
+      })
     }
 
     revalidateTag("backlog-items", "max")
