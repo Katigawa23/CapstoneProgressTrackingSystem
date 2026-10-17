@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, CheckCircle2, CircleDashed, Clock3, Download, FileText, Loader2, Save, Send } from "lucide-react"
+import { ArrowLeft, ArrowRight, BookOpen, CalendarCheck2, CalendarDays, CheckCircle2, CircleDashed, Clock3, Download, FileText, ListChecks, Loader2, RefreshCw, Save, Send, Sparkles, Target, TriangleAlert, Trophy, Upload, UserRoundCheck, UsersRound } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type StoredStatus = "approved" | "submitted" | "draft"
@@ -18,14 +18,14 @@ type AutoSummary = Omit<Fields, "adviserFeedback"> & {
 type Week = { week: number; dateRange: string }
 
 const EMPTY: Fields = { weeklyObjectives: "", workCompleted: "", memberContributions: "", challenges: "", actionsTaken: "", nextWeekPlan: "", adviserFeedback: "" }
-const FIELD_DEFINITIONS: Array<[keyof Fields, string, string]> = [
-  ["weeklyObjectives", "Weekly objectives", "List the goals the group plans to complete this week."],
-  ["workCompleted", "Work completed", "Summarize completed tasks and project progress."],
-  ["memberContributions", "Member contributions", "Record the contribution of every group member."],
-  ["challenges", "Challenges", "Describe blockers or problems encountered by the group."],
-  ["actionsTaken", "Actions taken", "Explain the solutions and actions used to address each challenge."],
-  ["nextWeekPlan", "Next-week plan", "Outline the next tasks and priorities."],
-]
+const FIELD_DEFINITIONS = [
+  { key: "weeklyObjectives", title: "Weekly objectives", description: "Goals and priorities scheduled for this week.", icon: Target, accent: "text-blue-500", iconBackground: "bg-blue-500/10" },
+  { key: "workCompleted", title: "Work completed", description: "Finished tasks and measurable project progress.", icon: Trophy, accent: "text-emerald-500", iconBackground: "bg-emerald-500/10" },
+  { key: "memberContributions", title: "Member contributions", description: "Recorded participation from every group member.", icon: UsersRound, accent: "text-violet-500", iconBackground: "bg-violet-500/10" },
+  { key: "challenges", title: "Challenges", description: "Blockers, revisions, and issues encountered.", icon: TriangleAlert, accent: "text-orange-500", iconBackground: "bg-orange-500/10" },
+  { key: "actionsTaken", title: "Actions taken", description: "Steps completed to move the project forward.", icon: ListChecks, accent: "text-cyan-500", iconBackground: "bg-cyan-500/10" },
+  { key: "nextWeekPlan", title: "Next-week plan", description: "Upcoming deliverables and priorities.", icon: CalendarCheck2, accent: "text-pink-500", iconBackground: "bg-pink-500/10" },
+] satisfies Array<{ key: keyof Fields; title: string; description: string; icon: typeof Target; accent: string; iconBackground: string }>
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000
 const statusStyles: Record<DisplayStatus, string> = {
@@ -57,15 +57,53 @@ function makeWeeks(created: string, now: number): Week[] {
   }))
 }
 
+function getActivityStyle(content: string) {
+  const normalized = content.toLowerCase()
+  if (normalized.includes("upload") || normalized.includes("submitted evidence")) return { icon: Upload, label: "File submission", color: "text-violet-500", background: "bg-violet-500/10" }
+  if (normalized.includes("completed")) return { icon: CheckCircle2, label: "Completed", color: "text-emerald-500", background: "bg-emerald-500/10" }
+  if (normalized.includes("revision")) return { icon: TriangleAlert, label: "Revision", color: "text-orange-500", background: "bg-orange-500/10" }
+  if (normalized.includes("delayed") || normalized.includes("overdue")) return { icon: Clock3, label: "Delayed", color: "text-red-500", background: "bg-red-500/10" }
+  if (normalized.includes("assigned") || normalized.includes("contribution")) return { icon: UserRoundCheck, label: "Assignment", color: "text-cyan-500", background: "bg-cyan-500/10" }
+  if (normalized.includes("created")) return { icon: Sparkles, label: "Task created", color: "text-blue-500", background: "bg-blue-500/10" }
+  if (normalized.includes("moved") || normalized.includes("changed")) return { icon: RefreshCw, label: "Task updated", color: "text-amber-500", background: "bg-amber-500/10" }
+  return { icon: Target, label: "Project activity", color: "text-[var(--brand-primary-fixed)]", background: "bg-[color:rgba(var(--brand-primary-rgb),0.10)]" }
+}
+
+function parseActivityLine(value: string) {
+  const line = value.replace(/^[•*-]\s*/, "").trim()
+  const separator = line.lastIndexOf(" — ")
+  if (separator < 0) return { text: line, detail: "" }
+  const possibleDetail = line.slice(separator + 3).trim()
+  const looksLikeDateOrDetail = /\b(?:am|pm|due|priority|not set)\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(possibleDetail)
+  return looksLikeDateOrDetail
+    ? { text: line.slice(0, separator).trim(), detail: possibleDetail }
+    : { text: line, detail: "" }
+}
+
 function ActivityList({ content }: { content: string }) {
   const scrollRef = React.useRef<HTMLDivElement>(null)
+  const activities = React.useMemo(
+    () => content.split("\n").map(parseActivityLine).filter((item) => item.text),
+    [content]
+  )
 
   React.useLayoutEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }, [content])
 
-  return <div ref={scrollRef} className="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-transparent pt-1 pr-2 print:overflow-visible">
-    <p className="whitespace-pre-line text-xs leading-5 text-foreground">{content}</p>
+  return <div ref={scrollRef} className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 print:overflow-visible">
+    {activities.map((activity, index) => {
+      const style = getActivityStyle(activity.text)
+      const Icon = style.icon
+      return <div key={`${activity.text}-${index}`} className="flex gap-2.5 rounded-md border bg-muted/15 p-2.5">
+        <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-md", style.background, style.color)}><Icon className="h-3.5 w-3.5" /></div>
+        <div className="min-w-0 flex-1">
+          <p className={cn("text-[9px] font-semibold uppercase tracking-wide", style.color)}>{style.label}</p>
+          <p className="mt-0.5 break-words text-[11px] leading-4 text-foreground">{activity.text}</p>
+          {activity.detail ? <p className="mt-1 flex items-center gap-1 text-[9px] text-muted-foreground"><Clock3 className="h-2.5 w-2.5" />{activity.detail}</p> : null}
+        </div>
+      </div>
+    })}
   </div>
 }
 
@@ -206,14 +244,13 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
         {studentCanEdit ? <><button disabled={saving} onClick={() => update("save")} className="inline-flex h-8 items-center gap-2 rounded-[6px] border px-3 text-xs"><Save className="h-3.5 w-3.5" />Save draft</button><button disabled={saving} onClick={() => update("submit")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-[var(--brand-primary-fixed)] px-3 text-xs font-semibold text-white"><Send className="h-3.5 w-3.5" />Submit</button></> : null}
         {canApprove && entry?.status === "submitted" && entry.adviserReviewedAt ? <button disabled={saving} onClick={() => update("approve")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-emerald-600 px-3 text-xs font-semibold text-white"><CheckCircle2 className="h-3.5 w-3.5" />Approve journal</button> : null}
       </div></div>
-      <section className="rounded-[8px] border bg-card p-4"><div className="flex items-start justify-between border-b pb-3"><div className="flex gap-3"><div className="flex h-9 w-9 items-center justify-center rounded bg-muted"><BookOpen className="h-4 w-4" /></div><div><h2 className="text-sm font-semibold">Week {selected.week} journal</h2><p className="text-xs text-muted-foreground">{selected.dateRange}</p></div></div><span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px]", statusStyles[status])}><StatusIcon status={status} />{status}</span></div>
-        {autoSummary ? <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4"><div className="rounded border p-2"><p className="text-[10px] text-muted-foreground">Created</p><p className="text-lg font-semibold">{autoSummary.tasksCreated}</p></div><div className="rounded border p-2"><p className="text-[10px] text-muted-foreground">Completed</p><p className="text-lg font-semibold text-emerald-500">{autoSummary.tasksCompleted}</p></div><div className="rounded border p-2"><p className="text-[10px] text-muted-foreground">Revisions</p><p className="text-lg font-semibold text-orange-500">{autoSummary.revisions}</p></div><div className="rounded border p-2"><p className="text-[10px] text-muted-foreground">Delayed</p><p className="text-lg font-semibold text-red-500">{autoSummary.delayed}</p></div></div> : null}
-        <div className="grid items-start gap-3 pt-4 md:grid-cols-2 xl:grid-cols-3">{FIELD_DEFINITIONS.map(([key, title]) => {
+      <section className="overflow-hidden rounded-xl border bg-card shadow-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:shadow-none"><div className="flex items-start justify-between border-b bg-gradient-to-r from-[color:rgba(var(--brand-primary-rgb),0.12)] via-transparent to-transparent p-5"><div className="flex gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--brand-primary-fixed)] text-white shadow-sm"><BookOpen className="h-5 w-5" /></div><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--brand-primary-fixed)]">Weekly progress report</p><h2 className="mt-0.5 font-display text-base font-semibold">Week {selected.week} journal</h2><p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{selected.dateRange}</p></div></div><span className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium", statusStyles[status])}><StatusIcon status={status} />{status}</span></div>
+        <div className="grid items-start gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">{FIELD_DEFINITIONS.map(({ key, title, description, icon: Icon, accent, iconBackground }) => {
           const automaticValue = autoSummary?.[key as keyof Omit<AutoSummary, "weekNumber">] ?? ""
           const automatic = typeof automaticValue === "string" ? automaticValue : ""
-          return <div key={key} className="flex h-48 flex-col overflow-hidden rounded-[6px] border bg-background p-3 print:h-auto print:overflow-visible"><h3 className="shrink-0 text-xs font-semibold">{title}</h3>{automatic ? <ActivityList content={automatic} /> : <p className="mt-2 text-xs text-muted-foreground">No recorded activity this week.</p>}{studentCanEdit ? <textarea aria-label={`${title} additional notes`} value={form[key]} onChange={(event) => setForm((value) => ({ ...value, [key]: event.target.value }))} placeholder="Add student notes..." maxLength={5000} className="mt-2 min-h-0 w-full flex-1 resize-none rounded border bg-transparent p-2 text-xs leading-5 outline-none placeholder:text-muted-foreground" /> : form[key] ? <div className="mt-2 min-h-0 overflow-y-auto border-t pt-2 print:overflow-visible"><p className="text-[10px] font-semibold uppercase text-muted-foreground">Student notes</p><p className="mt-1 whitespace-pre-line text-xs">{form[key]}</p></div> : null}</div>
+          return <div key={key} className="flex h-52 flex-col overflow-hidden rounded-lg border bg-background p-3.5 transition-colors hover:border-[color:rgba(var(--brand-primary-rgb),0.35)] print:h-auto print:overflow-visible"><div className="flex shrink-0 items-start gap-3"><div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", iconBackground, accent)}><Icon className="h-4 w-4" /></div><div><h3 className="text-xs font-semibold">{title}</h3><p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">{description}</p></div></div>{automatic ? <ActivityList content={automatic} /> : <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed bg-muted/20 px-3 text-center"><Icon className={cn("h-5 w-5 opacity-60", accent)} /><p className="mt-1.5 text-[11px] font-medium">Nothing recorded yet</p><p className="mt-0.5 text-[10px] text-muted-foreground">Updates will appear automatically from group activity.</p></div>}{studentCanEdit ? <textarea aria-label={`${title} additional notes`} value={form[key]} onChange={(event) => setForm((value) => ({ ...value, [key]: event.target.value }))} placeholder="Add student notes..." maxLength={5000} className="mt-2 min-h-0 w-full flex-1 resize-none rounded-md border bg-transparent p-2 text-xs leading-5 outline-none transition-colors placeholder:text-muted-foreground focus:border-[var(--brand-primary-fixed)]" /> : form[key] ? <div className="mt-2 min-h-0 overflow-y-auto border-t pt-2 print:overflow-visible"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Student notes</p><p className="mt-1 whitespace-pre-line text-xs leading-5">{form[key]}</p></div> : null}</div>
         })}</div>
-        <div className="mt-3 rounded-[6px] border bg-background p-3"><div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">Adviser feedback</span>{entry?.adviserReviewedAt ? <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-500"><CheckCircle2 className="h-3 w-3" />Checked by adviser</span> : entry?.status === "submitted" ? <span className="text-[10px] text-muted-foreground">Awaiting adviser feedback</span> : null}</div><textarea aria-label="Adviser feedback" value={form.adviserFeedback} disabled={!adviserCanReview} onChange={(event) => setForm((value) => ({ ...value, adviserFeedback: event.target.value }))} placeholder="Adviser comments and recommendations will appear here." maxLength={5000} className="mt-2 min-h-24 w-full resize-y bg-transparent text-xs leading-5 outline-none placeholder:text-muted-foreground disabled:cursor-default" />{adviserCanReview ? <div className="mt-3 flex justify-end"><button type="button" disabled={saving} onClick={() => update("feedback")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-[var(--brand-primary-fixed)] px-3 text-xs font-semibold text-white disabled:opacity-60"><Save className="h-3.5 w-3.5" />Save feedback</button></div> : null}</div>
+        <div className="mx-4 mb-4 rounded-lg border bg-background p-4"><div className="flex items-center justify-between gap-2"><div><span className="text-xs font-semibold">Adviser feedback</span><p className="mt-0.5 text-[10px] text-muted-foreground">Comments, recommendations, and confirmation from the assigned adviser.</p></div>{entry?.adviserReviewedAt ? <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-500"><CheckCircle2 className="h-3 w-3" />Checked by adviser</span> : entry?.status === "submitted" ? <span className="rounded-full border bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground">Awaiting adviser feedback</span> : null}</div><textarea aria-label="Adviser feedback" value={form.adviserFeedback} disabled={!adviserCanReview} onChange={(event) => setForm((value) => ({ ...value, adviserFeedback: event.target.value }))} placeholder="Adviser comments and recommendations will appear here." maxLength={5000} className="mt-3 min-h-24 w-full resize-y rounded-md border bg-muted/10 p-3 text-xs leading-5 outline-none placeholder:text-muted-foreground focus:border-[var(--brand-primary-fixed)] disabled:cursor-default disabled:border-transparent disabled:bg-transparent disabled:p-0" />{adviserCanReview ? <div className="mt-3 flex justify-end"><button type="button" disabled={saving} onClick={() => update("feedback")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-[var(--brand-primary-fixed)] px-3 text-xs font-semibold text-white disabled:opacity-60"><Save className="h-3.5 w-3.5" />Save feedback</button></div> : null}</div>
         {message ? <p className="mt-3 text-xs text-muted-foreground">{message}</p> : null}
       </section>
     </div>}

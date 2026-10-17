@@ -3,7 +3,6 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Bell } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { ThemeSwitch } from "@/components/theme-switch"
@@ -41,6 +40,7 @@ import { type DashboardProject } from "@/lib/projects"
 import { RoleProvider } from "@/lib/role-context"
 import { canAccessPath, isUserRole, roleLabels, type UserRole } from "@/lib/rbac"
 import { BacklogLoadingSkeleton } from "./backlog/backlog-loading-skeleton"
+import { NotificationMenu } from "@/components/notification-menu"
 
 function ProfileMenu({
   session,
@@ -243,15 +243,7 @@ export function DashboardLayoutClient({
           <div className="ml-auto flex items-center gap-2">
             <ThemeSwitch iconOnly disabled={authLoading} />
 
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Notifications"
-              disabled={authLoading}
-              className="rounded-full text-slate-600 hover:bg-[color:rgba(var(--brand-primary-rgb),0.08)] hover:text-[var(--brand-primary-fixed)] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-[#63a0d6]"
-            >
-              <Bell className="h-5 w-5" />
-            </Button>
+            <NotificationMenu disabled={authLoading} />
 
             <ProfileMenu session={session} disabled={authLoading} />
           </div>

@@ -5,6 +5,8 @@ import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
+import { notifyProjectAdvisers } from "@/lib/server-notification-repository"
+import { getDb } from "@/lib/server-db"
 import {
   createBacklogSubmission,
   listBacklogSubmissions,
@@ -214,6 +216,33 @@ export async function POST(
       (submission): submission is NonNullable<(typeof submissions)[number]> =>
         submission !== null
     )
+
+    if (user.role === "student" && createdSubmissions.length > 0) {
+      const taskResult = await getDb().query<{ project_id: string; title: string }>(
+        `select project_id, title from backlog where id = $1 limit 1`,
+        [id]
+      )
+      const task = taskResult.rows[0]
+
+      if (task) {
+        const uploadedNames = createdSubmissions.map((submission) => submission.fileName)
+        const fileLabel = uploadedNames.length === 1
+          ? `the file “${uploadedNames[0]}”`
+          : `${uploadedNames.length} files`
+
+        await notifyProjectAdvisers({
+          projectId: task.project_id,
+          actorUserId: user.id,
+          backlogItemId: id,
+          taskTitle: task.title,
+          actorName: user.name,
+          notificationType: "student_file_submitted",
+          notificationTitle: "New task file submitted",
+          notificationMessage: `${user.name} uploaded ${fileLabel} to “${task.title}”.`,
+          dedupeKey: `student-file:${createdSubmissions.map((submission) => submission.id).join(":")}`,
+        })
+      }
+    }
 
     revalidateTag("backlog-items", "max")
 

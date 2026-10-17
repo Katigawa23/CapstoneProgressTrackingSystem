@@ -8,6 +8,7 @@ import {
   reviewWeeklyJournal,
   saveWeeklyJournal,
 } from "@/lib/server-weekly-journal-repository"
+import { createNotification } from "@/lib/server-notification-repository"
 
 export async function GET(request: Request) {
   try {
@@ -64,6 +65,18 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "Please write adviser feedback first" }, { status: 400 })
       }
       entry = await reviewWeeklyJournal(projectId, weekNumber, "feedback", adviserFeedback, user.id)
+      if (entry) {
+        await createNotification({
+          recipientUserId: "tester-coordinator",
+          actorUserId: user.id,
+          projectId,
+          type: "journal_adviser_feedback",
+          title: "Weekly journal checked by adviser",
+          message: `${user.name} added feedback to Week ${weekNumber}.`,
+          href: "/dashboard/journal",
+          dedupeKey: `journal-feedback:${projectId}:${weekNumber}`,
+        })
+      }
     } else if (action === "approve") {
       if (user.id !== "tester-coordinator") {
         return NextResponse.json({ error: "Only the coordinator can approve journals" }, { status: 403 })
