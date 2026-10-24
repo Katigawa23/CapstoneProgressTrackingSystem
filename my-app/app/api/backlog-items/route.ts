@@ -14,6 +14,7 @@ import {
   updateBacklogItem,
 } from "@backend/repositories/tasks-repository"
 import { createNotification } from "@/lib/server-notification-repository"
+import { saveTaskChapter } from "@/lib/server-task-chapter-repository"
 
 const allowedStatuses = new Set([
   "todo",
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
       status?: string
       assigneeId?: string | null
       priority?: string
+      chapterNumber?: number
     }
 
     const rawTitle = body.title?.trim()
@@ -126,6 +128,7 @@ export async function POST(request: Request) {
       typeof body.priority === "string" && allowedPriorities.has(body.priority)
         ? (body.priority as "Low" | "Medium" | "High")
         : "Medium"
+    const chapterNumber = Number(body.chapterNumber)
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
@@ -143,6 +146,10 @@ export async function POST(request: Request) {
 
     if (!projectId) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
+    }
+
+    if (!requestedParentId && (!Number.isInteger(chapterNumber) || chapterNumber < 1 || chapterNumber > 5)) {
+      return NextResponse.json({ error: "Chapter is required" }, { status: 400 })
     }
 
     const startDate = normalizeOptionalDate(body.startDate)
@@ -191,6 +198,9 @@ export async function POST(request: Request) {
         : item
 
     const createdItem = nextItem ?? item
+    if (!requestedParentId) {
+      await saveTaskChapter(createdItem.id, projectId, chapterNumber)
+    }
     if (createdItem.assigneeId) {
       await createNotification({
         recipientUserId: createdItem.assigneeId,

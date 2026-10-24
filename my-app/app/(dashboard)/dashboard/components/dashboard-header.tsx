@@ -3,7 +3,6 @@
 import * as React from "react"
 import { Filter, Search } from "lucide-react"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -17,20 +16,6 @@ import {
   getSelectedDashboardProjectId,
   PROJECT_CHANGE_EVENT,
 } from "@/lib/projects"
-import { getInitials } from "../utils"
-
-type Person = {
-  name: string
-  src: string
-}
-
-function normalizePersonName(name: string) {
-  return name
-    .trim()
-    .replace(/\s*\((student|faculty|adviser)\)\s*$/i, "")
-    .replace(/\s+/g, " ")
-    .toLowerCase()
-}
 
 export type DashboardBoardFilter = "none" | "assignee" | "subtask"
 
@@ -38,7 +23,6 @@ const activeHeaderFilterItemClassName =
   "bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.12)] data-[highlighted]:text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2] dark:data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.28)] dark:data-[highlighted]:text-[#c3dbef]"
 
 type DashboardHeaderProps = {
-  people: Person[]
   breadcrumbSectionLabel?: string | null
   showFilter?: boolean
   boardTitle?: string
@@ -53,7 +37,6 @@ type DashboardHeaderProps = {
 }
 
 export function DashboardHeader({
-  people,
   breadcrumbSectionLabel,
   showFilter = true,
   boardTitle = "Board",
@@ -69,23 +52,6 @@ export function DashboardHeader({
   const [projectName, setProjectName] = React.useState("No project selected")
   const hasActiveFilters = filterValue !== "none"
   const activeFilterCount = hasActiveFilters ? 1 : 0
-  const uniquePeople = React.useMemo(() => {
-    const seenNames = new Set<string>()
-
-    return people.filter((person) => {
-      const normalizedName = normalizePersonName(person.name)
-
-      if (!normalizedName || seenNames.has(normalizedName)) {
-        return false
-      }
-
-      seenNames.add(normalizedName)
-      return true
-    })
-  }, [people])
-  const visiblePeople = uniquePeople.slice(0, 3)
-  const hiddenCount = Math.max(uniquePeople.length - visiblePeople.length, 0)
-
   React.useEffect(() => {
     const syncProject = () => {
       const savedProjectId = getSelectedDashboardProjectId()
@@ -209,28 +175,6 @@ export function DashboardHeader({
               </div>
             ) : null}
 
-            <div className="flex shrink-0 items-center">
-              {visiblePeople.map((person, index) => (
-                <Avatar
-                  key={person.name}
-                  title={person.name}
-                  className={`h-7 w-7 ring-2 ring-background ${
-                    index === 0 ? "" : "-ml-2"
-                  }`}
-                >
-                  <AvatarImage src={person.src} alt={person.name} />
-                  <AvatarFallback className="text-[10px]">
-                    {getInitials(person.name)}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-
-              {hiddenCount > 0 ? (
-                <Avatar className="h-7 w-7 ring-2 ring-background -ml-2" title={`${hiddenCount} more members`}>
-                  <AvatarFallback className="text-[10px]">+{hiddenCount}</AvatarFallback>
-                </Avatar>
-              ) : null}
-            </div>
           </div>
         </div>
       </div>

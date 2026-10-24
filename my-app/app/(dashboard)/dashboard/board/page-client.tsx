@@ -51,13 +51,6 @@ const BOARD_REALTIME_REFRESH_INTERVAL_MS = 5000
 const BOARD_LOCAL_MUTATION_GUARD_MS = 8000
 const BOARD_MOVE_SETTLE_MS = 1500
 
-function normalizeProjectPersonName(name: string) {
-  return name
-    .trim()
-    .replace(/\s*\((student|faculty|adviser)\)\s*$/i, "")
-    .replace(/\s+/g, " ")
-}
-
 function areTodoListsEqual(left: TodoItem[], right: TodoItem[]) {
   if (left.length !== right.length) {
     return false
@@ -117,6 +110,7 @@ export function DashboardBoardPageClient({
   const [createAssigneeId, setCreateAssigneeId] = React.useState<string | null>(null)
   const [createPriority, setCreatePriority] =
     React.useState<"Low" | "Medium" | "High">("Medium")
+  const [createChapterNumber, setCreateChapterNumber] = React.useState<number | null>(null)
   const [isCreatingTask, setIsCreatingTask] = React.useState(false)
   const [hasLoadedBoardData, setHasLoadedBoardData] = React.useState(
     () => Boolean(initialSelectedProjectId)
@@ -142,40 +136,6 @@ export function DashboardBoardPageClient({
   const canManageProjectResources =
     !isSuperAdminViewer &&
     (currentUser?.role === "faculty" || currentUser?.role === "admin")
-  const projectPeople = React.useMemo(
-    () => {
-      const peopleByName = new Map<string, string>()
-
-      for (const member of selectedProject?.members ?? []) {
-        const cleanedMemberName = normalizeProjectPersonName(member)
-
-        if (!cleanedMemberName) {
-          continue
-        }
-
-        const normalizedMemberKey = cleanedMemberName.toLowerCase()
-
-        if (!peopleByName.has(normalizedMemberKey)) {
-          peopleByName.set(normalizedMemberKey, cleanedMemberName)
-        }
-      }
-
-      if (currentUser?.name?.trim()) {
-        const cleanedCurrentUserName = normalizeProjectPersonName(currentUser.name)
-
-        if (cleanedCurrentUserName) {
-          const normalizedCurrentUserKey = cleanedCurrentUserName.toLowerCase()
-
-          if (!peopleByName.has(normalizedCurrentUserKey)) {
-            peopleByName.set(normalizedCurrentUserKey, cleanedCurrentUserName)
-          }
-        }
-      }
-
-      return Array.from(peopleByName.values()).map((member) => ({ name: member, src: "" }))
-    },
-    [currentUser, selectedProject]
-  )
   const currentUserAssigneeIds = React.useMemo(() => {
     const ids = new Set<string>()
 
@@ -600,14 +560,41 @@ export function DashboardBoardPageClient({
 
   const handleTodoUpdate = React.useCallback(
     (todoId: string, updates: Partial<TodoItem>) => {
+      const currentTodo = todos.find((todo) => todo.id === todoId)
+
+      if (!currentTodo) {
+        return
+      }
+
       setTodos((currentTodos) =>
         currentTodos.map((todo) =>
           todo.id === todoId ? { ...todo, ...updates } : todo
         )
       )
 
+      if (typeof updates.description === "string") {
+        void fetch(`/api/backlog-items/${todoId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: updates.description }),
+        }).then(async (response) => {
+          if (!response.ok) {
+            const data = await response.json().catch(() => null) as { error?: string } | null
+            throw new Error(data?.error ?? "Failed to save description")
+          }
+        }).catch((error) => {
+          console.error(error)
+          setTodos((currentTodos) =>
+            currentTodos.map((todo) =>
+              todo.id === todoId
+                ? { ...todo, description: currentTodo.description }
+                : todo
+            )
+          )
+        })
+      }
     },
-    []
+    [todos]
   )
 
   const handleAssigneeChange = React.useCallback(
@@ -823,13 +810,14 @@ export function DashboardBoardPageClient({
     setCreateDescription("")
     setCreateAssigneeId(null)
     setCreatePriority("Medium")
+    setCreateChapterNumber(null)
   }
 
   const handleCreateItem = async () => {
     if (isCreatingTask) return
 
-    if (!createTitle.trim() || !createStartDate || !createDueDate) {
-      setCreateTaskError("Title, start date, and due date are required")
+    if (!createTitle.trim() || !createStartDate || !createDueDate || !createChapterNumber) {
+      setCreateTaskError("Title, chapter, start date, and due date are required")
       return
     }
 
@@ -866,6 +854,7 @@ export function DashboardBoardPageClient({
           status: "todo",
           assigneeId: createAssigneeId,
           priority: createPriority,
+          chapterNumber: createChapterNumber,
         }),
       })
 
@@ -1152,7 +1141,6 @@ export function DashboardBoardPageClient({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
       <DashboardHeader
-        people={projectPeople}
         breadcrumbSectionLabel={breadcrumbSectionLabel}
         boardTitle="Board"
         showCreateButton={Boolean(
@@ -1227,6 +1215,7 @@ export function DashboardBoardPageClient({
         description={createDescription}
         assigneeId={createAssigneeId}
         priority={createPriority}
+        chapterNumber={createChapterNumber}
         onTitleChange={(value) => {
           setCreateTaskError(null)
           setCreateTitle(value)
@@ -1236,6 +1225,7 @@ export function DashboardBoardPageClient({
         onDescriptionChange={setCreateDescription}
         onAssigneeChange={setCreateAssigneeId}
         onPriorityChange={setCreatePriority}
+        onChapterChange={setCreateChapterNumber}
         isSubmitting={isCreatingTask}
         onAddItem={handleCreateItem}
       />

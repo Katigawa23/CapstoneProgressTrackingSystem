@@ -56,8 +56,16 @@ export function CoordinatorRoadmapChart({
       const itemCreatedAt = item.createdAt ? new Date(item.createdAt) : safeCreatedAt
       return !Number.isNaN(itemCreatedAt.getTime()) && itemCreatedAt <= monthEnd
     })
+    const isCurrentMonth =
+      monthStart.getFullYear() === currentMonthStart.getFullYear() &&
+      monthStart.getMonth() === currentMonthStart.getMonth()
     const completedItems = availableItems.filter((item) => {
       if (item.status !== "completed") return false
+
+      // The current progress must reflect the task's actual Board status.
+      // A future due date does not mean that an already completed task is incomplete.
+      if (isCurrentMonth) return true
+
       const referenceDate = new Date(item.dueDate ?? item.createdAt ?? groupCreatedAt)
       return !Number.isNaN(referenceDate.getTime()) && referenceDate <= monthEnd
     })

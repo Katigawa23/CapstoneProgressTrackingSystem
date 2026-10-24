@@ -144,6 +144,7 @@ export function TaskDetailsSection({
                 size="sm"
                 className="min-h-8 px-3"
                 onClick={onDescriptionSave}
+                disabled={!descriptionDraft.trim()}
               >
                 Save
               </Button>
@@ -159,13 +160,20 @@ export function TaskDetailsSection({
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            className="w-full rounded-[2px] border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 transition hover:border-slate-300 hover:bg-white dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300 dark:hover:border-[#454545] dark:hover:bg-[#2a2a2a] sm:p-4"
-            onClick={onDescriptionEditStart}
-          >
-            {selectedTodo.description || "Add a description..."}
-          </button>
+          selectedTodo.description.trim() ? (
+            <div className="w-full rounded-[2px] border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300 sm:p-4">
+              <p className="whitespace-pre-wrap break-words">{selectedTodo.description}</p>
+              <p className="mt-2 text-[10px] text-muted-foreground">Description saved · Editing is locked</p>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="w-full rounded-[2px] border border-dashed border-slate-300 bg-slate-50 p-3 text-left text-sm text-slate-500 transition hover:border-blue-500 hover:bg-white dark:border-[#454545] dark:bg-[#262626] dark:hover:bg-[#2a2a2a] sm:p-4"
+              onClick={onDescriptionEditStart}
+            >
+              Add a description... (can only be saved once)
+            </button>
+          )
         )}
       </CollapsibleContent>
     </Collapsible>

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import {
+  BacklogDescriptionLockedError,
   BacklogItemNameConflictError,
   updateBacklogItem,
 } from "@backend/repositories/tasks-repository"
@@ -121,6 +122,9 @@ export async function PATCH(
 
     return NextResponse.json({ item })
   } catch (error) {
+    if (error instanceof BacklogDescriptionLockedError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
     if (error instanceof BacklogItemNameConflictError) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }

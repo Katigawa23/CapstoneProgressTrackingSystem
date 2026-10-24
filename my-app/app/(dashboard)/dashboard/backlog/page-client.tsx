@@ -151,6 +151,7 @@ export function BacklogPageClient({
   const [assigneeId, setAssigneeId] = React.useState<string | null>(null)
   const [priority, setPriority] =
     React.useState<"Low" | "Medium" | "High">("Medium")
+  const [chapterNumber, setChapterNumber] = React.useState<number | null>(null)
   const [isCreatingTask, setIsCreatingTask] = React.useState(false)
   const [boardSearchValue, setBoardSearchValue] = React.useState("")
   const [boardFilterValue, setBoardFilterValue] =
@@ -321,13 +322,14 @@ export function BacklogPageClient({
     setDescription("")
     setAssigneeId(null)
     setPriority("Medium")
+    setChapterNumber(null)
   }
 
   const handleAddItem = async () => {
     if (isCreatingTask) return
 
-    if (!title.trim() || !startDate || !dueDate) {
-      setCreateTaskError("Title, start date, and due date are required")
+    if (!title.trim() || !startDate || !dueDate || !chapterNumber) {
+      setCreateTaskError("Title, chapter, start date, and due date are required")
       return
     }
 
@@ -364,6 +366,7 @@ export function BacklogPageClient({
           dueDate: dueDate ? getLocalDateString(dueDate) : null,
           assigneeId,
           priority,
+          chapterNumber,
         }),
       })
 
@@ -1266,6 +1269,7 @@ export function BacklogPageClient({
         description={description}
         assigneeId={assigneeId}
         priority={priority}
+        chapterNumber={chapterNumber}
         onTitleChange={(value) => {
           setCreateTaskError(null)
           setTitle(value)
@@ -1275,6 +1279,7 @@ export function BacklogPageClient({
         onDescriptionChange={setDescription}
         onAssigneeChange={setAssigneeId}
         onPriorityChange={setPriority}
+        onChapterChange={setChapterNumber}
         isSubmitting={isCreatingTask}
         onAddItem={handleAddItem}
       />
