@@ -24,11 +24,16 @@ function shouldUseSsl(connectionString: string) {
 
 function createPool() {
   const connectionString = process.env.DATABASE_URL
-  const connectionTimeoutMillis = Number.parseInt(
+  const configuredConnectionTimeoutMillis = Number.parseInt(
     process.env.DB_CONNECTION_TIMEOUT_MS ??
-      (process.env.NODE_ENV === "production" ? "10000" : "2000"),
+      (process.env.NODE_ENV === "production" ? "30000" : "5000"),
     10
   )
+  const connectionTimeoutMillis = Number.isNaN(configuredConnectionTimeoutMillis)
+    ? process.env.NODE_ENV === "production" ? 30_000 : 5_000
+    : process.env.NODE_ENV === "production"
+      ? Math.max(configuredConnectionTimeoutMillis, 30_000)
+      : configuredConnectionTimeoutMillis
   const maxConnections = Number.parseInt(
     process.env.DB_POOL_MAX ??
       (process.env.NODE_ENV === "production" ? "4" : "10"),
@@ -41,7 +46,7 @@ function createPool() {
     )
   }
 
-  return new Pool({
+  const pool = new Pool({
     connectionString,
     ssl: shouldUseSsl(connectionString)
       ? { rejectUnauthorized: false }
@@ -50,11 +55,51 @@ function createPool() {
     idleTimeoutMillis: 30_000,
     keepAlive: true,
     keepAliveInitialDelayMillis: 10_000,
-    connectionTimeoutMillis: Number.isNaN(connectionTimeoutMillis)
-      ? 2_000
-      : connectionTimeoutMillis,
+    connectionTimeoutMillis,
     allowExitOnIdle: process.env.NODE_ENV !== "production",
   })
+
+  const originalQuery = pool.query.bind(pool) as (...args: unknown[]) => Promise<unknown>
+  pool.query = (async (...args: unknown[]) => {
+    try {
+      return await originalQuery(...args)
+    } catch (error) {
+      if (!isReadOnlyQuery(args[0]) || !isRetryableConnectionError(error)) throw error
+
+      console.warn("Database connection was interrupted; retrying query once.")
+      await new Promise((resolve) => setTimeout(resolve, 250))
+      return originalQuery(...args)
+    }
+  }) as typeof pool.query
+
+  pool.on("error", (error) => {
+    console.warn("Idle database connection was closed.", error.message)
+  })
+
+  return pool
+}
+
+function isReadOnlyQuery(query: unknown) {
+  if (typeof query === "string") return /^\s*select\b/i.test(query)
+  if (typeof query === "object" && query && "text" in query) {
+    return /^\s*select\b/i.test(String(query.text))
+  }
+  return false
+}
+
+function isRetryableConnectionError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+  const code = typeof error === "object" && error && "code" in error
+    ? String(error.code).toUpperCase()
+    : ""
+
+  return ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "57P01", "57P02", "57P03"].includes(code) || [
+    "connection terminated",
+    "connection timeout",
+    "connection closed unexpectedly",
+    "server closed the connection unexpectedly",
+    "timeout expired",
+  ].some((fragment) => message.includes(fragment))
 }
 
 export function getDb() {

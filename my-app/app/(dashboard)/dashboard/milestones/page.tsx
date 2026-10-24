@@ -1,47 +1,31 @@
-"use client"
+import { readAuthenticatedUser } from "@/lib/server-auth"
+import { listMilestoneTaskAssignments } from "@/lib/server-milestone-repository"
+import { getSelectedProjectData } from "../data"
+import { MilestonesView } from "./milestones-view"
 
-import * as React from "react"
-import { ArrowRight, CalendarDays, Check, CircleDashed, FileCheck2, FileText, Flag, Link2, MessageSquareText, Milestone, Paperclip, Presentation, Rocket, Target, UsersRound } from "lucide-react"
+export const dynamic = "force-dynamic"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { cn } from "@/lib/utils"
+export default async function MilestonesPage() {
+  const [{ selectedProject, items }, user] = await Promise.all([
+    getSelectedProjectData(),
+    readAuthenticatedUser(),
+  ])
+  const assignments = selectedProject
+    ? await listMilestoneTaskAssignments(selectedProject.id)
+    : []
 
-type MilestoneStatus = "Completed" | "In progress" | "Upcoming" | "For review"
-type MilestonePreview = { id: number; title: string; description: string; date: string; status: MilestoneStatus; progress: number; tasks: string; deliverables: string[]; members: string[]; accent: string; iconBackground: string; icon: typeof Flag }
-
-const milestones: MilestonePreview[] = [
-  { id: 1, title: "Project proposal", description: "Finalize the problem statement, project scope, objectives, and initial research plan.", date: "September 25, 2026", status: "Completed", progress: 100, tasks: "6 of 6 tasks", deliverables: ["Approved project proposal", "Presentation deck", "Consultation notes"], members: ["JY", "RS", "ML"], accent: "text-emerald-500", iconBackground: "bg-emerald-500/10", icon: FileCheck2 },
-  { id: 2, title: "Requirements and design", description: "Complete requirements gathering, system architecture, database design, and UI prototype.", date: "October 30, 2026", status: "In progress", progress: 68, tasks: "8 of 12 tasks", deliverables: ["Software requirements specification", "ER diagram", "Interactive UI prototype"], members: ["JY", "RS", "ML", "AC"], accent: "text-blue-500", iconBackground: "bg-blue-500/10", icon: Target },
-  { id: 3, title: "Prototype development", description: "Develop the core modules and prepare a working prototype for adviser evaluation.", date: "November 27, 2026", status: "Upcoming", progress: 20, tasks: "3 of 15 tasks", deliverables: ["Working system prototype", "Source-code repository", "Testing evidence"], members: ["JY", "RS", "ML", "AC"], accent: "text-violet-500", iconBackground: "bg-violet-500/10", icon: Rocket },
-  { id: 4, title: "Final defense", description: "Submit the completed documentation and defend the final system before the panel.", date: "December 18, 2026", status: "Upcoming", progress: 0, tasks: "0 of 8 tasks", deliverables: ["Final manuscript", "Deployment package", "Defense presentation"], members: ["JY", "RS", "ML", "AC"], accent: "text-amber-500", iconBackground: "bg-amber-500/10", icon: Presentation },
-]
-
-const statusStyles: Record<MilestoneStatus, string> = {
-  Completed: "border-emerald-500/25 bg-emerald-500/10 text-emerald-500",
-  "In progress": "border-blue-500/25 bg-blue-500/10 text-blue-500",
-  Upcoming: "border-border bg-muted/40 text-muted-foreground",
-  "For review": "border-amber-500/25 bg-amber-500/10 text-amber-500",
-}
-
-export default function MilestonePage() {
-  const [selectedId, setSelectedId] = React.useState(2)
-  const selected = milestones.find((item) => item.id === selectedId) ?? milestones[0]
-
-  return <div className="h-full overflow-y-auto pb-8 pr-1"><div className="w-full space-y-5">
-    <header className="flex flex-wrap items-end justify-between gap-3"><div><div className="flex gap-1 text-sm text-muted-foreground"><span>Project /</span><span className="text-foreground">Design preview</span></div><h1 className="mt-1 font-display text-xl font-semibold tracking-tight">Milestones</h1><p className="mt-1 text-sm text-muted-foreground">Track major project stages, required deliverables, and approval progress.</p></div><Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1 text-[10px] text-muted-foreground"><CircleDashed className="h-3.5 w-3.5" />Design preview only</Badge></header>
-
-    <section className="overflow-hidden rounded-xl border bg-card shadow-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:shadow-none">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b bg-gradient-to-r from-[color:rgba(var(--brand-primary-rgb),0.13)] via-transparent to-transparent p-5"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--brand-primary-fixed)] text-white"><Milestone className="h-5 w-5" /></div><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--brand-primary-fixed)]">Capstone journey</p><h2 className="font-display text-base font-semibold">Overall milestone progress</h2><p className="text-xs text-muted-foreground">1 of 4 major stages completed</p></div></div><div className="min-w-52"><div className="mb-1.5 flex justify-between text-xs"><span className="text-muted-foreground">Project completion</span><span className="font-semibold">47%</span></div><Progress value={47} className="h-2 bg-muted [&_[data-slot=progress-indicator]]:bg-[var(--brand-primary-fixed)]" /></div></div>
-      <div className="overflow-x-auto p-5"><div className="relative flex min-w-[720px] items-start justify-between"><div className="absolute left-10 right-10 top-5 h-px bg-border" /><div className="absolute left-10 top-5 h-px w-[30%] bg-emerald-500" />{milestones.map((item) => { const active = selected.id === item.id; const done = item.status === "Completed"; return <button key={item.id} onClick={() => setSelectedId(item.id)} className="group relative z-10 flex w-40 flex-col items-center text-center"><span className={cn("flex h-10 w-10 items-center justify-center rounded-full border-4 border-card transition-transform group-hover:scale-105 dark:border-[#1f1f1f]", done ? "bg-emerald-500 text-white" : active ? "bg-[var(--brand-primary-fixed)] text-white" : "bg-muted text-muted-foreground")}>{done ? <Check className="h-4 w-4" /> : item.id}</span><span className={cn("mt-2 text-xs font-semibold", active && "text-[var(--brand-primary-fixed)]")}>{item.title}</span><span className="mt-0.5 text-[10px] text-muted-foreground">{item.date}</span></button> })}</div></div>
-    </section>
-
-    <div className="grid gap-5 xl:grid-cols-[1.35fr_0.85fr]">
-      <section className="rounded-xl border bg-card p-5 dark:border-[#343434] dark:bg-[#1f1f1f]"><div className="flex items-center justify-between gap-3"><div><h2 className="font-display font-semibold">Project milestones</h2><p className="mt-0.5 text-xs text-muted-foreground">Select a stage to review its scope and deliverables.</p></div><span className="text-xs text-muted-foreground">4 stages</span></div><div className="mt-4 grid gap-3 md:grid-cols-2">{milestones.map((item) => { const Icon = item.icon; const active = item.id === selected.id; return <button key={item.id} onClick={() => setSelectedId(item.id)} className={cn("rounded-lg border bg-background p-4 text-left transition-all hover:border-[color:rgba(var(--brand-primary-rgb),0.45)]", active && "border-[var(--brand-primary-fixed)] ring-1 ring-[color:rgba(var(--brand-primary-rgb),0.20)]")}><div className="flex items-start justify-between gap-3"><div className={cn("flex h-9 w-9 items-center justify-center rounded-md", item.iconBackground, item.accent)}><Icon className="h-4 w-4" /></div><Badge variant="outline" className={cn("rounded-full text-[9px]", statusStyles[item.status])}>{item.status}</Badge></div><h3 className="mt-3 text-sm font-semibold">{item.title}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.description}</p><div className="mt-4"><div className="mb-1.5 flex justify-between text-[10px]"><span className="text-muted-foreground">{item.tasks}</span><span className="font-semibold">{item.progress}%</span></div><Progress value={item.progress} className="h-1.5 bg-muted [&_[data-slot=progress-indicator]]:bg-[var(--brand-primary-fixed)]" /></div><div className="mt-3 flex items-center justify-between border-t pt-3 text-[10px] text-muted-foreground"><span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{item.date}</span><ArrowRight className="h-3.5 w-3.5" /></div></button> })}</div></section>
-
-      <aside className="rounded-xl border bg-card dark:border-[#343434] dark:bg-[#1f1f1f]"><div className="border-b p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--brand-primary-fixed)]">Milestone {selected.id}</p><h2 className="mt-1 font-display text-base font-semibold">{selected.title}</h2></div><Badge variant="outline" className={cn("rounded-full text-[9px]", statusStyles[selected.status])}>{selected.status}</Badge></div><p className="mt-2 text-xs leading-5 text-muted-foreground">{selected.description}</p></div><div className="space-y-5 p-5"><div><div className="flex items-center justify-between text-xs"><span className="font-medium">Stage progress</span><span className="font-semibold text-[var(--brand-primary-fixed)]">{selected.progress}%</span></div><Progress value={selected.progress} className="mt-2 h-2 bg-muted [&_[data-slot=progress-indicator]]:bg-[var(--brand-primary-fixed)]" /></div><div className="grid grid-cols-2 gap-2"><div className="rounded-lg border bg-background p-3"><CalendarDays className="h-4 w-4 text-blue-500" /><p className="mt-2 text-[10px] text-muted-foreground">Target date</p><p className="mt-0.5 text-xs font-medium">{selected.date}</p></div><div className="rounded-lg border bg-background p-3"><UsersRound className="h-4 w-4 text-violet-500" /><p className="mt-2 text-[10px] text-muted-foreground">Assigned team</p><div className="mt-1.5 flex -space-x-1.5">{selected.members.map((member) => <Avatar key={member} className="h-6 w-6 border-2 border-background"><AvatarFallback className="bg-[var(--brand-primary-fixed)] text-[8px] text-white">{member}</AvatarFallback></Avatar>)}</div></div></div><div><div className="flex items-center justify-between"><h3 className="text-xs font-semibold">Required deliverables</h3><span className="text-[10px] text-muted-foreground">{selected.deliverables.length} items</span></div><div className="mt-2 space-y-2">{selected.deliverables.map((deliverable, index) => <div key={deliverable} className="flex items-center gap-2.5 rounded-md border bg-background p-2.5"><span className={cn("flex h-6 w-6 items-center justify-center rounded-full", index === 0 && selected.progress > 50 ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground")}>{index === 0 && selected.progress > 50 ? <Check className="h-3 w-3" /> : <FileText className="h-3 w-3" />}</span><span className="min-w-0 flex-1 text-[11px] font-medium">{deliverable}</span></div>)}</div></div><div className="grid grid-cols-3 gap-2 border-t pt-4"><div className="text-center"><Paperclip className="mx-auto h-4 w-4 text-muted-foreground" /><p className="mt-1 text-sm font-semibold">3</p><p className="text-[9px] text-muted-foreground">Files</p></div><div className="text-center"><Link2 className="mx-auto h-4 w-4 text-muted-foreground" /><p className="mt-1 text-sm font-semibold">2</p><p className="text-[9px] text-muted-foreground">Links</p></div><div className="text-center"><MessageSquareText className="mx-auto h-4 w-4 text-muted-foreground" /><p className="mt-1 text-sm font-semibold">4</p><p className="text-[9px] text-muted-foreground">Comments</p></div></div></div></aside>
-    </div>
-    <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-center text-xs text-muted-foreground">This is a visual prototype. Milestone actions are not connected to the database yet.</div>
-  </div></div>
+  return <MilestonesView
+    projectId={selectedProject?.id ?? null}
+    projectName={selectedProject?.name ?? "No project selected"}
+    canManage={user?.role === "faculty" || user?.role === "admin"}
+    tasks={items.filter((item) => !item.parentId).map((item) => ({
+      id: item.id,
+      title: item.title,
+      status: item.status,
+      checked: item.checked,
+      dueDate: item.dueDate,
+      priority: item.priority,
+    }))}
+    initialAssignments={assignments}
+  />
 }
