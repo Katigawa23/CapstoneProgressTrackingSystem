@@ -122,6 +122,13 @@ export class BacklogItemNameConflictError extends Error {
   }
 }
 
+export class BacklogDescriptionLockedError extends Error {
+  constructor() {
+    super("The task description has already been saved and can no longer be changed.")
+    this.name = "BacklogDescriptionLockedError"
+  }
+}
+
 function uppercaseFirstCharacter(value: string) {
   if (!value) {
     return value
@@ -1618,7 +1625,7 @@ export async function updateBacklogItem(
         return null
       }
 
-      if (typeof input.title === "string" || "parentId" in input) {
+      if (typeof input.title === "string" || "parentId" in input || typeof input.description === "string") {
         const currentResult = await getDb().query<BacklogRecord>(
           `select backlog.*
            from backlog
@@ -1647,6 +1654,13 @@ export async function updateBacklogItem(
         const currentRecord = currentResult.rows[0]
 
         if (currentRecord) {
+          if (
+            typeof input.description === "string" &&
+            currentRecord.description.trim() &&
+            input.description !== currentRecord.description
+          ) {
+            throw new BacklogDescriptionLockedError()
+          }
           const nextParentId =
             "parentId" in input ? input.parentId ?? null : currentRecord.parent_id
           const nextTitle =
@@ -1743,6 +1757,13 @@ export async function updateBacklogItem(
       }
 
       const current = mapRecord(records[index])
+      if (
+        typeof input.description === "string" &&
+        current.description.trim() &&
+        input.description !== current.description
+      ) {
+        throw new BacklogDescriptionLockedError()
+      }
       const next: BacklogRow = {
         ...current,
         title: typeof input.title === "string" ? input.title : current.title,

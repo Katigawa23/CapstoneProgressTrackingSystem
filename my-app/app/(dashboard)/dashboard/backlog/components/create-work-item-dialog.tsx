@@ -44,6 +44,7 @@ type CreateWorkItemDialogProps = {
   description: string
   assigneeId?: string | null
   priority?: "Low" | "Medium" | "High"
+  chapterNumber?: number | null
   titleError?: string | null
   onTitleChange: (value: string) => void
   onStartDateChange: (value: Date | undefined) => void
@@ -51,6 +52,7 @@ type CreateWorkItemDialogProps = {
   onDescriptionChange: (value: string) => void
   onAssigneeChange?: (value: string | null) => void
   onPriorityChange?: (value: "Low" | "Medium" | "High") => void
+  onChapterChange?: (value: number) => void
   isSubmitting?: boolean
   onAddItem: () => void
   mode?: "task" | "subtask"
@@ -65,6 +67,7 @@ export function CreateWorkItemDialog({
   description,
   assigneeId = null,
   priority = "Medium",
+  chapterNumber = null,
   titleError = null,
   onTitleChange,
   onStartDateChange,
@@ -72,6 +75,7 @@ export function CreateWorkItemDialog({
   onDescriptionChange,
   onAssigneeChange,
   onPriorityChange,
+  onChapterChange,
   isSubmitting = false,
   onAddItem,
   mode = "task",
@@ -146,6 +150,28 @@ export function CreateWorkItemDialog({
 
           {isSubtaskMode ? null : (
             <>
+              <div className="min-w-0 space-y-1">
+                <Label className="text-slate-900 dark:text-slate-100">
+                  Chapter <span className="text-red-500">*</span>
+                </Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="outline" className="h-8 w-full justify-between rounded-[2px] border-slate-200 bg-white px-3 text-sm font-normal dark:border-[#343434] dark:bg-[#1f1f1f]">
+                      <span>{chapterNumber ? `Chapter ${chapterNumber}` : "Select chapter"}</span>
+                      <ChevronDown className="h-4 w-4 text-slate-500" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                    {[1, 2, 3, 4, 5].map((chapter) => (
+                      <DropdownMenuItem key={chapter} onSelect={() => onChapterChange?.(chapter)}>
+                        <BookOpenIcon chapter={chapter} />
+                        <span className="flex-1">Chapter {chapter}</span>
+                        <Check className={cn("h-4 w-4", chapterNumber === chapter ? "opacity-100" : "opacity-0")} />
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <div className="min-w-0 space-y-1">
                 <Label className="text-slate-900 dark:text-slate-100">
                   Start date <span className="text-red-500">*</span>
@@ -404,6 +430,7 @@ export function CreateWorkItemDialog({
               isSubmitting ||
               !title.trim() ||
               (!isSubtaskMode && (!startDate || !dueDate))
+              || (!isSubtaskMode && !chapterNumber)
             }
           >
             {isSubmitting
@@ -419,4 +446,8 @@ export function CreateWorkItemDialog({
     </DialogContent>
   </Dialog>
   )
+}
+
+function BookOpenIcon({ chapter }: { chapter: number }) {
+  return <span className="flex h-6 w-6 items-center justify-center rounded bg-blue-500/10 text-[10px] font-semibold text-blue-500">{chapter}</span>
 }
