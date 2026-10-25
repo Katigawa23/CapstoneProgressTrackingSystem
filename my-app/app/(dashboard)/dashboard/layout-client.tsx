@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   clearClientAuthSession,
-  createMicrosoftLogoutUrl,
   markDashboardSessionBootstrapped,
   readClientAuthSession,
   subscribeToAuthChange,
@@ -64,14 +63,13 @@ function ProfileMenu({
   }, [])
 
   const handleLogout = React.useCallback(async () => {
-    const tenantId = session?.tenantId ?? "common"
     clearClientAuthSession()
     await fetch("/api/auth/logout", {
       method: "POST",
       credentials: "include",
     }).catch(() => undefined)
-    window.location.href = createMicrosoftLogoutUrl(tenantId, "/")
-  }, [session?.tenantId])
+    window.location.replace("/")
+  }, [])
 
   if (!mounted) {
     return (
@@ -216,12 +214,13 @@ export function DashboardLayoutClient({
     pathname === "/dashboard/backlog" ||
     pathname.startsWith("/dashboard/backlog/") ||
     pathname === "/dashboard/archive" ||
-    pathname.startsWith("/dashboard/archive/") ||
+    pathname.startsWith("/dashboard/archive/")
+  const isCoordinatorOnlyPath =
     pathname === "/dashboard/projects/archive" ||
     pathname.startsWith("/dashboard/projects/archive/")
   const hasAccess = coordinatorMode
     ? !isCoordinatorRestrictedPath
-    : canAccessPath(role, pathname)
+    : !isCoordinatorOnlyPath && canAccessPath(role, pathname)
 
   return (
     <RoleProvider role={role}>
@@ -251,6 +250,7 @@ export function DashboardLayoutClient({
 
         <AppSidebar
           role={role}
+          currentUserId={session?.user.id}
           initialProjects={initialProjects}
           initialTeam={initialTeam}
           coordinatorMode={coordinatorMode}

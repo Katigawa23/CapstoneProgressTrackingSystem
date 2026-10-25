@@ -159,6 +159,12 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    if (user.role !== "student") {
+      return NextResponse.json(
+        { error: "Only students can upload task files." },
+        { status: 403 }
+      )
+    }
     const { id } = await params
     const formData = await request.formData()
     const files = formData.getAll("files").filter((value): value is File => value instanceof File)

@@ -1143,11 +1143,15 @@ export function DashboardBoardPageClient({
       <DashboardHeader
         breadcrumbSectionLabel={breadcrumbSectionLabel}
         boardTitle="Board"
+        showFilter={currentUser?.role === "student"}
         showCreateButton={Boolean(
           currentUser &&
           currentUser.role !== "admin" &&
           currentUser.id !== "tester-coordinator"
         )}
+        onProjectRootSelect={() => {
+          router.push(isCoordinatorBoard ? "/coordinator" : "/dashboard")
+        }}
         onProjectSelect={() => {
           router.push(onProjectBoardSelectPath)
         }}
@@ -1180,6 +1184,10 @@ export function DashboardBoardPageClient({
             currentUserId={currentUser?.id ?? null}
             creatorNamesById={creatorNamesById}
             canManageOtherProjectResources={canManageProjectResources}
+            canSubmitTaskResources={currentUser?.role === "student"}
+            canCreateSubtasks={
+              !isCoordinatorBoard && currentUser?.role !== "admin"
+            }
             isDragDisabled={
               isCoordinatorBoard ||
               currentUser?.id === "tester-coordinator" ||

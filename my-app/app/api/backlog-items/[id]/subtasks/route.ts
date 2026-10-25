@@ -39,6 +39,12 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    if (user.role === "admin") {
+      return NextResponse.json(
+        { error: "Coordinators cannot create subtasks." },
+        { status: 403 }
+      )
+    }
     const { id: parentId } = await params
     const body = (await request.json()) as {
       projectId?: string

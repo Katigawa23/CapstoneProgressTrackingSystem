@@ -105,6 +105,27 @@ type SelectWithCustomInputProps = {
   value: string
 }
 
+type ConfigurationResponse = {
+  options?: Array<{
+    category: "program" | "year_level" | "group_type" | "sy_term"
+    label: string
+  }>
+}
+
+type ConfigurationOptions = {
+  programs: string[]
+  yearLevels: string[]
+  groupTypes: string[]
+  terms: string[]
+}
+
+const defaultConfigurationOptions = (): ConfigurationOptions => ({
+  programs: [...PROJECT_PROGRAM_OPTIONS],
+  yearLevels: [...PROJECT_YEAR_LEVEL_OPTIONS],
+  groupTypes: [...PROJECT_TYPE_OPTIONS],
+  terms: [...PROJECT_SY_TERM_OPTIONS],
+})
+
 function getMemberRoleLabel(role: string) {
   return role === "student" ? "Student" : "Adviser"
 }
@@ -217,8 +238,10 @@ export function CreateProjectDialog({
 }: CreateProjectDialogProps) {
   const [memberPickerOpen, setMemberPickerOpen] = React.useState(false)
   const [adviserPickerOpen, setAdviserPickerOpen] = React.useState(false)
+  const [discardWarningOpen, setDiscardWarningOpen] = React.useState(false)
   const [memberPickerWidth, setMemberPickerWidth] = React.useState(0)
   const memberPickerRef = React.useRef<HTMLDivElement | null>(null)
+  const [configurationOptions, setConfigurationOptions] = React.useState<ConfigurationOptions>(defaultConfigurationOptions)
   const isProgramComplete = projectProgram.trim().length > 0
   const isYearLevelComplete = projectYearLevel.trim().length > 0
   const isSyTermComplete =
@@ -226,12 +249,49 @@ export function CreateProjectDialog({
   const isProjectTypeComplete =
     projectType.trim().length > 0 &&
     (projectType !== OTHER_PROJECT_OPTION || projectTypeOther.trim().length > 0)
+  const hasUnsavedChanges = Boolean(
+    projectTitle.trim() ||
+    projectProgram.trim() ||
+    projectType.trim() ||
+    projectTypeOther.trim() ||
+    projectYearLevel.trim() ||
+    projectSyTerm.trim() ||
+    projectSyTermOther.trim() ||
+    selectedMembers.length ||
+    selectedAdvisers.length
+  )
 
   React.useEffect(() => {
     if (!open) {
       setMemberPickerOpen(false)
       setAdviserPickerOpen(false)
     }
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open) return
+    const controller = new AbortController()
+    void fetch("/api/project-configuration", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load project configuration")
+        return response.json() as Promise<ConfigurationResponse>
+      })
+      .then((payload) => {
+        const next: ConfigurationOptions = { programs: [], yearLevels: [], groupTypes: [], terms: [] }
+        for (const option of payload.options ?? []) {
+          if (option.category === "program") next.programs.push(option.label)
+          if (option.category === "year_level") next.yearLevels.push(option.label)
+          if (option.category === "group_type") next.groupTypes.push(option.label)
+          if (option.category === "sy_term") next.terms.push(option.label)
+        }
+        setConfigurationOptions(next)
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setConfigurationOptions(defaultConfigurationOptions())
+        }
+      })
+    return () => controller.abort()
   }, [open])
 
   React.useLayoutEffect(() => {
@@ -261,6 +321,15 @@ export function CreateProjectDialog({
     await onCreateProject()
   }
 
+  function requestClose() {
+    if (isSubmitting) return
+    if (hasUnsavedChanges) {
+      setDiscardWarningOpen(true)
+      return
+    }
+    onOpenChange(false)
+  }
+
   function getInitials(name: string) {
     return getMemberDisplayName(name)
       .trim()
@@ -273,7 +342,10 @@ export function CreateProjectDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (nextOpen) onOpenChange(true)
+      else requestClose()
+    }}>
       <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-[2px] border-border/70 bg-white px-5 py-4 dark:border-[#343434] dark:bg-[#171717] sm:max-w-xl">
         <div className="border-b border-border/70 pb-2 dark:border-[#343434]">
           <DialogHeader className="gap-2 text-left">
@@ -310,7 +382,7 @@ export function CreateProjectDialog({
               label="Program"
               value={projectProgram}
               onValueChange={onProjectProgramChange}
-              options={PROJECT_PROGRAM_OPTIONS}
+              options={configurationOptions.programs}
               placeholder="Select a program"
               customValue=""
               onCustomValueChange={() => undefined}
@@ -322,7 +394,7 @@ export function CreateProjectDialog({
               label={useGroupTerminology ? "Group type" : "Project type"}
               value={projectType}
               onValueChange={onProjectTypeChange}
-              options={PROJECT_TYPE_OPTIONS}
+              options={configurationOptions.groupTypes}
               placeholder="Select a project type"
               customValue={projectTypeOther}
               onCustomValueChange={onProjectTypeOtherChange}
@@ -334,7 +406,7 @@ export function CreateProjectDialog({
               label="Year level"
               value={projectYearLevel}
               onValueChange={onProjectYearLevelChange}
-              options={PROJECT_YEAR_LEVEL_OPTIONS}
+              options={configurationOptions.yearLevels}
               placeholder="Select a year level"
               customValue=""
               onCustomValueChange={() => undefined}
@@ -346,7 +418,7 @@ export function CreateProjectDialog({
               label="SY term"
               value={projectSyTerm}
               onValueChange={onProjectSyTermChange}
-              options={PROJECT_SY_TERM_OPTIONS}
+              options={configurationOptions.terms}
               placeholder="Select a term"
               customValue={projectSyTermOther}
               onCustomValueChange={onProjectSyTermOtherChange}
@@ -589,7 +661,7 @@ export function CreateProjectDialog({
               size="sm"
               className="h-8 min-w-24 rounded-[2px]"
               disabled={isSubmitting}
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
             >
               Cancel
             </Button>
@@ -621,6 +693,28 @@ export function CreateProjectDialog({
         </form>
       </DialogContent>
     </Dialog>
+      <AlertDialog open={discardWarningOpen} onOpenChange={setDiscardWarningOpen}>
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-600 dark:text-slate-300">
+              You have entered information in this form. Closing it will remove your unsaved changes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setDiscardWarningOpen(false)
+                onOpenChange(false)
+              }}
+              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+            >
+              Discard changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog
         open={Boolean(pendingStudentTransfer)}
         onOpenChange={(nextOpen) => {

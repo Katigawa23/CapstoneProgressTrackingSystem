@@ -436,6 +436,7 @@ export default function ArchivePage() {
             />
           </div>
 
+          {currentUserRole === "student" ? (
           <div className="flex shrink-0 items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -483,6 +484,7 @@ export default function ArchivePage() {
               </button>
             ) : null}
           </div>
+          ) : null}
         </div>
       </div>
 

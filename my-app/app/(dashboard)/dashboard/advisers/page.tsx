@@ -20,12 +20,6 @@ export default async function AdvisersPage() {
     <div className="h-full overflow-y-auto px-2 py-1 sm:px-4">
       <div className="mx-auto w-full space-y-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <span>Project /</span>
-            <span className="text-foreground">
-              {selectedProject?.name ?? "No project selected"}
-            </span>
-          </div>
           <h1 className="font-display text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-100">
             Adviser
           </h1>

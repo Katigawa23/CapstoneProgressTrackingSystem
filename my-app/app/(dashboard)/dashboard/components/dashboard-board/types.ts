@@ -24,6 +24,8 @@ export type DashboardBoardProps = {
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean
+  canSubmitTaskResources?: boolean
+  canCreateSubtasks?: boolean
   isDragDisabled?: boolean
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onMoveTodo: (

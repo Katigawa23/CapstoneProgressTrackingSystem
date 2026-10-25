@@ -24,6 +24,7 @@ import type { DashboardWebLink } from "../../types"
 
 type TaskWebLinksSectionProps = {
   links: DashboardWebLink[]
+  canAddLink?: boolean
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean
@@ -81,6 +82,7 @@ function getFaviconUrl(value: string) {
 
 export function TaskWebLinksSection({
   links,
+  canAddLink = false,
   currentUserId = null,
   creatorNamesById = {},
   canManageOtherProjectResources = false,
@@ -297,30 +299,32 @@ export function TaskWebLinksSection({
               Clear filters
             </button>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 w-9 rounded-[2px] p-0 hover:opacity-90"
-            style={{
-              backgroundColor: "var(--brand-primary-fixed)",
-              color: "var(--brand-primary-fixed-foreground)",
-            }}
-            aria-label="Add web link"
-            title="Add web link"
-            onClick={() => {
-              setIsExpanded(true)
-              setIsCreatingLink(true)
-              setUrlDraft("")
-              setLabelDraft("")
-            }}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          {canAddLink ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 w-9 rounded-[2px] p-0 hover:opacity-90"
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+                color: "var(--brand-primary-fixed-foreground)",
+              }}
+              aria-label="Add web link"
+              title="Add web link"
+              onClick={() => {
+                setIsExpanded(true)
+                setIsCreatingLink(true)
+                setUrlDraft("")
+                setLabelDraft("")
+              }}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          ) : null}
         </div>
       </div>
 
       <CollapsibleContent className="space-y-2">
-        {isCreatingLink ? (
+        {canAddLink && isCreatingLink ? (
           <div
             ref={createRowRef}
             className="space-y-2"

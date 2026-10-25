@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { ArchiveRestore, ChevronDown, Ellipsis, Filter, FolderArchive, Search } from "lucide-react"
+import Link from "next/link"
+import { ArchiveRestore, ArrowLeft, ChevronDown, Ellipsis, FolderArchive, Search } from "lucide-react"
 
 import { ProjectMonogram } from "@/components/projects/project-monogram"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -21,10 +22,7 @@ import {
 } from "@/components/ui/tooltip"
 import {
   type DashboardArchivedProject,
-  PROJECTS_CHANGE_EVENT,
-  getArchivedDashboardProjects,
   getDashboardProjectCode,
-  restoreArchivedDashboardProject,
 } from "@/lib/projects"
 import { formatTrustedDate, getTrustedCurrentYear } from "@/lib/trusted-time"
 
@@ -97,20 +95,24 @@ export default function DashboardProjectArchivePage() {
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [archivedProjects, setArchivedProjects] = React.useState<DashboardArchivedProject[]>([])
   const [collapsedGroupIds, setCollapsedGroupIds] = React.useState<string[]>([])
+  const [errorMessage, setErrorMessage] = React.useState("")
 
-  const syncArchivedProjects = React.useCallback(() => {
-    setArchivedProjects(getArchivedDashboardProjects())
+  const syncArchivedProjects = React.useCallback(async () => {
+    const response = await fetch("/api/projects/archive", { cache: "no-store" })
+    const payload = (await response.json().catch(() => ({}))) as {
+      projects?: DashboardArchivedProject[]
+      error?: string
+    }
+    if (!response.ok) {
+      setErrorMessage(payload.error ?? "Failed to load archived projects.")
+      return
+    }
+    setErrorMessage("")
+    setArchivedProjects(Array.isArray(payload.projects) ? payload.projects : [])
   }, [])
 
   React.useEffect(() => {
-    syncArchivedProjects()
-    window.addEventListener("storage", syncArchivedProjects)
-    window.addEventListener(PROJECTS_CHANGE_EVENT, syncArchivedProjects)
-
-    return () => {
-      window.removeEventListener("storage", syncArchivedProjects)
-      window.removeEventListener(PROJECTS_CHANGE_EVENT, syncArchivedProjects)
-    }
+    void syncArchivedProjects()
   }, [syncArchivedProjects])
 
   const projectKeys = React.useMemo(() => {
@@ -164,10 +166,44 @@ export default function DashboardProjectArchivePage() {
       .filter((group) => group.projects.length > 0)
   }, [visibleProjects])
   const handleRestoreProject = React.useCallback(
-    (projectId: string) => {
-      restoreArchivedDashboardProject(projectId)
+    async (projectId: string, transferMemberUserIds: string[] = []) => {
+      const requestRestore = async (memberIds: string[]) => {
+        const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/restore`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transferMemberUserIds: memberIds }),
+        })
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string
+          code?: string
+          conflictingUserIds?: string[]
+        }
+        return { response, payload }
+      }
+
+      let { response, payload } = await requestRestore(transferMemberUserIds)
+      const conflictPayload = payload as {
+        error?: string
+        code?: string
+        conflictingUserIds?: string[]
+      }
+      if (
+        response.status === 409 &&
+        conflictPayload.code === "ACTIVE_GROUP_CONFLICT" &&
+        Array.isArray(conflictPayload.conflictingUserIds)
+      ) {
+        const confirmed = window.confirm(
+          "Some students are already in another active group. Restore this group and transfer those students back?"
+        )
+        if (!confirmed) return
+        ;({ response, payload } = await requestRestore(conflictPayload.conflictingUserIds))
+      }
+      if (!response.ok) {
+        setErrorMessage(payload.error ?? "Failed to restore project.")
+        return
+      }
       setSelectedIds((current) => current.filter((id) => id !== projectId))
-      syncArchivedProjects()
+      await syncArchivedProjects()
     },
     [syncArchivedProjects]
   )
@@ -183,6 +219,14 @@ export default function DashboardProjectArchivePage() {
   return (
     <TooltipProvider>
       <div className="space-y-5">
+      <Link
+        href="/dashboard"
+        className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-slate-950 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-200 dark:hover:bg-[#303030] dark:hover:text-white"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back to dashboard
+      </Link>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-xl font-semibold tracking-tight">Archived projects</h1>
@@ -202,19 +246,15 @@ export default function DashboardProjectArchivePage() {
             />
           </div>
 
-          <button
-            type="button"
-            className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-300 dark:hover:bg-[#303030] dark:hover:text-slate-100"
-            aria-label="Filter archived projects"
-            title="Filter"
-          >
-            <Filter className="h-3.5 w-3.5" />
-            <span>Filter</span>
-          </button>
         </div>
       </div>
 
       <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-xs dark:border-[#343434] dark:bg-[#1f1f1f]">
+        {errorMessage ? (
+          <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-950 dark:bg-red-950/30 dark:text-red-300">
+            {errorMessage}
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="min-w-full table-fixed border-collapse">
             <colgroup>
@@ -346,7 +386,7 @@ export default function DashboardProjectArchivePage() {
                             <DropdownMenuItem
                               className="cursor-pointer"
                               onSelect={() => {
-                                handleRestoreProject(project.id)
+                                void handleRestoreProject(project.id)
                               }}
                             >
                               <ArchiveRestore className="h-4 w-4" />

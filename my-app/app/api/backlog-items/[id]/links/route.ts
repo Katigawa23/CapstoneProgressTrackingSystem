@@ -61,6 +61,12 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    if (user.role !== "student") {
+      return NextResponse.json(
+        { error: "Only students can add task links." },
+        { status: 403 }
+      )
+    }
     const { id } = await params
     const body = (await request.json()) as {
       url?: string

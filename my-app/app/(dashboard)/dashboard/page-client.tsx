@@ -5,6 +5,7 @@ import Link from "next/link"
 import {
   Archive,
   MoreHorizontal,
+  Search,
   Star,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -21,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   DropdownMenu,
@@ -40,7 +42,6 @@ import {
   type DashboardProjectAccessRecord,
   PROJECT_CHANGE_EVENT,
   PROJECTS_CHANGE_EVENT,
-  archiveDashboardProject,
   cacheDashboardProjects,
   getDashboardProjectAccessRecords,
   getDashboardProjects,
@@ -89,6 +90,11 @@ export function DashboardPageClient({
   const [projectAccessRecords, setProjectAccessRecords] = React.useState<DashboardProjectAccessRecord[]>([])
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
   const [pendingArchiveProject, setPendingArchiveProject] = React.useState<DashboardProject | null>(null)
+  const [projectSearch, setProjectSearch] = React.useState("")
+  const canSearchProjects =
+    currentUser?.role === "faculty" ||
+    currentUser?.id === "tester-coordinator" ||
+    currentUser?.id === "tester-admin"
   const canCreateProject =
     currentUser?.role && isUserRole(currentUser.role)
       ? canCreateProjectForRole(currentUser.role, currentUser.id)
@@ -267,13 +273,23 @@ export function DashboardPageClient({
     return [...accessedProjects, ...remainingProjects]
   }, [createdProjects, projectAccessRecords, projects])
 
+  const visibleProjectEntries = React.useMemo(() => {
+    const query = projectSearch.trim().toLowerCase()
+    if (!query || !canSearchProjects) return orderedProjectEntries
+    return orderedProjectEntries.filter(({ project }) =>
+      [project.name, project.projectType, project.program, project.yearLevel].some((value) =>
+        value.toLowerCase().includes(query)
+      )
+    )
+  }, [canSearchProjects, orderedProjectEntries, projectSearch])
+
   const forYouProjects = React.useMemo(() => {
-    return orderedProjectEntries.slice(0, 4).map((entry) => entry.project)
-  }, [orderedProjectEntries])
+    return visibleProjectEntries.slice(0, 4).map((entry) => entry.project)
+  }, [visibleProjectEntries])
 
   const recentProjects = React.useMemo(() => {
-    return orderedProjectEntries.slice(4)
-  }, [orderedProjectEntries])
+    return visibleProjectEntries.slice(4)
+  }, [visibleProjectEntries])
 
   const handleToggleStarred = React.useCallback(async (projectId: string, starred: boolean) => {
     const updatedProject = await setDashboardProjectStarred(projectId, starred)
@@ -284,26 +300,21 @@ export function DashboardPageClient({
     )
   }, [])
 
-  const handleArchiveProject = React.useCallback((projectId: string) => {
-    const archivedBy =
-      currentUser?.name?.trim() ||
-      currentUser?.email?.trim() ||
-      currentUser?.id?.trim() ||
-      undefined
-    const archivedProject = archiveDashboardProject(projectId, archivedBy)
-
-    if (archivedProject) {
-      setProjects(getDashboardProjects())
-      setProjectAccessRecords(getDashboardProjectAccessRecords())
-    }
-  }, [currentUser])
+  const handleArchiveProject = React.useCallback(async (projectId: string) => {
+    const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/archive`, {
+      method: "POST",
+    })
+    if (!response.ok) return
+    setProjects((currentProjects) => currentProjects.filter((project) => project.id !== projectId))
+    setProjectAccessRecords((current) => current.filter((record) => record.projectId !== projectId))
+  }, [])
 
   const handleConfirmArchiveProject = React.useCallback(() => {
     if (!pendingArchiveProject) {
       return
     }
 
-    handleArchiveProject(pendingArchiveProject.id)
+    void handleArchiveProject(pendingArchiveProject.id)
     setPendingArchiveProject(null)
   }, [handleArchiveProject, pendingArchiveProject])
 
@@ -476,6 +487,7 @@ export function DashboardPageClient({
               <h1 className="font-display text-2xl font-semibold tracking-tight">
                 Choose a project
               </h1>
+              <div className="flex items-center gap-2">
               {canCreateProject ? (
                 <Button
                   type="button"
@@ -491,6 +503,19 @@ export function DashboardPageClient({
                   Create
                 </Button>
               ) : null}
+              {canSearchProjects ? (
+                <div className="relative w-64">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={projectSearch}
+                    onChange={(event) => setProjectSearch(event.target.value)}
+                    placeholder="Search projects"
+                    aria-label="Search projects"
+                    className="h-10 pl-9"
+                  />
+                </div>
+              ) : null}
+              </div>
             </div>
             <div className="mt-3 h-px w-full bg-slate-200 dark:bg-slate-800" />
           </div>
