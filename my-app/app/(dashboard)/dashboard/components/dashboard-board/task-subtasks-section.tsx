@@ -58,6 +58,7 @@ type TaskSubtasksSectionProps = {
   subtasks: TodoItem[]
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
+  canCreateSubtasks?: boolean
   creatorNamesById?: Record<string, string>
   isSubmittingSubtask?: boolean
   createSubtaskError?: string | null
@@ -128,6 +129,7 @@ export function TaskSubtasksSection({
   subtasks,
   currentUserId = null,
   canManageOtherProjectResources = false,
+  canCreateSubtasks = false,
   creatorNamesById = {},
   isSubmittingSubtask = false,
   createSubtaskError = null,
@@ -525,27 +527,29 @@ export function TaskSubtasksSection({
                 Clear filters
               </button>
             ) : null}
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-[2px] transition hover:opacity-90"
-              style={{
-                backgroundColor: "var(--brand-primary-fixed)",
-                color: "var(--brand-primary-fixed-foreground)",
-              }}
-              aria-label="Add subtask"
-              title="Add subtask"
-              onClick={() => {
-                setIsCreatingSubtask(true)
-                setEditingSubtaskId(null)
-                setEditingTitle("")
-                setSubtaskTitleError(null)
-                setNewSubtaskTitle("")
-                setNewSubtaskStartDate(undefined)
-                setNewSubtaskDueDate(undefined)
-              }}
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+            {canCreateSubtasks ? (
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-[2px] transition hover:opacity-90"
+                style={{
+                  backgroundColor: "var(--brand-primary-fixed)",
+                  color: "var(--brand-primary-fixed-foreground)",
+                }}
+                aria-label="Add subtask"
+                title="Add subtask"
+                onClick={() => {
+                  setIsCreatingSubtask(true)
+                  setEditingSubtaskId(null)
+                  setEditingTitle("")
+                  setSubtaskTitleError(null)
+                  setNewSubtaskTitle("")
+                  setNewSubtaskStartDate(undefined)
+                  setNewSubtaskDueDate(undefined)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -962,7 +966,7 @@ export function TaskSubtasksSection({
             </div>
           )}
 
-          {isCreatingSubtask ? (
+          {canCreateSubtasks && isCreatingSubtask ? (
             <div
               ref={createSubtaskRowRef}
               className={`${subtaskGridClass} border-t border-slate-200 bg-white px-3 py-2 dark:border-[#2b3138] dark:bg-[#1f1f23]`}

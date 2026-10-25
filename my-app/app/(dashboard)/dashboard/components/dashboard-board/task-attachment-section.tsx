@@ -40,6 +40,7 @@ import { formatSubmissionSize } from "./utils"
 
 type TaskSubmissionsSectionProps = {
   selectedTodo: TodoItem
+  canUpload?: boolean
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean
@@ -267,6 +268,7 @@ function AttachmentListSkeleton() {
 
 export function TaskSubmissionsSection({
   selectedTodo,
+  canUpload = false,
   currentUserId = null,
   creatorNamesById = {},
   canManageOtherProjectResources = false,
@@ -458,28 +460,30 @@ export function TaskSubmissionsSection({
               Clear filters
             </button>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 w-9 rounded-[2px] p-0 hover:opacity-90"
-            style={{
-              backgroundColor: "var(--brand-primary-fixed)",
-              color: "var(--brand-primary-fixed-foreground)",
-            }}
-            disabled={isUploadingSubmission || isLoadingSubmissions}
-            onClick={() => {
-              setIsExpanded(true)
-              submissionInputRef.current?.click()
-            }}
-            aria-label={
-              submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
-            }
-            title={
-              submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
-            }
-          >
-            <Upload className="h-4 w-4" />
-          </Button>
+          {canUpload ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 w-9 rounded-[2px] p-0 hover:opacity-90"
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+                color: "var(--brand-primary-fixed-foreground)",
+              }}
+              disabled={isUploadingSubmission || isLoadingSubmissions}
+              onClick={() => {
+                setIsExpanded(true)
+                submissionInputRef.current?.click()
+              }}
+              aria-label={
+                submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
+              }
+              title={
+                submissionThreads.length > 0 ? "Add another attachment" : "Add attachment"
+              }
+            >
+              <Upload className="h-4 w-4" />
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -517,17 +521,19 @@ export function TaskSubmissionsSection({
           </div>
         ) : null}
 
-        <input
-          ref={submissionInputRef}
-          type="file"
-          className="hidden"
-          multiple
-          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt,image/*,video/*"
-          onChange={(event) => {
-            onSubmissionAttach(selectedTodo.id, event.target.files)
-            event.target.value = ""
-          }}
-        />
+        {canUpload ? (
+          <input
+            ref={submissionInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt,image/*,video/*"
+            onChange={(event) => {
+              onSubmissionAttach(selectedTodo.id, event.target.files)
+              event.target.value = ""
+            }}
+          />
+        ) : null}
 
         {submissionDrafts.length === 0 && isLoadingSubmissions ? (
           <AttachmentListSkeleton />

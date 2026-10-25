@@ -103,6 +103,8 @@ export function DashboardBoard({
   currentUserId = null,
   creatorNamesById = {},
   canManageOtherProjectResources = false,
+  canSubmitTaskResources = false,
+  canCreateSubtasks = false,
   isDragDisabled = false,
   onStatusChange,
   onMoveTodo,
@@ -1474,6 +1476,7 @@ export function DashboardBoard({
 
                   <TaskSubmissionsSection
                     selectedTodo={selectedTodo}
+                    canUpload={canSubmitTaskResources}
                     currentUserId={currentUserId}
                     creatorNamesById={creatorNamesById}
                     canManageOtherProjectResources={canManageOtherProjectResources}
@@ -1501,6 +1504,7 @@ export function DashboardBoard({
 
                   <TaskWebLinksSection
                     links={taskWebLinks[selectedTodo.id] ?? []}
+                    canAddLink={canSubmitTaskResources}
                     currentUserId={currentUserId}
                     creatorNamesById={creatorNamesById}
                     canManageOtherProjectResources={canManageOtherProjectResources}
@@ -1516,6 +1520,7 @@ export function DashboardBoard({
                       <TaskSubtasksSection
                         checklist={selectedTodo.checklist}
                         subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
+                        canCreateSubtasks={canCreateSubtasks}
                         currentUserId={currentUserId}
                         canManageOtherProjectResources={canManageOtherProjectResources}
                         creatorNamesById={creatorNamesById}

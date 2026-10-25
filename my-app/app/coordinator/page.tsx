@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal } from "lucide-react"
+import { MoreHorizontal, Search } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   getDashboardProjects,
@@ -19,6 +20,7 @@ export default function CoordinatorPage() {
   const router = useRouter()
   const [groups, setGroups] = useState<DashboardProject[]>([])
   const [showAllGroups, setShowAllGroups] = useState(false)
+  const [searchValue, setSearchValue] = useState("")
 
   useEffect(() => {
     const syncGroups = () => setGroups(getDashboardProjects())
@@ -34,8 +36,16 @@ export default function CoordinatorPage() {
     }
   }, [])
 
-  const visibleGroups = showAllGroups ? groups : groups.slice(0, 4)
-  const recentGroups = groups.slice(4)
+  const normalizedSearch = searchValue.trim().toLowerCase()
+  const filteredGroups = normalizedSearch
+    ? groups.filter((group) =>
+        [group.name, group.projectType, group.program, group.yearLevel].some((value) =>
+          value.toLowerCase().includes(normalizedSearch)
+        )
+      )
+    : groups
+  const visibleGroups = showAllGroups ? filteredGroups : filteredGroups.slice(0, 4)
+  const recentGroups = filteredGroups.slice(4)
 
   function getInitials(name: string) {
     return name
@@ -62,19 +72,31 @@ export default function CoordinatorPage() {
             </h1>
           </div>
 
-          <Button
-            type="button"
-            className="rounded-lg px-5"
-            style={{
-              backgroundColor: "var(--brand-primary-fixed)",
-              color: "var(--brand-primary-fixed-foreground)",
-            }}
-            onClick={() => {
-              window.dispatchEvent(new Event("tracksphere-open-create-project"))
-            }}
-          >
-            Create
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              className="rounded-lg px-5"
+              style={{
+                backgroundColor: "var(--brand-primary-fixed)",
+                color: "var(--brand-primary-fixed-foreground)",
+              }}
+              onClick={() => {
+                window.dispatchEvent(new Event("tracksphere-open-create-project"))
+              }}
+            >
+              Create
+            </Button>
+            <div className="relative w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+                placeholder="Search groups"
+                aria-label="Search groups"
+                className="h-10 pl-9"
+              />
+            </div>
+          </div>
         </div>
         <div className="mt-3 h-px w-full bg-slate-200 dark:bg-slate-800" />
       </div>
@@ -82,7 +104,7 @@ export default function CoordinatorPage() {
       <section className="mt-6 space-y-4">
         <div className="flex items-center justify-between gap-4">
           <h2 className="font-display text-lg font-semibold tracking-tight">For you</h2>
-          {groups.length > 4 ? (
+          {filteredGroups.length > 4 ? (
             <button
               type="button"
               onClick={() => setShowAllGroups((current) => !current)}
@@ -93,9 +115,9 @@ export default function CoordinatorPage() {
           ) : null}
         </div>
 
-        {groups.length === 0 ? (
+        {filteredGroups.length === 0 ? (
           <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground dark:border-[#343434]">
-            No groups yet. Click Create to add your first group.
+            {normalizedSearch ? "No matching groups found." : "No groups yet. Click Create to add your first group."}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -32,6 +32,10 @@ type ProjectRecord = {
   sy_term: string
   project_type: string
   created_at: string
+  is_archived: boolean
+  archived_at?: string | null
+  archived_by_user_id?: string | null
+  archived_by_name?: string | null
 }
 
 type ProjectStarredPreferenceRecord = {
@@ -142,6 +146,10 @@ function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
     year_level: typeof record.year_level === "string" ? record.year_level : "",
     sy_term: typeof record.sy_term === "string" ? record.sy_term : "",
     project_type: typeof record.project_type === "string" ? record.project_type : "",
+    is_archived: record.is_archived === true,
+    archived_at: typeof record.archived_at === "string" ? record.archived_at : null,
+    archived_by_user_id:
+      typeof record.archived_by_user_id === "string" ? record.archived_by_user_id : null,
     created_at:
       typeof record.created_at === "string"
         ? record.created_at
@@ -161,6 +169,16 @@ export class StudentAlreadyAssignedError extends Error {
   constructor() {
     super("One or more students are already assigned to another group.")
     this.name = "StudentAlreadyAssignedError"
+  }
+}
+
+export class ArchivedProjectRestoreConflictError extends Error {
+  conflictingUserIds: string[]
+
+  constructor(conflictingUserIds: string[]) {
+    super("One or more students are already assigned to an active group.")
+    this.name = "ArchivedProjectRestoreConflictError"
+    this.conflictingUserIds = conflictingUserIds
   }
 }
 
@@ -196,6 +214,9 @@ async function ensureProjectsSchema() {
           year_level text not null default '',
           sy_term text not null default '',
           project_type text not null default '',
+          is_archived boolean not null default false,
+          archived_at timestamptz,
+          archived_by_user_id text,
           created_at timestamptz not null default now()
         );
       `)
@@ -253,6 +274,14 @@ async function ensureProjectsSchema() {
         getDb().query(`
           alter table projects
           add column if not exists is_starred boolean not null default false;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table projects
+          add column if not exists is_archived boolean not null default false,
+          add column if not exists archived_at timestamptz,
+          add column if not exists archived_by_user_id text;
         `)
       )
       .then(() =>
@@ -632,6 +661,8 @@ function mapRecord(record: ProjectRecord): DashboardProject {
     syTerm: typeof record.sy_term === "string" ? record.sy_term : "",
     projectType: typeof record.project_type === "string" ? record.project_type : "",
     createdAt: normalizeProjectCreatedAt(record.created_at),
+    archivedAt: record.archived_at ?? undefined,
+    archivedBy: record.archived_by_name ?? record.archived_by_user_id ?? undefined,
   }
 }
 
@@ -650,6 +681,9 @@ function toRecord(project: DashboardProject, ownerUserId: string): ProjectRecord
     sy_term: project.syTerm,
     project_type: project.projectType,
     created_at: new Date().toISOString(),
+    is_archived: false,
+    archived_at: null,
+    archived_by_user_id: null,
   }
 }
 
@@ -753,7 +787,8 @@ export async function listProjects(ownerUserId: string) {
          left join project_starred_preferences
            on project_starred_preferences.project_id = projects.id
           and project_starred_preferences.user_id = $1
-         where projects.owner_user_id = $1
+         where projects.is_archived = false
+           and (projects.owner_user_id = $1
             or $1 = 'tester-admin'
             or $1 = any(projects.member_user_ids)
             or exists (
@@ -767,7 +802,7 @@ export async function listProjects(ownerUserId: string) {
               from groups project_group
               where project_group.project_id = projects.id
                 and $1 = any(project_group.member_user_ids)
-            )
+            ))
          order by projects.created_at desc`,
         [ownerUserId]
       )
@@ -788,9 +823,11 @@ export async function listProjects(ownerUserId: string) {
         ...records
           .filter(
             (record) =>
-              ownerUserId === "tester-admin" ||
-              record.owner_user_id === ownerUserId ||
-              record.member_user_ids.includes(ownerUserId)
+              !record.is_archived && (
+                ownerUserId === "tester-admin" ||
+                record.owner_user_id === ownerUserId ||
+                record.member_user_ids.includes(ownerUserId)
+              )
           )
           .map((record) =>
             mapRecord({
@@ -799,6 +836,153 @@ export async function listProjects(ownerUserId: string) {
             })
           ),
       ]
+    }
+  )
+}
+
+export async function listArchivedProjects() {
+  return withProjectStore(
+    async () => {
+      const result = await getDb().query<ProjectRecord>(
+        `select
+           projects.*,
+           coalesce(archiver.name, archiver.email, projects.archived_by_user_id) as archived_by_name
+         from projects
+         left join lateral (
+           select name, email
+           from users
+           where microsoft_user_id = projects.archived_by_user_id
+           order by login_at desc
+           limit 1
+         ) archiver on true
+         where projects.is_archived = true
+         order by projects.archived_at desc nulls last`,
+      )
+
+      return result.rows.map(mapRecord)
+    },
+    async () => {
+      const records = await readFileRecords()
+      return records.filter((record) => record.is_archived).map(mapRecord)
+    }
+  )
+}
+
+export async function archiveProject(projectId: string, archivedByUserId: string) {
+  return withProjectStore(
+    async () => {
+      const result = await getDb().query<ProjectRecord>(
+        `update projects
+         set is_archived = true,
+             archived_at = now(),
+             archived_by_user_id = $2
+         where id = $1
+           and is_archived = false
+         returning *`,
+        [projectId, archivedByUserId]
+      )
+      return result.rows[0] ? mapRecord(result.rows[0]) : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const record = records.find((item) => item.id === projectId && !item.is_archived)
+      if (!record) return null
+      record.is_archived = true
+      record.archived_at = new Date().toISOString()
+      record.archived_by_user_id = archivedByUserId
+      await writeFileRecords(records)
+      return mapRecord(record)
+    }
+  )
+}
+
+export async function restoreArchivedProject(
+  projectId: string,
+  transferMemberUserIds: string[] = []
+) {
+  return withProjectStore(
+    async () => {
+      const archivedResult = await getDb().query<ProjectRecord>(
+        `select * from projects where id = $1 and is_archived = true limit 1`,
+        [projectId]
+      )
+      const archived = archivedResult.rows[0]
+      if (!archived) return null
+
+      const conflictResult = await getDb().query<{ member_user_id: string }>(
+        `select distinct assigned.member_user_id
+         from projects
+         cross join unnest(member_user_ids) assigned(member_user_id)
+         where is_archived = false
+           and id <> $1
+           and assigned.member_user_id = any($2::text[])`,
+        [projectId, archived.member_user_ids]
+      )
+      const conflictIds = conflictResult.rows.map((row) => row.member_user_id)
+      const approvedTransfers = new Set(transferMemberUserIds)
+      if (conflictIds.some((userId) => !approvedTransfers.has(userId))) {
+        throw new ArchivedProjectRestoreConflictError(conflictIds)
+      }
+
+      if (conflictIds.length > 0) {
+        const transferredFrom = await getDb().query<{ id: string }>(
+          `update projects
+           set member_user_ids = array(
+                 select user_id from unnest(member_user_ids) user_id
+                 where not (user_id = any($1::text[]))
+               ),
+               sprint_creator_user_ids = array(
+                 select user_id from unnest(sprint_creator_user_ids) user_id
+                 where not (user_id = any($1::text[]))
+               )
+           where is_archived = false
+             and member_user_ids && $1::text[]
+           returning id`,
+          [conflictIds]
+        )
+        for (const previousProject of transferredFrom.rows) {
+          await syncProjectGroupFromProject(previousProject.id)
+        }
+      }
+
+      const result = await getDb().query<ProjectRecord>(
+        `update projects
+         set is_archived = false,
+             archived_at = null,
+             archived_by_user_id = null
+         where id = $1
+         returning *`,
+        [projectId]
+      )
+      await syncProjectGroupFromProject(projectId)
+      return result.rows[0] ? mapRecord(result.rows[0]) : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const record = records.find((item) => item.id === projectId && item.is_archived)
+      if (!record) return null
+      const conflicts = records
+        .filter((item) => !item.is_archived && item.id !== projectId)
+        .flatMap((item) => item.member_user_ids)
+        .filter((userId) => record.member_user_ids.includes(userId))
+      const uniqueConflicts = [...new Set(conflicts)]
+      const approvedTransfers = new Set(transferMemberUserIds)
+      if (uniqueConflicts.some((userId) => !approvedTransfers.has(userId))) {
+        throw new ArchivedProjectRestoreConflictError(uniqueConflicts)
+      }
+      for (const item of records) {
+        if (!item.is_archived && item.id !== projectId) {
+          item.member_user_ids = item.member_user_ids.filter((id) => !approvedTransfers.has(id))
+          item.sprint_creator_user_ids = item.sprint_creator_user_ids.filter(
+            (id) => !approvedTransfers.has(id)
+          )
+        }
+      }
+      record.is_archived = false
+      record.archived_at = null
+      record.archived_by_user_id = null
+      await writeFileRecords(records)
+      return mapRecord(record)
     }
   )
 }
@@ -832,7 +1016,8 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
         `select distinct member_user_id
          from projects
          cross join unnest(member_user_ids) as assigned(member_user_id)
-         where assigned.member_user_id = any($1::text[])`,
+         where is_archived = false
+           and assigned.member_user_id = any($1::text[])`,
         [requestedStudentUserIds]
       )
       const assignedIds = assignedResult.rows.map((row) => row.member_user_id)

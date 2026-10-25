@@ -51,6 +51,8 @@ export type DashboardProject = {
   syTerm: string
   projectType: string
   createdAt: string
+  archivedAt?: string
+  archivedBy?: string
 }
 
 export type ProjectMemberAccessInput = {
@@ -291,7 +293,10 @@ function writeStoredProjects(projects: DashboardProject[]) {
     getUserScopedStorageKey(PROJECTS_STORAGE_KEY),
     serializedProjects
   )
-  document.cookie = `${projectsCookieKey}=${encodeURIComponent(serializedProjects)}; path=/; max-age=31536000; samesite=lax`
+  // The complete project collection can exceed the browser/server cookie-header
+  // limit as projects and members accumulate. It is client cache data, so keep
+  // it in localStorage and remove any scoped cookie created by older versions.
+  document.cookie = `${projectsCookieKey}=; path=/; max-age=0; samesite=lax`
   expireLegacyCookie(PROJECTS_COOKIE_KEY)
   window.dispatchEvent(new CustomEvent(PROJECTS_CHANGE_EVENT, { detail: projects }))
 }
@@ -322,13 +327,7 @@ export function getDashboardProjects() {
 }
 
 export function cacheDashboardProjects(projects: DashboardProject[]) {
-  const archivedProjectIds =
-    typeof window === "undefined"
-      ? new Set<string>()
-      : new Set(getArchivedDashboardProjects().map((project) => project.id))
-  const activeProjects = projects.filter((project) => !archivedProjectIds.has(project.id))
-
-  writeStoredProjects(prioritizeProject(activeProjects, getSelectedDashboardProjectId()))
+  writeStoredProjects(prioritizeProject(projects, getSelectedDashboardProjectId()))
 }
 
 function writeArchivedDashboardProjects(projects: DashboardArchivedProject[]) {

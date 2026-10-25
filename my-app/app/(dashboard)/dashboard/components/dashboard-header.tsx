@@ -27,6 +27,7 @@ type DashboardHeaderProps = {
   showFilter?: boolean
   boardTitle?: string
   showCreateButton?: boolean
+  onProjectRootSelect?: () => void
   onProjectSelect?: () => void
   onBreadcrumbSectionSelect?: () => void
   onCreate?: () => void
@@ -41,6 +42,7 @@ export function DashboardHeader({
   showFilter = true,
   boardTitle = "Board",
   showCreateButton = true,
+  onProjectRootSelect,
   onProjectSelect,
   onBreadcrumbSectionSelect,
   onCreate,
@@ -71,7 +73,14 @@ export function DashboardHeader({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-        <span>Project /</span>
+        <button
+          type="button"
+          className="transition hover:text-foreground hover:underline"
+          onClick={onProjectRootSelect}
+        >
+          Project
+        </button>
+        <span>/</span>
         <button
           type="button"
           className="text-foreground transition hover:underline"

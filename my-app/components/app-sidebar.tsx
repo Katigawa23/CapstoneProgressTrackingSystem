@@ -11,6 +11,7 @@ import {
   Map,
   Milestone,
   Rows3,
+  Settings2,
   UserRoundCheck,
   Users,
 } from "lucide-react"
@@ -217,11 +218,13 @@ export function AppSidebar({
   initialProjects = [],
   initialTeam = null,
   coordinatorMode = false,
+  currentUserId,
 }: {
   role: UserRole
   initialProjects?: DashboardProject[]
   initialTeam?: DashboardProject | null
   coordinatorMode?: boolean
+  currentUserId?: string | null
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -270,7 +273,12 @@ export function AppSidebar({
     initialProjects,
     initialTeam,
   })
-  const projectCollections = getDashboardProjectCollections(projects)
+  const limitRecentProjects = coordinatorMode || role === "faculty" || role === "admin"
+  const projectCollections = getDashboardProjectCollections(projects).map((collection) =>
+    collection.label === "Recent" && limitRecentProjects
+      ? { ...collection, items: collection.items.slice(0, 4) }
+      : collection
+  )
   const visibleProjectItems = filterItemsByRole(projectItems, role).filter(
     (item) => !coordinatorMode || item.href !== "/dashboard/backlog"
   )
@@ -280,7 +288,7 @@ export function AppSidebar({
   const visibleProjectPickerArchiveItems = filterItemsByRole(
     [{ title: "Archive", href: "/dashboard/projects/archive", icon: Archive }],
     role
-  ).filter(() => !coordinatorMode)
+  ).filter(() => coordinatorMode)
   const visibleGroupItems = filterItemsByRole(groupItems, role)
   const visibleQuickLinkItems = filterItemsByRole(quickLinkItems, role)
   const isCoordinatorGroupPickerPage = coordinatorMode && pathname === "/coordinator"
@@ -288,8 +296,10 @@ export function AppSidebar({
     isCoordinatorGroupPickerPage ||
     pathname === "/dashboard" ||
     pathname === "/dashboard/projects" ||
-    pathname === "/dashboard/projects/archive"
+    pathname === "/dashboard/projects/archive" ||
+    pathname === "/dashboard/system-configuration"
   const canCreateProjectAccess = coordinatorMode
+  const isSuperAdmin = currentUserId === "tester-admin"
 
   React.useEffect(() => {
     const handleOpenCreateProject = () => {
@@ -397,7 +407,7 @@ export function AppSidebar({
                   router.push(coordinatorMode ? "/coordinator/board" : "/dashboard/board")
                 }}
                 projects={projects}
-                team={team}
+                team={isProjectPickerPage ? null : team}
               />
 
               {visibleProjectPickerArchiveItems.length > 0 ? (
@@ -410,6 +420,28 @@ export function AppSidebar({
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                       <NavList items={visibleProjectPickerArchiveItems} />
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                </div>
+              ) : null}
+
+              {isSuperAdmin ? (
+                <div className="pb-3">
+                  <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
+                  <SidebarGroup>
+                    <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Administration
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                      <NavList
+                        items={[
+                          {
+                            title: "System Configuration",
+                            href: "/dashboard/system-configuration",
+                            icon: Settings2,
+                          },
+                        ]}
+                      />
                     </SidebarGroupContent>
                   </SidebarGroup>
                 </div>
@@ -427,6 +459,28 @@ export function AppSidebar({
               </SidebarGroup>
 
               <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
+
+              {isSuperAdmin ? (
+                <>
+                  <SidebarGroup>
+                    <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Administration
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                      <NavList
+                        items={[
+                          {
+                            title: "System Configuration",
+                            href: "/dashboard/system-configuration",
+                            icon: Settings2,
+                          },
+                        ]}
+                      />
+                    </SidebarGroupContent>
+                  </SidebarGroup>
+                  <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
+                </>
+              ) : null}
 
               <SidebarGroup>
                 <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
