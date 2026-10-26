@@ -9,6 +9,7 @@ import {
   shouldFallbackToLocalStore,
 } from "@backend/db/fallback"
 import { ensureMicrosoftLoginSchema } from "@backend/repositories/users-repository"
+import { ensureCoordinatorAssignmentSchema } from "@/lib/server-coordinator-assignments"
 import {
   dashboardProjects,
   PROJECT_METADATA_MAX_LENGTH,
@@ -744,6 +745,7 @@ function normalizeProject(input: CreateProjectInput): DashboardProject {
 }
 
 export async function listProjects(ownerUserId: string) {
+  await ensureCoordinatorAssignmentSchema()
   return withProjectStore(
     async () => {
       const result = await getDb().query<ProjectRecord>(
@@ -788,21 +790,45 @@ export async function listProjects(ownerUserId: string) {
            on project_starred_preferences.project_id = projects.id
           and project_starred_preferences.user_id = $1
          where projects.is_archived = false
-           and (projects.owner_user_id = $1
-            or $1 = 'tester-admin'
-            or $1 = any(projects.member_user_ids)
-            or exists (
-              select 1
-              from users adviser_login
-              where adviser_login.microsoft_user_id = $1
-                and adviser_login.name = any(projects.project_adviser)
-            )
-            or exists (
-              select 1
-              from groups project_group
-              where project_group.project_id = projects.id
-                and $1 = any(project_group.member_user_ids)
-            ))
+           and (
+             $1 = 'tester-admin'
+             or (
+               exists (
+                 select 1 from program_coordinator_assignments
+                 where faculty_user_id = $1
+               )
+               and exists (
+                 select 1
+                 from program_coordinator_assignments coordinator_assignment
+                 inner join project_configuration_options program_option
+                   on program_option.id = coordinator_assignment.program_option_id
+                 where coordinator_assignment.faculty_user_id = $1
+                   and lower(program_option.label) = lower(projects.program)
+               )
+             )
+             or (
+               not exists (
+                 select 1 from program_coordinator_assignments
+                 where faculty_user_id = $1
+               )
+               and (
+                 projects.owner_user_id = $1
+                 or $1 = any(projects.member_user_ids)
+                 or exists (
+                   select 1
+                   from users adviser_login
+                   where adviser_login.microsoft_user_id = $1
+                     and adviser_login.name = any(projects.project_adviser)
+                 )
+                 or exists (
+                   select 1
+                   from groups project_group
+                   where project_group.project_id = projects.id
+                     and $1 = any(project_group.member_user_ids)
+                 )
+               )
+             )
+           )
          order by projects.created_at desc`,
         [ownerUserId]
       )

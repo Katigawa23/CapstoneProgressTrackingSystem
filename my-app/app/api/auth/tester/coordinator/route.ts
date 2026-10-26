@@ -15,7 +15,7 @@ const TEST_COORDINATOR_USER = {
   id: "tester-coordinator",
   name: "Coordinator Tester",
   email: "coordinator.tester@alabang.sti.edu.ph",
-  role: "admin" as const,
+  role: "faculty" as const,
 }
 
 function createCompletionUrl(request: NextRequest) {

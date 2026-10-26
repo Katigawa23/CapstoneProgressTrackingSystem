@@ -8,6 +8,7 @@ import {
   stripEmojiFromProjectTitle,
 } from "@/lib/projects"
 import { canCreateProject, isUserRole } from "@/lib/rbac"
+import { isAssignedCoordinator, listAssignedCoordinatorProgramLabels } from "@/lib/server-coordinator-assignments"
 import { validateDisplayName } from "@/lib/text-validation"
 import {
   createProject,
@@ -53,7 +54,8 @@ export async function POST(request: Request) {
   try {
     const user = await requireAuthenticatedUser()
 
-    if (!isUserRole(user.role) || !canCreateProject(user.role, user.id)) {
+    const coordinatorAssigned = user.role === "faculty" && await isAssignedCoordinator(user.id)
+    if (!isUserRole(user.role) || (!canCreateProject(user.role, user.id) && !coordinatorAssigned)) {
       return NextResponse.json(
         { error: "You do not have permission to create a project." },
         { status: 403 }
@@ -85,6 +87,12 @@ export async function POST(request: Request) {
     const yearLevel = body.yearLevel?.trim()
     const syTerm = body.syTerm?.trim()
     const projectType = body.projectType?.trim()
+    if (coordinatorAssigned && program) {
+      const assignedPrograms = await listAssignedCoordinatorProgramLabels(user.id)
+      if (!assignedPrograms.some((assignedProgram) => assignedProgram.toLowerCase() === program.toLowerCase())) {
+        return NextResponse.json({ error: "You can only create groups for your assigned program." }, { status: 403 })
+      }
+    }
     const members = Array.isArray(body.members)
       ? body.members.filter((member) => typeof member === "string" && member.trim())
       : []

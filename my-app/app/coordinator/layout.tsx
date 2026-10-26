@@ -5,6 +5,7 @@ import { DashboardLayoutShell } from "@/app/(dashboard)/dashboard/layout-shell"
 import { getDashboardProjectsData } from "@/app/(dashboard)/dashboard/data"
 import { getUserScopedProjectCookieKey, PROJECT_COOKIE_KEY } from "@/lib/projects"
 import { readAuthenticatedUser } from "@/lib/server-auth"
+import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
 
 export default async function CoordinatorLayout({ children }: { children: React.ReactNode }) {
   const [cookieStore, user, initialProjects] = await Promise.all([
@@ -14,7 +15,7 @@ export default async function CoordinatorLayout({ children }: { children: React.
   ])
 
   if (!user) redirect("/")
-  if (user.id !== "tester-coordinator") redirect("/dashboard")
+  if (user.id !== "tester-coordinator" && !(await isAssignedCoordinator(user.id))) redirect("/dashboard")
 
   const selectedProjectId =
     cookieStore.get(getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, user.id))?.value ?? null
