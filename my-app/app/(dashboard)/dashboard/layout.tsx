@@ -8,6 +8,7 @@ import {
 
 import { DashboardLayoutShell } from "./layout-shell"
 import { getDashboardProjectsData } from "./data"
+import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
 
 export default async function DashboardLayout({
   children,
@@ -19,6 +20,9 @@ export default async function DashboardLayout({
     readAuthenticatedUser(),
     getDashboardProjectsData(),
   ])
+  const coordinatorMode = authenticatedUser?.id
+    ? authenticatedUser.id === "tester-coordinator" || await isAssignedCoordinator(authenticatedUser.id)
+    : false
   const selectedProjectId =
     cookieStore.get(
       getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, authenticatedUser?.id)
@@ -28,7 +32,7 @@ export default async function DashboardLayout({
 
   return (
     <DashboardLayoutShell
-      coordinatorMode={authenticatedUser?.id === "tester-coordinator"}
+      coordinatorMode={coordinatorMode}
       initialAuthSession={
         authenticatedUser?.id
           ? {

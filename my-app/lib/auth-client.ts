@@ -4,6 +4,7 @@ import type { UserRole } from "@/lib/rbac"
 
 export const AUTH_STORAGE_KEY = "tracksphere_auth_session"
 export const DASHBOARD_BOOTSTRAP_KEY = "tracksphere_dashboard_bootstrapped"
+export const SESSION_REPLACED_KEY = "tracksphere_session_replaced"
 
 const AUTH_CHANGE_EVENT = "tracksphere-auth-change"
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
@@ -19,6 +20,7 @@ export type AuthSession = {
   user: AuthenticatedUser
   tenantId: string
   expiresAt: string
+  sessionId?: string
 }
 
 function isBrowser() {
@@ -67,6 +69,10 @@ export function readClientAuthSession() {
     return null
   }
 
+  if (window.sessionStorage.getItem(SESSION_REPLACED_KEY) === "true") {
+    return null
+  }
+
   const storedValue = window.localStorage.getItem(AUTH_STORAGE_KEY)
 
   if (!storedValue) {
@@ -102,8 +108,10 @@ export function saveClientAuthSession(user: AuthenticatedUser, tenantId: string)
     user,
     tenantId: tenantId.trim() || "common",
     expiresAt: new Date(Date.now() + SESSION_DURATION_MS).toISOString(),
+    sessionId: window.crypto.randomUUID(),
   }
 
+  window.sessionStorage.removeItem(SESSION_REPLACED_KEY)
   window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session))
   emitAuthChange()
 
@@ -117,7 +125,18 @@ export function clearClientAuthSession() {
 
   window.localStorage.removeItem(AUTH_STORAGE_KEY)
   window.sessionStorage.removeItem(DASHBOARD_BOOTSTRAP_KEY)
+  window.sessionStorage.removeItem(SESSION_REPLACED_KEY)
   emitAuthChange()
+}
+
+export function markClientSessionReplaced() {
+  if (!isBrowser()) return
+  window.sessionStorage.setItem(SESSION_REPLACED_KEY, "true")
+  window.sessionStorage.removeItem(DASHBOARD_BOOTSTRAP_KEY)
+}
+
+export function isClientSessionReplaced() {
+  return isBrowser() && window.sessionStorage.getItem(SESSION_REPLACED_KEY) === "true"
 }
 
 export function hasBootstrappedDashboardSession() {

@@ -13,6 +13,7 @@ import {
   Rows3,
   Settings2,
   UserRoundCheck,
+  UserCog,
   Users,
 } from "lucide-react"
 import {
@@ -297,7 +298,8 @@ export function AppSidebar({
     pathname === "/dashboard" ||
     pathname === "/dashboard/projects" ||
     pathname === "/dashboard/projects/archive" ||
-    pathname === "/dashboard/system-configuration"
+    pathname === "/dashboard/system-configuration" ||
+    pathname === "/dashboard/coordinators"
   const canCreateProjectAccess = coordinatorMode
   const isSuperAdmin = currentUserId === "tester-admin"
 
@@ -411,7 +413,7 @@ export function AppSidebar({
               />
 
               {visibleProjectPickerArchiveItems.length > 0 ? (
-                <div className="mt-auto pb-3">
+                <div className="pb-3">
                   <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
 
                   <SidebarGroup>
@@ -440,6 +442,11 @@ export function AppSidebar({
                             href: "/dashboard/system-configuration",
                             icon: Settings2,
                           },
+                          {
+                            title: "Coordinator Management",
+                            href: "/dashboard/coordinators",
+                            icon: UserCog,
+                          },
                         ]}
                       />
                     </SidebarGroupContent>
@@ -459,28 +466,6 @@ export function AppSidebar({
               </SidebarGroup>
 
               <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
-
-              {isSuperAdmin ? (
-                <>
-                  <SidebarGroup>
-                    <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                      Administration
-                    </SidebarGroupLabel>
-                    <SidebarGroupContent>
-                      <NavList
-                        items={[
-                          {
-                            title: "System Configuration",
-                            href: "/dashboard/system-configuration",
-                            icon: Settings2,
-                          },
-                        ]}
-                      />
-                    </SidebarGroupContent>
-                  </SidebarGroup>
-                  <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
-                </>
-              ) : null}
 
               <SidebarGroup>
                 <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">

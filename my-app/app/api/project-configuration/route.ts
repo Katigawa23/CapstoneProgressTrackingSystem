@@ -9,6 +9,7 @@ import {
   updateProjectConfigurationOption,
 } from "@/lib/server-project-configuration"
 import { PROJECT_METADATA_MAX_LENGTH } from "@/lib/projects"
+import { listAssignedCoordinatorProgramLabels } from "@/lib/server-coordinator-assignments"
 
 const categories = new Set<ProjectConfigurationCategory>([
   "program",
@@ -21,10 +22,22 @@ function isDuplicateError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "23505"
 }
 
+function isForeignKeyError(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "23503"
+}
+
 export async function GET() {
   try {
-    await requireAuthenticatedUser()
-    return NextResponse.json({ options: await listProjectConfigurationOptions() })
+    const user = await requireAuthenticatedUser()
+    const options = await listProjectConfigurationOptions()
+    const assignedPrograms = user.id === "tester-admin"
+      ? []
+      : await listAssignedCoordinatorProgramLabels(user.id)
+    if (assignedPrograms.length > 0) {
+      const allowed = new Set(assignedPrograms.map((label) => label.toLowerCase()))
+      return NextResponse.json({ options: options.filter((option) => option.category !== "program" || allowed.has(option.label.toLowerCase())) })
+    }
+    return NextResponse.json({ options })
   } catch (error) {
     console.error("Failed to load project configuration", error)
     return NextResponse.json({ error: "Failed to load configuration options." }, { status: 500 })
@@ -78,6 +91,7 @@ export async function DELETE(request: Request) {
     if (!deleted) return NextResponse.json({ error: "Option not found." }, { status: 404 })
     return NextResponse.json({ success: true })
   } catch (error) {
+    if (isForeignKeyError(error)) return NextResponse.json({ error: "Remove the assigned coordinator before deleting this program." }, { status: 409 })
     console.error("Failed to delete project configuration option", error)
     return NextResponse.json({ error: "Failed to delete option." }, { status: 500 })
   }

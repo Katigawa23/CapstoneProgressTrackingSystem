@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
   clearClientAuthSession,
+  isClientSessionReplaced,
+  markClientSessionReplaced,
   markDashboardSessionBootstrapped,
   readClientAuthSession,
   subscribeToAuthChange,
@@ -180,22 +182,43 @@ export function DashboardLayoutClient({
   const pathname = usePathname()
   const [session, setSession] = React.useState<AuthSession | null>(initialAuthSession)
   const [authLoading, setAuthLoading] = React.useState(!initialAuthSession)
+  const activeSessionIdentityRef = React.useRef<string | null>(null)
+  const sessionInitializedRef = React.useRef(false)
   React.useEffect(() => {
     const syncSession = () => {
-      const nextSession = readClientAuthSession()
-
-      if (!nextSession) {
-        if (initialAuthSession) {
-          setSession(initialAuthSession)
-          markDashboardSessionBootstrapped()
-          setAuthLoading(false)
-          return
-        }
-
-        window.location.href = "/"
+      if (isClientSessionReplaced()) {
+        window.location.replace("/?sessionReplaced=1")
         return
       }
 
+      const nextSession = readClientAuthSession()
+
+      if (!nextSession) {
+        if (!sessionInitializedRef.current && initialAuthSession) {
+          setSession(initialAuthSession)
+          markDashboardSessionBootstrapped()
+          setAuthLoading(false)
+          sessionInitializedRef.current = true
+          return
+        }
+
+        window.location.replace("/")
+        return
+      }
+
+      const nextIdentity = nextSession.sessionId ?? `${nextSession.user.id}:${nextSession.expiresAt}`
+      if (
+        sessionInitializedRef.current &&
+        activeSessionIdentityRef.current &&
+        activeSessionIdentityRef.current !== nextIdentity
+      ) {
+        markClientSessionReplaced()
+        window.location.replace("/?sessionReplaced=1")
+        return
+      }
+
+      activeSessionIdentityRef.current = nextIdentity
+      sessionInitializedRef.current = true
       setSession(nextSession)
       markDashboardSessionBootstrapped()
       setAuthLoading(false)
