@@ -99,7 +99,7 @@ export function readClientAuthSession() {
   }
 }
 
-export function saveClientAuthSession(user: AuthenticatedUser, tenantId: string) {
+export function saveClientAuthSession(user: AuthenticatedUser, tenantId: string, sessionId: string) {
   if (!isBrowser()) {
     return null
   }
@@ -108,7 +108,7 @@ export function saveClientAuthSession(user: AuthenticatedUser, tenantId: string)
     user,
     tenantId: tenantId.trim() || "common",
     expiresAt: new Date(Date.now() + SESSION_DURATION_MS).toISOString(),
-    sessionId: window.crypto.randomUUID(),
+    sessionId,
   }
 
   window.sessionStorage.removeItem(SESSION_REPLACED_KEY)

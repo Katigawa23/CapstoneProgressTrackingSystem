@@ -416,7 +416,7 @@ export function DashboardPageClient({
                           </p>
                         </button>
 
-                        <DropdownMenu>
+                        {currentUser && currentUser.role !== "student" ? <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
@@ -439,7 +439,7 @@ export function DashboardPageClient({
                               <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
                               {project.starred ? "Remove from starred" : "Add to starred"}
                             </DropdownMenuItem>
-                            {currentUser?.id !== "tester-admin" ? (
+                            {currentUser?.id === "tester-coordinator" ? (
                               <DropdownMenuItem
                                 className="cursor-pointer"
                                 onSelect={() => {
@@ -451,7 +451,7 @@ export function DashboardPageClient({
                               </DropdownMenuItem>
                             ) : null}
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenu> : null}
                       </div>
                     </div>
                   )
@@ -462,7 +462,7 @@ export function DashboardPageClient({
         </div>
       )
     },
-    [currentUser?.id, formatProjectDate, groupProjectsByRecency, handleToggleStarred, projectDisplayIds, router]
+    [currentUser, formatProjectDate, groupProjectsByRecency, handleToggleStarred, projectDisplayIds, router]
   )
 
   const renderRecentProjectSections = React.useMemo(
@@ -556,7 +556,7 @@ export function DashboardPageClient({
                       }}
                     >
                       <div className="absolute inset-y-0 left-0 w-1.5 bg-[var(--brand-primary-fixed)] dark:bg-[var(--brand-primary-fixed)]" />
-                      {hasHydrated ? (
+                      {hasHydrated && currentUser?.role !== "student" ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
@@ -586,7 +586,7 @@ export function DashboardPageClient({
                               <Star className={project.starred ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"} />
                               {project.starred ? "Remove from starred" : "Add to starred"}
                             </DropdownMenuItem>
-                            {currentUser?.id !== "tester-admin" ? (
+                            {currentUser?.id === "tester-coordinator" ? (
                               <DropdownMenuItem
                                 className="cursor-pointer"
                                 onSelect={() => {
@@ -599,11 +599,11 @@ export function DashboardPageClient({
                             ) : null}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      ) : (
+                      ) : !hasHydrated ? (
                         <span className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 dark:text-slate-500">
                           <MoreHorizontal className="h-4 w-4" />
                         </span>
-                      )}
+                      ) : null}
 
                       <CardHeader className="flex-1 space-y-2 px-4 pb-2.5 pt-3">
                         <div className="min-w-0 space-y-1">

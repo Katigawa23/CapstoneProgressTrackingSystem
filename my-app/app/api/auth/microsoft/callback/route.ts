@@ -16,18 +16,21 @@ import {
 } from "@backend/auth/session"
 
 import { saveMicrosoftAccountLogin, getStoredUserRole } from "@backend/repositories/users-repository"
+import { createActiveSession } from "@/lib/server-active-session"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 function createCompletionUrl(
   request: NextRequest,
-  user: MicrosoftUser
+  user: MicrosoftUser,
+  sessionId: string
 ) {
   const payload = Buffer.from(
     JSON.stringify({
       user,
       tenantId: getMicrosoftTenantId(),
+      sessionId,
     }),
     "utf8"
   ).toString("base64url")
@@ -72,10 +75,11 @@ export async function GET(request: NextRequest) {
 
     // âœ… SAVE TO DATABASE
     await saveMicrosoftAccountLogin(user, getMicrosoftTenantId())
+    const sessionId = await createActiveSession(user.id)
 
     // âœ… redirect to completion page
     const response = NextResponse.redirect(
-      createCompletionUrl(request, user)
+      createCompletionUrl(request, user, sessionId)
     )
 
     response.cookies.set(AUTH_STATE_COOKIE, "", {
@@ -95,6 +99,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         role: user.role,
         tenantId: getMicrosoftTenantId(),
+        sessionId,
       }),
       getAuthCookieOptions(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
     )
