@@ -78,22 +78,6 @@ const groupItems: NavItem[] = [
   { title: "Adviser", href: "/dashboard/advisers", icon: UserRoundCheck },
 ]
 
-const quickLinkItems: NavItem[] = [
-  {
-    title: "ELMS",
-    href: "https://elms.sti.edu/",
-    imageSrc:
-      "https://elms.sti.edu/files/2534719/STI_LOGO_for_eLMS(2).png?lmsauth=fe6600bdab0aafc21e4a67526017a8ded0be21f5",
-    external: true,
-  },
-  {
-    title: "ONE STI",
-    href: "https://one.sti.edu/",
-    imageSrc: "https://one.sti.edu/images/onesti_logo.png",
-    external: true,
-  },
-]
-
 function NavList({ items }: { items: NavItem[] }) {
   const pathname = usePathname()
 
@@ -291,7 +275,6 @@ export function AppSidebar({
     role
   ).filter(() => coordinatorMode)
   const visibleGroupItems = filterItemsByRole(groupItems, role)
-  const visibleQuickLinkItems = filterItemsByRole(quickLinkItems, role)
   const isCoordinatorGroupPickerPage = coordinatorMode && pathname === "/coordinator"
   const isProjectPickerPage =
     isCoordinatorGroupPickerPage ||
@@ -487,16 +470,6 @@ export function AppSidebar({
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              <Separator className="bg-[color:rgba(var(--brand-primary-rgb),0.12)] dark:bg-slate-800" />
-
-              <SidebarGroup>
-                <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Shortcut - URLs
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <NavList items={visibleQuickLinkItems} />
-                </SidebarGroupContent>
-              </SidebarGroup>
             </>
           )}
         </SidebarContent>

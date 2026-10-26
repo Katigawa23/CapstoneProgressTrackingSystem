@@ -423,7 +423,7 @@ export default function ArchivePage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="font-display text-xl font-semibold tracking-tight">Achived</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight">Archive</h1>
 
         <div className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
           <div className="relative min-w-0 flex-1 sm:w-[220px] sm:flex-none">
@@ -555,11 +555,7 @@ export default function ArchivePage() {
                   const createdByName = namesById[item.createdByUserId ?? ""] ?? item.createdByUserId ?? "Unknown user"
                   const archivedByName = namesById[item.archivedByUserId ?? ""] ?? item.archivedByUserId ?? "Unknown user"
                   const isSelected = selectedIds.includes(item.id)
-                  const canManageTask =
-                    !item.parentId ||
-                    ["faculty", "admin"].includes(currentUserRole) ||
-                    item.createdByUserId === currentUserId ||
-                    item.archivedByUserId === currentUserId
+                  const canRestoreTask = currentUserRole === "faculty"
 
                   return (
                     <tr
@@ -626,30 +622,29 @@ export default function ArchivePage() {
                         </div>
                       </td>
                       <td className="px-2 py-2 align-middle text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[#303030] dark:hover:text-slate-100"
-                              aria-label={`Open actions for ${item.displayId}`}
-                              title="Actions"
+                        {canRestoreTask ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[#303030] dark:hover:text-slate-100"
+                                aria-label={`Open actions for ${item.displayId}`}
+                                title="Actions"
                             >
-                              <Ellipsis className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
-                          >
-                            <DropdownMenuItem
-                              disabled={!canManageTask}
-                              onSelect={() => setPendingRestoreRow(row)}
+                                <Ellipsis className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
                             >
-                              <RotateCcw className="h-4 w-4" />
-                              Restore
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <DropdownMenuItem onSelect={() => setPendingRestoreRow(row)}>
+                                <RotateCcw className="h-4 w-4" />
+                                Restore
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
                       </td>
                     </tr>
                   )

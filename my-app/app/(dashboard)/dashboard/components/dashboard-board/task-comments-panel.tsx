@@ -32,6 +32,7 @@ type TaskCommentsPanelProps = {
   creatorNamesById?: Record<string, string>
   comments: DashboardComment[]
   isLoadingComments: boolean
+  isSavingComment: boolean
   isEditingComments: boolean
   commentDraft: string
   commentAssets: string[]
@@ -59,6 +60,7 @@ export function TaskCommentsPanel({
   creatorNamesById = {},
   comments,
   isLoadingComments,
+  isSavingComment,
   isEditingComments,
   commentDraft,
   commentAssets,
@@ -446,6 +448,7 @@ export function TaskCommentsPanel({
                 <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[#343434]">
                   <button
                     type="button"
+                    disabled={isSavingComment}
                     className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
                     onClick={() => commentImageInputRef.current?.click()}
                   >
@@ -454,6 +457,7 @@ export function TaskCommentsPanel({
                   </button>
                   <button
                     type="button"
+                    disabled={isSavingComment}
                     className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
                     onClick={() => commentFileInputRef.current?.click()}
                   >
@@ -484,6 +488,7 @@ export function TaskCommentsPanel({
                 </div>
                 <Textarea
                   autoFocus
+                  disabled={isSavingComment}
                   value={commentDraft}
                   onChange={(event) =>
                     onCommentDraftChange(
@@ -518,15 +523,17 @@ export function TaskCommentsPanel({
                     type="button"
                     size="sm"
                     className="min-h-8 px-3"
+                    disabled={isSavingComment}
                     onClick={onCommentSave}
                   >
-                    Save
+                    {isSavingComment ? "Saving..." : "Save"}
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
                     className="min-h-8 px-3"
+                    disabled={isSavingComment}
                     onClick={onCommentCancel}
                   >
                     Cancel

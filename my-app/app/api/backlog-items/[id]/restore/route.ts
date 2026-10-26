@@ -13,6 +13,12 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    if (user.role !== "faculty") {
+      return NextResponse.json(
+        { error: "Only the project adviser can restore archived tasks." },
+        { status: 403 }
+      )
+    }
     const { id } = await params
     const items = await restoreBacklogItem(id, user.id, user.role)
 

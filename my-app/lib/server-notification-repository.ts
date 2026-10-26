@@ -6,6 +6,7 @@ export type AppNotification = {
   title: string
   message: string
   actorName: string | null
+  projectId: string | null
   href: string
   read: boolean
   createdAt: string
@@ -130,10 +131,11 @@ async function createDueNotifications(userId: string) {
 export async function listNotifications(userId: string) {
   await createDueNotifications(userId)
   const result = await getDb().query<{
-    id: string; type: string; title: string; message: string; actor_name: string | null; href: string
+    id: string; type: string; title: string; message: string; actor_name: string | null
+    project_id: string | null; href: string
     is_read: boolean; created_at: string
   }>(
-    `select n.id, n.type,
+    `select n.id, n.type, n.project_id,
        case when n.type = 'journal_adviser_feedback' and n.project_id is not null
          then n.title || ' — ' || coalesce(
            (select nullif(g.group_name, '') from groups g where g.project_id = n.project_id limit 1),
@@ -142,11 +144,7 @@ export async function listNotifications(userId: string) {
          )
          else n.title
        end as title,
-       n.message, actor.name as actor_name,
-       case when n.backlog_item_id is not null
-         then '/dashboard/board?taskId=' || n.backlog_item_id::text
-         else n.href
-       end as href,
+       n.message, actor.name as actor_name, n.href,
        n.is_read, n.created_at
      from notifications n
      left join users actor on actor.microsoft_user_id = n.actor_user_id
@@ -157,6 +155,7 @@ export async function listNotifications(userId: string) {
   return result.rows.map((row) => ({
     id: row.id, type: row.type, title: row.title, message: row.message,
     actorName: row.actor_name,
+    projectId: row.project_id,
     href: row.href, read: row.is_read,
     createdAt: new Date(row.created_at).toISOString(),
   })) satisfies AppNotification[]

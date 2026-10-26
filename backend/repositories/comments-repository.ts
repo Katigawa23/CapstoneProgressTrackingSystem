@@ -26,6 +26,7 @@ type CreateBacklogCommentInput = {
   author: string
   body: string
   attachments: string[]
+  requestId?: string | null
 }
 
 type UpdateBacklogCommentInput = {
@@ -45,6 +46,7 @@ type BacklogCommentRecord = {
   body: string
   attachments: string[] | null
   created_at: string
+  request_id?: string | null
 }
 
 type CommentStorageMode = "database" | "file"
@@ -94,6 +96,7 @@ function toRecord(row: BacklogCommentRow): BacklogCommentRecord {
     body: row.body,
     attachments: row.attachments,
     created_at: row.createdAt,
+    request_id: null,
   }
 }
 
@@ -156,6 +159,12 @@ async function ensureCommentSchema() {
       .then(() =>
         getDb().query(`
           alter table comments
+          add column if not exists request_id text;
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          alter table comments
           drop constraint if exists comments_check;
         `)
       )
@@ -196,6 +205,13 @@ async function ensureCommentSchema() {
         getDb().query(`
           create index if not exists comments_author_user_id_idx
           on comments(author_user_id);
+        `)
+      )
+      .then(() =>
+        getDb().query(`
+          create unique index if not exists comments_request_id_unique_idx
+          on comments(request_id)
+          where request_id is not null;
         `)
       )
       .then(() => undefined)
@@ -340,14 +356,58 @@ export async function createBacklogComment(
 
   return withCommentStore(
     async () => {
-      const result = await getDb().query<BacklogCommentRecord>(
+      const client = await getDb().connect()
+      const serializedAttachments = JSON.stringify(input.attachments)
+      const duplicateLockKey = [
+        input.backlogItemId,
+        input.authorUserId ?? "",
+        input.body.trim(),
+        serializedAttachments,
+      ].join("\u001f")
+
+      try {
+        await client.query("begin")
+        await client.query(`select pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+          duplicateLockKey,
+        ])
+
+        const recentDuplicate = await client.query<BacklogCommentRecord>(
+          `select comments.id, comments.backlog_item_id, comments.author_user_id,
+                  comments.author, comments.body, comments.attachments, comments.created_at
+           from comments
+           inner join backlog on backlog.id = comments.backlog_item_id
+           inner join projects on projects.id = backlog.project_id
+           where comments.backlog_item_id = $1
+             and comments.author_user_id = $2
+             and comments.body = $3
+             and comments.attachments = $4::jsonb
+             and comments.created_at >= now() - interval '5 seconds'
+             and (projects.owner_user_id = $5 or $5 = any(projects.member_user_ids))
+           order by comments.created_at desc
+           limit 1`,
+          [
+            input.backlogItemId,
+            input.authorUserId ?? null,
+            input.body,
+            serializedAttachments,
+            ownerUserId,
+          ]
+        )
+
+        if (recentDuplicate.rows[0]) {
+          await client.query("commit")
+          return mapRecord(recentDuplicate.rows[0])
+        }
+
+        const result = await client.query<BacklogCommentRecord>(
         `insert into comments (
           id,
           backlog_item_id,
           author_user_id,
           author,
           body,
-          attachments
+          attachments,
+          request_id
         )
         select
           $1,
@@ -355,7 +415,8 @@ export async function createBacklogComment(
           $3,
           $4,
           $5,
-          $6::jsonb
+          $6::jsonb,
+          $8
         from backlog
         inner join projects
           on projects.id = backlog.project_id
@@ -364,6 +425,7 @@ export async function createBacklogComment(
             projects.owner_user_id = $7
             or $7 = any(projects.member_user_ids)
           )
+        on conflict (request_id) where request_id is not null do nothing
         returning
           id,
           backlog_item_id,
@@ -378,12 +440,42 @@ export async function createBacklogComment(
           input.authorUserId ?? null,
           input.author,
           input.body,
-          JSON.stringify(input.attachments),
+          serializedAttachments,
           ownerUserId,
+          input.requestId ?? null,
         ]
       )
 
-      return result.rows[0] ? mapRecord(result.rows[0]) : null
+        if (result.rows[0]) {
+          await client.query("commit")
+          return mapRecord(result.rows[0])
+        }
+        if (!input.requestId) {
+          await client.query("commit")
+          return null
+        }
+
+        const existing = await client.query<BacklogCommentRecord>(
+        `select comments.id, comments.backlog_item_id, comments.author_user_id,
+                comments.author, comments.body, comments.attachments, comments.created_at
+         from comments
+         inner join backlog on backlog.id = comments.backlog_item_id
+         inner join projects on projects.id = backlog.project_id
+         where comments.request_id = $1
+           and comments.backlog_item_id = $2
+           and comments.author_user_id = $3
+           and (projects.owner_user_id = $4 or $4 = any(projects.member_user_ids))
+         limit 1`,
+        [input.requestId, input.backlogItemId, input.authorUserId ?? null, ownerUserId]
+      )
+        await client.query("commit")
+        return existing.rows[0] ? mapRecord(existing.rows[0]) : null
+      } catch (error) {
+        await client.query("rollback")
+        throw error
+      } finally {
+        client.release()
+      }
     },
     async () => {
       const comment: BacklogCommentRow = {
@@ -397,7 +489,24 @@ export async function createBacklogComment(
       }
 
       const records = await readFileRecords()
-      records.push(toRecord(comment))
+      const existing = input.requestId
+        ? records.find((record) => record.request_id === input.requestId)
+        : undefined
+      if (existing) return mapRecord(existing)
+
+      const recentDuplicate = records.find(
+        (record) =>
+          record.backlog_item_id === input.backlogItemId &&
+          record.author_user_id === (input.authorUserId ?? null) &&
+          record.body === input.body &&
+          JSON.stringify(record.attachments ?? []) === JSON.stringify(input.attachments) &&
+          Date.now() - new Date(record.created_at).getTime() <= 5_000
+      )
+      if (recentDuplicate) return mapRecord(recentDuplicate)
+
+      const record = toRecord(comment)
+      record.request_id = input.requestId ?? null
+      records.push(record)
       await writeFileRecords(records)
 
       return comment

@@ -28,25 +28,35 @@ export default function RootLayout({
               (function () {
                 try {
                   var storageKey = "theme-preference";
-                  var authStorageKey = "tracksphere_auth_session";
-                  var guestStorageKey = storageKey + ":guest";
-                  var sessionValue = window.localStorage.getItem(authStorageKey);
-                  var userThemeStorageKey = guestStorageKey;
+                  var storedTheme = window.localStorage.getItem(storageKey);
 
-                  if (sessionValue) {
-                    try {
-                      var session = JSON.parse(sessionValue);
-                      var userId = session && session.user && typeof session.user.id === "string"
-                        ? session.user.id
-                        : null;
+                  // Migrate the preference saved by older versions of TrackSphere.
+                  if (storedTheme !== "dark" && storedTheme !== "light") {
+                    var authStorageKey = "tracksphere_auth_session";
+                    var sessionValue = window.localStorage.getItem(authStorageKey);
+                    var legacyKeys = [];
 
-                      if (userId) {
-                        userThemeStorageKey = storageKey + ":" + userId;
+                    if (sessionValue) {
+                      try {
+                        var session = JSON.parse(sessionValue);
+                        var userId = session && session.user && typeof session.user.id === "string"
+                          ? session.user.id
+                          : null;
+                        if (userId) legacyKeys.push(storageKey + ":" + userId);
+                      } catch (error) {}
+                    }
+
+                    legacyKeys.push(storageKey + ":guest");
+                    for (var index = 0; index < legacyKeys.length; index += 1) {
+                      var legacyTheme = window.localStorage.getItem(legacyKeys[index]);
+                      if (legacyTheme === "dark" || legacyTheme === "light") {
+                        storedTheme = legacyTheme;
+                        window.localStorage.setItem(storageKey, legacyTheme);
+                        break;
                       }
-                    } catch (error) {}
+                    }
                   }
 
-                  var storedTheme = window.localStorage.getItem(userThemeStorageKey);
                   var isDark = storedTheme === "dark" || (!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches);
                   document.documentElement.classList.toggle("dark", isDark);
                   document.documentElement.style.colorScheme = isDark ? "dark" : "light";
