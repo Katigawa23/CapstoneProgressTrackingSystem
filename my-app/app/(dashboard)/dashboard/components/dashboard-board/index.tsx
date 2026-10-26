@@ -155,6 +155,7 @@ export function DashboardBoard({
     "There is no content!"
   )
   const [isLoadingComments, setIsLoadingComments] = React.useState(false)
+  const [isSavingComment, setIsSavingComment] = React.useState(false)
   const [isLoadingSubmissions, setIsLoadingSubmissions] = React.useState(false)
   const [isUploadingSubmission, setIsUploadingSubmission] = React.useState(false)
   const [loadedTaskIds, setLoadedTaskIds] = React.useState<Record<string, true>>({})
@@ -174,6 +175,9 @@ export function DashboardBoard({
   const commentFileInputRef = React.useRef<HTMLInputElement | null>(null)
   const submissionInputRef = React.useRef<HTMLInputElement | null>(null)
   const initializedCommentTodoIdRef = React.useRef<string | null>(null)
+  const commentSaveInFlightRef = React.useRef(false)
+  const commentRequestIdRef = React.useRef<string | null>(null)
+  const commentEditorRevisionRef = React.useRef(0)
   const selectedTodoId = selectedTodo?.id ?? null
 
   React.useEffect(() => {
@@ -811,18 +815,25 @@ export function DashboardBoard({
 
   const handleCommentSave = React.useCallback(() => {
     async function saveComment() {
-      if (!selectedTodo) {
+      if (!selectedTodo || commentSaveInFlightRef.current) {
         return
       }
 
+      const todoId = selectedTodo.id
+      const editorRevision = commentEditorRevisionRef.current
       const trimmedComment = commentDraft.trim()
-      const attachments = commentAssets[selectedTodo.id] ?? []
+      const attachments = commentAssets[todoId] ?? []
 
       if (!trimmedComment && attachments.length === 0) {
         setIsEditingComments(false)
         setEditingCommentId(null)
         return
       }
+
+      commentSaveInFlightRef.current = true
+      const requestId = commentRequestIdRef.current ?? crypto.randomUUID()
+      commentRequestIdRef.current = requestId
+      setIsSavingComment(true)
 
       try {
         const response = editingCommentId
@@ -836,7 +847,7 @@ export function DashboardBoard({
                 attachments,
               }),
             })
-          : await fetch(`/api/backlog-items/${selectedTodo.id}/comments`, {
+          : await fetch(`/api/backlog-items/${todoId}/comments`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -844,6 +855,7 @@ export function DashboardBoard({
               body: JSON.stringify({
                 body: trimmedComment,
                 attachments,
+                requestId,
               }),
             })
 
@@ -863,27 +875,35 @@ export function DashboardBoard({
         }
 
         const data = (await response.json()) as { comment: DashboardComment }
-        const currentComments = commentThreads[selectedTodo.id] ?? []
-        const nextComments = editingCommentId
-          ? currentComments.map((comment) =>
-              comment.id === editingCommentId ? data.comment : comment
-            )
-          : [...currentComments, data.comment]
-
         setCommentThreads((current) => ({
           ...current,
-          [selectedTodo.id]: nextComments,
+          [todoId]: editingCommentId
+            ? (current[todoId] ?? []).map((comment) =>
+                comment.id === editingCommentId ? data.comment : comment
+              )
+            : (current[todoId] ?? []).some((comment) => comment.id === data.comment.id)
+              ? current[todoId] ?? []
+              : [...(current[todoId] ?? []), data.comment],
         }))
-        onTodoUpdate(selectedTodo.id, { comments: nextComments.length })
+        const previousCount = commentThreads[todoId]?.length ?? 0
+        onTodoUpdate(todoId, { comments: editingCommentId ? previousCount : previousCount + 1 })
         setCommentAssets((current) => ({
           ...current,
-          [selectedTodo.id]: [],
+          [todoId]: [],
         }))
-        setCommentDraft("")
-        setIsEditingComments(false)
-        setEditingCommentId(null)
+        if (
+          initializedCommentTodoIdRef.current === todoId &&
+          commentEditorRevisionRef.current === editorRevision
+        ) {
+          setCommentDraft("")
+          setIsEditingComments(false)
+          setEditingCommentId(null)
+        }
       } catch (error) {
         console.error(error)
+      } finally {
+        commentSaveInFlightRef.current = false
+        setIsSavingComment(false)
       }
     }
 
@@ -899,12 +919,14 @@ export function DashboardBoard({
 
   const handleReplyToComment = React.useCallback((author: string) => {
     setCommentDraft(`@${author} `.slice(0, COMMENT_BODY_MAX_LENGTH))
+    commentRequestIdRef.current = null
     setIsEditingComments(true)
     setEditingCommentId(null)
   }, [])
 
   const handleEditComment = React.useCallback((comment: DashboardComment) => {
     setCommentDraft(comment.body.slice(0, COMMENT_BODY_MAX_LENGTH))
+    commentRequestIdRef.current = null
     setCommentAssets((current) => ({
       ...current,
       [comment.backlogItemId]: comment.attachments,
@@ -976,6 +998,8 @@ export function DashboardBoard({
       return
     }
 
+    commentEditorRevisionRef.current += 1
+    if (!commentSaveInFlightRef.current) commentRequestIdRef.current = null
     setSelectedTodo(null)
     setOpenTarget("default")
     setIsEditingDescription(false)
@@ -1547,15 +1571,23 @@ export function DashboardBoard({
                 creatorNamesById={creatorNamesById}
                 comments={commentThreads[selectedTodo.id] ?? []}
                 isLoadingComments={isLoadingComments}
+                isSavingComment={isSavingComment}
                 isEditingComments={isEditingComments}
                 commentDraft={commentDraft}
                 commentAssets={commentAssets[selectedTodo.id] ?? []}
                 commentImageInputRef={commentImageInputRef}
                 commentFileInputRef={commentFileInputRef}
-                onCommentDraftChange={setCommentDraft}
-                onCommentEditStart={() => setIsEditingComments(true)}
+                onCommentDraftChange={(value) => {
+                  setCommentDraft(value)
+                  if (!commentSaveInFlightRef.current) commentRequestIdRef.current = null
+                }}
+                onCommentEditStart={() => {
+                  commentRequestIdRef.current = null
+                  setIsEditingComments(true)
+                }}
                 onCommentSave={handleCommentSave}
                 onCommentCancel={() => {
+                  commentRequestIdRef.current = null
                   setCommentDraft("")
                   setCommentAssets((current) => ({
                     ...current,

@@ -5,19 +5,32 @@ import { Moon, Sun } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { readClientAuthSession, subscribeToAuthChange } from "@/lib/auth-client"
+import { readClientAuthSession } from "@/lib/auth-client"
 
 const THEME_STORAGE_KEY = "theme-preference"
 const GUEST_THEME_STORAGE_KEY = `${THEME_STORAGE_KEY}:guest`
 
-function getThemeStorageKey() {
-  const session = readClientAuthSession()
-
-  if (session?.user.id) {
-    return `${THEME_STORAGE_KEY}:${session.user.id}`
+function readStoredTheme() {
+  const sharedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
+  if (sharedTheme === "dark" || sharedTheme === "light") {
+    return sharedTheme
   }
 
-  return GUEST_THEME_STORAGE_KEY
+  // Keep an existing preference from versions that stored separate guest/user themes.
+  const session = readClientAuthSession()
+  const legacyKeys = session?.user.id
+    ? [`${THEME_STORAGE_KEY}:${session.user.id}`, GUEST_THEME_STORAGE_KEY]
+    : [GUEST_THEME_STORAGE_KEY]
+
+  for (const key of legacyKeys) {
+    const legacyTheme = window.localStorage.getItem(key)
+    if (legacyTheme === "dark" || legacyTheme === "light") {
+      window.localStorage.setItem(THEME_STORAGE_KEY, legacyTheme)
+      return legacyTheme
+    }
+  }
+
+  return null
 }
 
 function getPreferredTheme() {
@@ -25,7 +38,7 @@ function getPreferredTheme() {
     return false
   }
 
-  const storedTheme = window.localStorage.getItem(getThemeStorageKey())
+  const storedTheme = readStoredTheme()
 
   if (storedTheme === "dark") {
     return true
@@ -44,7 +57,7 @@ function applyTheme(isDark: boolean) {
   root.classList.add("theme-transition")
   root.classList.toggle("dark", isDark)
   root.style.colorScheme = isDark ? "dark" : "light"
-  window.localStorage.setItem(getThemeStorageKey(), isDark ? "dark" : "light")
+  window.localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light")
 
   window.setTimeout(() => {
     root.classList.remove("theme-transition")
@@ -78,7 +91,7 @@ export function ThemeSwitch({
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
     const handleThemeChange = (event: MediaQueryListEvent) => {
-      if (window.localStorage.getItem(getThemeStorageKey())) {
+      if (readStoredTheme()) {
         return
       }
 
@@ -88,11 +101,16 @@ export function ThemeSwitch({
     }
 
     mediaQuery.addEventListener("change", handleThemeChange)
-    const unsubscribe = subscribeToAuthChange(syncTheme)
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === THEME_STORAGE_KEY) {
+        syncTheme()
+      }
+    }
+    window.addEventListener("storage", handleStorageChange)
 
     return () => {
       mediaQuery.removeEventListener("change", handleThemeChange)
-      unsubscribe()
+      window.removeEventListener("storage", handleStorageChange)
     }
   }, [])
 

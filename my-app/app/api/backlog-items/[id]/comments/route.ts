@@ -50,8 +50,10 @@ export async function POST(
     const body = (await request.json()) as {
       body?: string
       attachments?: string[]
+      requestId?: string
     }
     const trimmedBody = body.body?.trim() ?? ""
+    const requestId = typeof body.requestId === "string" ? body.requestId.trim() : ""
     const normalizedAttachments = Array.isArray(body.attachments)
       ? body.attachments
           .map((item) => String(item).trim())
@@ -74,12 +76,17 @@ export async function POST(
       )
     }
 
+    if (requestId.length > 100) {
+      return NextResponse.json({ error: "Invalid comment request." }, { status: 400 })
+    }
+
     const comment = await createBacklogComment({
       backlogItemId: id,
       authorUserId: user.id,
       author: user.name?.trim() || user.email?.trim() || "Unknown User",
       body: trimmedBody,
       attachments: normalizedAttachments,
+      requestId: requestId || null,
     }, user.id)
 
     if (!comment) {
