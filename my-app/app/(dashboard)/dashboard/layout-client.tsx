@@ -232,6 +232,45 @@ export function DashboardLayoutClient({
     }
   }, [initialAuthSession])
 
+  React.useEffect(() => {
+    if (!session?.sessionId) return
+
+    let checking = false
+    const verifyServerSession = async () => {
+      if (checking) return
+      checking = true
+      try {
+        const response = await fetch("/api/auth/session", {
+          credentials: "include",
+          cache: "no-store",
+        })
+        if (response.status === 401) {
+          clearClientAuthSession()
+          markClientSessionReplaced()
+          window.location.replace("/?sessionReplaced=1")
+        }
+      } catch {
+        // A temporary network problem must not sign out a valid session.
+      } finally {
+        checking = false
+      }
+    }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void verifyServerSession()
+    }
+    const intervalId = window.setInterval(() => void verifyServerSession(), 10_000)
+    window.addEventListener("focus", verifyServerSession)
+    document.addEventListener("visibilitychange", handleVisibility)
+    void verifyServerSession()
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener("focus", verifyServerSession)
+      document.removeEventListener("visibilitychange", handleVisibility)
+    }
+  }, [session?.sessionId])
+
   const role: UserRole = isUserRole(session?.user.role) ? session.user.role : "student"
   const isCoordinatorRestrictedPath =
     pathname === "/dashboard/backlog" ||

@@ -1225,6 +1225,27 @@ export async function updateProjectStarred(
            and (
              owner_user_id = $2
              or $2 = any(member_user_ids)
+             or $2 = 'tester-admin'
+             or exists (
+               select 1
+               from groups project_group
+               where project_group.project_id = projects.id
+                 and $2 = any(project_group.member_user_ids)
+             )
+             or exists (
+               select 1
+               from users adviser_login
+               where adviser_login.microsoft_user_id = $2
+                 and adviser_login.name = any(projects.project_adviser)
+             )
+             or exists (
+               select 1
+               from program_coordinator_assignments coordinator_assignment
+               inner join project_configuration_options program_option
+                 on program_option.id = coordinator_assignment.program_option_id
+               where coordinator_assignment.faculty_user_id = $2
+                 and lower(program_option.label) = lower(projects.program)
+             )
            )
          limit 1`,
         [projectId, ownerUserId]

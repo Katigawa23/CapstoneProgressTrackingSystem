@@ -28,6 +28,7 @@ export default async function CoordinatorLayout({ children }: { children: React.
       initialAuthSession={{
         user: { id: user.id, name: user.name, email: user.email, role: user.role },
         tenantId: user.tenantId,
+        sessionId: user.sessionId,
         expiresAt: new Date(user.expiresAt).toISOString(),
       }}
       initialProjects={initialProjects}

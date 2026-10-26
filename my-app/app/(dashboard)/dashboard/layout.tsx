@@ -43,6 +43,7 @@ export default async function DashboardLayout({
                 role: authenticatedUser.role,
               },
               tenantId: authenticatedUser.tenantId,
+              sessionId: authenticatedUser.sessionId,
               expiresAt: new Date(authenticatedUser.expiresAt).toISOString(),
             }
           : null

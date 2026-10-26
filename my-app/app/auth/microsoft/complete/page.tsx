@@ -9,6 +9,7 @@ import { saveClientAuthSession, type AuthenticatedUser } from "@/lib/auth-client
 type CompletionPayload = {
   user: AuthenticatedUser
   tenantId: string
+  sessionId: string
 }
 
 const STATUS_MESSAGES = [
@@ -56,7 +57,12 @@ export default function MicrosoftAuthCompletePage() {
       return
     }
 
-    saveClientAuthSession(result.payload.user, result.payload.tenantId)
+    if (!result.payload.sessionId) {
+      router.replace("/?authError=callback")
+      return
+    }
+
+    saveClientAuthSession(result.payload.user, result.payload.tenantId, result.payload.sessionId)
     router.prefetch(result.redirect)
 
     const timeoutId = window.setTimeout(() => {
