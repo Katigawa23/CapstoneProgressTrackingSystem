@@ -36,7 +36,11 @@ import {
   setAssigneeOptions,
 } from "../backlog/types"
 import type { BacklogApiItem, TodoItem } from "../types"
-import { buildSubtaskDisplayId, mapBacklogItemsToTodos } from "../utils"
+import {
+  buildSubtaskDisplayId,
+  mapBacklogItemsToTodos,
+  upsertItemsById,
+} from "../utils"
 import { getLocalDateString } from "@/lib/trusted-time"
 
 type DashboardBoardPageClientProps = {
@@ -50,6 +54,10 @@ type DashboardBoardPageClientProps = {
 const BOARD_REALTIME_REFRESH_INTERVAL_MS = 5000
 const BOARD_LOCAL_MUTATION_GUARD_MS = 8000
 const BOARD_MOVE_SETTLE_MS = 1500
+
+function normalizePersonName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase()
+}
 
 function areTodoListsEqual(left: TodoItem[], right: TodoItem[]) {
   if (left.length !== right.length) {
@@ -132,6 +140,20 @@ export function DashboardBoardPageClient({
       null,
     [initialProjects, selectedProjectId]
   )
+  const canEditTaskAssignee = React.useMemo(() => {
+    if (currentUser?.role !== "faculty" || !selectedProject) {
+      return false
+    }
+
+    const currentUserName = normalizePersonName(currentUser.name)
+
+    return (
+      currentUserName.length > 0 &&
+      selectedProject.advisers.some(
+        (adviserName) => normalizePersonName(adviserName) === currentUserName
+      )
+    )
+  }, [currentUser, selectedProject])
   const isSuperAdminViewer = currentUser?.id === "tester-admin"
   const canManageProjectResources =
     !isSuperAdminViewer &&
@@ -599,6 +621,10 @@ export function DashboardBoardPageClient({
 
   const handleAssigneeChange = React.useCallback(
     async (todoId: string, assigneeId: string | null) => {
+      if (!canEditTaskAssignee) {
+        return
+      }
+
       const currentTodo = todos.find((todo) => todo.id === todoId)
       const nextAssignee = getAssigneeOption(assigneeId)
 
@@ -654,7 +680,7 @@ export function DashboardBoardPageClient({
         })
       }
     },
-    [todos]
+    [canEditTaskAssignee, todos]
   )
 
   const handlePriorityChange = React.useCallback(
@@ -865,10 +891,12 @@ export function DashboardBoardPageClient({
 
       const data = (await response.json()) as { item: BacklogApiItem }
 
-      setTodos((prev) => [
-        ...prev,
-        ...mapBacklogItemsToTodos([data.item], getCurrentProjectCode(selectedProjectId)),
-      ])
+      const createdTodos = mapBacklogItemsToTodos(
+        [data.item],
+        getCurrentProjectCode(selectedProjectId)
+      )
+
+      setTodos((currentTodos) => upsertItemsById(currentTodos, createdTodos))
       resetCreateForm()
       setCreateOpen(false)
     } catch (error) {
@@ -1052,10 +1080,14 @@ export function DashboardBoardPageClient({
         const data = (await response.json()) as { item: BacklogApiItem }
 
         setTodos((currentTodos) => {
+          const existingSubtask = currentTodos.find(
+            (todo) => todo.id === data.item.id
+          )
           const currentSiblingCount = currentTodos.filter(
-            (todo) => todo.parentId === parentTodo.id
+            (todo) =>
+              todo.parentId === parentTodo.id && todo.id !== data.item.id
           ).length
-          const createdSubtask: TodoItem = {
+          const createdSubtask: TodoItem = existingSubtask ?? {
             id: data.item.id,
             displayId: buildSubtaskDisplayId(parentTodo.displayId, currentSiblingCount + 1),
             orderIndex: data.item.orderIndex,
@@ -1081,7 +1113,7 @@ export function DashboardBoardPageClient({
                 ? "Low"
                 : "Medium",
           }
-          const nextTodos = [...currentTodos, createdSubtask]
+          const nextTodos = upsertItemsById(currentTodos, [createdSubtask])
 
           return nextTodos.map((todo) =>
             todo.id === parentTodo.id
@@ -1183,6 +1215,7 @@ export function DashboardBoardPageClient({
             }}
             currentUserId={currentUser?.id ?? null}
             creatorNamesById={creatorNamesById}
+            canEditAssignee={canEditTaskAssignee}
             canManageOtherProjectResources={canManageProjectResources}
             canSubmitTaskResources={currentUser?.role === "student"}
             canCreateSubtasks={

@@ -6,6 +6,7 @@ import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import {
   BacklogDescriptionLockedError,
   BacklogItemNameConflictError,
+  isBacklogItemAssignedToAdviser,
   updateBacklogItem,
 } from "@backend/repositories/tasks-repository"
 import { createNotification, notifyProjectAdvisers } from "@/lib/server-notification-repository"
@@ -40,6 +41,23 @@ export async function PATCH(
       priority?: "Low" | "Medium" | "High"
       orderIndex?: number
     }
+    const editsAdviserOnlyFields =
+      "title" in body ||
+      "startDate" in body ||
+      "dueDate" in body ||
+      "assigneeId" in body
+
+    if (
+      editsAdviserOnlyFields &&
+      (user.role !== "faculty" ||
+        !(await isBacklogItemAssignedToAdviser(id, user.id, user.name)))
+    ) {
+      return NextResponse.json(
+        { error: "Only the assigned adviser can edit task fields." },
+        { status: 403 }
+      )
+    }
+
     const updates = {
       ...("parentId" in body
         ? {

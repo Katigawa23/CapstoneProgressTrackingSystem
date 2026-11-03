@@ -56,10 +56,28 @@ export function buildSubtaskDisplayId(parentDisplayId: string, subtaskSequenceNu
   return `${parentDisplayId}/ST-${subtaskSequenceNumber}`
 }
 
+export function dedupeItemsById<T extends { id: string }>(items: T[]) {
+  const itemsById = new Map<string, T>()
+
+  for (const item of items) {
+    itemsById.set(item.id, item)
+  }
+
+  return Array.from(itemsById.values())
+}
+
+export function upsertItemsById<T extends { id: string }>(
+  currentItems: T[],
+  incomingItems: T[]
+) {
+  return dedupeItemsById([...currentItems, ...incomingItems])
+}
+
 export function mapBacklogItemsToTodos(
   items: BacklogApiItem[],
   projectCode: string
 ): TodoItem[] {
+  const uniqueItems = dedupeItemsById(items)
   const getNormalizedParentId = (parentId?: string | null) => {
     if (typeof parentId !== "string") {
       return null
@@ -76,7 +94,7 @@ export function mapBacklogItemsToTodos(
   const rootDisplayIdById = new Map<string, string>()
   const childDisplayIndexById = new Map<string, number>()
 
-  for (const item of items) {
+  for (const item of uniqueItems) {
     const normalizedParentId = getNormalizedParentId(item.parentId)
 
     if (!normalizedParentId) {
@@ -105,7 +123,7 @@ export function mapBacklogItemsToTodos(
     })
   }
 
-  return items
+  return uniqueItems
     .filter((item): item is BacklogApiItem & { status: ColumnId } =>
       isDashboardColumn(item.status)
     )

@@ -33,14 +33,13 @@ export function BacklogLoadingSkeleton() {
         <Skeleton className="h-9 w-20 rounded-md" />
       </div>
 
-      {["Board", "Backlog"].map((label) => (
+      {["Backlog"].map((label) => (
         <div
           key={label}
           className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-[#343434] dark:bg-[#1f1f1f]"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Skeleton className="h-4 w-4 rounded-sm" />
               <div className="flex items-center gap-2">
                 <span className="font-medium text-black dark:text-slate-100">{label}</span>
                 <span className="text-sm text-black/60 dark:text-slate-400">(4 work items)</span>
@@ -62,7 +61,7 @@ export function BacklogLoadingSkeleton() {
 
           <div className="flex">
             <span className="text-sm font-medium text-black dark:text-slate-100">
-              {label === "Backlog" ? "Create Backlog Item" : "Create"}
+              Create Backlog Item
             </span>
           </div>
         </div>

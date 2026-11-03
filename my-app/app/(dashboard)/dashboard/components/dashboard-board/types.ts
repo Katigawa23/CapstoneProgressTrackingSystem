@@ -23,6 +23,7 @@ export type DashboardBoardProps = {
   renderColumns?: boolean
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
+  canEditAssignee?: boolean
   canManageOtherProjectResources?: boolean
   canSubmitTaskResources?: boolean
   canCreateSubtasks?: boolean
