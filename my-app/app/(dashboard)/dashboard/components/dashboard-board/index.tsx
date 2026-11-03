@@ -44,7 +44,7 @@ import type {
   DashboardWebLink,
   TodoItem,
 } from "../../types"
-import { compareTasksByPriority } from "../../utils"
+import { compareTasksByPriority, dedupeItemsById } from "../../utils"
 import { DashboardColumn } from "./dashboard-column"
 import { TaskCommentsPanel } from "./task-comments-panel"
 import { TaskDetailsSection } from "./task-details-section"
@@ -96,12 +96,13 @@ function formatAttachmentLimit(limit: number) {
 }
 
 export function DashboardBoard({
-  todos,
+  todos: incomingTodos,
   openTodoId = null,
   onTaskDialogClose,
   renderColumns = true,
   currentUserId = null,
   creatorNamesById = {},
+  canEditAssignee = false,
   canManageOtherProjectResources = false,
   canSubmitTaskResources = false,
   canCreateSubtasks = false,
@@ -119,6 +120,10 @@ export function DashboardBoard({
   onArchiveTodo,
 }: DashboardBoardProps) {
   const isMobile = useIsMobile()
+  const todos = React.useMemo(
+    () => dedupeItemsById(incomingTodos),
+    [incomingTodos]
+  )
   const [selectedTodo, setSelectedTodo] = React.useState<TodoItem | null>(null)
   const [openTarget, setOpenTarget] = React.useState<"default" | "comments">(
     "default"
@@ -1332,6 +1337,7 @@ export function DashboardBoard({
                   todos={columnTodos}
                   allTodos={todos}
                   currentUserId={currentUserId}
+                  canEditAssignee={canEditAssignee}
                   canManageOtherProjectResources={canManageOtherProjectResources}
                   isDragDisabled={isDragDisabled}
                   onStatusChange={onStatusChange}
@@ -1363,6 +1369,7 @@ export function DashboardBoard({
               todos={columnTodos}
               allTodos={todos}
               currentUserId={currentUserId}
+              canEditAssignee={canEditAssignee}
               canManageOtherProjectResources={canManageOtherProjectResources}
               isDragDisabled={isDragDisabled}
               onStatusChange={onStatusChange}
@@ -1546,6 +1553,7 @@ export function DashboardBoard({
                         subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
                         canCreateSubtasks={canCreateSubtasks}
                         currentUserId={currentUserId}
+                        canEditAssignee={canEditAssignee}
                         canManageOtherProjectResources={canManageOtherProjectResources}
                         creatorNamesById={creatorNamesById}
                         isSubmittingSubtask={isCreatingSubtask}

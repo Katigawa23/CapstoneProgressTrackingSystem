@@ -1560,6 +1560,67 @@ export async function createBacklogItem(
   )
 }
 
+export async function isBacklogItemAssignedToAdviser(
+  id: string,
+  userId: string,
+  userName: string
+) {
+  return withBacklogStore(
+    async () => {
+      const result = await getDb().query<{ is_adviser: boolean }>(
+        `select exists (
+           select 1
+           from backlog
+           inner join projects
+             on projects.id = backlog.project_id
+           where backlog.id = $1
+             and exists (
+               select 1
+               from users adviser_login
+               where adviser_login.microsoft_user_id = $2
+                 and exists (
+                   select 1
+                   from unnest(projects.project_adviser) as adviser_name
+                   where lower(btrim(adviser_name)) =
+                     lower(btrim(adviser_login.name))
+                 )
+             )
+         ) as is_adviser`,
+        [id, userId]
+      )
+
+      return result.rows[0]?.is_adviser === true
+    },
+    async () => {
+      const normalizedUserName = userName.trim().replace(/\s+/g, " ").toLowerCase()
+
+      if (!normalizedUserName) {
+        return false
+      }
+
+      const records = await readFileRecords()
+      const record = records.find((candidate) => candidate.id === id)
+
+      if (!record) {
+        return false
+      }
+
+      const projects = await listProjects(userId).catch(() => [])
+      const project = projects.find(
+        (candidate) => candidate.id === record.project_id
+      )
+
+      return (
+        project?.advisers.some(
+          (adviserName) =>
+            adviserName.trim().replace(/\s+/g, " ").toLowerCase() ===
+            normalizedUserName
+        ) ?? false
+      )
+    }
+  )
+}
+
 export async function updateBacklogItem(
   id: string,
   ownerUserId: string,

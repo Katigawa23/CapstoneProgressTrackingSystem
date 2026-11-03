@@ -24,13 +24,14 @@ type BacklogBoardProps = {
   items: WorkItem[]
   statusCounts: Array<StatusOption & { count: number }>
   onToggleCheckbox: (id: string, checked: boolean) => void
-  onToggleAllCheckboxes: (checked: boolean) => void
   onUpdateStatus: (id: string, nextStatus: string) => void
   onUpdateAssignee: (id: string, assigneeId: string | null) => void
   onUpdatePriority: (id: string, nextPriority: "Low" | "Medium" | "High") => void
   onOpenItem?: (item: WorkItem) => void
   onEditItem: (item: WorkItem) => void
   onOpenCreate?: () => void
+  canEditItems?: boolean
+  canEditAssignee?: boolean
   canMoveItems?: boolean
   emptyLabel?: string
   createLabel?: string
@@ -43,25 +44,22 @@ export function BacklogBoard({
   items,
   statusCounts,
   onToggleCheckbox,
-  onToggleAllCheckboxes,
   onUpdateStatus,
   onUpdateAssignee,
   onUpdatePriority,
   onOpenItem,
   onEditItem,
   onOpenCreate,
+  canEditItems = false,
+  canEditAssignee = false,
   canMoveItems = true,
   emptyLabel,
   createLabel = "Create",
   lockedPriorityItemIds,
 }: BacklogBoardProps) {
-  const [isExpanded, setIsExpanded] = React.useState(true)
   const [expandedParentIds, setExpandedParentIds] = React.useState<Set<string>>(
     () => new Set()
   )
-  const checkedItemsCount = items.filter((item) => item.checked).length
-  const allItemsChecked = items.length > 0 && checkedItemsCount === items.length
-  const hasPartiallyCheckedItems = checkedItemsCount > 0 && checkedItemsCount < items.length
   const rootItems = React.useMemo(
     () => items.filter((item) => !item.parentId),
     [items]
@@ -242,14 +240,17 @@ export function BacklogBoard({
 
           <AssigneeCombobox
             value={item.assigneeId}
+            disabled={!canEditAssignee}
             onChange={(assigneeId) =>
               onUpdateAssignee(item.id, assigneeId)
             }
           />
 
-          <ItemActionsMenu
-            onEdit={() => onEditItem(item)}
-          />
+          {canEditItems ? (
+            <ItemActionsMenu
+              onEdit={() => onEditItem(item)}
+            />
+          ) : null}
         </div>
       </div>
     ),
@@ -261,47 +262,25 @@ export function BacklogBoard({
       onUpdatePriority,
       onUpdateStatus,
       lockedPriorityItemIds,
+      canEditAssignee,
+      canEditItems,
     ]
   )
 
   return (
     <Card
-      className={`flex flex-col gap-2.5 overflow-hidden border border-gray-200 bg-white p-2.5 dark:border-[#343434] dark:bg-[#1f1f1f] ${
-        isExpanded
-          ? shouldUseScrollableHeight
-            ? "h-[280px] min-h-[280px]"
-            : `${dynamicMinHeightClassName} h-auto`
-          : "h-auto min-h-0"
-      } rounded-sm`}
+      className={`flex flex-col gap-2.5 overflow-hidden rounded-sm border border-gray-200 bg-white p-2.5 dark:border-[#343434] dark:bg-[#1f1f1f] ${
+        shouldUseScrollableHeight
+          ? "h-[340px] min-h-[340px]"
+          : `${dynamicMinHeightClassName} h-auto`
+      }`}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <button
-            type="button"
-            suppressHydrationWarning
-            onClick={() => setIsExpanded((current) => !current)}
-            className="flex h-6 w-6 items-center justify-center text-black transition hover:text-black/70 dark:text-slate-100 dark:hover:text-slate-300"
-            aria-expanded={isExpanded}
-            aria-label={isExpanded ? `Collapse ${title.toLowerCase()} board` : `Expand ${title.toLowerCase()} board`}
-          >
-            <ChevronDown
-              className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "" : "-rotate-90"}`}
-            />
-          </button>
-          <div className="flex items-center gap-1.5 pl-[2px]">
-            <Checkbox
-              checked={allItemsChecked ? true : hasPartiallyCheckedItems ? "indeterminate" : false}
-              onCheckedChange={(checked) => onToggleAllCheckboxes(Boolean(checked))}
-              aria-label={`Toggle all ${title.toLowerCase()} items`}
-              className="h-3.5 w-3.5"
-            />
-            <div className="flex items-center gap-1.5 font-medium text-black dark:text-slate-100">
-              <span>{title}</span>
-              <span className="text-[12px] text-black/60 dark:text-slate-400">
-                ({items.length} work item{items.length === 1 ? "" : "s"})
-              </span>
-            </div>
-          </div>
+        <div className="flex items-center gap-1.5 font-medium text-black dark:text-slate-100">
+          <span>{title}</span>
+          <span className="text-[12px] text-black/60 dark:text-slate-400">
+            ({items.length} work item{items.length === 1 ? "" : "s"})
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -320,11 +299,7 @@ export function BacklogBoard({
         </div>
       </div>
 
-      {!isExpanded ? (
-        <div className="h-px w-full bg-gray-200 dark:bg-[#343434]" />
-      ) : null}
-
-      {!isExpanded ? null : items.length === 0 ? (
+      {items.length === 0 ? (
         <Droppable droppableId={droppableId}>
           {(provided, snapshot) => (
             <div

@@ -121,6 +121,10 @@ function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
   })
 }
 
+function normalizePersonName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase()
+}
+
 type BacklogPageClientProps = {
   initialProjects: DashboardProject[]
   initialSelectedProjectId: string | null
@@ -180,7 +184,32 @@ export function BacklogPageClient({
     )
   }, [items])
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
+  const [activeProjectId, setActiveProjectId] = React.useState<string | null>(
+    initialSelectedProjectId
+  )
   const [isDragDropReady, setIsDragDropReady] = React.useState(false)
+
+  const activeProject = React.useMemo(
+    () =>
+      initialProjects.find((project) => project.id === activeProjectId) ??
+      findDashboardProject(activeProjectId) ??
+      null,
+    [activeProjectId, initialProjects]
+  )
+  const canEditTaskFields = React.useMemo(() => {
+    if (currentUser?.role !== "faculty" || !activeProject) {
+      return false
+    }
+
+    const currentUserName = normalizePersonName(currentUser.name)
+
+    return (
+      currentUserName.length > 0 &&
+      activeProject.advisers.some(
+        (adviserName) => normalizePersonName(adviserName) === currentUserName
+      )
+    )
+  }, [activeProject, currentUser])
 
   const [editOpen, setEditOpen] = React.useState(false)
   const [editingItemId, setEditingItemId] = React.useState<string | null>(null)
@@ -192,6 +221,10 @@ export function BacklogPageClient({
   React.useEffect(() => {
     setIsDragDropReady(true)
   }, [])
+
+  React.useEffect(() => {
+    setActiveProjectId(initialSelectedProjectId)
+  }, [initialSelectedProjectId])
 
   React.useEffect(() => {
     if (initialSelectedProjectId) {
@@ -273,6 +306,9 @@ export function BacklogPageClient({
     async function loadItems() {
       const selectedProjectId = getSelectedDashboardProjectId()
       const selectedProject = findDashboardProject(selectedProjectId)
+      setActiveProjectId(selectedProjectId)
+      setEditOpen(false)
+      setEditingItemId(null)
 
       if (!selectedProjectId || !selectedProject) {
         router.replace("/dashboard")
@@ -435,6 +471,10 @@ export function BacklogPageClient({
   }
 
   const updateItemAssignee = async (id: string, assigneeId: string | null) => {
+    if (!canEditTaskFields) {
+      return
+    }
+
     const currentItem = items.find((item) => item.id === id)
 
     if (!currentItem) {
@@ -509,6 +549,8 @@ export function BacklogPageClient({
   }
 
   const handleOpenEdit = (item: WorkItem) => {
+    if (!canEditTaskFields) return
+
     setEditingItemId(item.id)
     setEditTitle(item.title)
     setEditDescription(item.description)
@@ -518,7 +560,7 @@ export function BacklogPageClient({
   }
 
   const handleSaveEdit = async () => {
-    if (!editingItemId || !editTitle.trim()) return
+    if (!canEditTaskFields || !editingItemId || !editTitle.trim()) return
 
     setItems((prev) =>
       prev.map((item) =>
@@ -906,15 +948,6 @@ export function BacklogPageClient({
     [buildSectionTree, filteredBoardItems]
   )
 
-  const backlogItems = React.useMemo(
-    () =>
-      buildSectionTree(
-        filteredBoardItems,
-        (item) => overdueItemIds.has(item.id)
-      ),
-    [buildSectionTree, filteredBoardItems, overdueItemIds]
-  )
-
   React.useEffect(() => {
     const itemsToPromote = items.filter(
       (item) => overdueItemIds.has(item.id) && item.priority !== "High"
@@ -940,12 +973,9 @@ export function BacklogPageClient({
     ).catch((error) => console.error("Failed to promote overdue task priority", error))
   }, [items, overdueItemIds])
 
-  const visibleRootItemsByDroppable = React.useMemo(
-    () => ({
-      "backlog-board": boardItems.filter((item) => !item.parentId),
-      "backlog-priority": backlogItems.filter((item) => !item.parentId),
-    }),
-    [backlogItems, boardItems]
+  const visibleRootItems = React.useMemo(
+    () => boardItems.filter((item) => !item.parentId),
+    [boardItems]
   )
 
   const buildStatusCounts = React.useCallback(
@@ -966,54 +996,6 @@ export function BacklogPageClient({
     []
   )
 
-  const toggleSectionCheckboxes = React.useCallback(
-    async (sectionItems: WorkItem[], checked: boolean) => {
-      const previousItems = items
-      const itemIds = sectionItems.map((item) => item.id)
-
-      if (itemIds.length === 0) {
-        return
-      }
-
-      setItems((prev) =>
-        prev.map((item) =>
-          itemIds.includes(item.id) ? { ...item, checked } : item
-        )
-      )
-
-      try {
-        await Promise.all(
-          itemIds.map(async (id) => {
-            const response = await fetch(`/api/backlog-items/${id}`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ checked }),
-            })
-
-            if (!response.ok) {
-              throw new Error("Failed to update backlog item checkbox")
-            }
-          })
-        )
-      } catch (error) {
-        console.error(error)
-        setItems(previousItems)
-      }
-    },
-    [items]
-  )
-
-  const getRootItemsForDroppable = React.useCallback(
-    (droppableId: string) => {
-      return visibleRootItemsByDroppable[
-        droppableId as keyof typeof visibleRootItemsByDroppable
-      ] ?? []
-    },
-    [visibleRootItemsByDroppable]
-  )
-
   const moveRootItem = React.useCallback(
     async (result: DropResult) => {
       const { source, destination, draggableId } = result
@@ -1021,13 +1003,16 @@ export function BacklogPageClient({
         ? draggableId.slice(source.droppableId.length + 1)
         : draggableId
 
-      if (!destination || isMovingRootItemRef.current) {
+      if (
+        !destination ||
+        isMovingRootItemRef.current ||
+        source.droppableId !== "backlog-board" ||
+        destination.droppableId !== "backlog-board"
+      ) {
         return
       }
 
-      const sourceRootItems = getRootItemsForDroppable(source.droppableId)
-      const destinationRootItems = getRootItemsForDroppable(destination.droppableId)
-      const movedItem = sourceRootItems.find((item) => item.id === itemId)
+      const movedItem = visibleRootItems.find((item) => item.id === itemId)
 
       if (!movedItem) {
         return
@@ -1035,56 +1020,19 @@ export function BacklogPageClient({
 
       isMovingRootItemRef.current = true
 
-      const nextStatus =
-        destination.droppableId === "backlog-priority"
-          ? "todo"
-          : movedItem.status === "todo"
-          ? "inprogress"
-          : movedItem.status
-
-      const nextSourceRootItems = sourceRootItems.filter((item) => item.id !== itemId)
-      const nextDestinationRootItems =
-        source.droppableId === destination.droppableId
-          ? [...nextSourceRootItems]
-          : destinationRootItems.filter((item) => item.id !== itemId)
-
-      nextDestinationRootItems.splice(destination.index, 0, {
-        ...movedItem,
-        status: nextStatus,
-      })
-
-      const nextBoardRootItems =
-        destination.droppableId === "backlog-board"
-          ? nextDestinationRootItems
-          : source.droppableId === "backlog-board"
-          ? nextSourceRootItems
-          : visibleRootItemsByDroppable["backlog-board"]
-      const nextBacklogRootItems =
-        destination.droppableId === "backlog-priority"
-          ? nextDestinationRootItems
-          : source.droppableId === "backlog-priority"
-          ? nextSourceRootItems
-          : visibleRootItemsByDroppable["backlog-priority"]
+      const nextRootItems = visibleRootItems.filter((item) => item.id !== itemId)
+      nextRootItems.splice(destination.index, 0, movedItem)
 
       const nextRootOrderIndexById = new Map<string, number>()
-      let nextOrderIndex = 1
 
-      for (const item of [...nextBoardRootItems, ...nextBacklogRootItems]) {
-        nextRootOrderIndexById.set(item.id, nextOrderIndex++)
-      }
+      nextRootItems.forEach((item, index) => {
+        nextRootOrderIndexById.set(item.id, index + 1)
+      })
 
       const previousItems = items
       const nextItems = items.map((item) => {
         if (item.parentId) {
           return item
-        }
-
-        if (item.id === movedItem.id) {
-          return {
-            ...item,
-            status: nextStatus,
-            orderIndex: nextRootOrderIndexById.get(item.id) ?? item.orderIndex,
-          }
         }
 
         return {
@@ -1106,7 +1054,6 @@ export function BacklogPageClient({
 
         return (
           !previousItem ||
-          previousItem.status !== item.status ||
           previousItem.orderIndex !== item.orderIndex
         )
       })
@@ -1124,7 +1071,6 @@ export function BacklogPageClient({
                 },
                 body: JSON.stringify({
                   orderIndex: item.orderIndex,
-                  ...(item.id === movedItem.id ? { status: nextStatus } : {}),
                 }),
               }).then((response) => {
                 if (!response.ok) {
@@ -1140,7 +1086,7 @@ export function BacklogPageClient({
         isMovingRootItemRef.current = false
       }
     },
-    [getRootItemsForDroppable, items, visibleRootItemsByDroppable]
+    [items, visibleRootItems]
   )
 
   const handleBacklogDragEnd = React.useCallback(
@@ -1183,16 +1129,13 @@ export function BacklogPageClient({
             onCreateTask={() => setOpen(true)}
           />
 
-          <div className="w-full max-w-[1080px]">
+          <div className="w-full">
             <BacklogBoard
-              title="Board"
+              title="Backlog"
               droppableId="backlog-board"
               items={boardItems}
               statusCounts={buildStatusCounts(boardItems)}
               onToggleCheckbox={toggleCheckbox}
-              onToggleAllCheckboxes={(checked) =>
-                void toggleSectionCheckboxes(boardItems, checked)
-              }
               onUpdateStatus={updateItemStatus}
               onUpdateAssignee={updateItemAssignee}
               onUpdatePriority={(itemId, nextPriority) => {
@@ -1200,29 +1143,8 @@ export function BacklogPageClient({
               }}
               onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
               onEditItem={handleOpenEdit}
-              canMoveItems
-              lockedPriorityItemIds={overdueItemIds}
-              emptyLabel="There's nothing on this board"
-            />
-          </div>
-
-          <div className="w-full max-w-[1080px]">
-            <BacklogBoard
-              title="Backlog"
-              droppableId="backlog-priority"
-              items={backlogItems}
-              statusCounts={buildStatusCounts(backlogItems)}
-              onToggleCheckbox={toggleCheckbox}
-              onToggleAllCheckboxes={(checked) =>
-                void toggleSectionCheckboxes(backlogItems, checked)
-              }
-              onUpdateStatus={updateItemStatus}
-              onUpdateAssignee={updateItemAssignee}
-              onUpdatePriority={(itemId, nextPriority) => {
-                void updateItemPriority(itemId, nextPriority)
-              }}
-              onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
-              onEditItem={handleOpenEdit}
+              canEditItems={canEditTaskFields}
+              canEditAssignee={canEditTaskFields}
               canMoveItems
               lockedPriorityItemIds={overdueItemIds}
               emptyLabel="There's nothing in this backlog"
@@ -1239,6 +1161,7 @@ export function BacklogPageClient({
         onTaskDialogClose={() => setSelectedTaskDetailsId(null)}
         renderColumns={false}
         currentUserId={currentUser?.id ?? null}
+        canEditAssignee={canEditTaskFields}
         canManageOtherProjectResources={canManageProjectResources}
         onStatusChange={(todoId, nextStatus) => updateItemStatus(todoId, nextStatus)}
         onMoveTodo={async (todoId, _targetTodoId, nextStatus) => {
@@ -1284,19 +1207,21 @@ export function BacklogPageClient({
         onAddItem={handleAddItem}
       />
 
-      <EditWorkItemDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        title={editTitle}
-        description={editDescription}
-        startDate={editStartDate}
-        dueDate={editDueDate}
-        onTitleChange={setEditTitle}
-        onDescriptionChange={setEditDescription}
-        onStartDateChange={setEditStartDate}
-        onDueDateChange={setEditDueDate}
-        onSave={handleSaveEdit}
-      />
+      {canEditTaskFields ? (
+        <EditWorkItemDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          title={editTitle}
+          description={editDescription}
+          startDate={editStartDate}
+          dueDate={editDueDate}
+          onTitleChange={setEditTitle}
+          onDescriptionChange={setEditDescription}
+          onStartDateChange={setEditStartDate}
+          onDueDateChange={setEditDueDate}
+          onSave={handleSaveEdit}
+        />
+      ) : null}
 
     </div>
   )

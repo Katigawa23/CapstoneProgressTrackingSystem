@@ -45,6 +45,7 @@ type DashboardTaskCardProps = {
   parentTaskTitle?: string | null
   isDragging?: boolean
   canArchive?: boolean
+  canEditAssignee?: boolean
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
   onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
@@ -59,6 +60,7 @@ export function DashboardTaskCard({
   parentTaskTitle,
   isDragging = false,
   canArchive = true,
+  canEditAssignee = false,
   onStatusChange,
   onAssigneeChange,
   onPriorityChange,
@@ -171,46 +173,50 @@ export function DashboardTaskCard({
                 ))}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <UserRound className="h-4 w-4" />
-                Assignee
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
-                <DropdownMenuItem
-                  className={
-                    !todo.assigneeId
-                      ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
-                      : undefined
-                  }
-                  onSelect={() => onAssigneeChange(todo.id, null)}
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[#4a4a4a] dark:bg-[#262626]">
-                    <UserRound className="h-3.5 w-3.5 text-slate-500 dark:text-slate-300" />
-                  </span>
-                  <span className="flex-1">Unassigned</span>
-                </DropdownMenuItem>
-                {assigneeOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option.id}
-                    className={
-                      todo.assigneeId === option.id
-                        ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
-                        : undefined
-                    }
-                    onSelect={() => onAssigneeChange(todo.id, option.id)}
-                  >
-                    <Avatar className="h-7 w-7">
-                      <AvatarFallback className="text-[9px]">
-                        {option.initials ?? "A"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="flex-1 truncate">{option.name}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
+            {canEditAssignee ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <UserRound className="h-4 w-4" />
+                    Assignee
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-56 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                    <DropdownMenuItem
+                      className={
+                        !todo.assigneeId
+                          ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                          : undefined
+                      }
+                      onSelect={() => onAssigneeChange(todo.id, null)}
+                    >
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[#4a4a4a] dark:bg-[#262626]">
+                        <UserRound className="h-3.5 w-3.5 text-slate-500 dark:text-slate-300" />
+                      </span>
+                      <span className="flex-1">Unassigned</span>
+                    </DropdownMenuItem>
+                    {assigneeOptions.map((option) => (
+                      <DropdownMenuItem
+                        key={option.id}
+                        className={
+                          todo.assigneeId === option.id
+                            ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                            : undefined
+                        }
+                        onSelect={() => onAssigneeChange(todo.id, option.id)}
+                      >
+                        <Avatar className="h-7 w-7">
+                          <AvatarFallback className="text-[9px]">
+                            {option.initials ?? "A"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="flex-1 truncate">{option.name}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </>
+            ) : null}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <PriorityIcon priority={todo.priority} />
@@ -334,6 +340,7 @@ export function DashboardTaskCard({
 
           <AssigneeCombobox
             value={todo.assigneeId}
+            disabled={!canEditAssignee}
             onChange={(assigneeId) => onAssigneeChange(todo.id, assigneeId)}
             className="h-5 w-5 rounded-full border-slate-200 bg-transparent p-0 transition-[background-color,border-color,transform] duration-200 hover:scale-105 hover:bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#262626] dark:hover:bg-[#303030]"
             avatarClassName="h-5 w-5"

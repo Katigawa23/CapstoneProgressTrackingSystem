@@ -13,6 +13,7 @@ type DashboardColumnProps = {
   todos: TodoItem[]
   allTodos: TodoItem[]
   currentUserId?: string | null
+  canEditAssignee?: boolean
   canManageOtherProjectResources?: boolean
   isDragDisabled?: boolean
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
@@ -29,6 +30,7 @@ export function DashboardColumn({
   todos,
   allTodos,
   currentUserId = null,
+  canEditAssignee = false,
   canManageOtherProjectResources = false,
   isDragDisabled = false,
   onStatusChange,
@@ -111,6 +113,7 @@ export function DashboardColumn({
                           (Boolean(normalizedCurrentUserId) &&
                             todo.createdByUserId === normalizedCurrentUserId)
                         }
+                        canEditAssignee={canEditAssignee}
                         onStatusChange={onStatusChange}
                         onAssigneeChange={onAssigneeChange}
                         onPriorityChange={onPriorityChange}

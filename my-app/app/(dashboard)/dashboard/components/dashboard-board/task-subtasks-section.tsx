@@ -57,6 +57,7 @@ type TaskSubtasksSectionProps = {
   checklist: string
   subtasks: TodoItem[]
   currentUserId?: string | null
+  canEditAssignee?: boolean
   canManageOtherProjectResources?: boolean
   canCreateSubtasks?: boolean
   creatorNamesById?: Record<string, string>
@@ -128,6 +129,7 @@ export function TaskSubtasksSection({
   checklist,
   subtasks,
   currentUserId = null,
+  canEditAssignee = false,
   canManageOtherProjectResources = false,
   canCreateSubtasks = false,
   creatorNamesById = {},
@@ -843,7 +845,7 @@ export function TaskSubtasksSection({
                     >
                       <AssigneeCombobox
                         value={subtask.assigneeId}
-                        disabled={!canUpdateSubtaskFields}
+                        disabled={!canEditAssignee}
                         onChange={(assigneeId) =>
                           onSubtaskAssigneeChange(subtask.id, assigneeId)
                         }
