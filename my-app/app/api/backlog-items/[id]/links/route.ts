@@ -3,7 +3,10 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
+import {
+  isSuperAdminViewer,
+  rejectSuperAdminMutation,
+} from "@/lib/server-admin-viewer"
 import {
   createBacklogWebLink,
   listBacklogWebLinks,
@@ -30,6 +33,11 @@ export async function GET(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+
+    if (isSuperAdminViewer(user.id)) {
+      return NextResponse.json({ links: [], restricted: true })
+    }
+
     const { id } = await params
     const links = await listBacklogWebLinks(id, user.id)
 
