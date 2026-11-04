@@ -3,7 +3,10 @@ import { NextResponse } from "next/server"
 
 import { getMicrosoftTenantId } from "@backend/auth/microsoft"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
+import {
+  isSuperAdminViewer,
+  rejectSuperAdminMutation,
+} from "@/lib/server-admin-viewer"
 import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 import {
   createBacklogComment,
@@ -17,6 +20,11 @@ export async function GET(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+
+    if (isSuperAdminViewer(user.id)) {
+      return NextResponse.json({ comments: [], restricted: true })
+    }
+
     const { id } = await params
     const comments = await listBacklogComments(id, user.id)
     return NextResponse.json({ comments })

@@ -22,7 +22,36 @@ export async function GET(request: Request) {
       listWeeklyJournals(projectId),
       listWeeklyJournalAutoSummaries(projectId),
     ])
-    return NextResponse.json({ entries, autoSummaries }, {
+    const isSuperAdminViewer = user.id === "tester-admin"
+    const visibleEntries = isSuperAdminViewer
+      ? entries.map((entry) => ({
+          ...entry,
+          weeklyObjectives: "",
+          workCompleted: "",
+          memberContributions: "",
+          challenges: "",
+          actionsTaken: "",
+          nextWeekPlan: "",
+          adviserFeedback: "",
+        }))
+      : entries
+    const visibleAutoSummaries = isSuperAdminViewer
+      ? autoSummaries.map((summary) => ({
+          ...summary,
+          weeklyObjectives: "",
+          workCompleted: "",
+          memberContributions: "",
+          challenges: "",
+          actionsTaken: "",
+          nextWeekPlan: "",
+        }))
+      : autoSummaries
+
+    return NextResponse.json({
+      entries: visibleEntries,
+      autoSummaries: visibleAutoSummaries,
+      privacyRestricted: isSuperAdminViewer,
+    }, {
       headers: { "Cache-Control": "no-store" },
     })
   } catch (error) {

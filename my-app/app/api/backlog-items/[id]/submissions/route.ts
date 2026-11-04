@@ -4,7 +4,10 @@ import { randomUUID } from "crypto"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
+import {
+  isSuperAdminViewer,
+  rejectSuperAdminMutation,
+} from "@/lib/server-admin-viewer"
 import { notifyProjectAdvisers } from "@/lib/server-notification-repository"
 import { getDb } from "@/lib/server-db"
 import {
@@ -126,6 +129,11 @@ export async function GET(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+
+    if (isSuperAdminViewer(user.id)) {
+      return NextResponse.json({ submissions: [], restricted: true })
+    }
+
     const { id } = await params
     const submissions = await listBacklogSubmissions(id, user.id)
 

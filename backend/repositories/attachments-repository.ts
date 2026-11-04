@@ -2,6 +2,7 @@ import { randomUUID } from "crypto"
 import { mkdir, readFile, writeFile } from "fs/promises"
 import path from "path"
 
+import { isSuperAdminViewer } from "@backend/auth/access-control"
 import { getPreferredStorageMode } from "@backend/config/storage-mode"
 import { getDb } from "@backend/db/connection"
 import {
@@ -613,6 +614,10 @@ export async function listBacklogSubmissions(
   backlogItemId: string,
   ownerUserId: string
 ) {
+  if (isSuperAdminViewer(ownerUserId)) {
+    return []
+  }
+
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
@@ -643,8 +648,7 @@ export async function listBacklogSubmissions(
           and attachments.is_archived = false
           and attachments.is_deleted = false
           and (
-            $2 = 'tester-admin'
-            or projects.owner_user_id = $2
+            projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
         order by attachments.uploaded_at desc`,
@@ -871,6 +875,10 @@ export async function getBacklogSubmissionAsset(
   submissionId: string,
   ownerUserId: string
 ) {
+  if (isSuperAdminViewer(ownerUserId)) {
+    return null
+  }
+
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
@@ -956,6 +964,10 @@ export async function listBacklogWebLinks(
   backlogItemId: string,
   ownerUserId: string
 ) {
+  if (isSuperAdminViewer(ownerUserId)) {
+    return []
+  }
+
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
@@ -985,8 +997,7 @@ export async function listBacklogWebLinks(
           and weblinks.is_archived = false
           and weblinks.is_deleted = false
           and (
-            $2 = 'tester-admin'
-            or projects.owner_user_id = $2
+            projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
         order by weblinks.uploaded_at desc`,
@@ -1667,6 +1678,10 @@ export async function listArchivedBacklogAttachments(
   projectId: string,
   ownerUserId: string
 ) {
+  if (isSuperAdminViewer(ownerUserId)) {
+    return []
+  }
+
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<
@@ -1800,6 +1815,10 @@ export async function listDeletedBacklogAttachments(
   projectId: string,
   ownerUserId: string
 ) {
+  if (isSuperAdminViewer(ownerUserId)) {
+    return []
+  }
+
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<

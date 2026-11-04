@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 
+import { isSuperAdminViewer } from "@backend/auth/access-control"
+
+export { isSuperAdminViewer }
+
 export function rejectSuperAdminMutation(userId: string) {
-  if (userId !== "tester-admin") {
+  if (!isSuperAdminViewer(userId)) {
     return null
   }
 

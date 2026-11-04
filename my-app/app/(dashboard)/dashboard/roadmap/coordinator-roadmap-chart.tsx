@@ -17,6 +17,31 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
+function getMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+}
+
+function getTaskMonthKey(item: BacklogApiItem) {
+  const taskDateValue = item.dueDate ?? item.startDate ?? item.createdAt
+
+  if (!taskDateValue) return null
+
+  // Keep date-only values in their written calendar month. Parsing a YYYY-MM-DD
+  // string as UTC can move it to the previous month in some time zones.
+  const calendarDateMatch = /^(\d{4})-(\d{2})(?:-|T|$)/.exec(taskDateValue)
+
+  if (calendarDateMatch) {
+    const monthNumber = Number(calendarDateMatch[2])
+
+    if (monthNumber >= 1 && monthNumber <= 12) {
+      return `${calendarDateMatch[1]}-${calendarDateMatch[2]}`
+    }
+  }
+
+  const taskDate = new Date(taskDateValue)
+  return Number.isNaN(taskDate.getTime()) ? null : getMonthKey(taskDate)
+}
+
 export function CoordinatorRoadmapChart({
   groupCreatedAt,
   items,
@@ -26,8 +51,6 @@ export function CoordinatorRoadmapChart({
 }) {
   const createdAt = new Date(groupCreatedAt)
   const safeCreatedAt = Number.isNaN(createdAt.getTime()) ? new Date() : createdAt
-  const today = new Date()
-  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
   const rootItems = items.filter((item) => !item.parentId)
   const roadmapData = Array.from({ length: 5 }, (_, index) => {
     const monthStart = new Date(
@@ -35,46 +58,19 @@ export function CoordinatorRoadmapChart({
       safeCreatedAt.getMonth() + index,
       1
     )
-    const monthEnd = new Date(
-      safeCreatedAt.getFullYear(),
-      safeCreatedAt.getMonth() + index + 1,
-      0,
-      23,
-      59,
-      59,
-      999
+    const monthKey = getMonthKey(monthStart)
+    const itemsForMonth = rootItems.filter(
+      (item) => getTaskMonthKey(item) === monthKey
     )
-
-    if (monthStart > currentMonthStart) {
-      return {
-        month: monthStart.toLocaleDateString("en-US", { month: "short" }),
-        value: null,
-      }
-    }
-
-    const availableItems = rootItems.filter((item) => {
-      const itemCreatedAt = item.createdAt ? new Date(item.createdAt) : safeCreatedAt
-      return !Number.isNaN(itemCreatedAt.getTime()) && itemCreatedAt <= monthEnd
-    })
-    const isCurrentMonth =
-      monthStart.getFullYear() === currentMonthStart.getFullYear() &&
-      monthStart.getMonth() === currentMonthStart.getMonth()
-    const completedItems = availableItems.filter((item) => {
-      if (item.status !== "completed") return false
-
-      // The current progress must reflect the task's actual Board status.
-      // A future due date does not mean that an already completed task is incomplete.
-      if (isCurrentMonth) return true
-
-      const referenceDate = new Date(item.dueDate ?? item.createdAt ?? groupCreatedAt)
-      return !Number.isNaN(referenceDate.getTime()) && referenceDate <= monthEnd
-    })
+    const completedItems = itemsForMonth.filter(
+      (item) => item.status === "completed"
+    )
 
     return {
       month: monthStart.toLocaleDateString("en-US", { month: "short" }),
       value:
-        availableItems.length > 0
-          ? Math.round((completedItems.length / availableItems.length) * 100)
+        rootItems.length > 0
+          ? Math.round((completedItems.length / rootItems.length) * 100)
           : 0,
     }
   })
@@ -92,7 +88,7 @@ export function CoordinatorRoadmapChart({
             Group task progress
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Percentage of group tasks completed over time.
+            Share of all group tasks completed for each task month.
           </p>
         </div>
 

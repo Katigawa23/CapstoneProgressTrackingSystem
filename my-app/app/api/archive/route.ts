@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { isSuperAdminViewer } from "@/lib/server-admin-viewer"
 import { listBacklogItems } from "@backend/repositories/tasks-repository"
 import { listArchivedBacklogAttachments } from "@backend/repositories/attachments-repository"
 
@@ -19,7 +20,11 @@ export async function GET(request: Request) {
       listArchivedBacklogAttachments(projectId, user.id),
     ])
 
-    return NextResponse.json({ items, attachments })
+    return NextResponse.json({
+      items,
+      attachments,
+      attachmentsRestricted: isSuperAdminViewer(user.id),
+    })
   } catch (error) {
     console.error("Failed to load archive items", error)
     return NextResponse.json(

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { getBacklogSubmissionAsset } from "@backend/repositories/attachments-repository"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { isSuperAdminViewer } from "@/lib/server-admin-viewer"
 
 export const runtime = "nodejs"
 
@@ -18,6 +19,14 @@ export async function GET(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+
+    if (isSuperAdminViewer(user.id)) {
+      return NextResponse.json(
+        { error: "Submission content is restricted for the super admin account." },
+        { status: 403 }
+      )
+    }
+
     const { id } = await params
     const url = new URL(request.url)
     const submissionId = url.searchParams.get("submissionId")?.trim()

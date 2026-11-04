@@ -2,6 +2,7 @@ import { randomUUID } from "crypto"
 import { mkdir, readFile, writeFile } from "fs/promises"
 import path from "path"
 
+import { isSuperAdminViewer } from "@backend/auth/access-control"
 import { getPreferredStorageMode } from "@backend/config/storage-mode"
 import { getDb } from "@backend/db/connection"
 import {
@@ -309,6 +310,10 @@ async function writeFileRecords(records: BacklogCommentRecord[]) {
 }
 
 export async function listBacklogComments(backlogItemId: string, ownerUserId: string) {
+  if (isSuperAdminViewer(ownerUserId)) {
+    return []
+  }
+
   return withCommentStore(
     async () => {
       const result = await getDb().query<BacklogCommentRecord>(
@@ -327,8 +332,7 @@ export async function listBacklogComments(backlogItemId: string, ownerUserId: st
           on projects.id = backlog.project_id
         where comments.backlog_item_id = $1
           and (
-            $2 = 'tester-admin'
-            or projects.owner_user_id = $2
+            projects.owner_user_id = $2
             or $2 = any(projects.member_user_ids)
           )
         order by comments.created_at asc`,
