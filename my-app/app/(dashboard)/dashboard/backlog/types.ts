@@ -16,6 +16,8 @@ export type WorkItem = {
   displayId: string
   orderIndex: number
   parentId?: string | null
+  createdByUserId?: string | null
+  createdByName?: string | null
   title: string
   startDate?: Date
   dueDate?: Date

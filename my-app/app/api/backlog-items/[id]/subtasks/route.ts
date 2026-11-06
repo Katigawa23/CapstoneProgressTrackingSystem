@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectCompletedTaskMutation } from "@/lib/server-completed-task"
 import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import {
   stripEmoji,
@@ -39,6 +40,8 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    const completionResponse = await rejectCompletedTaskMutation((await params).id)
+    if (completionResponse) return completionResponse
     if (user.role === "admin") {
       return NextResponse.json(
         { error: "Coordinators cannot create subtasks." },
@@ -92,6 +95,7 @@ export async function POST(
         status,
         checked: false,
         assigneeId: body.assigneeId ?? null,
+        createdByName: user.name,
       },
       user.id
     )

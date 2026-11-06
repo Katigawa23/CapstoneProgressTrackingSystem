@@ -6,7 +6,8 @@ import { getDashboardProjectsData } from "../data"
 
 import { WeeklyJournalView } from "./weekly-journal-view"
 
-export default async function JournalPage() {
+export default async function JournalPage({ searchParams }: { searchParams: Promise<{ projectId?: string; week?: string }> }) {
+  const params = await searchParams
   const user = await readAuthenticatedUser()
 
   if (!user?.id) return null
@@ -16,7 +17,7 @@ export default async function JournalPage() {
     getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, user.id)
   )?.value
   const selectedProject =
-    projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null
+    projects.find((project) => project.id === (params.projectId ?? selectedProjectId)) ?? projects[0] ?? null
 
   if (!selectedProject) {
     return (
@@ -34,6 +35,7 @@ export default async function JournalPage() {
       canApprove={user.id === "tester-coordinator"}
       isPrivacyRestricted={user.id === "tester-admin"}
       projectId={selectedProject.id}
+      initialWeek={Number(params.week) || undefined}
       userRole={user.role}
       members={selectedProject.members ?? []}
       advisers={selectedProject.advisers ?? []}

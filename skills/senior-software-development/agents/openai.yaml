@@ -1,0 +1,4 @@
+interface:
+  display_name: "Senior Software Developer"
+  short_description: "Plan, build, debug, test, and review software"
+  default_prompt: "Use $senior-software-development to investigate this project and handle my development task with focused changes and verified results."

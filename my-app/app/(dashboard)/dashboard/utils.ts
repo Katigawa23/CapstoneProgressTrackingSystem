@@ -152,6 +152,7 @@ export function mapBacklogItemsToTodos(
         orderIndex: item.orderIndex,
         parentId: normalizedParentId,
         createdByUserId: item.createdByUserId ?? null,
+        createdByName: item.createdByName ?? null,
         archivedByUserId: item.archivedByUserId ?? null,
         deletedByUserId: item.deletedByUserId ?? null,
         title: item.title,
@@ -169,13 +170,7 @@ export function mapBacklogItemsToTodos(
         comments: item.commentCount ?? 0,
         links: 0,
         checklist: `${completedSubtasks}/${childItems.length}`,
-        priority:
-          item.priority ??
-          (item.status === "revision"
-            ? "High"
-            : item.status === "completed"
-            ? "Low"
-            : "Medium"),
+        priority: item.priority ?? "Medium",
       }
     })
 }

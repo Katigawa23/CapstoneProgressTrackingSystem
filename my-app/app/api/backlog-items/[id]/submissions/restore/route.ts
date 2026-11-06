@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectCompletedTaskMutation } from "@/lib/server-completed-task"
 import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import { restoreBacklogSubmission } from "@backend/repositories/attachments-repository"
 
@@ -13,6 +14,8 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    const completionResponse = await rejectCompletedTaskMutation((await params).id)
+    if (completionResponse) return completionResponse
     const { id } = await params
     const url = new URL(request.url)
     const submissionId = url.searchParams.get("submissionId")?.trim()

@@ -1,5 +1,6 @@
 import { Draggable, Droppable } from "@hello-pangea/dnd"
 import { Ellipsis } from "lucide-react"
+import { isSuperAdminViewer } from "@backend/auth/access-control"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -13,12 +14,12 @@ type DashboardColumnProps = {
   todos: TodoItem[]
   allTodos: TodoItem[]
   currentUserId?: string | null
+  canChangeTaskState: boolean
   canEditAssignee?: boolean
   canManageOtherProjectResources?: boolean
   isDragDisabled?: boolean
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
-  onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
   onOpenTask: (todo: TodoItem, target?: OpenTaskTarget) => void
   onArchiveTask: (todo: TodoItem) => void | Promise<void>
   className?: string
@@ -30,12 +31,12 @@ export function DashboardColumn({
   todos,
   allTodos,
   currentUserId = null,
+  canChangeTaskState,
   canEditAssignee = false,
   canManageOtherProjectResources = false,
   isDragDisabled = false,
   onStatusChange,
   onAssigneeChange,
-  onPriorityChange,
   onOpenTask,
   onArchiveTask,
   className = "",
@@ -97,11 +98,13 @@ export function DashboardColumn({
                     key={todo.id}
                     draggableId={todo.id}
                     index={index}
-                    isDragDisabled={isDragDisabled}
+                    isDragDisabled={!canChangeTaskState || isDragDisabled || todo.status === "completed"}
                   >
                     {(draggableProvided, dragSnapshot) => (
                       <DashboardTaskCard
                         todo={todo}
+                        canChangeTaskState={canChangeTaskState && todo.status !== "completed"}
+                        canAccessComments={Boolean(normalizedCurrentUserId) && !isSuperAdminViewer(currentUserId)}
                         parentTaskTitle={
                           todo.parentId
                             ? allTodos.find((candidate) => candidate.id === todo.parentId)?.title ?? null
@@ -109,14 +112,13 @@ export function DashboardColumn({
                         }
                         isDragging={dragSnapshot.isDragging}
                         canArchive={
-                          canManageOtherProjectResources ||
+                          todo.status !== "completed" && (canManageOtherProjectResources ||
                           (Boolean(normalizedCurrentUserId) &&
-                            todo.createdByUserId === normalizedCurrentUserId)
+                            todo.createdByUserId === normalizedCurrentUserId))
                         }
-                        canEditAssignee={canEditAssignee}
+                        canEditAssignee={canEditAssignee && todo.status !== "completed"}
                         onStatusChange={onStatusChange}
                         onAssigneeChange={onAssigneeChange}
-                        onPriorityChange={onPriorityChange}
                         onOpen={onOpenTask}
                         onArchive={onArchiveTask}
                         draggableProvided={draggableProvided}

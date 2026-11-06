@@ -165,7 +165,7 @@ export async function POST(
     return NextResponse.json({ member }, { status: 201 })
   } catch (error) {
     if (error instanceof StudentAlreadyAssignedError) {
-      return NextResponse.json({ error: error.message }, { status: 409 })
+      return NextResponse.json({ error: error.message, code: "STUDENT_ALREADY_ASSIGNED" }, { status: 409 })
     }
     const errorMessage = error instanceof Error ? error.message : String(error)
     const isAuthError = errorMessage === "Unauthorized"

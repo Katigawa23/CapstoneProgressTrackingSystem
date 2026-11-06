@@ -8,7 +8,8 @@ import {
   reviewWeeklyJournal,
   saveWeeklyJournal,
 } from "@/lib/server-weekly-journal-repository"
-import { createNotification } from "@/lib/server-notification-repository"
+import { notifyProjectEmailEvent } from "@/lib/server-project-email-events"
+import { getDb } from "@/lib/server-db"
 
 export async function GET(request: Request) {
   try {
@@ -89,23 +90,15 @@ export async function PUT(request: Request) {
       if (user.role !== "faculty") {
         return NextResponse.json({ error: "Only advisers can review journals" }, { status: 403 })
       }
+      const adviser = await getDb().query(`select 1 from projects p where p.id = $1 and (
+        $3 = any(p.project_adviser) or exists (select 1 from groups g
+          where g.project_id = p.id and g.adviser_user_id = $2))`, [projectId, user.id, user.name])
+      if (!adviser.rowCount) return NextResponse.json({ error: "Only the assigned adviser can review this journal" }, { status: 403 })
       const adviserFeedback = String(body.adviserFeedback ?? "").trim().slice(0, 5000)
       if (!adviserFeedback) {
         return NextResponse.json({ error: "Please write adviser feedback first" }, { status: 400 })
       }
       entry = await reviewWeeklyJournal(projectId, weekNumber, "feedback", adviserFeedback, user.id)
-      if (entry) {
-        await createNotification({
-          recipientUserId: "tester-coordinator",
-          actorUserId: user.id,
-          projectId,
-          type: "journal_adviser_feedback",
-          title: "Weekly journal checked by adviser",
-          message: `${user.name} added feedback to Week ${weekNumber}.`,
-          href: "/dashboard/journal",
-          dedupeKey: `journal-feedback:${projectId}:${weekNumber}`,
-        })
-      }
     } else if (action === "approve") {
       if (user.id !== "tester-coordinator") {
         return NextResponse.json({ error: "Only the coordinator can approve journals" }, { status: 403 })
@@ -120,6 +113,11 @@ export async function PUT(request: Request) {
         { error: "Journal entry is unavailable or its status no longer allows this action" },
         { status: 409 }
       )
+    }
+    if (action === "submit" || action === "feedback") {
+      await notifyProjectEmailEvent({ projectId, actorUserId: user.id, actorName: user.name,
+        type: action === "submit" ? "journal_submitted" : "journal_adviser_feedback",
+        weekNumber, eventId: `${entry.id}:${action === "submit" ? entry.submittedAt : entry.adviserReviewedAt}` })
     }
     return NextResponse.json({ entry })
   } catch (error) {

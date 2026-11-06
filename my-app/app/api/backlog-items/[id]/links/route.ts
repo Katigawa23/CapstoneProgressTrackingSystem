@@ -3,6 +3,9 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { notifyProjectAdvisers } from "@/lib/server-notification-repository"
+import { getDb } from "@/lib/server-db"
+import { rejectCompletedTaskMutation } from "@/lib/server-completed-task"
 import {
   isSuperAdminViewer,
   rejectSuperAdminMutation,
@@ -69,6 +72,8 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    const completionResponse = await rejectCompletedTaskMutation((await params).id)
+    if (completionResponse) return completionResponse
     if (user.role !== "student") {
       return NextResponse.json(
         { error: "Only students can add task links." },
@@ -103,6 +108,20 @@ export async function POST(
       )
     }
 
+    try {
+      const task = await getDb().query<{ project_id: string; title: string }>(
+        "select project_id, title from backlog where id = $1", [id]
+      )
+      if (task.rows[0]) {
+        await notifyProjectAdvisers({
+          projectId: task.rows[0].project_id, actorUserId: user.id, actorName: user.name,
+          backlogItemId: id, taskTitle: task.rows[0].title,
+          notificationType: "student_link_submitted", notificationTitle: "New task link submitted",
+          notificationMessage: `${user.name} submitted a link for “${task.rows[0].title}”.`,
+          dedupeKey: `student-link:${link.id}`,
+        })
+      }
+    } catch { console.error("Link saved, but the submission notification could not be created.") }
     revalidateTag("backlog-items", "max")
 
     return NextResponse.json(

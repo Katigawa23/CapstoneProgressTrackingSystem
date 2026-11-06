@@ -37,10 +37,10 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    await requireSuperadmin()
+    const user = await requireSuperadmin()
     const programId = new URL(request.url).searchParams.get("programId")
     if (!programId) return NextResponse.json({ error: "Program is required." }, { status: 400 })
-    await removeProgramCoordinator(programId)
+    await removeProgramCoordinator(programId, user.id)
     revalidateCoordinatorProjects()
     return NextResponse.json({ success: true })
   } catch (error) {

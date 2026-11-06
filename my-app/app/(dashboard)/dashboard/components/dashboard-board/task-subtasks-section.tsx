@@ -5,7 +5,6 @@ import {
   ChevronDown,
   CornerDownLeft,
   Ellipsis,
-  Filter,
   Pencil,
   Plus,
 } from "lucide-react"
@@ -16,9 +15,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -48,7 +44,7 @@ import {
 import { cn } from "@/lib/utils"
 import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
-import { PriorityIcon } from "../priority-icon"
+import { TaskStatusBadge } from "../task-state-badges"
 import type { TodoItem } from "../../types"
 import { formatDeadline, getInitials } from "../../utils"
 import type { CreateSubtaskInput } from "./types"
@@ -56,6 +52,7 @@ import type { CreateSubtaskInput } from "./types"
 type TaskSubtasksSectionProps = {
   checklist: string
   subtasks: TodoItem[]
+  canChangeTaskState: boolean
   currentUserId?: string | null
   canEditAssignee?: boolean
   canManageOtherProjectResources?: boolean
@@ -68,7 +65,6 @@ type TaskSubtasksSectionProps = {
   onOpenSubtask: (subtask: TodoItem) => void
   onSubtaskStatusChange: (subtaskId: string, nextStatus: TodoItem["status"]) => void
   onSubtaskAssigneeChange: (subtaskId: string, assigneeId: string | null) => void
-  onSubtaskPriorityChange: (subtaskId: string, priority: TodoItem["priority"]) => void
   onEditSubtaskTitle: (subtask: TodoItem, nextTitle: string) => void | Promise<void>
   onUpdateSubtask: (
     subtaskId: string,
@@ -115,19 +111,12 @@ function SubtaskGlyph() {
 }
 
 const subtaskGridClass =
-  "grid grid-cols-[minmax(0,1.2fr)_72px_68px_68px_84px_72px_108px_52px] items-center gap-x-2.5"
-
-type SubtaskStatusFilter = "all" | TodoItem["status"]
-type SubtaskAssigneeFilter = "all" | "me"
-
-const activeAssigneeFilterItemClassName =
-  "bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.12)] data-[highlighted]:text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2] dark:data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.28)] dark:data-[highlighted]:text-[#c3dbef]"
-const activeStatusFilterItemClassName =
-  "bg-slate-100 text-slate-900 data-[highlighted]:bg-slate-200 data-[highlighted]:text-slate-950 dark:bg-[#303030] dark:text-slate-100 dark:data-[highlighted]:bg-[#3a3a3a] dark:data-[highlighted]:text-white"
+  "grid grid-cols-[minmax(0,1.2fr)_72px_68px_68px_84px_108px_52px] items-center gap-x-2.5"
 
 export function TaskSubtasksSection({
   checklist,
   subtasks,
+  canChangeTaskState,
   currentUserId = null,
   canEditAssignee = false,
   canManageOtherProjectResources = false,
@@ -140,7 +129,6 @@ export function TaskSubtasksSection({
   onOpenSubtask,
   onSubtaskStatusChange,
   onSubtaskAssigneeChange,
-  onSubtaskPriorityChange,
   onEditSubtaskTitle,
   onUpdateSubtask,
   onArchiveSubtask,
@@ -159,9 +147,6 @@ export function TaskSubtasksSection({
   const [openDueDateSubtaskId, setOpenDueDateSubtaskId] = React.useState<
     string | null
   >(null)
-  const [statusFilter, setStatusFilter] = React.useState<SubtaskStatusFilter>("all")
-  const [assigneeFilter, setAssigneeFilter] =
-    React.useState<SubtaskAssigneeFilter>("all")
   const createSubtaskRowRef = React.useRef<HTMLDivElement | null>(null)
   const editSubtaskRowRef = React.useRef<HTMLDivElement | null>(null)
   const normalizedCurrentUserId = currentUserId?.trim() ?? ""
@@ -172,19 +157,6 @@ export function TaskSubtasksSection({
   )
   const completionPercent =
     progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0
-  const activeFilterCount =
-    (assigneeFilter === "me" ? 1 : 0) + (statusFilter === "all" ? 0 : 1)
-  const hasActiveFilters = activeFilterCount > 0
-  const visibleSubtasks = React.useMemo(() => {
-    const filteredByAssignee =
-      assigneeFilter === "me" && normalizedCurrentUserId
-        ? subtasks.filter((subtask) => subtask.assigneeId === normalizedCurrentUserId)
-        : subtasks
-
-    return statusFilter === "all"
-      ? filteredByAssignee
-      : filteredByAssignee.filter((subtask) => subtask.status === statusFilter)
-  }, [assigneeFilter, normalizedCurrentUserId, statusFilter, subtasks])
   const getDuplicateSubtaskTitleError = React.useCallback(
     (title: string, ignoredSubtaskId?: string) => {
       const normalizedTitle = normalizeSubtaskTitle(title)
@@ -381,15 +353,6 @@ export function TaskSubtasksSection({
     }
   }, [getDuplicateSubtaskTitleError, isSubmittingSubtask, newSubtaskDueDate, newSubtaskStartDate, newSubtaskTitle, onAddSubtask])
 
-  const toggleAssignToMeFilter = React.useCallback(() => {
-    setAssigneeFilter((current) => (current === "me" ? "all" : "me"))
-  }, [])
-
-  const clearFilters = React.useCallback(() => {
-    setAssigneeFilter("all")
-    setStatusFilter("all")
-  }, [])
-
   return (
     <Collapsible
       open={isExpanded}
@@ -424,111 +387,6 @@ export function TaskSubtasksSection({
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="relative inline-flex h-9 w-9 items-center justify-center rounded-[2px] border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc] dark:hover:bg-[#24292f] dark:hover:text-[#dee4ea]"
-                  aria-label="Filter subtasks"
-                  title="Filter"
-                >
-                  <Filter className="h-4 w-4" />
-                  {hasActiveFilters ? (
-                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-primary-fixed)] px-1 text-[10px] font-semibold leading-none text-white dark:bg-[var(--brand-primary-fixed)]">
-                      {activeFilterCount}
-                    </span>
-                  ) : null}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
-              >
-                <DropdownMenuItem
-                  disabled={!normalizedCurrentUserId}
-                  className={
-                    assigneeFilter === "me"
-                      ? activeAssigneeFilterItemClassName
-                      : undefined
-                  }
-                  onSelect={toggleAssignToMeFilter}
-                >
-                  Assign to me
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
-                    <DropdownMenuItem
-                      className={
-                        statusFilter === "all"
-                          ? activeStatusFilterItemClassName
-                          : undefined
-                      }
-                      onSelect={() => setStatusFilter("all")}
-                    >
-                      All
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className={cn(
-                        "gap-2",
-                        statusFilter === "todo"
-                          ? activeStatusFilterItemClassName
-                          : undefined
-                      )}
-                      onSelect={() => setStatusFilter("todo")}
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand-primary-fixed)]" />
-                      To do
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className={cn(
-                        "gap-2",
-                        statusFilter === "inprogress"
-                          ? activeStatusFilterItemClassName
-                          : undefined
-                      )}
-                      onSelect={() => setStatusFilter("inprogress")}
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
-                      In progress
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className={cn(
-                        "gap-2",
-                        statusFilter === "revision"
-                          ? activeStatusFilterItemClassName
-                          : undefined
-                      )}
-                      onSelect={() => setStatusFilter("revision")}
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
-                      Revision
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className={cn(
-                        "gap-2",
-                        statusFilter === "completed"
-                          ? activeStatusFilterItemClassName
-                          : undefined
-                      )}
-                      onSelect={() => setStatusFilter("completed")}
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                      Completed
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {hasActiveFilters ? (
-              <button
-                type="button"
-                className="text-sm text-slate-500 transition hover:text-slate-900 dark:text-[#9fadbc] dark:hover:text-[#dee4ea]"
-                onClick={clearFilters}
-              >
-                Clear filters
-              </button>
-            ) : null}
             {canCreateSubtasks ? (
               <button
                 type="button"
@@ -580,7 +438,6 @@ export function TaskSubtasksSection({
             <span className="text-center">Start</span>
             <span className="text-center">Due</span>
             <span className="text-center">Assignee</span>
-            <span className="text-center">Priority</span>
             <span className="text-center">Status</span>
             <span className="text-right">Action</span>
           </div>
@@ -593,18 +450,20 @@ export function TaskSubtasksSection({
             )
           ) : (
             <div className="divide-y divide-slate-200 dark:divide-[#2b3138]">
-              {visibleSubtasks.map((subtask) => {
-                const isEditingCurrentSubtask = editingSubtaskId === subtask.id
+              {subtasks.map((subtask) => {
+                const isEditingCurrentSubtask = canChangeTaskState && subtask.status !== "completed" && editingSubtaskId === subtask.id
                 const canManageSubtask =
+                  subtask.status !== "completed" &&
+                  canChangeTaskState &&
                   Boolean(normalizedCurrentUserId) &&
                   (
                     subtask.createdByUserId === normalizedCurrentUserId ||
                     canManageOtherProjectResources
                   )
-                const canUpdateSubtaskFields = Boolean(normalizedCurrentUserId)
+                const canUpdateSubtaskFields = subtask.status !== "completed" && canChangeTaskState && Boolean(normalizedCurrentUserId)
                 const createdByName =
-                  creatorNamesById[subtask.createdByUserId ?? ""] ??
-                  subtask.createdByUserId ??
+                  subtask.createdByName?.trim() ||
+                  creatorNamesById[subtask.createdByUserId ?? ""] ||
                   "Unknown user"
 
                 return (
@@ -845,7 +704,7 @@ export function TaskSubtasksSection({
                     >
                       <AssigneeCombobox
                         value={subtask.assigneeId}
-                        disabled={!canEditAssignee}
+                        disabled={!canEditAssignee || subtask.status === "completed"}
                         onChange={(assigneeId) =>
                           onSubtaskAssigneeChange(subtask.id, assigneeId)
                         }
@@ -861,56 +720,11 @@ export function TaskSubtasksSection({
                       className="flex justify-center"
                       onClick={(event) => event.stopPropagation()}
                     >
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            disabled={!canUpdateSubtaskFields}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#dee4ea] dark:hover:bg-[#24292f]"
-                            aria-label={`Priority ${subtask.priority}`}
-                            title={`Priority: ${subtask.priority}`}
-                          >
-                            <PriorityIcon
-                              priority={subtask.priority}
-                              className={
-                                subtask.priority === "High"
-                                  ? "h-3.5 w-3.5 text-red-500"
-                                  : subtask.priority === "Low"
-                                  ? "h-3.5 w-3.5 text-[var(--brand-primary-fixed)]"
-                                  : "h-3.5 w-3.5 text-orange-500"
-                              }
-                            />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="center"
-                          className="w-36 rounded-[6px] border-slate-200 bg-white p-1 shadow-md dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
-                        >
-                          {(["Low", "Medium", "High"] as const).map((priority) => (
-                            <DropdownMenuItem
-                              key={priority}
-                              className={cn(
-                                "rounded-[4px] text-sm",
-                                subtask.priority === priority &&
-                                  "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
-                              )}
-                              onSelect={() => onSubtaskPriorityChange(subtask.id, priority)}
-                            >
-                              <PriorityIcon priority={priority} />
-                              {priority}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-
-                    <div
-                      className="flex justify-center"
-                      onClick={(event) => event.stopPropagation()}
-                    >
+                      {canChangeTaskState ? (
                       <StatusCombobox
                         value={subtask.status}
-                        disabled={!canUpdateSubtaskFields}
+                        canReopenCompleted={canEditAssignee}
+                        disabled={!canChangeTaskState}
                         onChange={(nextStatus) =>
                           onSubtaskStatusChange(
                             subtask.id,
@@ -920,6 +734,7 @@ export function TaskSubtasksSection({
                         className="h-5.5 min-w-[80px] rounded-[2px] px-1.5 text-[10px] font-semibold uppercase tracking-[0.04em]"
                         contentClassName="dark:border-[#454f59] dark:bg-[#1d2125]"
                       />
+                      ) : <TaskStatusBadge status={subtask.status} />}
                     </div>
 
                     <div
@@ -1019,7 +834,6 @@ export function TaskSubtasksSection({
 
               <div />
 
-              <div className="h-9" />
               <div className="h-9" />
               <div className="h-9" />
 

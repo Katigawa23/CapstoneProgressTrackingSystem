@@ -19,15 +19,21 @@ import {
 } from "@/components/ui/tooltip"
 import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 
+import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
 import { getAssigneeOption } from "../../backlog/types"
-import { PriorityIcon } from "../priority-icon"
+import { PriorityBadge, TaskStatusBadge } from "../task-state-badges"
 import type { DashboardComment, TodoItem } from "../../types"
 import { formatDeadline, getInitials } from "../../utils"
 import { formatCommentTime } from "./utils"
 
 type TaskCommentsPanelProps = {
   selectedTodo: TodoItem
+  canAccessComments: boolean
+  canChangeTaskState: boolean
+  canEditAssignee?: boolean
+  canReopenCompletedTask?: boolean
+  isSavingTaskStatus?: boolean
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
   comments: DashboardComment[]
@@ -47,7 +53,7 @@ type TaskCommentsPanelProps = {
   onEditComment: (comment: DashboardComment) => void
   onDeleteComment: (comment: DashboardComment) => void
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
-  onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
+  onAssigneeChange: (todoId: string, assigneeId: string | null) => void
 }
 
 function escapeRegExp(value: string) {
@@ -56,6 +62,11 @@ function escapeRegExp(value: string) {
 
 export function TaskCommentsPanel({
   selectedTodo,
+  canAccessComments,
+  canChangeTaskState,
+  canEditAssignee = false,
+  canReopenCompletedTask = false,
+  isSavingTaskStatus = false,
   currentUserId = null,
   creatorNamesById = {},
   comments,
@@ -75,17 +86,20 @@ export function TaskCommentsPanel({
   onEditComment,
   onDeleteComment,
   onStatusChange,
-  onPriorityChange,
+  onAssigneeChange,
 }: TaskCommentsPanelProps) {
   const selectedAssignee = getAssigneeOption(selectedTodo.assigneeId)
   const normalizedCurrentUserId = currentUserId?.trim() ?? ""
   const createdByUserId = selectedTodo.createdByUserId?.trim() ?? ""
   const createdByLabel = (() => {
+    if (selectedTodo.createdByName?.trim()) {
+      return selectedTodo.createdByName.trim()
+    }
     if (!createdByUserId) {
       return "Not available"
     }
 
-    return creatorNamesById[createdByUserId] ?? createdByUserId
+    return creatorNamesById[createdByUserId]?.trim() || "Unknown user"
   })()
   const knownMentionNames = Array.from(
     new Set(
@@ -199,7 +213,7 @@ export function TaskCommentsPanel({
 
   return (
     <aside className="order-1 min-h-0 p-4 sm:p-5 lg:order-2 lg:p-6">
-      <div className="flex h-full min-h-[550px] flex-col pr-2 sm:pr-3 lg:pr-4">
+      <div className={`flex flex-col pr-2 sm:pr-3 lg:pr-4 ${canAccessComments ? "h-full min-h-[550px]" : ""}`}>
         <section className="mb-3 rounded-[2px] border border-slate-200 bg-slate-50/80 p-2.5 dark:border-[#343434] dark:bg-[#202020]">
           <div className="mb-2">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -217,59 +231,33 @@ export function TaskCommentsPanel({
                 </p>
                 {item.label === "Status" ? (
                   <div className="mt-0.5">
+                    {canChangeTaskState ? (
                     <StatusCombobox
                       value={selectedTodo.status}
+                      canReopenCompleted={canReopenCompletedTask}
+                      disabled={isSavingTaskStatus}
                       onChange={(value) =>
                         onStatusChange(selectedTodo.id, value as TodoItem["status"])
                       }
                     />
+                    ) : <TaskStatusBadge status={selectedTodo.status} />}
                   </div>
                 ) : item.label === "Priority" ? (
                   <div className="mt-0.5">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="inline-flex h-7 min-w-[64px] items-center gap-1.5 rounded-[4px] border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[color:rgba(var(--brand-primary-rgb),0.28)] dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100 dark:hover:bg-[#303030]"
-                        >
-                          <span className="inline-flex items-center gap-1.5">
-                            <PriorityIcon
-                              priority={selectedTodo.priority}
-                              className={
-                                selectedTodo.priority === "High"
-                                  ? "h-3.5 w-3.5 text-red-500"
-                                  : selectedTodo.priority === "Low"
-                                  ? "h-3.5 w-3.5 text-[var(--brand-primary-fixed)]"
-                                  : "h-3.5 w-3.5 text-orange-500"
-                              }
-                            />
-                            {selectedTodo.priority}
-                          </span>
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="start"
-                        className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
-                      >
-                        {(["Low", "Medium", "High"] as const).map((priority) => (
-                          <DropdownMenuItem
-                            key={priority}
-                            className={
-                              selectedTodo.priority === priority
-                                ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
-                                : undefined
-                            }
-                            onSelect={() => onPriorityChange(selectedTodo.id, priority)}
-                          >
-                            <PriorityIcon priority={priority} />
-                            {priority}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <PriorityBadge priority={selectedTodo.priority} />
                   </div>
                 ) : item.label === "Assignee" ? (
                   <div className="mt-1">
+                    {canEditAssignee && selectedTodo.status !== "completed" ? (
+                      <AssigneeCombobox
+                        value={selectedTodo.assigneeId}
+                        onChange={(assigneeId) => onAssigneeChange(selectedTodo.id, assigneeId)}
+                        className="border-slate-200 bg-transparent hover:bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#262626] dark:hover:bg-[#303030]"
+                        fallbackClassName="text-[9px]"
+                        unassignedIconClassName="text-slate-500 dark:text-slate-300"
+                        contentClassName="dark:border-[#343434] dark:bg-[#262626]"
+                      />
+                    ) : (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -290,6 +278,7 @@ export function TaskCommentsPanel({
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
+                    )}
                   </div>
                 ) : item.label === "Created by" ? (
                   <div className="mt-1 flex min-w-0 items-center gap-2">
@@ -327,6 +316,7 @@ export function TaskCommentsPanel({
           </div>
         </section>
 
+        {canAccessComments ? (
         <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-[2px] border border-slate-200 bg-white p-4 dark:border-[#343434] dark:bg-[#1f1f1f]">
           <div className="mb-4 shrink-0">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -551,6 +541,7 @@ export function TaskCommentsPanel({
             )}
           </div>
         </section>
+        ) : null}
       </div>
     </aside>
   )
