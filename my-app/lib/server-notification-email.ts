@@ -22,14 +22,22 @@ export const notificationEmailSchema = `
   create index if not exists notification_email_pending_idx
     on notification_email_deliveries(next_attempt_at, created_at)
     where status in ('pending', 'failed');
+  alter table notification_email_deliveries add column if not exists delivery_environment text;
+  alter table notification_email_deliveries add column if not exists smtp_message_id text;
+  alter table notification_email_deliveries add column if not exists smtp_response text;
 `
+
+export function getEmailDeliveryEnvironment() {
+  return process.env.VERCEL_ENV === "production" ? "production"
+    : process.env.VERCEL_ENV === "preview" ? "preview" : "local"
+}
 
 export function getTaskEmailConfiguration() {
   const user = process.env.SMTP_USER?.trim() ?? ""
   const pass = process.env.SMTP_PASS?.replace(/\s/g, "") ?? ""
   const appUrl = process.env.APP_URL?.trim() ?? ""
   const missing = [!user && "SMTP_USER", !pass && "SMTP_PASS", !appUrl && "APP_URL"].filter(Boolean)
-  return { enabled: process.env.TASK_EMAIL_ENABLED === "true", user, pass, appUrl, missing }
+  return { enabled: process.env.TASK_EMAIL_ENABLED?.trim().toLowerCase() === "true", user, pass, appUrl, missing }
 }
 
 type EmailNotification = {
@@ -81,9 +89,13 @@ export function buildTaskNotificationEmail(notification: EmailNotification, appU
   return { subject: `[TrackSphere] ${notification.title.replace(/[\r\n]/g, " ")}`, text, html }
 }
 
-export async function processPendingTaskEmails(limit = 5) {
+export async function processPendingTaskEmails(limit = 5, notificationId?: string) {
   const configuration = getTaskEmailConfiguration()
+  const environment = getEmailDeliveryEnvironment()
   if (!configuration.enabled || configuration.missing.length) {
+    console.warn("Notification email configuration unavailable", {
+      environment, enabled: configuration.enabled, missing: configuration.missing,
+    })
     return { configured: false, processed: 0, sent: 0, failed: 0 }
   }
   const transport = nodemailer.createTransport({
@@ -98,12 +110,14 @@ export async function processPendingTaskEmails(limit = 5) {
       with candidate as (
         select notification_id from notification_email_deliveries
         where status in ('pending', 'failed') and attempts < 3 and next_attempt_at <= now()
+          and ($1::uuid is null or notification_id = $1)
+          and (delivery_environment = $2 or (delivery_environment is null and $2 = 'production'))
         order by created_at limit 1 for update skip locked
       ) update notification_email_deliveries d
-        set status = 'sending', attempts = attempts + 1, last_error = null
+        set status = 'sending', attempts = attempts + 1, last_error = null, delivery_environment = $2
         from candidate where d.notification_id = candidate.notification_id
         returning d.notification_id
-    `)
+    `, [notificationId ?? null, environment])
     const id = claim.rows[0]?.notification_id
     if (!id) break
     counts.processed++
@@ -159,7 +173,10 @@ export async function processPendingTaskEmails(limit = 5) {
       })
       if (!receipt.accepted?.length) throw Object.assign(new Error("RECIPIENT_REJECTED"), { code: "EENVELOPE", responseCode: 550 })
       accepted = true
-      await getDb().query("update notification_email_deliveries set status = 'sent', sent_at = now() where notification_id = $1", [id])
+      await getDb().query(`update notification_email_deliveries set status = 'sent', sent_at = now(),
+        smtp_message_id = $2, smtp_response = $3 where notification_id = $1`,
+      [id, receipt.messageId ?? `<tracksphere-${id}@${configuration.user.split('@')[1]}>`, receipt.response?.slice(0, 1000) ?? null])
+      console.info("Notification email accepted by Gmail", { notificationId: id, environment })
       counts.sent++
     } catch (error) {
       const smtpError = error as { code?: string; command?: string; responseCode?: number }

@@ -42,8 +42,10 @@ Add `TASK_EMAIL_ENABLED`, `SMTP_USER`, `SMTP_PASS`, and the public HTTPS `APP_UR
 - Deadline reminder emails are not enabled. Existing in-app deadline notifications keep working.
 - A new notification and its email queue record are inserted atomically. Duplicate notification dedupe keys do not create another email.
 - The first notification operation initializes `notification_email_deliveries` using the existing runtime schema setup. No historical notifications are backfilled.
-- A worker runs after the response when credentials are configured. Missing configuration leaves messages pending and does not fail the task operation.
-- Failed deliveries may retry on subsequent notification events (up to three attempts, at least five minutes apart).
+- The request attempts its own queued email before responding when credentials are configured. Missing configuration leaves messages pending and does not fail the task operation.
+- New queue records identify their environment (local, preview, or production). A local worker cannot consume a production email. Legacy records without an environment are reserved for the production worker.
+- Gmail acceptance is recorded with its SMTP message ID and response. `sent` means Gmail accepted the message, not that the school inbox delivered it. Runtime logs report the environment and notification ID without passwords or email bodies.
+- Failed deliveries may retry through the protected worker endpoint (up to three attempts, at least five minutes apart).
 - For retries independent of user activity, configure a scheduler to call `GET /api/internal/notification-emails` with `Authorization: Bearer <CRON_SECRET>` and add that server-side secret to the environment. A call processes at most five messages; no scheduler has been provisioned automatically.
 - Unconfirmed SMTP network failures, or a database failure after SMTP acceptance, are not automatically resent to avoid duplicates. Inspect `notification_email_deliveries` statuses (`sending`/`uncertain`) before manually retrying those records.
 - Each delivery uses a stable Message-ID for troubleshooting. This is not an exactly-once guarantee across SMTP/network failures.
