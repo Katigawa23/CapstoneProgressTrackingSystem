@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectCompletedTaskMutation } from "@/lib/server-completed-task"
 import {
   stripEmoji,
   TASK_SPRINT_NAME_MAX_LENGTH,
@@ -32,6 +33,7 @@ function toActiveBacklogItemResponse(item: Awaited<ReturnType<typeof listBacklog
     sequenceNumber: item.sequenceNumber,
     orderIndex: item.orderIndex,
     createdByUserId: item.createdByUserId,
+    createdByName: item.createdByName ?? null,
     title: item.title,
     description: item.description,
     startDate: item.startDate,
@@ -124,6 +126,10 @@ export async function POST(request: Request) {
       typeof body.status === "string" && allowedStatuses.has(body.status)
         ? body.status
         : "todo"
+    if (requestedParentId) {
+      const completionResponse = await rejectCompletedTaskMutation(requestedParentId)
+      if (completionResponse) return completionResponse
+    }
     const priority =
       typeof body.priority === "string" && allowedPriorities.has(body.priority)
         ? (body.priority as "Low" | "Medium" | "High")
@@ -181,6 +187,7 @@ export async function POST(request: Request) {
       checked: false,
       assigneeId: body.assigneeId ?? null,
       priority,
+      createdByName: user.name,
     }, user.id)
 
     if (!item) {

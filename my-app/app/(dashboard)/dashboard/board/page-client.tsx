@@ -1,4 +1,5 @@
 "use client"
+import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -8,6 +9,7 @@ import {
   findDashboardProject,
   getDashboardProjectCode,
   getSelectedDashboardProjectId,
+  setDashboardProject,
   PROJECT_CHANGE_EVENT,
   type DashboardProject,
 } from "@/lib/projects"
@@ -38,10 +40,12 @@ import {
 import type { BacklogApiItem, TodoItem } from "../types"
 import {
   buildSubtaskDisplayId,
+  isDashboardColumn,
   mapBacklogItemsToTodos,
   upsertItemsById,
 } from "../utils"
 import { getLocalDateString } from "@/lib/trusted-time"
+import { useTaskReadOnly } from "@/lib/role-context"
 
 type DashboardBoardPageClientProps = {
   initialProjects: DashboardProject[]
@@ -82,6 +86,8 @@ function areTodoListsEqual(left: TodoItem[], right: TodoItem[]) {
       leftTodo.status === rightTodo.status &&
       leftTodo.checked === rightTodo.checked &&
       leftTodo.checklist === rightTodo.checklist &&
+      leftTodo.createdByName === rightTodo.createdByName &&
+      leftTodo.priority === rightTodo.priority &&
       leftTodo.comments === rightTodo.comments
     )
   })
@@ -95,8 +101,11 @@ export function DashboardBoardPageClient({
   onProjectBoardSelectPath = "/dashboard/board",
 }: DashboardBoardPageClientProps) {
   const router = useRouter()
+  const taskReadOnly = useTaskReadOnly()
   const searchParams = useSearchParams()
   const openTaskId = searchParams.get("taskId")
+  const requestedProjectId = searchParams.get("projectId")
+  const appliedEmailProjectRef = React.useRef<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
     initialSelectedProjectId
   )
@@ -124,12 +133,17 @@ export function DashboardBoardPageClient({
     () => Boolean(initialSelectedProjectId)
   )
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
+  const [isSavingTaskStatus, setIsSavingTaskStatus] = React.useState(false)
+  const [statusChangeError, setStatusChangeError] = React.useState<string | null>(null)
+  const canChangeTaskState = Boolean(currentUser) && !taskReadOnly
   const [searchValue, setSearchValue] = React.useState("")
   const [filterValue, setFilterValue] =
     React.useState<DashboardBoardFilter>("none")
   const [isCreatingSubtask, setIsCreatingSubtask] = React.useState(false)
   const [createSubtaskError, setCreateSubtaskError] = React.useState<string | null>(null)
   const isMovingTodoRef = React.useRef(false)
+  const statusSaveInFlightRef = React.useRef(false)
+  const boardMutationRevisionRef = React.useRef(0)
   const localMutationGuardUntilRef = React.useRef(0)
   const localMutationReleaseTimerRef = React.useRef<number | null>(null)
   const isCoordinatorBoard = breadcrumbSectionLabel === "Coordinator"
@@ -141,7 +155,7 @@ export function DashboardBoardPageClient({
     [initialProjects, selectedProjectId]
   )
   const canEditTaskAssignee = React.useMemo(() => {
-    if (currentUser?.role !== "faculty" || !selectedProject) {
+    if (!canChangeTaskState || currentUser?.role !== "faculty" || !selectedProject) {
       return false
     }
 
@@ -153,10 +167,10 @@ export function DashboardBoardPageClient({
         (adviserName) => normalizePersonName(adviserName) === currentUserName
       )
     )
-  }, [currentUser, selectedProject])
+  }, [canChangeTaskState, currentUser, selectedProject])
   const isSuperAdminViewer = currentUser?.id === "tester-admin"
   const canManageProjectResources =
-    !isSuperAdminViewer &&
+    !taskReadOnly &&
     (currentUser?.role === "faculty" || currentUser?.role === "admin")
   const currentUserAssigneeIds = React.useMemo(() => {
     const ids = new Set<string>()
@@ -199,6 +213,7 @@ export function DashboardBoardPageClient({
     return `${completedCount}/${subtasks.length}`
   }, [])
   const guardBoardSyncDuringLocalMutation = React.useCallback(() => {
+    boardMutationRevisionRef.current += 1
     if (localMutationReleaseTimerRef.current) {
       window.clearTimeout(localMutationReleaseTimerRef.current)
       localMutationReleaseTimerRef.current = null
@@ -367,12 +382,20 @@ export function DashboardBoardPageClient({
 
   const handleStatusChange = React.useCallback(
     async (todoId: string, nextStatus: TodoItem["status"]) => {
+      if (!canChangeTaskState || statusSaveInFlightRef.current || isMovingTodoRef.current) return
       const currentTodo = todos.find((todo) => todo.id === todoId)
       const nextChecked = nextStatus === "completed"
 
       if (!currentTodo || currentTodo.status === nextStatus) {
         return
       }
+      if (hasCompletedTaskParent(currentTodo, todos) ||
+        (currentTodo.status === "completed" && (!canEditTaskAssignee || nextStatus !== "revision"))) return
+
+      statusSaveInFlightRef.current = true
+      setIsSavingTaskStatus(true)
+      setStatusChangeError(null)
+      guardBoardSyncDuringLocalMutation()
 
       setTodos((currentTodos) => {
         const nextTodos = currentTodos.map((todo) =>
@@ -391,13 +414,12 @@ export function DashboardBoardPageClient({
             : todo
         )
       })
-      broadcastDashboardActivitySync({
-        itemId: todoId,
-        status: nextStatus,
-        checked: nextChecked,
-      })
-
       try {
+        broadcastDashboardActivitySync({
+          itemId: todoId,
+          status: nextStatus,
+          checked: nextChecked,
+        })
         const response = await fetch(`/api/backlog-items/${todoId}`, {
           method: "PATCH",
           headers: {
@@ -407,10 +429,26 @@ export function DashboardBoardPageClient({
         })
 
         if (!response.ok) {
-          throw new Error("Failed to update backlog item status")
+          const data = (await response.json().catch(() => null)) as { error?: string } | null
+          throw new Error(data?.error || "Failed to update task status. Please try again.")
         }
+
+        const { item } = (await response.json()) as { item: BacklogApiItem }
+        const savedStatus = isDashboardColumn(item.status) ? item.status : nextStatus
+        const savedChecked = typeof item.checked === "boolean" ? item.checked : savedStatus === "completed"
+        setTodos((currentTodos) => {
+          const nextTodos = currentTodos.map((todo) =>
+            todo.id === todoId ? { ...todo, status: savedStatus, checked: savedChecked } : todo
+          )
+          return currentTodo.parentId
+            ? nextTodos.map((todo) => todo.id === currentTodo.parentId
+              ? { ...todo, checklist: buildChecklist(nextTodos, currentTodo.parentId) }
+              : todo)
+            : nextTodos
+        })
+        broadcastDashboardActivitySync({ itemId: todoId, status: savedStatus, checked: savedChecked })
       } catch (error) {
-        console.error(error)
+        setStatusChangeError(error instanceof Error ? error.message : "Failed to update task status. Please try again.")
         broadcastDashboardActivitySync({
           itemId: todoId,
           status: currentTodo.status,
@@ -437,9 +475,13 @@ export function DashboardBoardPageClient({
               : todo
           )
         })
+      } finally {
+        statusSaveInFlightRef.current = false
+        setIsSavingTaskStatus(false)
+        releaseBoardSyncGuardAfterSettle()
       }
     },
-    [buildChecklist, todos]
+    [buildChecklist, canChangeTaskState, canEditTaskAssignee, guardBoardSyncDuringLocalMutation, releaseBoardSyncGuardAfterSettle, todos]
   )
 
   const handleMoveTodo = React.useCallback(
@@ -448,14 +490,14 @@ export function DashboardBoardPageClient({
       targetTodoId: string | null,
       nextStatus: TodoItem["status"]
     ) => {
-      if (isCoordinatorBoard) {
+      if (!canChangeTaskState || isCoordinatorBoard || statusSaveInFlightRef.current) {
         return
       }
 
       const previousTodos = todos
       const currentTodo = previousTodos.find((todo) => todo.id === todoId)
 
-      if (!currentTodo || isMovingTodoRef.current) {
+      if (!currentTodo || isTaskCompletionLocked(currentTodo, todos) || isMovingTodoRef.current) {
         return
       }
 
@@ -496,7 +538,9 @@ export function DashboardBoardPageClient({
 
       const normalizedDestinationTodos = reorderedDestinationTodos.map((todo, index) => ({
         ...todo,
-        orderIndex: index + 1,
+        orderIndex: rootTodos.find((previous) => previous.id === todo.id)?.status === "completed"
+          ? todo.orderIndex
+          : index + 1,
       }))
       const normalizedSourceTodos =
         sourceStatus === nextStatus
@@ -540,6 +584,7 @@ export function DashboardBoardPageClient({
 
       try {
         for (const todo of todosToPersist) {
+          if (previousTodos.find((previous) => previous.id === todo.id)?.status === "completed") continue
           const response = await fetch(`/api/backlog-items/${todo.id}`, {
             method: "PATCH",
             headers: {
@@ -574,6 +619,7 @@ export function DashboardBoardPageClient({
     },
     [
       guardBoardSyncDuringLocalMutation,
+      canChangeTaskState,
       isCoordinatorBoard,
       releaseBoardSyncGuardAfterSettle,
       todos,
@@ -628,7 +674,7 @@ export function DashboardBoardPageClient({
       const currentTodo = todos.find((todo) => todo.id === todoId)
       const nextAssignee = getAssigneeOption(assigneeId)
 
-      if (!currentTodo || currentTodo.assigneeId === assigneeId) {
+      if (!currentTodo || isTaskCompletionLocked(currentTodo, todos) || currentTodo.assigneeId === assigneeId) {
         return
       }
 
@@ -681,48 +727,6 @@ export function DashboardBoardPageClient({
       }
     },
     [canEditTaskAssignee, todos]
-  )
-
-  const handlePriorityChange = React.useCallback(
-    async (todoId: string, priority: TodoItem["priority"]) => {
-      const currentTodo = todos.find((todo) => todo.id === todoId)
-
-      if (!currentTodo || currentTodo.priority === priority) {
-        return
-      }
-
-      setTodos((currentTodos) =>
-        currentTodos.map((todo) =>
-          todo.id === todoId ? { ...todo, priority } : todo
-        )
-      )
-
-      try {
-        const response = await fetch(`/api/backlog-items/${todoId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            priority,
-            parentId: currentTodo.parentId ?? null,
-          }),
-        })
-
-        if (!response.ok) {
-          const data = (await response.json().catch(() => null)) as { error?: string } | null
-          throw new Error(data?.error || "Failed to update backlog item priority")
-        }
-      } catch (error) {
-        console.error(error)
-        setTodos((currentTodos) =>
-          currentTodos.map((todo) =>
-            todo.id === todoId ? { ...todo, priority: currentTodo.priority } : todo
-          )
-        )
-      }
-    },
-    [todos]
   )
 
   const handleUpdateSubtask = React.useCallback(
@@ -912,6 +916,11 @@ export function DashboardBoardPageClient({
     let cancelled = false
 
     async function loadTodosForSelectedProject(forceRefresh = false) {
+      if (requestedProjectId && requestedProjectId !== appliedEmailProjectRef.current &&
+        initialProjects.some((project) => project.id === requestedProjectId)) {
+        appliedEmailProjectRef.current = requestedProjectId
+        setDashboardProject(requestedProjectId)
+      }
       const savedProjectId = getSelectedDashboardProjectId()
 
       if (!savedProjectId || !findDashboardProject(savedProjectId)) {
@@ -963,6 +972,7 @@ export function DashboardBoardPageClient({
     initialProjects,
     initialSelectedProjectId,
     router,
+    requestedProjectId,
   ])
 
   React.useEffect(() => {
@@ -977,6 +987,8 @@ export function DashboardBoardPageClient({
       if (
         cancelled ||
         isSyncing ||
+        statusSaveInFlightRef.current ||
+        isMovingTodoRef.current ||
         document.hidden ||
         Date.now() < localMutationGuardUntilRef.current
       ) {
@@ -984,11 +996,18 @@ export function DashboardBoardPageClient({
       }
 
       isSyncing = true
+      const mutationRevision = boardMutationRevisionRef.current
 
       try {
         const nextTodos = await fetchTodosForProject(selectedProjectId)
 
-        if (cancelled || Date.now() < localMutationGuardUntilRef.current) {
+        if (
+          cancelled ||
+          statusSaveInFlightRef.current ||
+          isMovingTodoRef.current ||
+          mutationRevision !== boardMutationRevisionRef.current ||
+          Date.now() < localMutationGuardUntilRef.current
+        ) {
           return
         }
 
@@ -1093,6 +1112,7 @@ export function DashboardBoardPageClient({
             orderIndex: data.item.orderIndex,
             parentId: parentTodo.id,
             createdByUserId: data.item.createdByUserId ?? currentUser?.id ?? null,
+            createdByName: data.item.createdByName ?? currentUser?.name ?? null,
             title: data.item.title,
             description: data.item.description,
             assignee: "",
@@ -1106,12 +1126,7 @@ export function DashboardBoardPageClient({
             comments: data.item.commentCount ?? 0,
             links: 0,
             checklist: "0/0",
-            priority:
-              data.item.status === "revision"
-                ? "High"
-                : data.item.status === "completed"
-                ? "Low"
-                : "Medium",
+            priority: data.item.priority ?? "Medium",
           }
           const nextTodos = upsertItemsById(currentTodos, [createdSubtask])
 
@@ -1131,7 +1146,7 @@ export function DashboardBoardPageClient({
         setIsCreatingSubtask(false)
       }
     },
-    [buildChecklist, currentUser?.id, isCreatingSubtask, router]
+    [buildChecklist, currentUser?.id, currentUser?.name, isCreatingSubtask, router]
   )
 
   const filteredTodos = React.useMemo(() => {
@@ -1178,6 +1193,7 @@ export function DashboardBoardPageClient({
         showFilter={currentUser?.role === "student"}
         showCreateButton={Boolean(
           currentUser &&
+          !taskReadOnly &&
           currentUser.role !== "admin" &&
           currentUser.id !== "tester-coordinator"
         )}
@@ -1203,6 +1219,11 @@ export function DashboardBoardPageClient({
         }}
       />
       <div className="min-h-0 w-full min-w-0 flex-1 overflow-x-auto">
+        {statusChangeError ? (
+          <p role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+            {statusChangeError}
+          </p>
+        ) : null}
         <div className="min-h-0 w-full min-w-0 md:max-w-[calc(100vw-var(--sidebar-width)-3rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
           <DashboardBoard
             todos={filteredTodos}
@@ -1214,14 +1235,17 @@ export function DashboardBoardPageClient({
               router.replace(query ? `/dashboard/board?${query}` : "/dashboard/board")
             }}
             currentUserId={currentUser?.id ?? null}
+            isSavingTaskStatus={isSavingTaskStatus}
+            canChangeTaskState={canChangeTaskState}
             creatorNamesById={creatorNamesById}
             canEditAssignee={canEditTaskAssignee}
             canManageOtherProjectResources={canManageProjectResources}
             canSubmitTaskResources={currentUser?.role === "student"}
             canCreateSubtasks={
-              !isCoordinatorBoard && currentUser?.role !== "admin"
+              canChangeTaskState && !isCoordinatorBoard && currentUser?.role !== "admin"
             }
             isDragDisabled={
+              !canChangeTaskState ||
               isCoordinatorBoard ||
               currentUser?.id === "tester-coordinator" ||
               isSuperAdminViewer
@@ -1229,7 +1253,6 @@ export function DashboardBoardPageClient({
             onStatusChange={handleStatusChange}
             onMoveTodo={handleMoveTodo}
             onAssigneeChange={handleAssigneeChange}
-            onPriorityChange={handlePriorityChange}
             onTodoUpdate={handleTodoUpdate}
             onCreateSubtask={handleCreateSubtask}
             isCreatingSubtask={isCreatingSubtask}

@@ -6,6 +6,7 @@ export type TodoItem = {
   orderIndex: number
   parentId?: string | null
   createdByUserId?: string | null
+  createdByName?: string | null
   archivedByUserId?: string | null
   deletedByUserId?: string | null
   title: string
@@ -33,6 +34,7 @@ export type BacklogApiItem = {
   projectId?: string
   parentId?: string | null
   createdByUserId?: string | null
+  createdByName?: string | null
   archivedByUserId?: string | null
   deletedByUserId?: string | null
   title: string

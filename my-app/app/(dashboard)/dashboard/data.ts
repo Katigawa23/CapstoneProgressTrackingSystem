@@ -59,7 +59,7 @@ export const getDashboardProjectsData = cache(async () => {
   return listProjects(user.id)
 })
 
-export async function getSelectedProjectData() {
+export async function getSelectedProjectData(requestedProjectId?: string) {
   const user = await readAuthenticatedUser()
 
   if (!user?.id) {
@@ -78,7 +78,7 @@ export async function getSelectedProjectData() {
     cookieStore.get(getUserScopedProjectCookieKey(PROJECT_COOKIE_KEY, user.id))
       ?.value ?? null
   const selectedProject =
-    projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null
+    projects.find((project) => project.id === (requestedProjectId || selectedProjectId)) ?? projects[0] ?? null
 
   const items = selectedProject
     ? await (

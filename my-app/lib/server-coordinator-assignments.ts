@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/server-db"
 import { listProjectConfigurationOptions } from "@/lib/server-project-configuration"
 import { ensureMicrosoftLoginSchema } from "@backend/repositories/users-repository"
+import { createNotification } from "@/lib/server-notification-repository"
 
 export type CoordinatorAssignment = {
   programId: string
@@ -91,7 +92,21 @@ export async function assignProgramCoordinator(programId: string, facultyUserId:
   if (!validation.rows[0]?.valid_program) throw new Error("INVALID_PROGRAM")
   if (!validation.rows[0]?.valid_faculty) throw new Error("INVALID_FACULTY")
   if (validation.rows[0]?.assigned_elsewhere) throw new Error("COORDINATOR_ALREADY_ASSIGNED")
-  await getDb().query(`
+  const client = await getDb().connect()
+  let previousUserId: string | undefined
+  let eventId = ""
+  let programLabel = ""
+  try {
+    await client.query("begin")
+    const program = await client.query<{ label: string }>("select label from project_configuration_options where id = $1 for update", [programId])
+    programLabel = program.rows[0]?.label ?? ""
+    const previous = await client.query<{ faculty_user_id: string }>("select faculty_user_id from program_coordinator_assignments where program_option_id = $1", [programId])
+    previousUserId = previous.rows[0]?.faculty_user_id
+    if (previousUserId === facultyUserId) {
+      await client.query("commit")
+      return
+    }
+    const saved = await client.query<{ updated_at: string }>(`
     insert into program_coordinator_assignments
       (program_option_id, faculty_user_id, assigned_by_user_id)
     values ($1, $2, $3)
@@ -99,12 +114,35 @@ export async function assignProgramCoordinator(programId: string, facultyUserId:
       faculty_user_id = excluded.faculty_user_id,
       assigned_by_user_id = excluded.assigned_by_user_id,
       assigned_at = now(), updated_at = now()
+    returning updated_at::text
   `, [programId, facultyUserId, assignedBy])
+    eventId = saved.rows[0].updated_at
+    await client.query("commit")
+  } catch (error) {
+    await client.query("rollback")
+    throw error
+  } finally { client.release() }
+  await createNotification({ recipientUserId: facultyUserId, actorUserId: assignedBy,
+    type: "coordinator_assigned", title: "Assigned as program coordinator",
+    message: `The superadmin assigned you as coordinator of ${programLabel}.`, href: "/dashboard",
+    dedupeKey: `coordinator-assigned:${programId}:${facultyUserId}:${eventId}` })
+  if (previousUserId) await createNotification({ recipientUserId: previousUserId, actorUserId: assignedBy,
+    type: "coordinator_removed", title: "Coordinator assignment ended",
+    message: `Your coordinator assignment for ${programLabel} has been replaced by the superadmin.`, href: "/dashboard",
+    dedupeKey: `coordinator-removed:${programId}:${previousUserId}:${eventId}` })
 }
 
-export async function removeProgramCoordinator(programId: string) {
+export async function removeProgramCoordinator(programId: string, actorUserId?: string) {
   await ensureSchema()
-  const result = await getDb().query(`delete from program_coordinator_assignments where program_option_id = $1`, [programId])
+  const result = await getDb().query<{ faculty_user_id: string; updated_at: string; label: string }>(`
+    delete from program_coordinator_assignments a using project_configuration_options o
+    where a.program_option_id = $1 and o.id = a.program_option_id
+    returning a.faculty_user_id, a.updated_at::text, o.label`, [programId])
+  const removed = result.rows[0]
+  if (removed && actorUserId) await createNotification({ recipientUserId: removed.faculty_user_id, actorUserId,
+    type: "coordinator_removed", title: "Coordinator assignment removed",
+    message: `The superadmin removed your coordinator assignment for ${removed.label}.`, href: "/dashboard",
+    dedupeKey: `coordinator-removed:${programId}:${removed.faculty_user_id}:${removed.updated_at}` })
   return (result.rowCount ?? 0) > 0
 }
 

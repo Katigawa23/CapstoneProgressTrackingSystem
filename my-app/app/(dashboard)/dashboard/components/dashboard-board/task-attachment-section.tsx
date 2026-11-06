@@ -6,7 +6,6 @@ import {
   Download,
   Ellipsis,
   Eye,
-  Filter,
   FileText,
   FileVideo,
   ImageIcon,
@@ -14,7 +13,6 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Collapsible,
   CollapsibleContent,
@@ -24,15 +22,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatTrustedDateTime } from "@/lib/trusted-time"
-import { getAssigneeOption } from "../../backlog/types"
 
 import type { DashboardSubmission, TodoItem } from "../../types"
 import type { SubmissionDraft } from "./types"
@@ -41,6 +35,7 @@ import { formatSubmissionSize } from "./utils"
 type TaskSubmissionsSectionProps = {
   selectedTodo: TodoItem
   canUpload?: boolean
+  readOnly?: boolean
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
   canManageOtherProjectResources?: boolean
@@ -54,23 +49,6 @@ type TaskSubmissionsSectionProps = {
   onSubmissionAttach: (todoId: string, files: FileList | null) => void
   onSubmissionUpload: (todoId: string) => void | Promise<void>
   onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
-}
-
-type ResourceFilterOption = {
-  id: string
-  label: string
-  detail?: string
-  initials: string
-}
-
-function getFilterInitials(value: string) {
-  return value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "U"
 }
 
 function formatAttachmentDate(uploadedAt: string) {
@@ -125,12 +103,14 @@ function AttachmentList({
   backlogItemId,
   currentUserId,
   canManageOtherProjectResources,
+  readOnly = false,
   onSubmissionArchive,
 }: {
   submissions: DashboardSubmission[]
   backlogItemId: string
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
+  readOnly?: boolean
   onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
 }) {
   return (
@@ -147,6 +127,7 @@ function AttachmentList({
           <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
             {submissions.map((submission) => {
               const canArchiveSubmission =
+                !readOnly &&
                 Boolean(currentUserId?.trim()) &&
                 (
                   submission.uploadedByUserId === currentUserId?.trim() ||
@@ -269,8 +250,8 @@ function AttachmentListSkeleton() {
 export function TaskSubmissionsSection({
   selectedTodo,
   canUpload = false,
+  readOnly = false,
   currentUserId = null,
-  creatorNamesById = {},
   canManageOtherProjectResources = false,
   submissionDrafts,
   submissionThreads,
@@ -281,62 +262,7 @@ export function TaskSubmissionsSection({
   onSubmissionArchive,
 }: TaskSubmissionsSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
-  const [uploaderFilter, setUploaderFilter] = React.useState("all")
-  const normalizedCurrentUserId = currentUserId?.trim() ?? ""
-  const uploaderOptions = React.useMemo<ResourceFilterOption[]>(() => {
-    const options = new Map<string, string>()
-
-    for (const submission of submissionThreads) {
-      const uploadedByUserId = submission.uploadedByUserId?.trim()
-
-      if (!uploadedByUserId) {
-        continue
-      }
-
-      const assigneeOption = getAssigneeOption(uploadedByUserId)
-      const label =
-        uploadedByUserId === normalizedCurrentUserId
-          ? "To me"
-          : assigneeOption?.name ?? creatorNamesById[uploadedByUserId] ?? uploadedByUserId
-      const detail =
-        uploadedByUserId === normalizedCurrentUserId
-          ? assigneeOption?.email ?? creatorNamesById[uploadedByUserId]
-          : assigneeOption?.email
-
-      options.set(
-        uploadedByUserId,
-        JSON.stringify({
-          detail,
-          initials: assigneeOption?.initials ?? getFilterInitials(label),
-          label,
-        })
-      )
-    }
-
-    return Array.from(options, ([id, value]) => {
-      const option = JSON.parse(value) as Omit<ResourceFilterOption, "id">
-      return { id, ...option }
-    }).sort((left, right) => {
-      if (left.id === normalizedCurrentUserId) {
-        return -1
-      }
-
-      if (right.id === normalizedCurrentUserId) {
-        return 1
-      }
-
-      return left.label.localeCompare(right.label)
-    })
-  }, [creatorNamesById, normalizedCurrentUserId, submissionThreads])
-  const visibleSubmissionThreads = React.useMemo(
-    () =>
-      uploaderFilter === "all"
-        ? submissionThreads
-        : submissionThreads.filter(
-            (submission) => submission.uploadedByUserId?.trim() === uploaderFilter
-          ),
-    [submissionThreads, uploaderFilter]
-  )
+  const resourcesLocked = readOnly || selectedTodo.status === "completed"
 
   React.useEffect(() => {
     if (submissionDrafts.length > 0) {
@@ -383,84 +309,7 @@ export function TaskSubmissionsSection({
         </div>
 
         <div className="mt-0.5 flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className={`relative h-9 w-9 rounded-[2px] p-0 dark:border-[#3a3a3a] dark:bg-[#262626] dark:hover:bg-[#303030] ${
-                  uploaderFilter === "all"
-                    ? "text-slate-700 dark:text-slate-200"
-                    : "border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.14)] dark:text-[#9bc2e2]"
-                }`}
-                aria-label="Filter attachments"
-                title="Filter attachments"
-              >
-                <Filter className="h-4 w-4" />
-                {uploaderFilter !== "all" ? (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--brand-primary-fixed)] px-1 text-[10px] font-semibold leading-none text-white">
-                    1
-                  </span>
-                ) : null}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-44 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
-            >
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  Attached by
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-44 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
-                  <DropdownMenuItem onSelect={() => setUploaderFilter("all")}>
-                    <Avatar className="h-7 w-7">
-                      <AvatarFallback className="text-[9px]">
-                        All
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px]">All members</span>
-                      <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
-                        Attached by anyone
-                      </span>
-                    </span>
-                  </DropdownMenuItem>
-                  {uploaderOptions.map((option) => (
-                    <DropdownMenuItem
-                      key={option.id}
-                      onSelect={() => setUploaderFilter(option.id)}
-                    >
-                      <Avatar className="h-7 w-7">
-                        <AvatarFallback className="text-[9px]">
-                          {option.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px]">{option.label}</span>
-                        {option.detail ? (
-                          <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
-                            {option.detail}
-                          </span>
-                        ) : null}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {uploaderFilter !== "all" ? (
-            <button
-              type="button"
-              className="text-sm text-slate-600 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
-              onClick={() => setUploaderFilter("all")}
-            >
-              Clear filters
-            </button>
-          ) : null}
-          {canUpload ? (
+          {canUpload && !resourcesLocked ? (
             <Button
               type="button"
               size="sm"
@@ -521,7 +370,7 @@ export function TaskSubmissionsSection({
           </div>
         ) : null}
 
-        {canUpload ? (
+        {canUpload && !resourcesLocked ? (
           <input
             ref={submissionInputRef}
             type="file"
@@ -539,20 +388,13 @@ export function TaskSubmissionsSection({
           <AttachmentListSkeleton />
         ) : submissionDrafts.length === 0 && submissionThreads.length > 0 ? (
           <AttachmentList
-            submissions={visibleSubmissionThreads}
+            submissions={submissionThreads}
             backlogItemId={selectedTodo.id}
             currentUserId={currentUserId}
             canManageOtherProjectResources={canManageOtherProjectResources}
+            readOnly={resourcesLocked}
             onSubmissionArchive={onSubmissionArchive}
           />
-        ) : null}
-        {submissionDrafts.length === 0 &&
-        !isLoadingSubmissions &&
-        submissionThreads.length > 0 &&
-        visibleSubmissionThreads.length === 0 ? (
-          <div className="rounded-[2px] border border-slate-200 bg-white px-3 py-4 text-sm text-slate-500 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-400">
-            No attachments match this filter.
-          </div>
         ) : null}
       </CollapsibleContent>
     </Collapsible>

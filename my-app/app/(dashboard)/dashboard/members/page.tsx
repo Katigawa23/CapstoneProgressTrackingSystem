@@ -71,9 +71,11 @@ export default function MembersPage() {
   const [pendingAddMember, setPendingAddMember] = React.useState<{
     member: RegisteredUserOption
     currentGroupName: string | null
+    requiresTransfer: boolean
   } | null>(null)
   const [actionError, setActionError] = React.useState<string | null>(null)
   const latestMemberRequestId = React.useRef(0)
+  const memberAddsInFlight = React.useRef(new Set<string>())
 
   React.useEffect(() => {
     const syncProject = () => setProjectId(getSelectedDashboardProjectId())
@@ -290,10 +292,11 @@ export default function MembersPage() {
 
   const addMember = React.useCallback(
     async (member: RegisteredUserOption, transferApproved = false) => {
-      if (!projectId || !canManageMembers) {
+      if (!projectId || !canManageMembers || memberAddsInFlight.current.has(member.id)) {
         return
       }
 
+      memberAddsInFlight.current.add(member.id)
       setSavingMemberIds((current) => [...new Set([...current, member.id])])
       setActionError(null)
 
@@ -308,9 +311,14 @@ export default function MembersPage() {
 
         if (!response.ok) {
           const data = (await response.json().catch(() => null)) as
-            | { error?: string }
+            | { error?: string; code?: string }
             | null
-          throw new Error(data?.error || "Failed to add member")
+          if (response.status === 409 && data?.code === "STUDENT_ALREADY_ASSIGNED" && !transferApproved) {
+            setPendingAddMember({ member, currentGroupName: null, requiresTransfer: true })
+            return
+          }
+          setActionError(data?.error || "Failed to add member")
+          return
         }
 
         const data = (await response.json()) as { member: ProjectMember }
@@ -327,9 +335,9 @@ export default function MembersPage() {
         setIsMemberOptionsOpen(false)
         await refreshDashboardProjects().catch(() => undefined)
       } catch (error) {
-        console.error(error)
         setActionError(error instanceof Error ? error.message : "Failed to add member.")
       } finally {
+        memberAddsInFlight.current.delete(member.id)
         setSavingMemberIds((current) =>
           current.filter((memberId) => memberId !== member.id)
         )
@@ -455,6 +463,7 @@ export default function MembersPage() {
                         setPendingAddMember({
                           member,
                           currentGroupName: currentGroup?.name ?? null,
+                          requiresTransfer: Boolean(currentGroup),
                         })
                         setIsMemberOptionsOpen(false)
                       }}
@@ -674,17 +683,19 @@ export default function MembersPage() {
         <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
           <AlertDialogHeader className="text-left">
             <AlertDialogTitle>
-              {pendingAddMember?.currentGroupName ? "Transfer student?" : "Add student?"}
+              {pendingAddMember?.requiresTransfer ? "Transfer student?" : "Add student?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2 text-slate-600 dark:text-slate-300">
-              {pendingAddMember?.currentGroupName ? (
+              {pendingAddMember?.requiresTransfer ? (
                 <>
                   <span className="block">
                     This student is already assigned to another group. Do you want to transfer them to this group?
                   </span>
-                  <span className="block font-medium text-slate-900 dark:text-slate-100">
+                  {pendingAddMember.currentGroupName ? <span className="block font-medium text-slate-900 dark:text-slate-100">
                     {pendingAddMember.member.name} is currently in {pendingAddMember.currentGroupName}.
-                  </span>
+                  </span> : <span className="block font-medium text-slate-900 dark:text-slate-100">
+                    {pendingAddMember.member.name} has an existing group assignment. Confirm to move this student to the selected group.
+                  </span>}
                 </>
               ) : (
                 "Are you sure you want to add this student to the group?"
@@ -698,7 +709,7 @@ export default function MembersPage() {
                 if (pendingAddMember) {
                   void addMember(
                     pendingAddMember.member,
-                    Boolean(pendingAddMember.currentGroupName)
+                    pendingAddMember.requiresTransfer
                   )
                 }
                 setPendingAddMember(null)
@@ -708,7 +719,7 @@ export default function MembersPage() {
                 color: "var(--brand-primary-fixed-foreground)",
               }}
             >
-              {pendingAddMember?.currentGroupName ? "Transfer Student" : "Add Student"}
+              {pendingAddMember?.requiresTransfer ? "Transfer Student" : "Add Student"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

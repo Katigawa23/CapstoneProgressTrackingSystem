@@ -1,4 +1,3 @@
-import * as React from "react"
 import type {
   DraggableProvided,
   DraggableStateSnapshot,
@@ -36,19 +35,20 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { AssigneeCombobox } from "../backlog/components/assignee-combobox"
 import { assigneeOptions } from "../backlog/types"
 import { columns } from "../constants"
-import { PriorityIcon } from "./priority-icon"
+import { PriorityBadge } from "./task-state-badges"
 import type { TodoItem } from "../types"
 import { formatDeadline } from "../utils"
 
 type DashboardTaskCardProps = {
   todo: TodoItem
+  canAccessComments: boolean
+  canChangeTaskState: boolean
   parentTaskTitle?: string | null
   isDragging?: boolean
   canArchive?: boolean
   canEditAssignee?: boolean
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
-  onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
   onOpen: (todo: TodoItem, target?: "default" | "comments") => void
   onArchive: (todo: TodoItem) => void | Promise<void>
   draggableProvided?: DraggableProvided
@@ -57,30 +57,19 @@ type DashboardTaskCardProps = {
 
 export function DashboardTaskCard({
   todo,
+  canAccessComments,
+  canChangeTaskState,
   parentTaskTitle,
   isDragging = false,
   canArchive = true,
   canEditAssignee = false,
   onStatusChange,
   onAssigneeChange,
-  onPriorityChange,
   onOpen,
   onArchive,
   draggableProvided,
   dragSnapshot,
 }: DashboardTaskCardProps) {
-  const getPriorityCircleClassName = React.useCallback((priority: TodoItem["priority"]) => {
-    if (priority === "High") {
-      return "border-red-200 bg-red-50 text-red-500 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/40"
-    }
-
-    if (priority === "Low") {
-      return "border-[color:rgba(var(--brand-primary-rgb),0.2)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] hover:bg-[color:rgba(var(--brand-primary-rgb),0.14)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.18)] dark:text-[#9bc2e2] dark:hover:bg-[color:rgba(var(--brand-primary-rgb),0.24)]"
-    }
-
-    return "border-orange-200 bg-orange-50 text-orange-500 hover:bg-orange-100 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-300 dark:hover:bg-orange-950/40"
-  }, [])
-
   const [completedSubtasksRaw = "0", totalSubtasksRaw = "0"] = todo.checklist.split("/")
   const completedSubtasks = Number.parseInt(completedSubtasksRaw, 10) || 0
   const subtaskCount = Number.parseInt(totalSubtasksRaw, 10) || 0
@@ -101,7 +90,9 @@ export function DashboardTaskCard({
         role="button"
         tabIndex={0}
         className={`w-full border border-[var(--board-task-border)] bg-[var(--board-task-bg)] p-2 text-left shadow-[var(--board-task-shadow)] transition-[background-color,border-color,box-shadow] duration-300 hover:border-[color:rgba(var(--brand-primary-rgb),0.2)] hover:bg-[color:rgba(var(--brand-primary-rgb),0.06)] hover:shadow-[var(--board-task-shadow-hover)] focus:outline-none focus:ring-2 focus:ring-slate-300 dark:hover:border-[color:rgba(var(--brand-primary-rgb),0.55)] dark:hover:bg-[color:rgba(var(--brand-primary-rgb),0.14)] dark:focus:ring-[#4a4a4a] ${
-          isSubtask
+          !canChangeTaskState
+            ? isSubtask ? "cursor-pointer border-l-2 border-l-[var(--brand-primary-fixed)]" : "cursor-pointer"
+            : isSubtask
             ? "cursor-grab border-l-2 border-l-[var(--brand-primary-fixed)] active:cursor-grabbing"
             : "cursor-grab active:cursor-grabbing"
         } ${
@@ -152,6 +143,7 @@ export function DashboardTaskCard({
             className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
             onClick={(event) => event.stopPropagation()}
           >
+            {canChangeTaskState ? (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <PencilLine className="h-4 w-4" />
@@ -173,6 +165,7 @@ export function DashboardTaskCard({
                 ))}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            ) : null}
             {canEditAssignee ? (
               <>
                 <DropdownMenuSeparator />
@@ -217,32 +210,12 @@ export function DashboardTaskCard({
                 </DropdownMenuSub>
               </>
             ) : null}
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <PriorityIcon priority={todo.priority} />
-                Priority
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
-                {(["Low", "Medium", "High"] as const).map((priority) => (
-                  <DropdownMenuItem
-                    key={priority}
-                    className={
-                      todo.priority === priority
-                        ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
-                        : undefined
-                    }
-                    onSelect={() => onPriorityChange(todo.id, priority)}
-                  >
-                    <PriorityIcon priority={priority} />
-                    {priority}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuItem>
+            {canAccessComments ? (
+            <DropdownMenuItem onSelect={() => onOpen(todo, "comments")}>
               <MessageCirclePlus className="h-4 w-4" />
               Add Comment
             </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               disabled={!canArchive}
@@ -264,6 +237,7 @@ export function DashboardTaskCard({
 
       <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
         <div className="flex items-center gap-3">
+          {canAccessComments ? (
           <button
             type="button"
             className="flex items-center gap-1 rounded-sm transition-colors duration-200 hover:text-slate-700 dark:hover:text-slate-200"
@@ -276,6 +250,7 @@ export function DashboardTaskCard({
             <MessageSquareMore className="h-3 w-3" />
             <span>{todo.comments}</span>
           </button>
+          ) : null}
 
           <TooltipProvider>
             <Tooltip>
@@ -295,48 +270,7 @@ export function DashboardTaskCard({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={`inline-flex h-6 w-6 items-center justify-center rounded-full border transition ${getPriorityCircleClassName(todo.priority)}`}
-                aria-label={`Priority ${todo.priority}`}
-                title={`Priority: ${todo.priority}`}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <PriorityIcon
-                  priority={todo.priority}
-                  className={
-                    todo.priority === "High"
-                      ? "h-3 w-3 text-red-500"
-                      : todo.priority === "Low"
-                      ? "h-3 w-3 text-[var(--brand-primary-fixed)]"
-                      : "h-3 w-3 text-orange-500"
-                  }
-                />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {(["Low", "Medium", "High"] as const).map((priority) => (
-                <DropdownMenuItem
-                  key={priority}
-                  className={
-                    todo.priority === priority
-                      ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
-                      : undefined
-                  }
-                  onSelect={() => onPriorityChange(todo.id, priority)}
-                >
-                  <PriorityIcon priority={priority} />
-                  {priority}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <PriorityBadge priority={todo.priority} iconOnly />
 
           <AssigneeCombobox
             value={todo.assigneeId}

@@ -26,6 +26,7 @@ export type BacklogRow = {
   sequenceNumber: number
   orderIndex: number
   createdByUserId: string | null
+  createdByName?: string | null
   archivedByUserId: string | null
   deletedByUserId: string | null
   title: string
@@ -55,6 +56,7 @@ type CreateBacklogItemInput = {
   checked: boolean
   assigneeId: string | null
   priority?: "Low" | "Medium" | "High"
+  createdByName?: string | null
 }
 
 type UpdateBacklogItemInput = {
@@ -77,6 +79,7 @@ type BacklogRecord = {
   sequence_number: number
   order_index: number
   created_by_user_id: string | null
+  created_by_name?: string | null
   archived_by_user_id: string | null
   deleted_by_user_id: string | null
   title: string
@@ -129,6 +132,13 @@ export class BacklogDescriptionLockedError extends Error {
   }
 }
 
+export class BacklogPriorityLockedError extends Error {
+  constructor() {
+    super("Task priority is set when the task is created and can no longer be changed.")
+    this.name = "BacklogPriorityLockedError"
+  }
+}
+
 function uppercaseFirstCharacter(value: string) {
   if (!value) {
     return value
@@ -147,6 +157,7 @@ type RawBacklogRecord = Partial<BacklogRecord> & {
   sequenceNumber?: number | null
   orderIndex?: number | null
   createdByUserId?: string | null
+  createdByName?: string | null
   startDate?: string | null
   dueDate?: string | null
   assigneeId?: string | null
@@ -216,6 +227,7 @@ function mapRecord(record: BacklogRecordWithStats): BacklogRow {
     sequenceNumber: record.sequence_number,
     orderIndex: record.order_index,
     createdByUserId: record.created_by_user_id,
+    createdByName: record.created_by_name?.trim() || null,
     archivedByUserId: record.archived_by_user_id ?? null,
     deletedByUserId: record.deleted_by_user_id ?? null,
     title: record.title,
@@ -248,6 +260,7 @@ function toRecord(input: BacklogRow): BacklogRecord {
     sequence_number: input.sequenceNumber,
     order_index: input.orderIndex,
     created_by_user_id: input.createdByUserId ?? null,
+    created_by_name: input.createdByName?.trim() || null,
     archived_by_user_id: input.archivedByUserId ?? null,
     deleted_by_user_id: input.deletedByUserId ?? null,
     title: input.title,
@@ -521,6 +534,7 @@ function normalizeRecord(record: RawBacklogRecord): BacklogRecord {
     order_index:
       orderIndex ?? 1,
     created_by_user_id: createdByUserId,
+    created_by_name: readStringAlias(record, "created_by_name", "createdByName")?.trim() || null,
     archived_by_user_id: archivedByUserId,
     deleted_by_user_id: deletedByUserId,
     title: typeof record.title === "string" ? record.title : "",
@@ -1158,6 +1172,47 @@ async function writeFileRecords(records: BacklogRecord[]) {
   await writeFile(backlogFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
+export async function getBacklogCompletionLock(id: string) {
+  return withBacklogStore(
+    async () => {
+      const result = await getDb().query<{ id: string; parent_id: string | null; status: string; assignee_id: string | null; updated_at: string | Date }>(
+        `with recursive task_ancestors as (
+          select id, parent_id, status, assignee_id, updated_at from backlog where id = $1
+          union
+          select parent.id, parent.parent_id, parent.status, parent.assignee_id, parent.updated_at
+          from backlog parent inner join task_ancestors child on child.parent_id = parent.id
+        ) select id, parent_id, status, assignee_id, updated_at from task_ancestors`,
+        [id]
+      )
+      const task = result.rows.find((row) => row.id === id)
+      return task ? {
+        parentId: task.parent_id,
+        status: task.status,
+        assigneeId: task.assignee_id,
+        updatedAt: new Date(task.updated_at).toISOString(),
+        completed: task.status === "completed",
+        ancestorCompleted: result.rows.some((row) => row.id !== id && row.status === "completed"),
+      } : null
+    },
+    async () => {
+      const records = await readFileRecords()
+      const task = records.find((row) => row.id === id)
+      if (!task) return null
+      const visited = new Set([id])
+      let parentId = task.parent_id
+      let ancestorCompleted = false
+      while (parentId && !visited.has(parentId)) {
+        visited.add(parentId)
+        const parent = records.find((row) => row.id === parentId)
+        if (!parent) break
+        ancestorCompleted ||= parent.status === "completed"
+        parentId = parent.parent_id
+      }
+      return { parentId: task.parent_id, status: task.status, assigneeId: task.assignee_id, updatedAt: task.created_at, completed: task.status === "completed", ancestorCompleted }
+    }
+  )
+}
+
 export async function listBacklogItems(
   projectId: string,
   ownerUserId: string,
@@ -1185,6 +1240,7 @@ export async function listBacklogItemsWithStats(
           backlog.sequence_number,
           backlog.order_index,
           backlog.created_by_user_id,
+          creator_login.name as created_by_name,
           backlog.archived_by_user_id,
           backlog.deleted_by_user_id,
           backlog.deleted_by_user_id,
@@ -1207,6 +1263,13 @@ export async function listBacklogItemsWithStats(
         from backlog
         inner join projects
           on projects.id = backlog.project_id
+        left join lateral (
+          select nullif(btrim(creator.name), '') as name
+          from users creator
+          where creator.microsoft_user_id = backlog.created_by_user_id
+          order by creator.login_at desc, creator.id desc
+          limit 1
+        ) as creator_login on true
         left join (
           select
             comments.backlog_item_id,
@@ -1238,6 +1301,18 @@ export async function listBacklogItemsWithStats(
       const archived = options.archived === true
       const deleted = options.deleted === true
       const records = await readFileRecords()
+      const projects = await listProjects(ownerUserId)
+      const project = projects.find((candidate) => candidate.id === projectId)
+      if (!project) return []
+
+      const namesById = new Map<string, string>()
+      project.memberUserIds.forEach((userId, index) => {
+        if (project.members[index]?.trim()) namesById.set(userId, project.members[index].trim())
+      })
+      if (project.ownerUserId && project.ownerName?.trim()) {
+        namesById.set(project.ownerUserId, project.ownerName.trim())
+      }
+
       return records
         .filter(
           (record) =>
@@ -1248,7 +1323,10 @@ export async function listBacklogItemsWithStats(
         )
         .sort((left, right) => left.order_index - right.order_index)
         .slice(options.offset ?? 0, (options.offset ?? 0) + (options.limit ?? 200))
-        .map(mapRecord)
+        .map((record) => mapRecord({
+          ...record,
+          created_by_name: record.created_by_name || namesById.get(record.created_by_user_id ?? "") || null,
+        }))
     }
   )
 }
@@ -1277,6 +1355,7 @@ export async function listProjectBacklogActivities(
           backlog.sequence_number,
           backlog.order_index,
           backlog.created_by_user_id,
+          creator_login.name as created_by_name,
           backlog.archived_by_user_id,
           backlog.title,
           backlog.description,
@@ -1296,6 +1375,13 @@ export async function listProjectBacklogActivities(
         from backlog
         inner join projects
           on projects.id = backlog.project_id
+        left join lateral (
+          select nullif(btrim(creator.name), '') as name
+          from users creator
+          where creator.microsoft_user_id = backlog.created_by_user_id
+          order by creator.login_at desc, creator.id desc
+          limit 1
+        ) as creator_login on true
         left join (
           select
             comments.backlog_item_id,
@@ -1325,15 +1411,29 @@ export async function listProjectBacklogActivities(
     },
     async () => {
       const records = await readFileRecords()
+      const accessibleProjects = await listProjects(ownerUserId)
+      const projectById = new Map(accessibleProjects.map((project) => [project.id, project]))
       return records
-        .filter((record) => projectIds.includes(record.project_id) && !record.is_deleted)
+        .filter((record) =>
+          projectIds.includes(record.project_id) &&
+          projectById.has(record.project_id) &&
+          !record.is_deleted
+        )
         .sort((left, right) => right.created_at.localeCompare(left.created_at))
-        .map((record) => ({
-          ...mapRecord(record),
-          projectName: "",
-          projectType: "",
-          projectMembers: [],
-        }))
+        .map((record) => {
+          const project = projectById.get(record.project_id)!
+          const memberIndex = project.memberUserIds.indexOf(record.created_by_user_id ?? "")
+          const creatorName = record.created_by_name ||
+            (memberIndex >= 0 ? project.members[memberIndex] : null) ||
+            (record.created_by_user_id === project.ownerUserId ? project.ownerName : null) || null
+
+          return {
+            ...mapRecord({ ...record, created_by_name: creatorName }),
+            projectName: project.name,
+            projectType: project.projectType,
+            projectMembers: project.members,
+          }
+        })
     }
   )
 }
@@ -1458,7 +1558,10 @@ export async function createBacklogItem(
         return null
       }
 
-      let createdRecord = mapRecord(result.rows[0])
+      let createdRecord = {
+        ...mapRecord(result.rows[0]),
+        createdByName: input.createdByName?.trim() || null,
+      }
 
       // Defensively repair the parent link for subtasks if the inserted row
       // comes back without parent_id for any reason.
@@ -1487,7 +1590,10 @@ export async function createBacklogItem(
         )
 
         if (repaired.rows[0]) {
-          createdRecord = mapRecord(repaired.rows[0])
+          createdRecord = {
+            ...mapRecord(repaired.rows[0]),
+            createdByName: input.createdByName?.trim() || null,
+          }
         }
       }
 
@@ -1535,6 +1641,7 @@ export async function createBacklogItem(
         sequenceNumber: nextSequenceNumber,
         orderIndex: nextOrderIndex,
         createdByUserId: ownerUserId,
+        createdByName: input.createdByName?.trim() || null,
         archivedByUserId: null,
         deletedByUserId: null,
         title: normalizedTitle,
@@ -1627,6 +1734,10 @@ export async function updateBacklogItem(
   input: UpdateBacklogItemInput,
   ownerUserRole: "student" | "faculty" | "admin" = "student"
 ) {
+  if ("priority" in input) {
+    throw new BacklogPriorityLockedError()
+  }
+
   return withBacklogStore(
     async () => {
       const fields: string[] = []
@@ -1670,11 +1781,6 @@ export async function updateBacklogItem(
       if ("assigneeId" in input) {
         fields.push(`assignee_id = $${fields.length + 1}`)
         values.push(input.assigneeId ?? null)
-      }
-
-      if (input.priority === "Low" || input.priority === "Medium" || input.priority === "High") {
-        fields.push(`priority = $${fields.length + 1}`)
-        values.push(input.priority)
       }
 
       if (typeof input.orderIndex === "number" && Number.isFinite(input.orderIndex)) {
@@ -1841,7 +1947,7 @@ export async function updateBacklogItem(
           typeof input.checked === "boolean" ? input.checked : current.checked,
         assigneeId:
           "assigneeId" in input ? input.assigneeId ?? null : current.assigneeId,
-        priority: input.priority ?? current.priority,
+        priority: current.priority,
         orderIndex:
           typeof input.orderIndex === "number" && Number.isFinite(input.orderIndex)
             ? input.orderIndex

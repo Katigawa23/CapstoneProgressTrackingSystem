@@ -3,9 +3,11 @@ import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
+import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
 import {
   BacklogDescriptionLockedError,
   BacklogItemNameConflictError,
+  getBacklogCompletionLock,
   isBacklogItemAssignedToAdviser,
   updateBacklogItem,
 } from "@backend/repositories/tasks-repository"
@@ -40,6 +42,52 @@ export async function PATCH(
       assigneeId?: string | null
       priority?: "Low" | "Medium" | "High"
       orderIndex?: number
+    }
+
+    const completionLock = await getBacklogCompletionLock(id)
+    if (completionLock?.completed || completionLock?.ancestorCompleted) {
+      const canReopen = !completionLock.ancestorCompleted && completionLock.completed &&
+        body.status === "revision" && (body.checked === undefined || body.checked === false) &&
+        Object.keys(body).every((key) => ["status", "checked", "parentId"].includes(key)) &&
+        (!("parentId" in body) || (body.parentId ?? null) === completionLock.parentId) &&
+        user.role === "faculty" &&
+        user.id !== "tester-coordinator" && !(await isAssignedCoordinator(user.id)) &&
+        await isBacklogItemAssignedToAdviser(id, user.id, user.name)
+      if (!canReopen) {
+        return NextResponse.json({ error: "Completed tasks are locked. Only the assigned adviser can reopen them for revision." }, { status: 409 })
+      }
+      body.checked = false
+    }
+    if (typeof body.parentId === "string") {
+      const parentLock = await getBacklogCompletionLock(body.parentId)
+      if (parentLock?.completed || parentLock?.ancestorCompleted) {
+        return NextResponse.json({ error: "Cannot move work into a completed task." }, { status: 409 })
+      }
+    }
+
+    if ("priority" in body) {
+      return NextResponse.json(
+        { error: "Task priority is set when the task is created and can no longer be changed." },
+        { status: 403 }
+      )
+    }
+
+    const editsCoordinatorReadOnlyFields =
+      "status" in body ||
+      "checked" in body ||
+      "orderIndex" in body ||
+      "parentId" in body ||
+      "assigneeId" in body
+
+    if (
+      editsCoordinatorReadOnlyFields &&
+      (user.id === "tester-coordinator" ||
+        (user.role === "faculty" && await isAssignedCoordinator(user.id)))
+    ) {
+      return NextResponse.json(
+        { error: "Coordinators have view-only access to task status, placement, and assignment." },
+        { status: 403 }
+      )
     }
     const editsAdviserOnlyFields =
       "title" in body ||
@@ -80,9 +128,6 @@ export async function PATCH(
       ...(typeof body.status === "string" ? { status: body.status } : {}),
       ...(typeof body.checked === "boolean" ? { checked: body.checked } : {}),
       ...("assigneeId" in body ? { assigneeId: body.assigneeId ?? null } : {}),
-      ...(body.priority === "Low" || body.priority === "Medium" || body.priority === "High"
-        ? { priority: body.priority }
-        : {}),
       ...(typeof body.orderIndex === "number" && Number.isFinite(body.orderIndex)
         ? { orderIndex: body.orderIndex }
         : {}),
@@ -97,7 +142,7 @@ export async function PATCH(
       )
     }
 
-    if ("assigneeId" in body && item.assigneeId) {
+    if ("assigneeId" in body && item.assigneeId && completionLock?.assigneeId !== item.assigneeId) {
       await createNotification({
         recipientUserId: item.assigneeId,
         actorUserId: user.id,
@@ -107,11 +152,16 @@ export async function PATCH(
         title: "Task assigned to you",
         message: `${user.name} assigned “${item.title}” to you.`,
         href: `/dashboard/board?taskId=${encodeURIComponent(item.id)}`,
-        dedupeKey: `task-assigned:${item.id}:${item.assigneeId}`,
+        dedupeKey: `task-assigned:${item.id}:${item.assigneeId}:${completionLock?.updatedAt ?? item.createdAt}`,
       })
     }
 
-    if (user.role === "faculty" && body.status === "completed" && item.assigneeId) {
+    const isAdviserReview = user.role === "faculty" && item.assigneeId &&
+      (body.status === "completed" || body.status === "revision") &&
+      completionLock?.status !== body.status &&
+      await isBacklogItemAssignedToAdviser(id, user.id, user.name)
+
+    if (isAdviserReview && body.status === "completed") {
       await createNotification({
         recipientUserId: item.assigneeId,
         actorUserId: user.id,
@@ -121,7 +171,17 @@ export async function PATCH(
         title: "Task approved by adviser",
         message: `${user.name} approved “${item.title}”.`,
         href: `/dashboard/board?taskId=${encodeURIComponent(item.id)}`,
-        dedupeKey: `task-approved:${item.id}`,
+        dedupeKey: `task-approved:${item.id}:${completionLock?.updatedAt ?? item.createdAt}`,
+      })
+    }
+
+    if (isAdviserReview && body.status === "revision") {
+      await createNotification({
+        recipientUserId: item.assigneeId, actorUserId: user.id, projectId: item.projectId,
+        backlogItemId: item.id, type: "task_revision_requested", title: "Task returned for revision",
+        message: `${user.name} returned “${item.title}” for revision. Open the task to check the feedback.`,
+        href: `/dashboard/board?taskId=${encodeURIComponent(item.id)}`,
+        dedupeKey: `task-revision:${item.id}:${completionLock?.updatedAt ?? item.createdAt}`,
       })
     }
 

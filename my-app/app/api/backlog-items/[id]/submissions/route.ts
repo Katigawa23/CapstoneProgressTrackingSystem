@@ -4,6 +4,7 @@ import { randomUUID } from "crypto"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectCompletedTaskMutation } from "@/lib/server-completed-task"
 import {
   isSuperAdminViewer,
   rejectSuperAdminMutation,
@@ -167,6 +168,8 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
+    const completionResponse = await rejectCompletedTaskMutation((await params).id)
+    if (completionResponse) return completionResponse
     if (user.role !== "student") {
       return NextResponse.json(
         { error: "Only students can upload task files." },
@@ -232,6 +235,7 @@ export async function POST(
     )
 
     if (user.role === "student" && createdSubmissions.length > 0) {
+      try {
       const taskResult = await getDb().query<{ project_id: string; title: string }>(
         `select project_id, title from backlog where id = $1 limit 1`,
         [id]
@@ -256,6 +260,7 @@ export async function POST(
           dedupeKey: `student-file:${createdSubmissions.map((submission) => submission.id).join(":")}`,
         })
       }
+      } catch { console.error("Files saved, but the submission notification could not be created.") }
     }
 
     revalidateTag("backlog-items", "max")

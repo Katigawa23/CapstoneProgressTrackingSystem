@@ -107,11 +107,12 @@ function ActivityList({ content }: { content: string }) {
   </div>
 }
 
-type Props = { groupCreatedAt: string; projectName: string; projectId: string; initialNow: string; canApprove: boolean; isPrivacyRestricted: boolean; userRole: string; members: string[]; advisers: string[] }
+type Props = { groupCreatedAt: string; projectName: string; projectId: string; initialNow: string; initialWeek?: number; canApprove: boolean; isPrivacyRestricted: boolean; userRole: string; members: string[]; advisers: string[] }
 
-export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, initialNow, canApprove, isPrivacyRestricted, userRole, members = [], advisers = [] }: Props) {
+export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, initialNow, initialWeek, canApprove, isPrivacyRestricted, userRole, members = [], advisers = [] }: Props) {
   const [now, setNow] = React.useState(() => new Date(initialNow).getTime())
-  const [selected, setSelected] = React.useState<Week | null>(null)
+  const [selected, setSelected] = React.useState<Week | null>(() =>
+    makeWeeks(groupCreatedAt, new Date(initialNow).getTime()).find((week) => week.week === initialWeek) ?? null)
   const [entries, setEntries] = React.useState<Entry[]>([])
   const [autoSummaries, setAutoSummaries] = React.useState<AutoSummary[]>([])
   const [form, setForm] = React.useState<Fields>(EMPTY)

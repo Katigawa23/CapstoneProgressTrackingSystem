@@ -1,4 +1,5 @@
 "use client"
+import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
@@ -42,7 +43,8 @@ import {
   validateDisplayName,
 } from "@/lib/text-validation"
 import { readClientAuthSession, subscribeToAuthChange, type AuthenticatedUser } from "@/lib/auth-client"
-import { getLocalDateString, getTrustedTodayDateString } from "@/lib/trusted-time"
+import { getLocalDateString } from "@/lib/trusted-time"
+import { useTaskReadOnly } from "@/lib/role-context"
 
 function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
   const normalizeParentId = (parentId?: string | null) => {
@@ -109,6 +111,8 @@ function mapApiItems(items: BacklogApiItem[], projectCode: string): WorkItem[] {
       displayId,
       orderIndex: item.orderIndex,
       parentId: normalizedParentId,
+      createdByUserId: item.createdByUserId ?? null,
+      createdByName: item.createdByName ?? null,
       title: item.title,
       description: normalizeTaskDescription(item.description),
       startDate: item.startDate ? new Date(item.startDate) : undefined,
@@ -137,6 +141,7 @@ export function BacklogPageClient({
   initialItems,
 }: BacklogPageClientProps) {
   const router = useRouter()
+  const taskReadOnly = useTaskReadOnly()
   const initialProject = React.useMemo(
     () =>
       initialProjects.find((project) => project.id === initialSelectedProjectId) ?? null,
@@ -168,22 +173,8 @@ export function BacklogPageClient({
   const [items, setItems] = React.useState<WorkItem[]>(() =>
     initialSelectedProjectId ? mapApiItems(initialItems, initialProjectCode) : []
   )
-  const overdueItemIds = React.useMemo(() => {
-    const today = getTrustedTodayDateString()
-
-    return new Set(
-      items
-        .filter(
-          (item) =>
-            !item.parentId &&
-            Boolean(item.dueDate) &&
-            getLocalDateString(item.dueDate!) < today &&
-            item.status !== "completed"
-        )
-        .map((item) => item.id)
-    )
-  }, [items])
   const [currentUser, setCurrentUser] = React.useState<AuthenticatedUser | null>(null)
+  const canChangeTaskState = Boolean(currentUser) && !taskReadOnly
   const [activeProjectId, setActiveProjectId] = React.useState<string | null>(
     initialSelectedProjectId
   )
@@ -197,7 +188,7 @@ export function BacklogPageClient({
     [activeProjectId, initialProjects]
   )
   const canEditTaskFields = React.useMemo(() => {
-    if (currentUser?.role !== "faculty" || !activeProject) {
+    if (taskReadOnly || currentUser?.role !== "faculty" || !activeProject) {
       return false
     }
 
@@ -209,7 +200,7 @@ export function BacklogPageClient({
         (adviserName) => normalizePersonName(adviserName) === currentUserName
       )
     )
-  }, [activeProject, currentUser])
+  }, [activeProject, currentUser, taskReadOnly])
 
   const [editOpen, setEditOpen] = React.useState(false)
   const [editingItemId, setEditingItemId] = React.useState<string | null>(null)
@@ -362,7 +353,7 @@ export function BacklogPageClient({
   }
 
   const handleAddItem = async () => {
-    if (isCreatingTask) return
+    if (!canChangeTaskState || isCreatingTask) return
 
     if (!title.trim() || !startDate || !dueDate || !chapterNumber) {
       setCreateTaskError("Title, chapter, start date, and due date are required")
@@ -427,8 +418,13 @@ export function BacklogPageClient({
   }
 
   const updateItemStatus = async (id: string, nextStatus: string) => {
+    if (!canChangeTaskState) return
+    const currentItem = items.find((item) => item.id === id)
+    if (!currentItem || hasCompletedTaskParent(currentItem, items) ||
+      (currentItem.status === "completed" && (!canEditTaskFields || nextStatus !== "revision"))) return
+
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: nextStatus } : item))
+      prev.map((item) => (item.id === id ? { ...item, status: nextStatus, checked: nextStatus === "completed" } : item))
     )
 
     try {
@@ -437,7 +433,7 @@ export function BacklogPageClient({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({ status: nextStatus, checked: nextStatus === "completed" }),
       })
 
       if (!response.ok) {
@@ -445,10 +441,15 @@ export function BacklogPageClient({
       }
     } catch (error) {
       console.error(error)
+      setItems((prev) => prev.map((item) => item.id === id ? currentItem : item))
     }
   }
 
   const toggleCheckbox = async (id: string, checked: boolean) => {
+    if (!canChangeTaskState) return
+    const item = items.find((candidate) => candidate.id === id)
+    if (!item || isTaskCompletionLocked(item, items)) return
+
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, checked } : item))
     )
@@ -477,7 +478,7 @@ export function BacklogPageClient({
 
     const currentItem = items.find((item) => item.id === id)
 
-    if (!currentItem) {
+    if (!currentItem || isTaskCompletionLocked(currentItem, items)) {
       return
     }
 
@@ -503,48 +504,6 @@ export function BacklogPageClient({
       }
     } catch (error) {
       console.error(error)
-    }
-  }
-
-  const updateItemPriority = async (id: string, priority: TodoItem["priority"]) => {
-    const currentItem = items.find((item) => item.id === id)
-
-    if (!currentItem) {
-      return
-    }
-
-    if (overdueItemIds.has(id) && priority !== "High") {
-      return
-    }
-
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, priority } : item))
-    )
-
-    try {
-      const response = await fetch(`/api/backlog-items/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          priority,
-          parentId: currentItem.parentId ?? null,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(data?.error || "Failed to update backlog item priority")
-      }
-    } catch (error) {
-      console.error(error)
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, priority: currentItem.priority } : item
-        )
-      )
-      throw error
     }
   }
 
@@ -607,6 +566,8 @@ export function BacklogPageClient({
 
   const handleArchiveDetailsTodo = React.useCallback(
     async (todo: TodoItem) => {
+      if (!canChangeTaskState) return
+
       const previousItems = items
       const nextItems = todo.parentId
         ? items.filter((item) => item.id !== todo.id)
@@ -628,11 +589,11 @@ export function BacklogPageClient({
         throw error
       }
     },
-    [items]
+    [canChangeTaskState, items]
   )
 
   const canManageProjectResources =
-    currentUser?.role === "faculty" || currentUser?.role === "admin"
+    !taskReadOnly && (currentUser?.role === "faculty" || currentUser?.role === "admin")
 
   const formatTaskDate = React.useCallback((date?: Date) => {
     return date ? getLocalDateString(date) : ""
@@ -652,6 +613,8 @@ export function BacklogPageClient({
         displayId: item.displayId,
         orderIndex: item.orderIndex,
         parentId: item.parentId ?? null,
+        createdByUserId: item.createdByUserId ?? null,
+        createdByName: item.createdByName ?? null,
         title: item.title,
         description: item.description,
         assignee: "",
@@ -668,13 +631,7 @@ export function BacklogPageClient({
         comments: 0,
         links: 0,
         checklist: buildChecklist(orderedItems, item.id),
-        priority:
-          item.priority ??
-          (item.status === "revision"
-            ? "High"
-            : item.status === "completed"
-            ? "Low"
-            : "Medium"),
+        priority: item.priority ?? "Medium",
       })),
     [buildChecklist, formatTaskDate, orderedItems]
   )
@@ -715,13 +672,7 @@ export function BacklogPageClient({
 
   const handleTaskDetailsUpdate = React.useCallback(
     (todoId: string, updates: Partial<TodoItem>) => {
-      if (
-        updates.priority &&
-        updates.priority !== "High" &&
-        overdueItemIds.has(todoId)
-      ) {
-        return
-      }
+      if (!canChangeTaskState) return
 
       const itemUpdates: Partial<WorkItem> = {}
       const patchPayload: Record<string, string | null> = {}
@@ -750,10 +701,6 @@ export function BacklogPageClient({
         itemUpdates.assigneeId = updates.assigneeId ?? null
       }
 
-      if (updates.priority) {
-        itemUpdates.priority = updates.priority
-      }
-
       if (updates.checked !== undefined) {
         itemUpdates.checked = Boolean(updates.checked)
       }
@@ -780,7 +727,7 @@ export function BacklogPageClient({
         }).catch((error) => console.error(error))
       }
     },
-    [overdueItemIds]
+    [canChangeTaskState]
   )
 
   const handleCreateSubtask = React.useCallback(
@@ -793,7 +740,7 @@ export function BacklogPageClient({
         dueDate?: string
       }
     ) => {
-      if (isCreatingSubtask) {
+      if (!canChangeTaskState || isCreatingSubtask) {
         return
       }
 
@@ -839,6 +786,8 @@ export function BacklogPageClient({
             displayId: buildSubtaskDisplayId(parentTodo.displayId, siblingCount + 1),
             orderIndex: data.item.orderIndex,
             parentId: parentTodo.id,
+            createdByUserId: data.item.createdByUserId ?? currentUser?.id ?? null,
+            createdByName: data.item.createdByName ?? currentUser?.name ?? null,
             title: data.item.title,
             description: data.item.description,
             startDate: data.item.startDate ? new Date(data.item.startDate) : undefined,
@@ -846,6 +795,7 @@ export function BacklogPageClient({
             status: data.item.status,
             checked: data.item.checked,
             assigneeId: data.item.assigneeId ?? null,
+            priority: data.item.priority ?? "Medium",
           },
         ])
       } catch (error) {
@@ -857,7 +807,7 @@ export function BacklogPageClient({
         setIsCreatingSubtask(false)
       }
     },
-    [isCreatingSubtask, items, router]
+    [canChangeTaskState, currentUser, isCreatingSubtask, items, router]
   )
 
   const handleUpdateSubtask = React.useCallback(
@@ -865,6 +815,8 @@ export function BacklogPageClient({
       subtaskId: string,
       updates: Pick<TodoItem, "title" | "description" | "startDate" | "deadline">
     ) => {
+      if (!canChangeTaskState) return
+
       setItems((currentItems) =>
         currentItems.map((item) =>
           item.id === subtaskId
@@ -896,7 +848,7 @@ export function BacklogPageClient({
         throw new Error("Failed to update subtask")
       }
     },
-    []
+    [canChangeTaskState]
   )
 
   const filteredBoardItems = React.useMemo(
@@ -948,31 +900,6 @@ export function BacklogPageClient({
     [buildSectionTree, filteredBoardItems]
   )
 
-  React.useEffect(() => {
-    const itemsToPromote = items.filter(
-      (item) => overdueItemIds.has(item.id) && item.priority !== "High"
-    )
-
-    if (itemsToPromote.length === 0) return
-
-    setItems((currentItems) =>
-      currentItems.map((item) =>
-        overdueItemIds.has(item.id) ? { ...item, priority: "High" } : item
-      )
-    )
-
-    void Promise.all(
-      itemsToPromote.map(async (item) => {
-        const response = await fetch(`/api/backlog-items/${item.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ priority: "High" }),
-        })
-        if (!response.ok) throw new Error("Failed to save overdue priority")
-      })
-    ).catch((error) => console.error("Failed to promote overdue task priority", error))
-  }, [items, overdueItemIds])
-
   const visibleRootItems = React.useMemo(
     () => boardItems.filter((item) => !item.parentId),
     [boardItems]
@@ -998,6 +925,8 @@ export function BacklogPageClient({
 
   const moveRootItem = React.useCallback(
     async (result: DropResult) => {
+      if (!canChangeTaskState) return
+
       const { source, destination, draggableId } = result
       const itemId = draggableId.startsWith(`${source.droppableId}:`)
         ? draggableId.slice(source.droppableId.length + 1)
@@ -1014,7 +943,7 @@ export function BacklogPageClient({
 
       const movedItem = visibleRootItems.find((item) => item.id === itemId)
 
-      if (!movedItem) {
+      if (!movedItem || isTaskCompletionLocked(movedItem, items)) {
         return
       }
 
@@ -1031,7 +960,7 @@ export function BacklogPageClient({
 
       const previousItems = items
       const nextItems = items.map((item) => {
-        if (item.parentId) {
+        if (item.parentId || item.status === "completed") {
           return item
         }
 
@@ -1046,7 +975,7 @@ export function BacklogPageClient({
           .map((item) => [item.id, item])
       )
       const rootItemsToPersist = nextItems.filter((item) => {
-        if (item.parentId) {
+        if (item.parentId || item.status === "completed") {
           return false
         }
 
@@ -1086,11 +1015,13 @@ export function BacklogPageClient({
         isMovingRootItemRef.current = false
       }
     },
-    [items, visibleRootItems]
+    [canChangeTaskState, items, visibleRootItems]
   )
 
   const handleBacklogDragEnd = React.useCallback(
     (result: DropResult) => {
+      if (!canChangeTaskState) return
+
       const { source, destination } = result
 
       if (!destination) {
@@ -1107,7 +1038,7 @@ export function BacklogPageClient({
 
       void moveRootItem(result)
     },
-    [moveRootItem]
+    [canChangeTaskState, moveRootItem]
   )
 
   return (
@@ -1125,7 +1056,7 @@ export function BacklogPageClient({
             onSearchChange={setBoardSearchValue}
             filterValue={boardFilterValue}
             onFilterChange={setBoardFilterValue}
-            showCreateTaskButton={Boolean(currentUser && currentUser.role !== "admin")}
+            showCreateTaskButton={canChangeTaskState && currentUser?.role !== "admin"}
             onCreateTask={() => setOpen(true)}
           />
 
@@ -1138,15 +1069,12 @@ export function BacklogPageClient({
               onToggleCheckbox={toggleCheckbox}
               onUpdateStatus={updateItemStatus}
               onUpdateAssignee={updateItemAssignee}
-              onUpdatePriority={(itemId, nextPriority) => {
-                void updateItemPriority(itemId, nextPriority)
-              }}
               onOpenItem={(item) => setSelectedTaskDetailsId(item.id)}
               onEditItem={handleOpenEdit}
               canEditItems={canEditTaskFields}
               canEditAssignee={canEditTaskFields}
-              canMoveItems
-              lockedPriorityItemIds={overdueItemIds}
+              canMoveItems={canChangeTaskState}
+              canChangeTaskState={canChangeTaskState}
               emptyLabel="There's nothing in this backlog"
             />
           </div>
@@ -1161,6 +1089,7 @@ export function BacklogPageClient({
         onTaskDialogClose={() => setSelectedTaskDetailsId(null)}
         renderColumns={false}
         currentUserId={currentUser?.id ?? null}
+        canChangeTaskState={canChangeTaskState}
         canEditAssignee={canEditTaskFields}
         canManageOtherProjectResources={canManageProjectResources}
         onStatusChange={(todoId, nextStatus) => updateItemStatus(todoId, nextStatus)}
@@ -1168,11 +1097,6 @@ export function BacklogPageClient({
           await updateItemStatus(todoId, nextStatus)
         }}
         onAssigneeChange={updateItemAssignee}
-        onPriorityChange={async (todoId, nextPriority) => {
-          if (overdueItemIds.has(todoId) && nextPriority !== "High") return
-          await updateItemPriority(todoId, nextPriority)
-          handleTaskDetailsUpdate(todoId, { priority: nextPriority })
-        }}
         onTodoUpdate={handleTaskDetailsUpdate}
         onCreateSubtask={handleCreateSubtask}
         isCreatingSubtask={isCreatingSubtask}

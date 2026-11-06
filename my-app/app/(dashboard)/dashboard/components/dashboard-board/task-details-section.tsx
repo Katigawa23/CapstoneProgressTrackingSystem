@@ -14,6 +14,7 @@ import type { TodoItem } from "../../types"
 
 type TaskDetailsSectionProps = {
   selectedTodo: TodoItem
+  readOnly?: boolean
   isEditingDescription: boolean
   descriptionDraft: string
   descriptionAssets: string[]
@@ -28,6 +29,7 @@ type TaskDetailsSectionProps = {
 
 export function TaskDetailsSection({
   selectedTodo,
+  readOnly = false,
   isEditingDescription,
   descriptionDraft,
   descriptionAssets,
@@ -40,6 +42,7 @@ export function TaskDetailsSection({
   onAssetAttach,
 }: TaskDetailsSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
+  const descriptionLocked = readOnly || selectedTodo.status === "completed"
 
   React.useEffect(() => {
     if (isEditingDescription) {
@@ -75,7 +78,7 @@ export function TaskDetailsSection({
       </CollapsibleTrigger>
 
       <CollapsibleContent className="space-y-2">
-        {isEditingDescription ? (
+        {isEditingDescription && !descriptionLocked ? (
           <div className="space-y-2 rounded-[2px] border border-slate-200 bg-white p-3 dark:border-[#343434] dark:bg-[#262626]">
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[#343434]">
               <button
@@ -168,6 +171,7 @@ export function TaskDetailsSection({
           ) : (
             <button
               type="button"
+              disabled={descriptionLocked}
               className="w-full rounded-[2px] border border-dashed border-slate-300 bg-slate-50 p-3 text-left text-sm text-slate-500 transition hover:border-blue-500 hover:bg-white dark:border-[#454545] dark:bg-[#262626] dark:hover:bg-[#2a2a2a] sm:p-4"
               onClick={onDescriptionEditStart}
             >

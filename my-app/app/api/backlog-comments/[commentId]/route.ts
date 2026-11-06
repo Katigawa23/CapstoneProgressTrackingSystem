@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 import {
   deleteBacklogComment,
@@ -14,6 +15,8 @@ export async function PATCH(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     const { commentId } = await params
     const body = (await request.json()) as {
       body?: string
@@ -80,6 +83,8 @@ export async function DELETE(
 ) {
   try {
     const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
     const { commentId } = await params
     const deleted = await deleteBacklogComment(commentId, user.id)
 

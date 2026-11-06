@@ -10,6 +10,7 @@ import {
 import { canCreateProject, isUserRole } from "@/lib/rbac"
 import { isAssignedCoordinator, listAssignedCoordinatorProgramLabels } from "@/lib/server-coordinator-assignments"
 import { validateDisplayName } from "@/lib/text-validation"
+import { notifyProjectEmailEvent } from "@/lib/server-project-email-events"
 import {
   createProject,
   ProjectNameConflictError,
@@ -180,6 +181,8 @@ export async function POST(request: Request) {
 
     revalidateProjectData()
 
+    await notifyProjectEmailEvent({ projectId: project.id, actorUserId: user.id,
+      actorName: user.name, type: "adviser_assigned", eventId: project.id })
     return NextResponse.json({ project }, { status: 201 })
   } catch (error) {
     if (error instanceof ProjectNameConflictError) {

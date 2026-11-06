@@ -22,6 +22,8 @@ export type DashboardBoardProps = {
   onTaskDialogClose?: () => void
   renderColumns?: boolean
   currentUserId?: string | null
+  canChangeTaskState?: boolean
+  isSavingTaskStatus?: boolean
   creatorNamesById?: Record<string, string>
   canEditAssignee?: boolean
   canManageOtherProjectResources?: boolean
@@ -35,7 +37,6 @@ export type DashboardBoardProps = {
     nextStatus: TodoItem["status"]
   ) => Promise<void>
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
-  onPriorityChange: (todoId: string, priority: TodoItem["priority"]) => void
   onTodoUpdate: (todoId: string, updates: Partial<TodoItem>) => void
   onCreateSubtask: (
     parentTodo: TodoItem,

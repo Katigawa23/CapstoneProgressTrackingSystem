@@ -7,15 +7,16 @@ import { ChevronDown, GripVertical, Plus } from "lucide-react"
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { PriorityBadge, TaskStatusBadge } from "../../components/task-state-badges"
 
 import { type StatusOption, type WorkItem } from "../types"
 import { AssigneeCombobox } from "./assignee-combobox"
 import { ItemActionsMenu } from "./item-actions-menu"
-import { PriorityCombobox } from "./priority-combobox"
 import { StatusCombobox } from "./status-combobox"
 
 type BacklogBoardProps = {
@@ -26,16 +27,15 @@ type BacklogBoardProps = {
   onToggleCheckbox: (id: string, checked: boolean) => void
   onUpdateStatus: (id: string, nextStatus: string) => void
   onUpdateAssignee: (id: string, assigneeId: string | null) => void
-  onUpdatePriority: (id: string, nextPriority: "Low" | "Medium" | "High") => void
   onOpenItem?: (item: WorkItem) => void
   onEditItem: (item: WorkItem) => void
   onOpenCreate?: () => void
   canEditItems?: boolean
   canEditAssignee?: boolean
   canMoveItems?: boolean
+  canChangeTaskState?: boolean
   emptyLabel?: string
   createLabel?: string
-  lockedPriorityItemIds?: ReadonlySet<string>
 }
 
 export function BacklogBoard({
@@ -46,16 +46,15 @@ export function BacklogBoard({
   onToggleCheckbox,
   onUpdateStatus,
   onUpdateAssignee,
-  onUpdatePriority,
   onOpenItem,
   onEditItem,
   onOpenCreate,
   canEditItems = false,
   canEditAssignee = false,
-  canMoveItems = true,
+  canMoveItems = false,
+  canChangeTaskState = false,
   emptyLabel,
   createLabel = "Create",
-  lockedPriorityItemIds,
 }: BacklogBoardProps) {
   const [expandedParentIds, setExpandedParentIds] = React.useState<Set<string>>(
     () => new Set()
@@ -152,7 +151,7 @@ export function BacklogBoard({
         )}
       >
         <div className="flex min-w-0 items-center gap-1.5">
-          {!item.parentId ? (
+          {!item.parentId && canMoveItems && !isTaskCompletionLocked(item, items) ? (
             <button
               type="button"
               {...dragHandleProps}
@@ -195,6 +194,7 @@ export function BacklogBoard({
           <div onClick={(event) => event.stopPropagation()}>
             <Checkbox
               checked={item.checked}
+              disabled={!canChangeTaskState || isTaskCompletionLocked(item, items)}
               onCheckedChange={(checked) =>
                 onToggleCheckbox(item.id, !!checked)
               }
@@ -227,26 +227,27 @@ export function BacklogBoard({
           className="ml-3 flex items-center gap-2"
           onClick={(event) => event.stopPropagation()}
         >
-          <PriorityCombobox
-            value={item.priority ?? "Medium"}
-            onChange={(nextPriority) => onUpdatePriority(item.id, nextPriority)}
-            disabled={lockedPriorityItemIds?.has(item.id) === true}
-          />
+          <PriorityBadge priority={item.priority} iconOnly />
 
-          <StatusCombobox
-            value={item.status}
-            onChange={(nextStatus) => onUpdateStatus(item.id, nextStatus)}
-          />
+          {canChangeTaskState && !hasCompletedTaskParent(item, items) ? (
+            <StatusCombobox
+              value={item.status}
+              canReopenCompleted={canEditAssignee}
+              onChange={(nextStatus) => onUpdateStatus(item.id, nextStatus)}
+            />
+          ) : (
+            <TaskStatusBadge status={item.status} />
+          )}
 
           <AssigneeCombobox
             value={item.assigneeId}
-            disabled={!canEditAssignee}
+            disabled={!canEditAssignee || isTaskCompletionLocked(item, items)}
             onChange={(assigneeId) =>
               onUpdateAssignee(item.id, assigneeId)
             }
           />
 
-          {canEditItems ? (
+          {canEditItems && !isTaskCompletionLocked(item, items) ? (
             <ItemActionsMenu
               onEdit={() => onEditItem(item)}
             />
@@ -259,11 +260,12 @@ export function BacklogBoard({
       onOpenItem,
       onToggleCheckbox,
       onUpdateAssignee,
-      onUpdatePriority,
       onUpdateStatus,
-      lockedPriorityItemIds,
       canEditAssignee,
       canEditItems,
+      canMoveItems,
+      canChangeTaskState,
+      items,
     ]
   )
 
@@ -337,7 +339,7 @@ export function BacklogBoard({
                       key={item.id}
                       draggableId={`${droppableId}:${item.id}`}
                       index={index}
-                      isDragDisabled={!canMoveItems}
+                      isDragDisabled={!canMoveItems || isTaskCompletionLocked(item, items)}
                     >
                       {(draggableProvided, dragSnapshot) => (
                         <div

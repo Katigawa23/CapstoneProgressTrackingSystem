@@ -80,6 +80,7 @@ export function AssigneeCombobox({
                 variant="ghost"
                 size="icon"
                 disabled={disabled}
+                aria-label={`Assignee: ${selectedAssignee?.name ?? "Unassigned"}`}
                 className={cn(
                   "h-7 w-7 rounded-full border border-slate-200 bg-white p-0 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60",
                   className

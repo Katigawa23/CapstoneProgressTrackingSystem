@@ -1,4 +1,6 @@
 import { getDb } from "@/lib/server-db"
+import { after } from "next/server"
+import { emailNotificationTypes, getTaskEmailConfiguration, notificationEmailSchema, processPendingTaskEmails } from "@/lib/server-notification-email"
 
 export type AppNotification = {
   id: string
@@ -14,7 +16,7 @@ export type AppNotification = {
 
 let schemaReady: Promise<unknown> | null = null
 
-async function ensureSchema() {
+export async function ensureNotificationSchema() {
   schemaReady ??= getDb().query(`
     create table if not exists notifications (
       id uuid primary key default gen_random_uuid(),
@@ -33,9 +35,12 @@ async function ensureSchema() {
     );
     create index if not exists notifications_recipient_created_idx
       on notifications(recipient_user_id, created_at desc);
+    ${notificationEmailSchema}
   `).catch((error) => { schemaReady = null; throw error })
   await schemaReady
 }
+
+const ensureSchema = ensureNotificationSchema
 
 export async function createNotification(input: {
   recipientUserId: string | null | undefined
@@ -51,16 +56,26 @@ export async function createNotification(input: {
   if (!input.recipientUserId || input.recipientUserId === input.actorUserId) return
   try {
     await ensureSchema()
-    await getDb().query(
-      `insert into notifications (
+    const queued = await getDb().query<{ notification_id: string }>(
+      `with inserted as (insert into notifications (
          recipient_user_id, actor_user_id, project_id, backlog_item_id,
          type, title, message, href, dedupe_key
        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       on conflict (dedupe_key) do nothing`,
+       on conflict (dedupe_key) do nothing returning id)
+       insert into notification_email_deliveries(notification_id)
+       select id from inserted where $10::boolean
+       on conflict (notification_id) do nothing returning notification_id`,
       [input.recipientUserId, input.actorUserId ?? null, input.projectId ?? null,
         input.backlogItemId ?? null, input.type, input.title, input.message,
-        input.href ?? "/dashboard", input.dedupeKey ?? null]
+        input.href ?? "/dashboard", input.dedupeKey ?? null, emailNotificationTypes.has(input.type)]
     )
+    const configuration = getTaskEmailConfiguration()
+    if (queued.rows.length && configuration.enabled && !configuration.missing.length) {
+      after(async () => {
+        try { await processPendingTaskEmails() }
+        catch { console.error("Task email worker failed; queued deliveries are retained.") }
+      })
+    }
   } catch (error) {
     console.error("Failed to create notification", error)
   }

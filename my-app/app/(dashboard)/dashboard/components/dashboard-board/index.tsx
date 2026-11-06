@@ -1,8 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
 import { Archive, CircleAlert, FolderCheck, GitFork } from "lucide-react"
+import { isSuperAdminViewer } from "@backend/auth/access-control"
 
 import {
   AlertDialog,
@@ -101,6 +103,8 @@ export function DashboardBoard({
   onTaskDialogClose,
   renderColumns = true,
   currentUserId = null,
+  canChangeTaskState = false,
+  isSavingTaskStatus = false,
   creatorNamesById = {},
   canEditAssignee = false,
   canManageOtherProjectResources = false,
@@ -110,7 +114,6 @@ export function DashboardBoard({
   onStatusChange,
   onMoveTodo,
   onAssigneeChange,
-  onPriorityChange,
   onTodoUpdate,
   onCreateSubtask,
   isCreatingSubtask = false,
@@ -120,6 +123,7 @@ export function DashboardBoard({
   onArchiveTodo,
 }: DashboardBoardProps) {
   const isMobile = useIsMobile()
+  const canAccessComments = Boolean(currentUserId?.trim()) && !isSuperAdminViewer(currentUserId)
   const todos = React.useMemo(
     () => dedupeItemsById(incomingTodos),
     [incomingTodos]
@@ -184,6 +188,8 @@ export function DashboardBoard({
   const commentRequestIdRef = React.useRef<string | null>(null)
   const commentEditorRevisionRef = React.useRef(0)
   const selectedTodoId = selectedTodo?.id ?? null
+  const selectedTaskLocked = selectedTodo ? isTaskCompletionLocked(selectedTodo, todos) : true
+  const selectedParentCompleted = selectedTodo ? hasCompletedTaskParent(selectedTodo, todos) : false
 
   React.useEffect(() => {
     if (!openTodoId) {
@@ -217,10 +223,10 @@ export function DashboardBoard({
       setCommentDraft("")
     }
     setIsEditingDescription(false)
-    setIsEditingComments(openTarget === "comments")
+    setIsEditingComments(canAccessComments && openTarget === "comments")
     setEditingCommentId(null)
     initializedCommentTodoIdRef.current = selectedTodo.id
-  }, [openTarget, selectedTodo])
+  }, [canAccessComments, openTarget, selectedTodo])
 
   React.useEffect(() => {
     if (!selectedTodoId) {
@@ -245,7 +251,7 @@ export function DashboardBoard({
     }
 
     if (
-      !(selectedTodoId in commentThreads) ||
+      (canAccessComments && !(selectedTodoId in commentThreads)) ||
       !(selectedTodoId in submissionThreads) ||
       !(selectedTodoId in taskWebLinks)
     ) {
@@ -256,14 +262,14 @@ export function DashboardBoard({
       ...current,
       [selectedTodoId]: true,
     }))
-  }, [commentThreads, loadedTaskIds, selectedTodoId, submissionThreads, taskWebLinks])
+  }, [canAccessComments, commentThreads, loadedTaskIds, selectedTodoId, submissionThreads, taskWebLinks])
 
   const handleOpenTask = React.useCallback(
     (todo: TodoItem, target: "default" | "comments" = "default") => {
-      setOpenTarget(target)
+      setOpenTarget(canAccessComments ? target : "default")
       setSelectedTodo(todo)
     },
-    []
+    [canAccessComments]
   )
 
   const handleOpenSubtask = React.useCallback(
@@ -275,7 +281,7 @@ export function DashboardBoard({
   )
 
   React.useEffect(() => {
-    if (!selectedTodoId) {
+    if (!canAccessComments || !selectedTodoId) {
       return
     }
 
@@ -322,7 +328,7 @@ export function DashboardBoard({
     return () => {
       cancelled = true
     }
-  }, [commentThreads, onTodoUpdate, selectedTodoId])
+  }, [canAccessComments, commentThreads, onTodoUpdate, selectedTodoId])
 
   React.useEffect(() => {
     if (!selectedTodoId) {
@@ -511,14 +517,14 @@ export function DashboardBoard({
   }, [refreshTaskResources])
 
   const handleDescriptionSave = React.useCallback(() => {
-    if (!selectedTodo) {
+    if (!selectedTodo || selectedTaskLocked) {
       return
     }
 
     onTodoUpdate(selectedTodo.id, { description: descriptionDraft })
     setSelectedTodo({ ...selectedTodo, description: descriptionDraft })
     setIsEditingDescription(false)
-  }, [descriptionDraft, onTodoUpdate, selectedTodo])
+  }, [descriptionDraft, onTodoUpdate, selectedTodo, selectedTaskLocked])
 
   const handleAssetAttach = React.useCallback(
     (todoId: string, files: FileList | null) => {
@@ -539,7 +545,7 @@ export function DashboardBoard({
 
   const handleCommentAssetAttach = React.useCallback(
     (todoId: string, files: FileList | null) => {
-      if (!files || files.length === 0) {
+      if (!canAccessComments || !files || files.length === 0) {
         return
       }
 
@@ -551,7 +557,7 @@ export function DashboardBoard({
         ],
       }))
     },
-    []
+    [canAccessComments]
   )
 
   const uploadSubmissionFile = React.useCallback(
@@ -820,7 +826,7 @@ export function DashboardBoard({
 
   const handleCommentSave = React.useCallback(() => {
     async function saveComment() {
-      if (!selectedTodo || commentSaveInFlightRef.current) {
+      if (!canAccessComments || !selectedTodo || commentSaveInFlightRef.current) {
         return
       }
 
@@ -914,6 +920,7 @@ export function DashboardBoard({
 
     void saveComment()
   }, [
+    canAccessComments,
     commentAssets,
     commentDraft,
     commentThreads,
@@ -923,13 +930,15 @@ export function DashboardBoard({
   ])
 
   const handleReplyToComment = React.useCallback((author: string) => {
+    if (!canAccessComments) return
     setCommentDraft(`@${author} `.slice(0, COMMENT_BODY_MAX_LENGTH))
     commentRequestIdRef.current = null
     setIsEditingComments(true)
     setEditingCommentId(null)
-  }, [])
+  }, [canAccessComments])
 
   const handleEditComment = React.useCallback((comment: DashboardComment) => {
+    if (!canAccessComments) return
     setCommentDraft(comment.body.slice(0, COMMENT_BODY_MAX_LENGTH))
     commentRequestIdRef.current = null
     setCommentAssets((current) => ({
@@ -938,11 +947,11 @@ export function DashboardBoard({
     }))
     setEditingCommentId(comment.id)
     setIsEditingComments(true)
-  }, [])
+  }, [canAccessComments])
 
   const handleDeleteComment = React.useCallback(
     async (comment: DashboardComment) => {
-      if (!selectedTodo) {
+      if (!canAccessComments || !selectedTodo) {
         return
       }
 
@@ -995,7 +1004,7 @@ export function DashboardBoard({
         console.error(error)
       }
     },
-    [commentThreads, editingCommentId, onTodoUpdate, selectedTodo]
+    [canAccessComments, commentThreads, editingCommentId, onTodoUpdate, selectedTodo]
   )
 
   const handleDialogOpenChange = React.useCallback((open: boolean) => {
@@ -1241,7 +1250,7 @@ export function DashboardBoard({
 
   const handleDragEnd = React.useCallback(
     (result: DropResult) => {
-      if (isDragDisabled) {
+      if (!canChangeTaskState || isSavingTaskStatus || isDragDisabled) {
         return
       }
 
@@ -1255,7 +1264,7 @@ export function DashboardBoard({
       const destinationColumnId = destination.droppableId as TodoItem["status"]
       const draggedTodo = todos.find((todo) => todo.id === draggableId)
 
-      if (!draggedTodo) {
+      if (!draggedTodo || isTaskCompletionLocked(draggedTodo, todos)) {
         return
       }
 
@@ -1288,7 +1297,7 @@ export function DashboardBoard({
 
       void onMoveTodo(draggableId, targetTodo?.id ?? null, destinationColumnId)
     },
-    [getColumnTodos, isDragDisabled, onMoveTodo, onStatusChange, todos]
+    [canChangeTaskState, getColumnTodos, isDragDisabled, isSavingTaskStatus, onMoveTodo, onStatusChange, todos]
   )
 
   const selectedTodoIdParts = React.useMemo(() => {
@@ -1337,12 +1346,12 @@ export function DashboardBoard({
                   todos={columnTodos}
                   allTodos={todos}
                   currentUserId={currentUserId}
+                  canChangeTaskState={canChangeTaskState && !isSavingTaskStatus}
                   canEditAssignee={canEditAssignee}
                   canManageOtherProjectResources={canManageOtherProjectResources}
-                  isDragDisabled={isDragDisabled}
+                  isDragDisabled={!canChangeTaskState || isDragDisabled}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
-                  onPriorityChange={onPriorityChange}
                   onOpenTask={handleOpenTask}
                   onArchiveTask={handleArchiveTodoRequest}
                   className="h-full"
@@ -1369,12 +1378,12 @@ export function DashboardBoard({
               todos={columnTodos}
               allTodos={todos}
               currentUserId={currentUserId}
+              canChangeTaskState={canChangeTaskState && !isSavingTaskStatus}
               canEditAssignee={canEditAssignee}
               canManageOtherProjectResources={canManageOtherProjectResources}
-              isDragDisabled={isDragDisabled}
+              isDragDisabled={!canChangeTaskState || isDragDisabled}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}
-              onPriorityChange={onPriorityChange}
               onOpenTask={handleOpenTask}
               onArchiveTask={handleArchiveTodoRequest}
             />
@@ -1428,8 +1437,12 @@ export function DashboardBoard({
                 <div className="min-h-0 p-4 sm:p-5 lg:p-6">
                   <div className="flex h-full min-h-[550px] flex-col gap-4">
                     <Skeleton className="h-32 w-full rounded-[2px]" />
+                    {canAccessComments ? (
+                    <>
                     <Skeleton className="flex-1 w-full rounded-[2px]" />
                     <Skeleton className="h-12 w-full rounded-[2px]" />
+                    </>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -1487,6 +1500,7 @@ export function DashboardBoard({
 
                       <TaskDetailsSection
                         selectedTodo={selectedTodo}
+                        readOnly={selectedTaskLocked}
                         isEditingDescription={isEditingDescription}
                         descriptionDraft={descriptionDraft}
                         descriptionAssets={descriptionAssets[selectedTodo.id] ?? []}
@@ -1507,7 +1521,8 @@ export function DashboardBoard({
 
                   <TaskSubmissionsSection
                     selectedTodo={selectedTodo}
-                    canUpload={canSubmitTaskResources}
+                    canUpload={canSubmitTaskResources && !selectedTaskLocked}
+                    readOnly={selectedTaskLocked}
                     currentUserId={currentUserId}
                     creatorNamesById={creatorNamesById}
                     canManageOtherProjectResources={canManageOtherProjectResources}
@@ -1535,7 +1550,8 @@ export function DashboardBoard({
 
                   <TaskWebLinksSection
                     links={taskWebLinks[selectedTodo.id] ?? []}
-                    canAddLink={canSubmitTaskResources}
+                    canAddLink={canSubmitTaskResources && !selectedTaskLocked}
+                    readOnly={selectedTaskLocked}
                     currentUserId={currentUserId}
                     creatorNamesById={creatorNamesById}
                     canManageOtherProjectResources={canManageOtherProjectResources}
@@ -1550,11 +1566,12 @@ export function DashboardBoard({
                       <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
                       <TaskSubtasksSection
                         checklist={selectedTodo.checklist}
+                        canChangeTaskState={canChangeTaskState && !isSavingTaskStatus && !selectedTaskLocked}
                         subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
-                        canCreateSubtasks={canCreateSubtasks}
+                        canCreateSubtasks={canCreateSubtasks && !selectedTaskLocked}
                         currentUserId={currentUserId}
-                        canEditAssignee={canEditAssignee}
-                        canManageOtherProjectResources={canManageOtherProjectResources}
+                        canEditAssignee={canEditAssignee && !selectedTaskLocked}
+                        canManageOtherProjectResources={canManageOtherProjectResources && !selectedTaskLocked}
                         creatorNamesById={creatorNamesById}
                         isSubmittingSubtask={isCreatingSubtask}
                         createSubtaskError={createSubtaskError}
@@ -1563,7 +1580,6 @@ export function DashboardBoard({
                         onOpenSubtask={handleOpenSubtask}
                         onSubtaskStatusChange={onStatusChange}
                         onSubtaskAssigneeChange={onAssigneeChange}
-                        onSubtaskPriorityChange={onPriorityChange}
                         onEditSubtaskTitle={handleEditSubtaskTitle}
                         onUpdateSubtask={onUpdateSubtask}
                         onArchiveSubtask={handleArchiveTodoRequest}
@@ -1575,6 +1591,11 @@ export function DashboardBoard({
 
               <TaskCommentsPanel
                 selectedTodo={selectedTodo}
+                canChangeTaskState={canChangeTaskState && !selectedParentCompleted}
+                canEditAssignee={canEditAssignee && !selectedTaskLocked}
+                canReopenCompletedTask={canEditAssignee && !selectedParentCompleted}
+                isSavingTaskStatus={isSavingTaskStatus}
+                canAccessComments={canAccessComments}
                 currentUserId={currentUserId}
                 creatorNamesById={creatorNamesById}
                 comments={commentThreads[selectedTodo.id] ?? []}
@@ -1590,6 +1611,7 @@ export function DashboardBoard({
                   if (!commentSaveInFlightRef.current) commentRequestIdRef.current = null
                 }}
                 onCommentEditStart={() => {
+                  if (!canAccessComments) return
                   commentRequestIdRef.current = null
                   setIsEditingComments(true)
                 }}
@@ -1609,7 +1631,7 @@ export function DashboardBoard({
                 onEditComment={handleEditComment}
                 onDeleteComment={handleDeleteComment}
                 onStatusChange={onStatusChange}
-                onPriorityChange={onPriorityChange}
+                onAssigneeChange={onAssigneeChange}
               />
             </div>
             )}

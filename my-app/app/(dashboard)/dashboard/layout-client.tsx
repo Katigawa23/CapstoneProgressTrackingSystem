@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { isSuperAdminViewer } from "@backend/auth/access-control"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { ThemeSwitch } from "@/components/theme-switch"
@@ -285,7 +286,10 @@ export function DashboardLayoutClient({
     : !isCoordinatorOnlyPath && canAccessPath(role, pathname)
 
   return (
-    <RoleProvider role={role}>
+    <RoleProvider
+      role={role}
+      taskReadOnly={!session?.user.id || coordinatorMode || isSuperAdminViewer(session.user.id)}
+    >
       <SidebarProvider>
         <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center border-b bg-background/80 px-4 shadow-sm backdrop-blur-md dark:border-[#343434] dark:bg-[#171717] dark:shadow-none sm:px-6">
           <div className="flex items-center gap-3">
