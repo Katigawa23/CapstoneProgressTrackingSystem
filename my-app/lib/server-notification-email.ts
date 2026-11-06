@@ -86,7 +86,11 @@ export function buildTaskNotificationEmail(notification: EmailNotification, appU
       <p style="margin:24px 0"><a href="${escapeHtml(link.href)}" style="background:#0b5d96;color:white;padding:12px 20px;border-radius:6px;text-decoration:none">${buttonLabel}</a></p>
       <p style="font-size:12px;color:#64748b">Sign in with your school account to view this update. This is an automatic notification from TrackSphere.</p>
       </div></div></div>`
-  return { subject: `[TrackSphere] ${notification.title.replace(/[\r\n]/g, " ")}`, text, html }
+  const taskTitle = notification.task_title?.replace(/[\r\n]+/g, " ").trim()
+  const subjectTitle = notification.type === "task_assigned" && taskTitle
+    ? `Task assigned: ${taskTitle}`
+    : notification.title.replace(/[\r\n]/g, " ")
+  return { subject: `[TrackSphere] ${subjectTitle}`, text, html }
 }
 
 export async function processPendingTaskEmails(limit = 5, notificationId?: string) {
