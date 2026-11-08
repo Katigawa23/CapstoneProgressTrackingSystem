@@ -1,3 +1,4 @@
+import { getFacultyAccessState } from "@/lib/server-faculty-verification"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -10,11 +11,12 @@ import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
 export default async function CoordinatorLayout({ children }: { children: React.ReactNode }) {
   const [cookieStore, user, initialProjects] = await Promise.all([
     cookies(),
-    readAuthenticatedUser(),
+    readAuthenticatedUser(true),
     getDashboardProjectsData(),
   ])
 
   if (!user) redirect("/")
+  if (user.role === "faculty" && (await getFacultyAccessState(user.id)).status !== "approved") redirect("/faculty-verification")
   if (user.id !== "tester-coordinator" && !(await isAssignedCoordinator(user.id))) redirect("/dashboard")
 
   const selectedProjectId =

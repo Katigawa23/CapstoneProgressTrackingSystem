@@ -1,3 +1,6 @@
+import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
+import { canAssignStudentsToProgram } from "@/lib/server-student-program-access"
+import { getDb } from "@/lib/server-db"
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
@@ -127,7 +130,7 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
-    if (!isUserRole(user.role) || !canCreateProject(user.role, user.id)) {
+    if (!isUserRole(user.role) || (!canCreateProject(user.role, user.id) && !(user.role === "faculty" && await isAssignedCoordinator(user.id)))) {
       return NextResponse.json(
         { error: "Only the coordinator can manage group members." },
         { status: 403 }
@@ -143,6 +146,11 @@ export async function POST(
         { error: "Project id and member id are required" },
         { status: 400 }
       )
+    }
+
+    const project = await getDb().query<{ program: string }>("select program from projects where id=$1", [projectId])
+    if (!project.rows[0] || !await canAssignStudentsToProgram(user.id, user.tenantId, project.rows[0].program, [targetUserId])) {
+      return NextResponse.json({ error: "Only verified students in your assigned program can be added to this group." }, { status: 403 })
     }
 
     const member = await addProjectStudentMember(

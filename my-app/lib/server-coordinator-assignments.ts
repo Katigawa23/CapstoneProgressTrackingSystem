@@ -82,7 +82,7 @@ export async function assignProgramCoordinator(programId: string, facultyUserId:
       exists(select 1 from project_configuration_options where id = $1 and category = 'program') as valid_program,
       exists(
         select 1 from users where microsoft_user_id = $2
-        and lower(role) in ('faculty', 'adviser')
+        and lower(role) in ('faculty', 'adviser') and faculty_verification_status='approved'
       ) as valid_faculty,
       exists(
         select 1 from program_coordinator_assignments

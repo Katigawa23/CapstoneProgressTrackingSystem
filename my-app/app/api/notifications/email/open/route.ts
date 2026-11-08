@@ -1,3 +1,4 @@
+import { getFacultyAccessState } from "@/lib/server-faculty-verification"
 import { NextResponse } from "next/server"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { getDb } from "@/lib/server-db"
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
     })
     return response
   }
+  if (user.role === "faculty" && (await getFacultyAccessState(user.id)).status !== "approved") return NextResponse.redirect(new URL("/faculty-verification", url.origin))
   if (user.role === "student") {
     const access = await getStudentAccessState(user.id)
     if (access.required && access.status !== "approved") {
