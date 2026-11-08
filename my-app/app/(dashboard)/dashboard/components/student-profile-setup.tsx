@@ -7,25 +7,42 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
-export function StudentProfileSetup({ name, email, programs, yearLevels }: {
-  name: string; email: string; programs: string[]; yearLevels: string[]
+export function StudentProfileSetup({ name, email, programs, yearLevels, initialProfile }: {
+  name: string; email: string; programs: string[]; yearLevels: string[]; initialProfile?: { program: string; yearLevel: string }
 }) {
   const router = useRouter()
   const savingRef = React.useRef(false)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState("")
-  const [program, setProgram] = React.useState("")
-  const [yearLevel, setYearLevel] = React.useState("")
+  const [program, setProgram] = React.useState(initialProfile?.program ?? "")
+  const [yearLevel, setYearLevel] = React.useState(initialProfile?.yearLevel ?? "")
+  const [retryAt, setRetryAt] = React.useState<string | null>(null)
+  const [usedAttempts, setUsedAttempts] = React.useState(0)
+  const [now, setNow] = React.useState(0)
+  React.useEffect(() => {
+    const controller = new AbortController()
+    void fetch("/api/student-profile", { cache: "no-store", signal: controller.signal }).then(async (response) => {
+      if (!response.ok) return
+      const data = await response.json()
+      setUsedAttempts(data.submissionLimit?.used ?? 0)
+      setRetryAt(data.submissionLimit?.retryAt ?? null)
+    }).catch(() => {})
+    setNow(Date.now())
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => { controller.abort(); window.clearInterval(timer) }
+  }, [])
+  const submissionLocked = retryAt !== null && Date.parse(retryAt) > now
   const unavailable = !programs.length || !yearLevels.length
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (savingRef.current) return
+    if (savingRef.current || submissionLocked) return
     savingRef.current = true
     setSaving(true); setError("")
     try {
       const response = await fetch("/api/student-profile", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ program, yearLevel }) })
       const data = await response.json()
+      if (response.status === 429 && data.retryAt) { setRetryAt(data.retryAt); setUsedAttempts(5) }
       if (!response.ok) throw new Error(data.error || "Could not save your profile.")
       router.refresh()
     } catch (cause) {
@@ -50,9 +67,11 @@ export function StudentProfileSetup({ name, email, programs, yearLevels }: {
             <div><label htmlFor="student-year" className="text-xs font-medium">Year level <span className="text-red-500">*</span></label><select id="student-year" required value={yearLevel} onChange={(event) => setYearLevel(event.target.value)} className="mt-1 h-8 w-full rounded-md border bg-background px-2.5 text-xs"><option value="">Select year level</option>{yearLevels.map((label) => <option key={label} value={label}>{label}</option>)}</select></div>
           </div>
         </fieldset>
+        <p className="text-xs text-muted-foreground">Up to 5 successful submissions in a rolling 24-hour period. {usedAttempts} used.</p>
+        {submissionLocked && retryAt ? <p role="status" className="text-xs text-amber-600 dark:text-amber-400">Submission limit reached. You can submit again on {new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date(retryAt))} (Philippine time).</p> : null}
         {unavailable ? <p role="alert" className="text-sm text-amber-600 dark:text-amber-400">Please ask your administrator to add course and year-level options.</p> : null}
         {error ? <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
-        <Button type="submit" disabled={saving || unavailable || !program || !yearLevel} className="h-8 w-full text-xs bg-[var(--brand-primary-fixed)] text-white hover:bg-[var(--brand-primary-fixed)]/90">{saving ? <><Loader2 className="size-4 animate-spin" />Saving...</> : "Save and continue"}</Button>
+        <Button type="submit" disabled={saving || submissionLocked || unavailable || !program || !yearLevel} className="h-8 w-full text-xs bg-[var(--brand-primary-fixed)] text-white hover:bg-[var(--brand-primary-fixed)]/90">{saving ? <><Loader2 className="size-4 animate-spin" />Saving...</> : "Save and continue"}</Button>
       </form>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

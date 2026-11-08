@@ -14,5 +14,5 @@ export default async function StudentProfilePage() {
   if (!access.required || access.status === "approved") redirect("/dashboard")
   if (access.status === "pending") redirect("/student-verification")
   const options = await listProjectConfigurationOptions()
-  return <main className="min-h-dvh bg-background"><StudentProfileSetup name={user.name} email={user.email} programs={options.filter((o) => o.category === "program").map((o) => o.label)} yearLevels={options.filter((o) => o.category === "year_level").map((o) => o.label)} /></main>
+  return <main className="min-h-dvh bg-background"><StudentProfileSetup name={user.name} email={user.email} initialProfile={{ program: access.program ?? "", yearLevel: access.yearLevel ?? "" }} programs={options.filter((o) => o.category === "program").map((o) => o.label)} yearLevels={options.filter((o) => o.category === "year_level").map((o) => o.label)} /></main>
 }

@@ -27,16 +27,23 @@ export function StudentVerificationList({ initialStudents }: { initialStudents: 
 
   React.useEffect(() => {
     const controller = new AbortController()
+    let requestNumber = 0
     const refresh = async () => {
+      if (lock.current) return
+      const currentRequest = ++requestNumber
       try {
         const response = await fetch("/api/student-verification", { cache: "no-store", signal: controller.signal })
         if (!response.ok) return
         const data = await response.json()
-        setStudents(data.students)
+        if (!lock.current && currentRequest === requestNumber) setStudents(data.students)
       } catch { /* Keep the last successfully loaded list during a temporary outage. */ }
     }
+    const onFocus = () => { if (document.visibilityState === "visible") void refresh() }
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onFocus)
+    void refresh()
     const timer = window.setInterval(() => { if (document.visibilityState === "visible" && !lock.current) void refresh() }, 15000)
-    return () => { window.clearInterval(timer); controller.abort() }
+    return () => { window.clearInterval(timer); controller.abort(); window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onFocus) }
   }, [])
 
   async function confirm() {

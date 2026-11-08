@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { listProjectConfigurationOptions } from "@/lib/server-project-configuration"
-import { getStudentProfile, saveStudentProfile, getStudentAccessState } from "@/lib/server-student-profile"
+import { getStudentProfile, saveStudentProfile, getStudentAccessState, getStudentSubmissionLimit, StudentSubmissionLimitError } from "@/lib/server-student-profile"
 
 export const dynamic = "force-dynamic"
 
@@ -9,7 +9,7 @@ export async function GET() {
   const user = await readAuthenticatedUser(true)
   if (!user) return NextResponse.json({ error: "Please sign in." }, { status: 401 })
   if (user.role !== "student") return NextResponse.json({ error: "Students only." }, { status: 403 })
-  return NextResponse.json({ profile: await getStudentProfile(user.id) }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ profile: await getStudentProfile(user.id), submissionLimit: await getStudentSubmissionLimit(user.id) }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function PUT(request: Request) {
@@ -39,9 +39,13 @@ export async function PUT(request: Request) {
     }
     // Identity always comes from the authenticated account; never accept a client-supplied name or user ID.
     const programId = options.find((option) => option.category === "program" && option.label === program)!.id
-    await saveStudentProfile(user.id, { program, yearLevel }, programId)
+    const saved = await saveStudentProfile(user.id, { program, yearLevel }, programId)
+    if (!saved) return NextResponse.json({ error: "Your request has already been submitted or reviewed. Refresh to check its status." }, { status: 409 })
     return NextResponse.json({ saved: true })
-  } catch {
+  } catch (error) {
+    if (error instanceof StudentSubmissionLimitError) {
+      return NextResponse.json({ error: error.message, retryAt: error.retryAt }, { status: 429, headers: { "Retry-After": String(Math.max(1, Math.ceil((Date.parse(error.retryAt) - Date.now()) / 1000))) } })
+    }
     return NextResponse.json({ error: "Could not save your profile. Please try again." }, { status: 503 })
   }
 }
