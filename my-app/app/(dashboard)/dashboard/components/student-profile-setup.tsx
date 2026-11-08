@@ -17,19 +17,28 @@ export function StudentProfileSetup({ name, email, programs, yearLevels, initial
   const [program, setProgram] = React.useState(initialProfile?.program ?? "")
   const [yearLevel, setYearLevel] = React.useState(initialProfile?.yearLevel ?? "")
   const [retryAt, setRetryAt] = React.useState<string | null>(null)
-  const [usedAttempts, setUsedAttempts] = React.useState(0)
+  const [usedAttempts, setUsedAttempts] = React.useState<number | null>(null)
   const [now, setNow] = React.useState(0)
   React.useEffect(() => {
     const controller = new AbortController()
-    void fetch("/api/student-profile", { cache: "no-store", signal: controller.signal }).then(async (response) => {
-      if (!response.ok) return
-      const data = await response.json()
-      setUsedAttempts(data.submissionLimit?.used ?? 0)
-      setRetryAt(data.submissionLimit?.retryAt ?? null)
-    }).catch(() => {})
+    const refreshAttempts = async () => {
+      if (savingRef.current || document.visibilityState !== "visible") return
+      try {
+        const response = await fetch("/api/student-profile", { cache: "no-store", signal: controller.signal })
+        if (!response.ok) return
+        const data = await response.json()
+        if (savingRef.current) return
+        setUsedAttempts(data.submissionLimit?.used ?? 0)
+        setRetryAt(data.submissionLimit?.retryAt ?? null)
+      } catch { /* Retain the last confirmed count if the connection is interrupted. */ }
+    }
+    void refreshAttempts()
+    window.addEventListener("focus", refreshAttempts)
+    document.addEventListener("visibilitychange", refreshAttempts)
+    const quotaTimer = window.setInterval(refreshAttempts, 15000)
     setNow(Date.now())
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => { controller.abort(); window.clearInterval(timer) }
+    return () => { controller.abort(); window.clearInterval(timer); window.clearInterval(quotaTimer); window.removeEventListener("focus", refreshAttempts); document.removeEventListener("visibilitychange", refreshAttempts) }
   }, [])
   const submissionLocked = retryAt !== null && Date.parse(retryAt) > now
   const unavailable = !programs.length || !yearLevels.length
@@ -44,6 +53,7 @@ export function StudentProfileSetup({ name, email, programs, yearLevels, initial
       const data = await response.json()
       if (response.status === 429 && data.retryAt) { setRetryAt(data.retryAt); setUsedAttempts(5) }
       if (!response.ok) throw new Error(data.error || "Could not save your profile.")
+      setUsedAttempts((used) => Math.min(5, (used ?? 0) + 1))
       router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save your profile. Please try again.")
@@ -67,7 +77,10 @@ export function StudentProfileSetup({ name, email, programs, yearLevels, initial
             <div><label htmlFor="student-year" className="text-xs font-medium">Year level <span className="text-red-500">*</span></label><select id="student-year" required value={yearLevel} onChange={(event) => setYearLevel(event.target.value)} className="mt-1 h-8 w-full rounded-md border bg-background px-2.5 text-xs"><option value="">Select year level</option>{yearLevels.map((label) => <option key={label} value={label}>{label}</option>)}</select></div>
           </div>
         </fieldset>
-        <p className="text-xs text-muted-foreground">Up to 5 successful submissions in a rolling 24-hour period. {usedAttempts} used.</p>
+        <div aria-live="polite" className="rounded-lg border bg-muted/20 p-3 text-xs">
+          <p className="font-semibold">{usedAttempts === null ? "Checking remaining attempts..." : `${Math.max(0, 5 - usedAttempts)} of 5 attempts remaining`}</p>
+          <p className="mt-1 text-muted-foreground">Each successful submission uses 1 attempt. Attempts become available again 24 hours after they were used.</p>
+        </div>
         {submissionLocked && retryAt ? <p role="status" className="text-xs text-amber-600 dark:text-amber-400">Submission limit reached. You can submit again on {new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date(retryAt))} (Philippine time).</p> : null}
         {unavailable ? <p role="alert" className="text-sm text-amber-600 dark:text-amber-400">Please ask your administrator to add course and year-level options.</p> : null}
         {error ? <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
