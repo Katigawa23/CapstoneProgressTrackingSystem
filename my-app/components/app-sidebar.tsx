@@ -275,7 +275,7 @@ export function AppSidebar({
     role
   ).filter(() => coordinatorMode)
   const visibleGroupItems = filterItemsByRole(groupItems, role)
-  const isCoordinatorGroupPickerPage = coordinatorMode && pathname === "/coordinator"
+  const isCoordinatorGroupPickerPage = coordinatorMode && (pathname === "/coordinator" || pathname === "/coordinator/student-verification")
   const isProjectPickerPage =
     isCoordinatorGroupPickerPage ||
     pathname === "/dashboard" ||
@@ -436,6 +436,10 @@ export function AppSidebar({
                   </SidebarGroup>
                 </div>
               ) : null}
+              {coordinatorMode ? <SidebarGroup>
+                <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Administration</SidebarGroupLabel>
+                <SidebarGroupContent><NavList items={[{ title: "Student Verification", href: "/coordinator/student-verification", icon: UserRoundCheck }]} /></SidebarGroupContent>
+              </SidebarGroup> : null}
             </>
           ) : (
             <>

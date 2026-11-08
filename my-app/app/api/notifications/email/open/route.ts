@@ -3,6 +3,7 @@ import { readAuthenticatedUser } from "@/lib/server-auth"
 import { getDb } from "@/lib/server-db"
 import { listProjects } from "@/lib/server-project-repository"
 import { getUserScopedProjectCookieKey, PROJECT_COOKIE_KEY } from "@/lib/projects"
+import { getStudentAccessState } from "@/lib/server-student-profile"
 
 export const dynamic = "force-dynamic"
 
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const notificationId = url.searchParams.get("notificationId") ?? ""
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(notificationId)) return NextResponse.json({ error: "Invalid notification" }, { status: 400 })
-  const user = await readAuthenticatedUser()
+  const user = await readAuthenticatedUser(true)
   if (!user) {
     const response = NextResponse.redirect(new URL("/", url.origin))
     response.cookies.set("pending_email_notification", notificationId, {
@@ -21,6 +22,12 @@ export async function GET(request: Request) {
       maxAge: 60 * 60,
     })
     return response
+  }
+  if (user.role === "student") {
+    const access = await getStudentAccessState(user.id)
+    if (access.required && access.status !== "approved") {
+      return NextResponse.redirect(new URL(access.profileComplete ? "/student-verification" : "/student-profile", url.origin))
+    }
   }
   const result = await getDb().query<{ project_id: string | null; backlog_item_id: string | null; type: string; href: string }>(
     "select project_id, backlog_item_id, type, href from notifications where id = $1 and recipient_user_id = $2",

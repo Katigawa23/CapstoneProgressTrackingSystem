@@ -107,6 +107,11 @@ export async function ensureMicrosoftLoginSchema() {
         `)
 
         // Try to create unique index (will fail silently if duplicates exist)
+        // Existing accounts keep access; only newly registered accounts need onboarding.
+        await getDb().query(`
+          alter table users add column if not exists student_profile_required boolean not null default false;
+          alter table users alter column student_profile_required set default true;
+        `)
         try {
           await getDb().query(`
             create unique index if not exists users_unique_user_idx

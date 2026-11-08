@@ -18,6 +18,7 @@ import { roleLabels, type UserRole } from "@/lib/rbac"
 import { getTrustedNowMs } from "@/lib/trusted-time"
 import { listWeeklyJournals } from "@/lib/server-weekly-journal-repository"
 import { getSelectedProjectData } from "../data"
+import { getStudentProfile } from "@/lib/server-student-profile"
 
 export const dynamic = "force-dynamic"
 
@@ -45,6 +46,7 @@ export default async function ProfilePage() {
   if (!user?.id) return null
 
   const { projects, selectedProject, items } = await getSelectedProjectData()
+  const studentProfile = user.role === "student" ? await getStudentProfile(user.id) : null
   const isCoordinator = user.id === "tester-coordinator"
   const isAdviser = user.role === "faculty"
   const assignedTasks = items.filter((item) => item.assigneeId === user.id && !item.archived && !item.deleted)
@@ -128,6 +130,10 @@ export default async function ProfilePage() {
                 <div className="flex gap-3"><UserRound className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Full name</p><p className="text-sm font-medium">{user.name}</p></div></div>
                 <div className="flex gap-3"><Mail className="mt-0.5 h-4 w-4 text-muted-foreground" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Microsoft account</p><p className="truncate text-sm font-medium">{user.email}</p></div></div>
                 <div className="flex gap-3"><ShieldCheck className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">System role</p><p className="text-sm font-medium">{profileRoleLabel}</p></div></div>
+                {studentProfile ? <>
+                  <div><p className="text-xs text-muted-foreground">Course / program</p><p className="text-sm font-medium">{studentProfile.program}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Year level</p><p className="text-sm font-medium">{studentProfile.yearLevel}</p></div>
+                </> : null}
               </div>
             </section>
 

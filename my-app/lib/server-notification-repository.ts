@@ -1,6 +1,5 @@
 import { getDb } from "@/lib/server-db"
-import { after } from "next/server"
-import { emailNotificationTypes, getTaskEmailConfiguration, notificationEmailSchema, processPendingTaskEmails } from "@/lib/server-notification-email"
+import { emailNotificationTypes, getEmailDeliveryEnvironment, getTaskEmailConfiguration, notificationEmailSchema, processPendingTaskEmails } from "@/lib/server-notification-email"
 
 export type AppNotification = {
   id: string
@@ -62,18 +61,22 @@ export async function createNotification(input: {
          type, title, message, href, dedupe_key
        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        on conflict (dedupe_key) do nothing returning id)
-       insert into notification_email_deliveries(notification_id)
-       select id from inserted where $10::boolean
+       insert into notification_email_deliveries(notification_id, delivery_environment)
+       select id, $11 from inserted where $10::boolean
        on conflict (notification_id) do nothing returning notification_id`,
       [input.recipientUserId, input.actorUserId ?? null, input.projectId ?? null,
         input.backlogItemId ?? null, input.type, input.title, input.message,
-        input.href ?? "/dashboard", input.dedupeKey ?? null, emailNotificationTypes.has(input.type)]
+        input.href ?? "/dashboard", input.dedupeKey ?? null, emailNotificationTypes.has(input.type), getEmailDeliveryEnvironment()]
     )
     const configuration = getTaskEmailConfiguration()
     if (queued.rows.length && configuration.enabled && !configuration.missing.length) {
-      after(async () => {
-        try { await processPendingTaskEmails() }
-        catch { console.error("Task email worker failed; queued deliveries are retained.") }
+      // Complete this delivery while the request is alive. The durable queue retains failures.
+      try { await processPendingTaskEmails(1, queued.rows[0].notification_id) }
+      catch { console.error("Task email worker failed; queued deliveries are retained.") }
+    } else if (queued.rows.length) {
+      console.warn("Notification email queued without delivery", {
+        environment: getEmailDeliveryEnvironment(), enabled: configuration.enabled,
+        missing: configuration.missing,
       })
     }
   } catch (error) {

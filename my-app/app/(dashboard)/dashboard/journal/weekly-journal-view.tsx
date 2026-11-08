@@ -1,8 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { ArrowLeft, ArrowRight, BookOpen, CalendarCheck2, CalendarDays, CheckCircle2, CircleDashed, Clock3, Download, FileText, ListChecks, Loader2, RefreshCw, Save, Send, ShieldCheck, Sparkles, Target, TriangleAlert, Trophy, Upload, UserRoundCheck, UsersRound } from "lucide-react"
+import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, CheckCircle2, CircleDashed, Clock3, Download, FileText, ListChecks, Loader2, RefreshCw, Save, Send, ShieldCheck, Sparkles, Target, TriangleAlert, Trophy, Upload, UserRoundCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type StoredStatus = "approved" | "submitted" | "draft"
 type DisplayStatus = "Approved" | "Submitted" | "Draft" | "Not started"
@@ -21,10 +22,8 @@ const EMPTY: Fields = { weeklyObjectives: "", workCompleted: "", memberContribut
 const FIELD_DEFINITIONS = [
   { key: "weeklyObjectives", title: "Weekly objectives", description: "Goals and priorities scheduled for this week.", icon: Target, accent: "text-blue-500", iconBackground: "bg-blue-500/10" },
   { key: "workCompleted", title: "Work completed", description: "Finished tasks and measurable project progress.", icon: Trophy, accent: "text-emerald-500", iconBackground: "bg-emerald-500/10" },
-  { key: "memberContributions", title: "Member contributions", description: "Recorded participation from every group member.", icon: UsersRound, accent: "text-violet-500", iconBackground: "bg-violet-500/10" },
   { key: "challenges", title: "Challenges", description: "Blockers, revisions, and issues encountered.", icon: TriangleAlert, accent: "text-orange-500", iconBackground: "bg-orange-500/10" },
   { key: "actionsTaken", title: "Actions taken", description: "Steps completed to move the project forward.", icon: ListChecks, accent: "text-cyan-500", iconBackground: "bg-cyan-500/10" },
-  { key: "nextWeekPlan", title: "Next-week plan", description: "Upcoming deliverables and priorities.", icon: CalendarCheck2, accent: "text-pink-500", iconBackground: "bg-pink-500/10" },
 ] satisfies Array<{ key: keyof Fields; title: string; description: string; icon: typeof Target; accent: string; iconBackground: string }>
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -88,10 +87,25 @@ function ActivityList({ content }: { content: string }) {
   )
 
   React.useLayoutEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = 0
+    const list = scrollRef.current
+    if (!list) return
+    list.scrollTop = 0
+
+    const cards = Array.from(list.children) as HTMLElement[]
+    const updateHeight = () => {
+      const first = cards[0]
+      const last = cards[Math.min(cards.length, 5) - 1]
+      list.style.maxHeight = first && last
+        ? `${last.getBoundingClientRect().bottom - first.getBoundingClientRect().top}px`
+        : ""
+    }
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    cards.slice(0, 5).forEach((card) => observer.observe(card))
+    return () => observer.disconnect()
   }, [content])
 
-  return <div ref={scrollRef} className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 print:overflow-visible">
+  return <div ref={scrollRef} tabIndex={0} role="region" aria-label="Journal activities" className="mt-3 min-h-0 space-y-2 overflow-y-auto overscroll-contain pr-1 print:max-h-none! print:overflow-visible">
     {activities.map((activity, index) => {
       const style = getActivityStyle(activity.text)
       const Icon = style.icon
@@ -260,12 +274,22 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
             ].map((item) => <div key={item.label} className="rounded-lg border bg-background p-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{item.label}</p><p className={cn("mt-2 text-xl font-semibold", item.color)}>{item.value}</p></div>)}
           </div>
         </div> : <>
-        <div className="grid items-start gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">{FIELD_DEFINITIONS.map(({ key, title, description, icon: Icon, accent, iconBackground }) => {
+        <Tabs key={`${projectId}-${selected.week}`} defaultValue="weeklyObjectives" className="gap-4 p-4">
+          <div className="overflow-x-auto overflow-y-hidden border-b pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsList variant="line" aria-label="Weekly journal sections" className="min-w-full justify-start gap-2">
+              {FIELD_DEFINITIONS.map(({ key, title, icon: Icon }) => (
+                <TabsTrigger key={key} value={key} className="h-10 shrink-0 px-3 text-xs data-[state=active]:text-[var(--brand-primary-fixed)] after:bg-[var(--brand-primary-fixed)]">
+                  <Icon className="h-4 w-4" />{title}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          {FIELD_DEFINITIONS.map(({ key, title, description, icon: Icon, accent, iconBackground }) => {
           const automaticValue = autoSummary?.[key as keyof Omit<AutoSummary, "weekNumber">] ?? ""
           const automatic = typeof automaticValue === "string" ? automaticValue : ""
-          return <div key={key} className="flex h-52 flex-col overflow-hidden rounded-lg border bg-background p-3.5 transition-colors hover:border-[color:rgba(var(--brand-primary-rgb),0.35)] print:h-auto print:overflow-visible"><div className="flex shrink-0 items-start gap-3"><div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", iconBackground, accent)}><Icon className="h-4 w-4" /></div><div><h3 className="text-xs font-semibold">{title}</h3><p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">{description}</p></div></div>{automatic ? <ActivityList content={automatic} /> : <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed bg-muted/20 px-3 text-center"><Icon className={cn("h-5 w-5 opacity-60", accent)} /><p className="mt-1.5 text-[11px] font-medium">Nothing recorded yet</p><p className="mt-0.5 text-[10px] text-muted-foreground">Updates will appear automatically from group activity.</p></div>}{studentCanEdit ? <textarea aria-label={`${title} additional notes`} value={form[key]} onChange={(event) => setForm((value) => ({ ...value, [key]: event.target.value }))} placeholder="Add student notes..." maxLength={5000} className="mt-2 min-h-0 w-full flex-1 resize-none rounded-md border bg-transparent p-2 text-xs leading-5 outline-none transition-colors placeholder:text-muted-foreground focus:border-[var(--brand-primary-fixed)]" /> : form[key] ? <div className="mt-2 min-h-0 overflow-y-auto border-t pt-2 print:overflow-visible"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Student notes</p><p className="mt-1 whitespace-pre-line text-xs leading-5">{form[key]}</p></div> : null}</div>
-        })}</div>
-        <div className="mx-4 mb-4 rounded-lg border bg-background p-4"><div className="flex items-center justify-between gap-2"><div><span className="text-xs font-semibold">Adviser feedback</span><p className="mt-0.5 text-[10px] text-muted-foreground">Comments, recommendations, and confirmation from the assigned adviser.</p></div>{entry?.adviserReviewedAt ? <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-500"><CheckCircle2 className="h-3 w-3" />Checked by adviser</span> : entry?.status === "submitted" ? <span className="rounded-full border bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground">Awaiting adviser feedback</span> : null}</div><textarea aria-label="Adviser feedback" value={form.adviserFeedback} disabled={!adviserCanReview} onChange={(event) => setForm((value) => ({ ...value, adviserFeedback: event.target.value }))} placeholder="Adviser comments and recommendations will appear here." maxLength={5000} className="mt-3 min-h-24 w-full resize-y rounded-md border bg-muted/10 p-3 text-xs leading-5 outline-none placeholder:text-muted-foreground focus:border-[var(--brand-primary-fixed)] disabled:cursor-default disabled:border-transparent disabled:bg-transparent disabled:p-0" />{adviserCanReview ? <div className="mt-3 flex justify-end"><button type="button" disabled={saving} onClick={() => update("feedback")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-[var(--brand-primary-fixed)] px-3 text-xs font-semibold text-white disabled:opacity-60"><Save className="h-3.5 w-3.5" />Save feedback</button></div> : null}</div>
+          return <TabsContent key={key} value={key} className="min-w-0"><div className="flex min-h-80 flex-col rounded-lg border bg-background p-4 sm:p-5"><div className="flex shrink-0 items-start gap-3"><div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", iconBackground, accent)}><Icon className="h-4 w-4" /></div><div><h3 className="text-xs font-semibold">{title}</h3><p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">{description}</p></div></div>{automatic ? <ActivityList content={automatic} /> : <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed bg-muted/20 px-3 text-center"><Icon className={cn("h-5 w-5 opacity-60", accent)} /><p className="mt-1.5 text-[11px] font-medium">Nothing recorded yet</p><p className="mt-0.5 text-[10px] text-muted-foreground">Updates will appear automatically from group activity.</p></div>}{studentCanEdit ? <textarea aria-label={`${title} additional notes`} value={form[key]} onChange={(event) => setForm((value) => ({ ...value, [key]: event.target.value }))} placeholder="Add student notes..." maxLength={5000} className="mt-4 min-h-28 w-full resize-none rounded-md border bg-transparent p-2 text-xs leading-5 outline-none transition-colors placeholder:text-muted-foreground focus:border-[var(--brand-primary-fixed)]" /> : form[key] ? <div className="mt-4 border-t pt-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Student notes</p><p className="mt-1 whitespace-pre-line text-xs leading-5">{form[key]}</p></div> : null}</div></TabsContent>
+        })}</Tabs>
+        <div className="mx-4 mb-4 rounded-lg border bg-background p-4"><div className="flex items-center justify-between gap-2"><div><span className="text-xs font-semibold">Adviser feedback</span><p className="mt-0.5 text-[10px] text-muted-foreground">Comments, recommendations, and confirmation from the assigned adviser.</p></div>{entry?.adviserReviewedAt ? <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-500"><CheckCircle2 className="h-3 w-3" />Checked by adviser</span> : entry?.status === "submitted" ? <span className="rounded-full border bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground">Awaiting adviser feedback</span> : null}</div><textarea aria-label="Adviser feedback" value={form.adviserFeedback} disabled={!adviserCanReview} onChange={(event) => setForm((value) => ({ ...value, adviserFeedback: event.target.value }))} placeholder="Adviser comments and recommendations will appear here." maxLength={5000} className="mt-3 min-h-24 w-full resize-none rounded-md border bg-muted/10 p-3 text-xs leading-5 outline-none placeholder:text-muted-foreground focus:border-[var(--brand-primary-fixed)] disabled:cursor-default disabled:border-transparent disabled:bg-transparent disabled:p-0" />{adviserCanReview ? <div className="mt-3 flex justify-end"><button type="button" disabled={saving} onClick={() => update("feedback")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-[var(--brand-primary-fixed)] px-3 text-xs font-semibold text-white disabled:opacity-60"><Save className="h-3.5 w-3.5" />Save feedback</button></div> : null}</div>
         </>}
         {message ? <p className="mt-3 text-xs text-muted-foreground">{message}</p> : null}
       </section>

@@ -1,9 +1,8 @@
 import {
   Draggable,
   Droppable,
-  type DraggableProvidedDragHandleProps,
 } from "@hello-pangea/dnd"
-import { ChevronDown, GripVertical, Plus } from "lucide-react"
+import { ChevronDown, Plus } from "lucide-react"
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
@@ -51,7 +50,6 @@ export function BacklogBoard({
   onOpenCreate,
   canEditItems = false,
   canEditAssignee = false,
-  canMoveItems = false,
   canChangeTaskState = false,
   emptyLabel,
   createLabel = "Create",
@@ -128,7 +126,6 @@ export function BacklogBoard({
   const renderItemRow = React.useCallback(
     (
       item: WorkItem,
-      dragHandleProps?: DraggableProvidedDragHandleProps | null,
       options?: {
         hasChildren?: boolean
         isChildrenExpanded?: boolean
@@ -151,19 +148,6 @@ export function BacklogBoard({
         )}
       >
         <div className="flex min-w-0 items-center gap-1.5">
-          {!item.parentId && canMoveItems && !isTaskCompletionLocked(item, items) ? (
-            <button
-              type="button"
-              {...dragHandleProps}
-              suppressHydrationWarning
-              onClick={(event) => event.stopPropagation()}
-              className="flex h-5 w-4 shrink-0 cursor-grab items-center justify-center text-slate-400 transition hover:text-slate-600 active:cursor-grabbing dark:text-slate-500 dark:hover:text-slate-300"
-              aria-label={`Drag ${item.title}`}
-            >
-              <GripVertical className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-
           {!item.parentId && options?.hasChildren ? (
             <button
               type="button"
@@ -263,7 +247,6 @@ export function BacklogBoard({
       onUpdateStatus,
       canEditAssignee,
       canEditItems,
-      canMoveItems,
       canChangeTaskState,
       items,
     ]
@@ -339,7 +322,7 @@ export function BacklogBoard({
                       key={item.id}
                       draggableId={`${droppableId}:${item.id}`}
                       index={index}
-                      isDragDisabled={!canMoveItems || isTaskCompletionLocked(item, items)}
+                      isDragDisabled={true}
                     >
                       {(draggableProvided, dragSnapshot) => (
                         <div
@@ -351,7 +334,7 @@ export function BacklogBoard({
                           )}
                           style={draggableProvided.draggableProps.style}
                         >
-                          {renderItemRow(item, draggableProvided.dragHandleProps, {
+                          {renderItemRow(item, {
                             hasChildren,
                             isChildrenExpanded,
                             onToggleChildren: hasChildren

@@ -255,7 +255,23 @@ export function BacklogPageClient({
   }, [currentUser, initialItems, initialProjects, initialSelectedProjectId])
 
   const orderedItems = React.useMemo(() => {
-    const sortedItems = [...items].sort(compareTasksByPriority)
+    const deadlineTime = (item: WorkItem) => {
+      const timestamp = item.dueDate?.getTime()
+      return timestamp !== undefined && Number.isFinite(timestamp)
+        ? timestamp
+        : Number.POSITIVE_INFINITY
+    }
+    const priorityRank = { High: 0, Medium: 1, Low: 2 }
+    const sortedItems = [...items].sort((left, right) => {
+      const priorityDifference = priorityRank[left.priority ?? "Medium"] - priorityRank[right.priority ?? "Medium"]
+      if (priorityDifference) return priorityDifference
+      const leftDeadline = deadlineTime(left)
+      const rightDeadline = deadlineTime(right)
+      if (leftDeadline !== rightDeadline) {
+        return leftDeadline < rightDeadline ? -1 : 1
+      }
+      return compareTasksByPriority(left, right)
+    })
     const childItemsByParentId = new Map<string, WorkItem[]>()
 
     for (const item of sortedItems) {
@@ -852,7 +868,11 @@ export function BacklogPageClient({
   )
 
   const filteredBoardItems = React.useMemo(
-    () => filterSectionItems(orderedItems, boardSearchValue, boardFilterValue),
+    () => filterSectionItems(
+      orderedItems.filter((item) => item.status !== "completed"),
+      boardSearchValue,
+      boardFilterValue
+    ),
     [boardFilterValue, boardSearchValue, filterSectionItems, orderedItems]
   )
 
@@ -915,7 +935,7 @@ export function BacklogPageClient({
         {}
       )
 
-      return statusOptions.map((status) => ({
+      return statusOptions.filter((status) => status.value !== "completed").map((status) => ({
         ...status,
         count: countsByStatus[status.value] ?? 0,
       }))

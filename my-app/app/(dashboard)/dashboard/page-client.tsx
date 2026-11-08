@@ -64,6 +64,7 @@ import {
 import { canCreateProject as canCreateProjectForRole, isUserRole } from "@/lib/rbac"
 import { writeDashboardHomeState } from "@/lib/dashboard-home-state"
 import type { BacklogApiItem } from "./types"
+import { StudentTodo } from "./components/student-todo"
 
 type DashboardPageClientProps = {
   initialProjects: DashboardProject[]
@@ -83,6 +84,7 @@ type RecentProjectEntry = {
 
 export function DashboardPageClient({
   initialProjects,
+  initialActivities,
 }: DashboardPageClientProps) {
   const router = useRouter()
   const [hasHydrated, setHasHydrated] = React.useState(false)
@@ -529,20 +531,22 @@ export function DashboardPageClient({
             </div>
           ) : null}
 
+          <div className={currentUser?.role === "student" ? "grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]" : "space-y-6"}>
+          <div className="min-w-0 space-y-6">
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <h2 className="font-display text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                 For you
               </h2>
-              <Link
+              {currentUser && currentUser.role !== "student" ? <Link
                 href="/dashboard/projects"
                 className="text-sm font-medium text-[var(--brand-primary-fixed)] transition hover:text-[#084a7d] dark:text-[#63a0d6] dark:hover:text-[#9bc2e2]"
               >
                 View all projects
-              </Link>
+              </Link> : null}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className={currentUser?.role === "student" ? "grid gap-4 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2 xl:grid-cols-4"}>
               {forYouProjects.map((project, index) => (
                 <div
                   key={project.id}
@@ -662,7 +666,10 @@ export function DashboardPageClient({
             </div>
           </section>
 
-          {renderRecentProjectSections}
+          {currentUser && currentUser.role !== "student" ? renderRecentProjectSections : null}
+          </div>
+          {currentUser?.role === "student" ? <StudentTodo items={initialActivities} userId={currentUser.id} projectIds={projects.map((project) => project.id)} /> : null}
+          </div>
         </div>
       </div>
 
