@@ -77,10 +77,10 @@ export function StudentProfileSetup({ name, email, programs, yearLevels, initial
             <div><label htmlFor="student-year" className="text-xs font-medium">Year level <span className="text-red-500">*</span></label><select id="student-year" required value={yearLevel} onChange={(event) => setYearLevel(event.target.value)} className="mt-1 h-8 w-full rounded-md border bg-background px-2.5 text-xs"><option value="">Select year level</option>{yearLevels.map((label) => <option key={label} value={label}>{label}</option>)}</select></div>
           </div>
         </fieldset>
-        <div aria-live="polite" className="rounded-lg border bg-muted/20 p-3 text-xs">
-          <p className="font-semibold">{usedAttempts === null ? "Checking remaining attempts..." : `${Math.max(0, 5 - usedAttempts)} of 5 attempts remaining`}</p>
+        {usedAttempts !== null && usedAttempts > 0 ? <div aria-live="polite" className="rounded-lg border bg-muted/20 p-3 text-xs">
+          <p className="font-semibold">{Math.max(0, 5 - usedAttempts)} of 5 attempts remaining</p>
           <p className="mt-1 text-muted-foreground">Each successful submission uses 1 attempt. Attempts become available again 24 hours after they were used.</p>
-        </div>
+        </div> : null}
         {submissionLocked && retryAt ? <p role="status" className="text-xs text-amber-600 dark:text-amber-400">Submission limit reached. You can submit again on {new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date(retryAt))} (Philippine time).</p> : null}
         {unavailable ? <p role="alert" className="text-sm text-amber-600 dark:text-amber-400">Please ask your administrator to add course and year-level options.</p> : null}
         {error ? <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
