@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { readClientAuthSession } from "@/lib/auth-client"
+import { readAuthenticatedUser } from "@/lib/server-auth"
 import { updateUserRole, getStoredUserRole } from "@backend/repositories/users-repository"
 
 export const runtime = "nodejs"
@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic"
  */
 export async function GET(request: NextRequest) {
   try {
-    // In a real app, validate the session from a secure HTTP-only cookie
-    // For testing, we'll accept the user ID from the Authorization header
+    const user = await readAuthenticatedUser()
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // The bearer value identifies the target only; authority comes from the signed session.
     const authHeader = request.headers.get("authorization")
     
     if (!authHeader?.startsWith("Bearer ")) {
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = authHeader.slice(7)
+    if (userId !== user.id && user.id !== "tester-admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const storedRole = await getStoredUserRole(userId)
 
@@ -39,10 +41,13 @@ export async function GET(request: NextRequest) {
 /**
  * PUT /api/auth/user-role
  * Updates the user's role in the database
- * For testing purposes only
+ * Restricted to the authenticated superadmin.
  */
 export async function PUT(request: NextRequest) {
   try {
+    const user = await readAuthenticatedUser()
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (user.role !== "admin" || user.id !== "tester-admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const authHeader = request.headers.get("authorization")
     
     if (!authHeader?.startsWith("Bearer ")) {
