@@ -1,3 +1,5 @@
+import { canAssignStudentsToProgram } from "@/lib/server-student-program-access"
+import { getDb } from "@/lib/server-db"
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
@@ -147,6 +149,15 @@ export async function POST(request: Request) {
       )
     }
 
+    if (advisers.length) {
+      const eligible = await getDb().query<{ name: string }>(
+        "select name from users where tenant_id=$1 and role in ('faculty','adviser') and faculty_verification_status='approved' and name=any($2::text[])",
+        [user.tenantId, advisers])
+      if (advisers.some((name) => !eligible.rows.some((row) => row.name === name))) {
+        return NextResponse.json({ error: "Only verified faculty can be assigned as adviser." }, { status: 403 })
+      }
+    }
+
     if (!program) {
       return NextResponse.json({ error: "Program is required" }, { status: 400 })
     }
@@ -161,6 +172,18 @@ export async function POST(request: Request) {
 
     if (!syTerm) {
       return NextResponse.json({ error: "SY term is required" }, { status: 400 })
+    }
+
+    if (user.role === "faculty") {
+      // Read actual roles from the database; never trust memberAccess.role from the browser.
+      const candidates = [...new Set([...memberUserIds, ...normalizedMemberUserIds])].filter((id) => id !== user.id)
+      const records = await getDb().query<{ id: string; role: string }>(
+        "select microsoft_user_id as id, role from users where microsoft_user_id=any($1::text[]) and tenant_id=$2", [candidates, user.tenantId])
+      const studentIds = records.rows.filter((row) => row.role === "student").map((row) => row.id)
+      if (candidates.some((id) => !records.rows.some((row) => row.id === id)) ||
+          !await canAssignStudentsToProgram(user.id, user.tenantId, program, studentIds)) {
+        return NextResponse.json({ error: "Only verified students in your assigned program can be added to this group." }, { status: 403 })
+      }
     }
 
     const project = await createProject({

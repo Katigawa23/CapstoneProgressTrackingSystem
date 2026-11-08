@@ -282,7 +282,8 @@ export function AppSidebar({
     pathname === "/dashboard/projects" ||
     pathname === "/dashboard/projects/archive" ||
     pathname === "/dashboard/system-configuration" ||
-    pathname === "/dashboard/coordinators"
+    pathname === "/dashboard/coordinators" ||
+    pathname === "/dashboard/faculty-verification"
   const canCreateProjectAccess = coordinatorMode
   const isSuperAdmin = currentUserId === "tester-admin"
 
@@ -424,6 +425,11 @@ export function AppSidebar({
                             title: "System Configuration",
                             href: "/dashboard/system-configuration",
                             icon: Settings2,
+                          },
+                          {
+                            title: "Faculty Verification",
+                            href: "/dashboard/faculty-verification",
+                            icon: UserRoundCheck,
                           },
                           {
                             title: "Coordinator Management",

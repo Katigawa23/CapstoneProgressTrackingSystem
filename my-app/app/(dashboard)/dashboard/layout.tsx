@@ -1,3 +1,4 @@
+import { getFacultyAccessState } from "@/lib/server-faculty-verification"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -24,6 +25,7 @@ export default async function DashboardLayout({
     readAuthenticatedUser(true),
     getDashboardProjectsData(),
   ])
+  if (authenticatedUser?.role === "faculty" && (await getFacultyAccessState(authenticatedUser.id)).status !== "approved") redirect("/faculty-verification")
   if (authenticatedUser?.role === "student") {
     const access = await getStudentAccessState(authenticatedUser.id)
     if (access.required && access.profileComplete && access.status !== "approved") redirect("/student-verification")

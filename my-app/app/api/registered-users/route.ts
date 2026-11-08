@@ -1,3 +1,5 @@
+import { searchCoordinatorStudents } from "@/lib/server-student-program-access"
+import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
@@ -29,11 +31,12 @@ async function searchSupabaseUsers(tenantId: string, query: string) {
   const url = new URL(`${supabaseUrl}/rest/v1/users`)
   url.searchParams.set("select", "microsoft_user_id,email,name,role,tenant_id,login_at")
   url.searchParams.set("tenant_id", `eq.${tenantId}`)
+  url.searchParams.set("or", "(role.not.in.(faculty,adviser),faculty_verification_status.eq.approved)")
   url.searchParams.set("order", "name.asc")
   url.searchParams.set("limit", "20")
   if (query.trim()) {
     const safeQuery = query.trim().replace(/[,*()]/g, "")
-    url.searchParams.set("or", `(name.ilike.*${safeQuery}*,email.ilike.*${safeQuery}*)`)
+    url.searchParams.set("and", `(or(name.ilike.*${safeQuery}*,email.ilike.*${safeQuery}*))`)
   }
 
   const response = await fetch(url, {
@@ -70,6 +73,12 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get("q") ?? ""
     const roleFilter = normalizeRoleFilter(searchParams.get("role"))
+
+    const coordinator = user.role === "faculty" && (user.id === "tester-coordinator" || await isAssignedCoordinator(user.id))
+    if (coordinator && roleFilter !== "faculty") {
+      const students = await searchCoordinatorStudents(user.id, user.tenantId, query)
+      return NextResponse.json({ users: students.filter((student) => student.id !== user.id) }, { headers: { "Cache-Control": "no-store" } })
+    }
 
     let users
     try {

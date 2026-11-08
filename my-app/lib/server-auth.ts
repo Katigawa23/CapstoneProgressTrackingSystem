@@ -1,3 +1,4 @@
+import { getFacultyAccessState } from "@/lib/server-faculty-verification"
 import { cache } from "react"
 import { cookies } from "next/headers"
 
@@ -15,6 +16,7 @@ export const readAuthenticatedUser = cache(async (allowUnverified = false) => {
     const access = await getStudentAccessState(user.id)
     if (access.required && access.status !== "approved") return null
   }
+  if (user.role === "faculty" && !allowUnverified && (await getFacultyAccessState(user.id)).status !== "approved") return null
   return user
 })
 

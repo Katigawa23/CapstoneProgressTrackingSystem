@@ -111,6 +111,12 @@ export async function ensureMicrosoftLoginSchema() {
         await getDb().query(`
           alter table users add column if not exists student_profile_required boolean not null default false;
           alter table users alter column student_profile_required set default true;
+alter table public.users add column if not exists faculty_verification_status text not null default 'approved' check (faculty_verification_status in ('pending','approved','rejected'));
+alter table public.users alter column faculty_verification_status set default 'pending';
+alter table public.users add column if not exists faculty_reviewed_by text;
+alter table public.users add column if not exists faculty_reviewed_at timestamptz;
+alter table public.users add column if not exists faculty_rejection_reason text;
+
         `)
         try {
           await getDb().query(`
@@ -234,6 +240,7 @@ export async function searchRegisteredMicrosoftUsers({
          login_at
        from users
        where tenant_id = $1
+         and (role not in ('faculty', 'adviser') or faculty_verification_status='approved')
          and (
            $2 = ''
            or name ilike $3
