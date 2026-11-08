@@ -4,7 +4,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Clock3, ShieldCheck, TriangleAlert } from "lucide-react"
 import { readAuthenticatedUser } from "@/lib/server-auth"
-import { getStudentAccessState } from "@/lib/server-student-profile"
+import { getStudentAccessState, getStudentSubmissionLimit } from "@/lib/server-student-profile"
 import { VerificationRefresh } from "./verification-refresh"
 
 export const dynamic = "force-dynamic"
@@ -23,6 +23,7 @@ export default async function StudentVerificationWaitingPage() {
     join users u on u.microsoft_user_id=a.faculty_user_id
     where p.user_id=$1 limit 1`, [user.id])
   const coordinatorName = coordinator.rows[0]?.name
+  const submissionLimit = await getStudentSubmissionLimit(user.id)
   const rejected = access.status === "rejected"
   const Icon = rejected ? TriangleAlert : Clock3
   return <main className="flex min-h-dvh items-center justify-center bg-background p-5">
@@ -35,6 +36,8 @@ export default async function StudentVerificationWaitingPage() {
       {rejected ? <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-sm"><p className="font-medium">Coordinator&apos;s reason</p><p className="mt-1 whitespace-pre-wrap break-words text-muted-foreground">{access.reason}</p></div> : <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="size-4" />Only your assigned program coordinator can approve your account.</p>}
       {rejected ? <Link href="/student-profile" className="mt-5 inline-flex h-9 w-full items-center justify-center rounded-md bg-[var(--brand-primary-fixed)] text-sm font-medium text-white">Update details and resubmit</Link> : null}
       {!rejected ? <div className="mt-4 rounded-lg border p-3 text-sm"><p className="font-medium">Request status: Pending</p><p className="mt-1 text-muted-foreground">{coordinatorName ? `Your request is in the ${access.program} verification queue for ${coordinatorName}. If you changed your course, your request moves to that course's coordinator.` : `No coordinator is assigned to ${access.program} yet. Your request is saved as Pending. Ask your administrator to assign a coordinator to this program.`}</p></div> : null}
+      <p className="mt-4 text-sm font-medium">{Math.max(0, 5 - submissionLimit.used)} of 5 submission attempts remaining</p>
+      {submissionLimit.retryAt ? <p className="mt-1 text-xs text-muted-foreground">Next attempt available: {new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date(submissionLimit.retryAt))} (Philippine time).</p> : null}
       <VerificationRefresh />
     </section>
   </main>
