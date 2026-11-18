@@ -103,11 +103,11 @@ export default async function ProfilePage() {
           <p className="mt-1 text-sm text-muted-foreground">View your account, project, and task progress in one place.</p>
         </div>
 
-        <section className="overflow-hidden rounded-xl border bg-card shadow-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:shadow-none">
+        <section className="overflow-hidden rounded-xl border bg-card shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:shadow-none">
           <div className="h-20 bg-gradient-to-r from-[var(--brand-primary-fixed)] to-blue-400/70" />
           <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex min-w-0 items-end gap-4">
-              <Avatar className="-mt-8 h-20 w-20 shrink-0 border-4 border-card dark:border-[#1f1f1f]">
+              <Avatar className="-mt-8 h-20 w-20 shrink-0 border-4 border-card dark:border-[var(--card)]">
                 <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-xl font-bold text-white">{getInitials(user.name)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 pb-1">
@@ -124,7 +124,7 @@ export default async function ProfilePage() {
 
         <div className="grid gap-5 lg:grid-cols-[1fr_1.35fr]">
           <div className="space-y-5">
-            <section className="rounded-xl border bg-card p-5 dark:border-[#343434] dark:bg-[#1f1f1f]">
+            <section className="rounded-xl border bg-card p-5 dark:border-[var(--border)] dark:bg-[var(--card)]">
               <h3 className="font-display font-semibold">Account information</h3>
               <div className="mt-4 space-y-4">
                 <div className="flex gap-3"><UserRound className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Full name</p><p className="text-sm font-medium">{user.name}</p></div></div>
@@ -137,12 +137,12 @@ export default async function ProfilePage() {
               </div>
             </section>
 
-            {!isCoordinator ? <section className="rounded-xl border bg-card p-5 dark:border-[#343434] dark:bg-[#1f1f1f]">
+            {!isCoordinator ? <section className="rounded-xl border bg-card p-5 dark:border-[var(--border)] dark:bg-[var(--card)]">
               <h3 className="font-display font-semibold">{isCoordinator ? "Coordination scope" : isAdviser ? "Assigned group" : "Current project"}</h3>
               {selectedProject ? <div className="mt-4 space-y-3">
                 <div className="flex gap-3"><BriefcaseBusiness className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Project / group</p><p className="text-sm font-medium">{selectedProject.name}</p></div></div>
                 <div className="flex gap-3"><UsersRound className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Program and year</p><p className="text-sm font-medium">{[selectedProject.program, selectedProject.yearLevel].filter(Boolean).join(" · ") || "Not specified"}</p></div></div>
-                <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground dark:border-[#343434]">
+                <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground dark:border-[var(--border)]">
                   {isCoordinator ? "Groups monitored" : isAdviser ? "Students" : "Adviser"}: <span className="font-medium text-foreground">{isCoordinator ? projects.length : isAdviser ? selectedProject.members.length : selectedProject.advisers.join(", ") || "Not assigned"}</span>
                 </div>
               </div> : <p className="mt-4 text-sm text-muted-foreground">No project selected.</p>}
@@ -150,16 +150,16 @@ export default async function ProfilePage() {
           </div>
 
           <div className="space-y-5">
-            <section className="rounded-xl border bg-card p-5 dark:border-[#343434] dark:bg-[#1f1f1f]">
+            <section className="rounded-xl border bg-card p-5 dark:border-[var(--border)] dark:bg-[var(--card)]">
               <div className="flex items-center justify-between gap-3"><div><h3 className="font-display font-semibold">{isCoordinator ? "Journal overview" : isAdviser ? "Review overview" : "Task progress"}</h3><p className="mt-0.5 text-xs text-muted-foreground">{isCoordinator ? "Weekly journals across all monitored groups." : isAdviser ? "Task review workload for the selected group." : "Tasks assigned to you in the current project."}</p></div><Link href={isCoordinator ? "/dashboard/journal" : "/dashboard/board"} className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--brand-primary-fixed)] hover:underline">{isCoordinator ? "View journals" : "View board"} <ArrowRight className="h-3.5 w-3.5" /></Link></div>
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {stats.map(({ label, value, icon: Icon, color }) => <div key={label} className="rounded-lg border bg-muted/20 p-3 dark:border-[#343434]"><Icon className={`h-4 w-4 ${color}`} /><p className="mt-3 text-2xl font-bold">{value}</p><p className="text-xs text-muted-foreground">{label}</p></div>)}
+                {stats.map(({ label, value, icon: Icon, color }) => <div key={label} className="rounded-lg border bg-muted/20 p-3 dark:border-[var(--border)]"><Icon className={`h-4 w-4 ${color}`} /><p className="mt-3 text-2xl font-bold">{value}</p><p className="text-xs text-muted-foreground">{label}</p></div>)}
               </div>
             </section>
 
-            {!isCoordinator ? <section className="rounded-xl border bg-card p-5 dark:border-[#343434] dark:bg-[#1f1f1f]">
+            {!isCoordinator ? <section className="rounded-xl border bg-card p-5 dark:border-[var(--border)] dark:bg-[var(--card)]">
               <h3 className="font-display font-semibold">{isCoordinator ? "Monitored groups" : isAdviser ? "Recent group tasks" : "Recent assigned tasks"}</h3>
-              <div className="mt-3 divide-y dark:divide-[#343434]">
+              <div className="mt-3 divide-y dark:divide-[var(--border)]">
                 {isCoordinator ? projects.slice(0, 5).map((project) => <Link key={project.id} href="/dashboard/journal" className="flex items-center gap-3 py-3 hover:text-[var(--brand-primary-fixed)]"><UsersRound className="h-4 w-4 shrink-0 text-blue-500" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{project.name}</p><p className="text-xs text-muted-foreground">{project.members.length} members · {project.advisers.join(", ") || "No adviser"}</p></div><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" /></Link>) : (isAdviser ? projectTasks : recentTasks).slice(0, 5).map((task) => <Link key={task.id} href={`/dashboard/board?taskId=${encodeURIComponent(task.id)}`} className="flex items-center gap-3 py-3 hover:text-[var(--brand-primary-fixed)]"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${task.status === "completed" ? "bg-emerald-500" : task.status === "inprogress" || task.status === "inreview" ? "bg-amber-500" : "bg-slate-400"}`} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{task.title}</p><p className="text-xs text-muted-foreground">Due {formatDate(task.dueDate)}</p></div><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" /></Link>)}
                 {(isCoordinator ? projects.length === 0 : (isAdviser ? projectTasks.length === 0 : recentTasks.length === 0)) ? <p className="py-8 text-center text-sm text-muted-foreground">No records yet.</p> : null}
               </div>

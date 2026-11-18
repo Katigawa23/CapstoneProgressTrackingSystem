@@ -164,12 +164,12 @@ function SelectWithCustomInput({
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger
           id={id}
-          className="h-8 w-full rounded-[2px] border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
+          className="h-8 w-full rounded-[2px] border-border/70 bg-white text-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100"
           aria-label={label}
         >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent className="dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100">
+        <SelectContent className="dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
           {options.map((option) => (
             <SelectItem
               key={option}
@@ -186,7 +186,7 @@ function SelectWithCustomInput({
         value={customValue}
         onChange={(event) => onCustomValueChange(event.target.value)}
         placeholder={customInputPlaceholder}
-        className={`h-8 rounded-[2px] border-border/70 bg-white text-sm transition-all duration-200 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500 ${
+        className={`h-8 rounded-[2px] border-border/70 bg-white text-sm transition-all duration-200 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100 dark:placeholder:text-slate-500 ${
           isOtherSelected ? "opacity-100" : "h-0 overflow-hidden opacity-0"
         }`}
         autoFocus={isOtherSelected}
@@ -346,8 +346,8 @@ export function CreateProjectDialog({
       if (nextOpen) onOpenChange(true)
       else requestClose()
     }}>
-      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-[2px] border-border/70 bg-white px-5 py-4 dark:border-[#343434] dark:bg-[#171717] sm:max-w-xl">
-        <div className="border-b border-border/70 pb-2 dark:border-[#343434]">
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-[2px] border-border/70 bg-white px-5 py-4 dark:border-[var(--border)] dark:bg-[var(--background)] sm:max-w-xl">
+        <div className="border-b border-border/70 pb-2 dark:border-[var(--border)]">
           <DialogHeader className="gap-2 text-left">
             <DialogTitle className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
               Create new {useGroupTerminology ? "group" : "project"}
@@ -367,7 +367,7 @@ export function CreateProjectDialog({
                 onChange={(event) => onProjectTitleChange(event.target.value)}
                 maxLength={PROJECT_TITLE_MAX_LENGTH}
                 placeholder="Capstone Progress Tracker"
-                className="h-8 rounded-[2px] border-border/70 bg-white text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+                className="h-8 rounded-[2px] border-border/70 bg-white text-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100 dark:placeholder:text-slate-500"
               />
               {titleError ? (
                 <p className="text-xs text-red-500">{titleError}</p>
@@ -445,11 +445,11 @@ export function CreateProjectDialog({
                         }}
                         placeholder="Search advisers"
                         autoComplete="off"
-                        className="h-8 rounded-[2px] border-border/70 bg-white pl-9 text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+                        className="h-8 rounded-[2px] border-border/70 bg-white pl-9 text-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100 dark:placeholder:text-slate-500"
                       />
                     </div>
                   </PopoverAnchor>
-                  <PopoverContent align="start" sideOffset={6} className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 dark:border-[#343434] dark:bg-[#1b1b1b]">
+                  <PopoverContent align="start" sideOffset={6} className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 dark:border-[var(--border)] dark:bg-[var(--background)]">
                     {adviserOptionsLoading ? (
                       <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" /> Loading advisers...
@@ -488,7 +488,7 @@ export function CreateProjectDialog({
                   </PopoverContent>
                 </Popover>
                 {selectedAdvisers.map((adviser) => (
-                  <div key={adviser.id} className="flex items-center justify-between rounded-[2px] border px-3 py-2 text-sm dark:border-[#343434]">
+                  <div key={adviser.id} className="flex items-center justify-between rounded-[2px] border px-3 py-2 text-sm dark:border-[var(--border)]">
                     <span className="truncate">{getMemberDisplayName(adviser.name)} (Adviser)</span>
                     <button type="button" onClick={() => onAdviserRemove(adviser.id)} aria-label={`Remove ${adviser.name}`} className="text-slate-400 hover:text-red-500">
                       <X className="size-4" />
@@ -523,7 +523,7 @@ export function CreateProjectDialog({
                       }}
                       placeholder={showAdviserField ? "Search students" : "Search members"}
                       autoComplete="off"
-                      className="h-8 rounded-[2px] border-border/70 bg-white pr-9 pl-9 text-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+                      className="h-8 rounded-[2px] border-border/70 bg-white pr-9 pl-9 text-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100 dark:placeholder:text-slate-500"
                     />
                     {memberSearch ? (
                       <button
@@ -532,7 +532,7 @@ export function CreateProjectDialog({
                           onMemberSearchChange("")
                           setMemberPickerOpen(true)
                         }}
-                        className="absolute right-2 top-[18px] inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                        className="absolute right-2 top-[18px] inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-200"
                         aria-label="Clear member search"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -545,7 +545,7 @@ export function CreateProjectDialog({
                   align="start"
                   sideOffset={6}
                   onOpenAutoFocus={(event) => event.preventDefault()}
-                  className="z-[80] overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 shadow-[0_18px_38px_rgba(15,23,42,0.12)] dark:border-[#343434] dark:bg-[#1b1b1b]"
+                  className="z-[80] overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 shadow-[0_18px_38px_rgba(15,23,42,0.12)] dark:border-[var(--border)] dark:bg-[var(--background)]"
                   style={{ width: memberPickerWidth || undefined }}
                 >
                     {memberOptionsLoading ? (
@@ -592,7 +592,7 @@ export function CreateProjectDialog({
 
                                   <Check
                                     className={`mt-1 h-4 w-4 ${
-                                      isSelected ? "opacity-100 text-[var(--brand-primary-fixed)] dark:text-[#63a0d6]" : "opacity-0"
+                                      isSelected ? "opacity-100 text-[var(--brand-primary-fixed)] dark:text-[var(--brand-link)]" : "opacity-0"
                                     }`}
                                   />
                                 </CommandItem>
@@ -619,13 +619,13 @@ export function CreateProjectDialog({
 
             {selectedMembers.length > 0 ? (
               <div className="sm:col-span-2">
-                <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white dark:border-[#343434] dark:bg-[#1b1b1b]">
-                  <div className="grid grid-cols-[minmax(0,1fr)_36px] border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 dark:border-[#343434] dark:text-slate-400">
+                <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white dark:border-[var(--border)] dark:bg-[var(--background)]">
+                  <div className="grid grid-cols-[minmax(0,1fr)_36px] border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 dark:border-[var(--border)] dark:text-slate-400">
                     <span>{showAdviserField ? "Student" : "Member"}</span>
                     <span className="sr-only">Remove</span>
                   </div>
 
-                  <div className="divide-y divide-slate-200 dark:divide-[#343434]">
+                  <div className="divide-y divide-slate-200 dark:divide-[var(--border)]">
                     {selectedMembers.map((member) => (
                       <div
                         key={member.id}
@@ -641,7 +641,7 @@ export function CreateProjectDialog({
                         <button
                           type="button"
                           onClick={() => onMemberRemove(member.id)}
-                          className="inline-flex h-7 w-7 items-center justify-center justify-self-end rounded-[2px] text-slate-400 transition hover:bg-slate-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-red-400"
+                          className="inline-flex h-7 w-7 items-center justify-center justify-self-end rounded-[2px] text-slate-400 transition hover:bg-slate-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-500 dark:hover:bg-[var(--surface-hover)] dark:hover:text-red-400"
                           aria-label={`Remove ${getMemberDisplayName(member.name)}`}
                         >
                           <X className="h-4 w-4" />
@@ -654,7 +654,7 @@ export function CreateProjectDialog({
             ) : null}
           </div>
 
-          <DialogFooter className="justify-end gap-2 border-t border-border/70 pt-2.5 dark:border-[#343434]">
+          <DialogFooter className="justify-end gap-2 border-t border-border/70 pt-2.5 dark:border-[var(--border)]">
             <Button
               type="button"
               variant="outline"
@@ -694,7 +694,7 @@ export function CreateProjectDialog({
       </DialogContent>
     </Dialog>
       <AlertDialog open={discardWarningOpen} onOpenChange={setDiscardWarningOpen}>
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
           <AlertDialogHeader className="text-left">
             <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-600 dark:text-slate-300">
@@ -721,7 +721,7 @@ export function CreateProjectDialog({
           if (!nextOpen) onCancelStudentTransfer?.()
         }}
       >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
           <AlertDialogHeader className="text-left">
             <AlertDialogTitle>Transfer student?</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2 text-slate-600 dark:text-slate-300">

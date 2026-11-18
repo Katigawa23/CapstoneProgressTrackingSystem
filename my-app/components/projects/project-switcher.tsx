@@ -57,7 +57,7 @@ export function ProjectSwitcher({
         className="
           group flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-[color:rgba(var(--brand-primary-rgb),0.12)]
           bg-white px-2 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-colors sm:min-h-12
-          dark:border-[#343434] dark:bg-[#242424]
+          dark:border-[var(--border)] dark:bg-[var(--surface-hover)]
           group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:flex-none
           group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg
           group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent
@@ -70,7 +70,7 @@ export function ProjectSwitcher({
           icon={switcherIcon}
           seed={team?.id ?? teamName}
           size="large"
-          className={switcherIcon ? "bg-gradient-to-br from-[#0B5793] to-[#084a7d] text-white shadow-sm ring-1 ring-[color:rgba(var(--brand-primary-rgb),0.22)]" : undefined}
+          className={switcherIcon ? "bg-gradient-to-br from-[var(--brand-primary-fixed)] to-[var(--brand-hover)] text-white shadow-sm ring-1 ring-[color:rgba(var(--brand-primary-rgb),0.22)]" : undefined}
         />
 
         <div className="min-w-0 flex-1 self-center group-data-[collapsible=icon]:hidden">
@@ -97,8 +97,8 @@ export function ProjectSwitcher({
             bg-white px-2 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-colors sm:min-h-12
             hover:border-[color:rgba(var(--brand-primary-rgb),0.22)] hover:bg-[color:rgba(var(--brand-primary-rgb),0.05)] data-[state=open]:border-[color:rgba(var(--brand-primary-rgb),0.3)]
             data-[state=open]:bg-[color:rgba(var(--brand-primary-rgb),0.08)]
-            dark:border-[#343434] dark:bg-[#242424] dark:hover:border-[#454545] dark:hover:bg-[#2a2a2a]
-            dark:data-[state=open]:border-[#4a4a4a] dark:data-[state=open]:bg-[#2a2a2a]
+            dark:border-[var(--border)] dark:bg-[var(--surface-hover)] dark:hover:border-[var(--surface-hover)] dark:hover:bg-[var(--surface-hover)]
+            dark:data-[state=open]:border-[var(--input)] dark:data-[state=open]:bg-[var(--surface-hover)]
             group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:flex-none
             group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg
             group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent
@@ -114,7 +114,7 @@ export function ProjectSwitcher({
             icon={switcherIcon}
             seed={team?.id ?? teamName}
             size="large"
-            className={switcherIcon ? "bg-gradient-to-br from-[#0B5793] to-[#084a7d] text-white shadow-sm ring-1 ring-[color:rgba(var(--brand-primary-rgb),0.22)]" : undefined}
+            className={switcherIcon ? "bg-gradient-to-br from-[var(--brand-primary-fixed)] to-[var(--brand-hover)] text-white shadow-sm ring-1 ring-[color:rgba(var(--brand-primary-rgb),0.22)]" : undefined}
           />
 
           <div className="min-w-0 flex-1 self-center group-data-[collapsible=icon]:hidden">
@@ -132,10 +132,10 @@ export function ProjectSwitcher({
 
       <DropdownMenuContent
         align="start"
-        className="w-[min(16.5rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] rounded-lg border border-slate-200 bg-white p-1 shadow-[0_18px_40px_rgba(15,23,42,0.14)] dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:shadow-[0_18px_40px_rgba(0,0,0,0.45)]"
+        className="w-[min(16.5rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] rounded-lg border border-slate-200 bg-white p-1 shadow-[0_18px_40px_rgba(15,23,42,0.14)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100 dark:shadow-[0_18px_40px_rgba(0,0,0,0.45)]"
       >
         <DropdownMenuLabel className="p-0">
-          <div className="rounded-md border border-slate-200 bg-slate-50/80 px-2.5 py-2 dark:border-[#343434] dark:bg-[#262626]">
+          <div className="rounded-md border border-slate-200 bg-slate-50/80 px-2.5 py-2 dark:border-[var(--border)] dark:bg-[var(--card)]">
             <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
               Current project
             </div>
@@ -145,7 +145,7 @@ export function ProjectSwitcher({
                 active={Boolean(team)}
                 icon={switcherIcon}
                 seed={team?.id ?? teamName}
-                className={switcherIcon ? "bg-gradient-to-br from-[#0B5793] to-[#084a7d] text-white shadow-sm ring-1 ring-[color:rgba(var(--brand-primary-rgb),0.22)]" : undefined}
+                className={switcherIcon ? "bg-gradient-to-br from-[var(--brand-primary-fixed)] to-[var(--brand-hover)] text-white shadow-sm ring-1 ring-[color:rgba(var(--brand-primary-rgb),0.22)]" : undefined}
               />
               <div className="min-w-0">
                 <div className="truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100 sm:text-[13px]">{teamName}</div>
@@ -164,7 +164,7 @@ export function ProjectSwitcher({
               </div>
               <Link
                 href="/dashboard"
-                className="text-[10px] font-medium text-[var(--brand-primary-fixed)] transition hover:text-[#084a7d] dark:text-[var(--brand-primary-fixed)] dark:hover:text-[#3a7ab2]"
+                className="text-[10px] font-medium text-[var(--brand-primary-fixed)] transition hover:text-[var(--brand-hover)] dark:text-[var(--brand-primary-fixed)] dark:hover:text-[#3a7ab2]"
               >
                 View all
               </Link>
@@ -177,7 +177,7 @@ export function ProjectSwitcher({
                   <DropdownMenuItem
                     key={project.id}
                     className={cn(
-                      "cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1.5 focus:bg-[color:rgba(var(--brand-primary-rgb),0.08)] focus:text-slate-950 dark:focus:bg-[#2a2a2a] dark:focus:text-slate-100",
+                      "cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1.5 focus:bg-[color:rgba(var(--brand-primary-rgb),0.08)] focus:text-slate-950 dark:focus:bg-[var(--surface-hover)] dark:focus:text-slate-100",
                       active && "border-[color:rgba(var(--brand-primary-rgb),0.16)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] dark:border-[color:rgba(var(--brand-primary-rgb),0.3)] dark:bg-[#1f2937]"
                     )}
                     onClick={() => onSelectProject(project.id)}
@@ -210,7 +210,7 @@ export function ProjectSwitcher({
         <div className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
           Quick actions
         </div>
-        <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-[color:rgba(var(--brand-primary-rgb),0.08)] dark:focus:bg-[#2a2a2a]">
+        <DropdownMenuItem asChild className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-[color:rgba(var(--brand-primary-rgb),0.08)] dark:focus:bg-[var(--surface-hover)]">
           <Link href="/dashboard" className="flex items-center gap-2">
             <ProjectMonogram name="Projects" icon={FolderClosed} />
             <span className="truncate text-[12px] font-medium text-slate-900 dark:text-slate-100 sm:text-[13px]">Browse all projects</span>
@@ -218,7 +218,7 @@ export function ProjectSwitcher({
         </DropdownMenuItem>
         {canCreateProject ? (
           <DropdownMenuItem
-            className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-[color:rgba(var(--brand-primary-rgb),0.08)] dark:focus:bg-[#2a2a2a]"
+            className="cursor-pointer rounded-md px-2 py-1.5 focus:bg-[color:rgba(var(--brand-primary-rgb),0.08)] dark:focus:bg-[var(--surface-hover)]"
             onSelect={(event) => {
               event.preventDefault()
               onCreateProject()

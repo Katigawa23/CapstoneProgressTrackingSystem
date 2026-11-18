@@ -81,7 +81,7 @@ function FilePreviewTile({
     fileType === "application/pdf" || normalizedName.endsWith(".pdf")
 
   return (
-    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#303030]">
+    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 dark:border-[var(--input)] dark:bg-[var(--surface-hover)]">
       <div className="relative flex h-4.5 w-3.5 items-center justify-center rounded-[2px] bg-white text-slate-700 shadow-sm dark:bg-slate-100">
         <div className="absolute right-0 top-0 h-1.5 w-1.5 rounded-bl-[2px] bg-slate-200 dark:bg-slate-300" />
         {isImage ? (
@@ -114,17 +114,17 @@ function AttachmentList({
   onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
 }) {
   return (
-    <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
+    <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)]">
       <div className="overflow-x-auto">
         <div className="min-w-[560px] max-w-full">
-          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-x-2.5 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1d2125] dark:text-slate-400">
+          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-x-2.5 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-400">
             <span>Name</span>
             <span>Size</span>
             <span>Date added</span>
             <span className="text-right">Actions</span>
           </div>
 
-          <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
+          <div className="divide-y divide-slate-200 dark:divide-[var(--border)]">
             {submissions.map((submission) => {
               const canArchiveSubmission =
                 !readOnly &&
@@ -143,7 +143,7 @@ function AttachmentList({
                   href={submission.fileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left transition hover:text-[var(--brand-primary-fixed)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] focus-visible:ring-offset-2 dark:hover:text-[#9bc2e2] dark:focus-visible:ring-offset-[#262626]"
+                  className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left transition hover:text-[var(--brand-primary-fixed)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] focus-visible:ring-offset-2 dark:hover:text-[var(--brand-link)] dark:focus-visible:ring-offset-[var(--card)]"
                   title={`Open ${submission.fileName}`}
                 >
                   <FilePreviewTile
@@ -165,7 +165,7 @@ function AttachmentList({
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[var(--border)] dark:hover:text-slate-200"
                         aria-label={`Open actions for ${submission.fileName}`}
                         title="Actions"
                       >
@@ -174,7 +174,7 @@ function AttachmentList({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                      className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                     >
                       <DropdownMenuItem asChild>
                         <a href={submission.fileUrl} target="_blank" rel="noreferrer">
@@ -213,17 +213,17 @@ function AttachmentList({
 
 function AttachmentListSkeleton() {
   return (
-    <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
+    <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)]">
       <div className="overflow-x-auto">
         <div className="min-w-[560px] max-w-full">
-          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-x-2.5 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1d2125] dark:text-slate-400">
+          <div className="grid grid-cols-[minmax(0,1.8fr)_88px_180px_76px] items-center gap-x-2.5 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-400">
             <span>Name</span>
             <span>Size</span>
             <span>Date added</span>
             <span className="text-right">Actions</span>
           </div>
 
-          <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
+          <div className="divide-y divide-slate-200 dark:divide-[var(--border)]">
             {Array.from({ length: 2 }).map((_, index) => (
               <div
                 key={index}
@@ -296,7 +296,7 @@ export function TaskSubmissionsSection({
                 }`}
               />
               <span className="text-[15px] font-semibold">Attachments</span>
-              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-[#343434] dark:text-slate-300">
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-[var(--border)] dark:text-slate-300">
                 {submissionThreads.length}
               </span>
             </button>
@@ -354,7 +354,7 @@ export function TaskSubmissionsSection({
                       <p className="truncate font-medium">
                         {draft.file.name} ({formatSubmissionSize(draft.file.size)})
                       </p>
-                      <span className="shrink-0 font-medium text-[var(--brand-primary-fixed)] dark:text-[#9bc2e2]">
+                      <span className="shrink-0 font-medium text-[var(--brand-primary-fixed)] dark:text-[var(--brand-link)]">
                         {draft.progress}%
                       </span>
                     </div>

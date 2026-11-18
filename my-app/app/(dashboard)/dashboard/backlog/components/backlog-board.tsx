@@ -143,7 +143,7 @@ export function BacklogBoard({
           }
         }}
         className={cn(
-          "flex cursor-pointer items-center justify-between rounded border border-gray-200 bg-white px-2 py-0.5 text-sm transition hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:border-[#343434] dark:bg-[#1f1f1f] dark:hover:bg-[#262626]",
+          "flex cursor-pointer items-center justify-between rounded border border-gray-200 bg-white px-2 py-0.5 text-sm transition hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:hover:bg-[var(--card)]",
           item.parentId ? "ml-6 border-dashed" : ""
         )}
       >
@@ -190,7 +190,7 @@ export function BacklogBoard({
             <div className="truncate text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
               {item.displayId}
             </div>
-            <div className="truncate text-[11px] font-medium text-black transition hover:text-[var(--brand-primary-fixed)] dark:text-slate-100 dark:hover:text-[#9bc2e2]">
+            <div className="truncate text-[11px] font-medium text-black transition hover:text-[var(--brand-primary-fixed)] dark:text-slate-100 dark:hover:text-[var(--brand-link)]">
               {item.title}
             </div>
             <div className="text-[9px] text-slate-500 dark:text-slate-400">
@@ -254,7 +254,7 @@ export function BacklogBoard({
 
   return (
     <Card
-      className={`flex flex-col gap-2.5 overflow-hidden rounded-sm border border-gray-200 bg-white p-2.5 dark:border-[#343434] dark:bg-[#1f1f1f] ${
+      className={`flex flex-col gap-2.5 overflow-hidden rounded-sm border border-gray-200 bg-white p-2.5 dark:border-[var(--border)] dark:bg-[var(--card)] ${
         shouldUseScrollableHeight
           ? "h-[340px] min-h-[340px]"
           : `${dynamicMinHeightClassName} h-auto`
@@ -291,7 +291,7 @@ export function BacklogBoard({
               ref={provided.innerRef}
               {...provided.droppableProps}
               className={cn(
-                "flex min-h-0 flex-1 items-center justify-center rounded-md border border-dashed border-gray-300 py-10 text-center text-sm text-black/60 dark:border-[#3a3a3a] dark:text-slate-400",
+                "flex min-h-0 flex-1 items-center justify-center rounded-md border border-dashed border-gray-300 py-10 text-center text-sm text-black/60 dark:border-[var(--border)] dark:text-slate-400",
                 snapshot.isDraggingOver ? "border-[color:rgba(var(--brand-primary-rgb),0.28)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] dark:border-[color:rgba(var(--brand-primary-rgb),0.55)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.14)]" : ""
               )}
             >
@@ -309,7 +309,7 @@ export function BacklogBoard({
                 {...provided.droppableProps}
                 className={cn(
                   "space-y-1 rounded-sm",
-                  snapshot.isDraggingOver ? "bg-slate-50/70 dark:bg-[#262626]" : ""
+                  snapshot.isDraggingOver ? "bg-slate-50/70 dark:bg-[var(--card)]" : ""
                 )}
               >
                 {rootItems.map((item, index) => {
@@ -380,7 +380,7 @@ export function BacklogBoard({
         <div className="flex shrink-0">
           <Button
             variant="ghost"
-            className="h-8 gap-1.5 px-2 text-black hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-[#2a2a2a]"
+            className="h-8 gap-1.5 px-2 text-black hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-[var(--surface-hover)]"
             onClick={onOpenCreate}
           >
             <Plus className="h-3.5 w-3.5" />

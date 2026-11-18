@@ -123,7 +123,7 @@ export default function Navbar() {
 
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/80 shadow-sm backdrop-blur-md dark:border-[#343434] dark:bg-[#171717] dark:shadow-none">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 shadow-sm backdrop-blur-md dark:border-[var(--border)] dark:bg-[var(--background)] dark:shadow-none">
       <div className="mx-auto flex h-16 w-full max-w-[92rem] items-center justify-between px-4 sm:px-6 xl:px-8">
         <div className="flex items-center gap-3">
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -138,8 +138,8 @@ export default function Navbar() {
               <SheetHeader className="border-b border-border px-5 py-5 text-left">
                 <SheetTitle className="flex items-center gap-3 font-display text-xl">
                   <span>
-                    <span className="text-slate-950 dark:text-slate-50">Track</span>
-                    <span className="text-[var(--brand-primary-fixed)]">Sphere</span>
+                    <span style={{ color: "var(--logo-track)" }}>Track</span>
+                    <span style={{ color: "var(--logo-sphere)" }}>Sphere</span>
                   </span>
                 </SheetTitle>
               </SheetHeader>
@@ -184,8 +184,8 @@ export default function Navbar() {
             className="flex items-center gap-3 font-display text-xl font-extrabold tracking-tight sm:text-2xl"
           >
             <span>
-              <span className="text-slate-950 dark:text-slate-50">Track</span>
-              <span className="text-[var(--brand-primary-fixed)]">Sphere</span>
+              <span style={{ color: "var(--logo-track)" }}>Track</span>
+              <span style={{ color: "var(--logo-sphere)" }}>Sphere</span>
             </span>
           </Link>
         </div>

@@ -79,11 +79,11 @@ export function TaskDetailsSection({
 
       <CollapsibleContent className="space-y-2">
         {isEditingDescription && !descriptionLocked ? (
-          <div className="space-y-2 rounded-[2px] border border-slate-200 bg-white p-3 dark:border-[#343434] dark:bg-[#262626]">
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[#343434]">
+          <div className="space-y-2 rounded-[2px] border border-slate-200 bg-white p-3 dark:border-[var(--border)] dark:bg-[var(--card)]">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[var(--border)]">
               <button
                 type="button"
-                className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
+                className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[var(--border)] dark:text-slate-300 dark:hover:bg-[var(--surface-hover)]"
                 onClick={() => imageInputRef.current?.click()}
               >
                 <ImageIcon className="h-3 w-3" />
@@ -91,7 +91,7 @@ export function TaskDetailsSection({
               </button>
               <button
                 type="button"
-                className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
+                className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[var(--border)] dark:text-slate-300 dark:hover:bg-[var(--surface-hover)]"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Paperclip className="h-3 w-3" />
@@ -132,7 +132,7 @@ export function TaskDetailsSection({
                 {descriptionAssets.map((asset) => (
                   <span
                     key={asset}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-[#3a3a3a] dark:bg-[#303030] dark:text-slate-300"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-[var(--border)] dark:bg-[var(--surface-hover)] dark:text-slate-300"
                   >
                     <File className="h-3.5 w-3.5" />
                     {asset}
@@ -164,7 +164,7 @@ export function TaskDetailsSection({
           </div>
         ) : (
           selectedTodo.description.trim() ? (
-            <div className="w-full rounded-[2px] border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300 sm:p-4">
+            <div className="w-full rounded-[2px] border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-300 sm:p-4">
               <p className="whitespace-pre-wrap break-words">{selectedTodo.description}</p>
               <p className="mt-2 text-[10px] text-muted-foreground">Description saved · Editing is locked</p>
             </div>
@@ -172,7 +172,7 @@ export function TaskDetailsSection({
             <button
               type="button"
               disabled={descriptionLocked}
-              className="w-full rounded-[2px] border border-dashed border-slate-300 bg-slate-50 p-3 text-left text-sm text-slate-500 transition hover:border-blue-500 hover:bg-white dark:border-[#454545] dark:bg-[#262626] dark:hover:bg-[#2a2a2a] sm:p-4"
+              className="w-full rounded-[2px] border border-dashed border-slate-300 bg-slate-50 p-3 text-left text-sm text-slate-500 transition hover:border-blue-500 hover:bg-white dark:border-[var(--surface-hover)] dark:bg-[var(--card)] dark:hover:bg-[var(--surface-hover)] sm:p-4"
               onClick={onDescriptionEditStart}
             >
               Add a description... (can only be saved once)

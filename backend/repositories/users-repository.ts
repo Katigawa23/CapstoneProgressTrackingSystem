@@ -116,6 +116,10 @@ alter table public.users alter column faculty_verification_status set default 'p
 alter table public.users add column if not exists faculty_reviewed_by text;
 alter table public.users add column if not exists faculty_reviewed_at timestamptz;
 alter table public.users add column if not exists faculty_rejection_reason text;
+alter table public.users add column if not exists faculty_submission_attempts timestamptz[] not null default '{}';
+alter table public.users alter column faculty_submission_attempts set default array[now()];
+alter table public.users add column if not exists faculty_requested_at timestamptz not null default now();
+
 
         `)
         try {

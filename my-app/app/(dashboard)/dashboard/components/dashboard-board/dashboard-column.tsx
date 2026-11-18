@@ -69,14 +69,14 @@ export function DashboardColumn({
                 <button
                   type="button"
                   aria-label={`${column.title} actions`}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-[background-color,color] duration-200 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-[background-color,color] duration-200 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-200"
                 >
                   <Ellipsis className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="mt-0 h-px w-full bg-slate-200 dark:bg-[#343434]" />
+            <div className="mt-0 h-px w-full bg-slate-200 dark:bg-[var(--border)]" />
           </CardHeader>
 
           <CardContent className="flex min-h-0 flex-1 p-2 pt-0">
@@ -98,7 +98,7 @@ export function DashboardColumn({
                     key={todo.id}
                     draggableId={todo.id}
                     index={index}
-                    isDragDisabled={!canChangeTaskState || isDragDisabled || todo.status === "completed"}
+                    isDragDisabled={!canChangeTaskState || isDragDisabled || (todo.status === "completed" && !canEditAssignee)}
                   >
                     {(draggableProvided, dragSnapshot) => (
                       <DashboardTaskCard

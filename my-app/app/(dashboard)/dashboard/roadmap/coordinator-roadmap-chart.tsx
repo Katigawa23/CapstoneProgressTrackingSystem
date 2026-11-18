@@ -81,7 +81,7 @@ export function CoordinatorRoadmapChart({
   })
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-3 dark:border-[#3a414b] dark:bg-[#202329]">
+    <section className="rounded-lg border border-slate-200 bg-white p-3 dark:border-[var(--border)] dark:bg-[var(--card)]">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="font-display text-sm font-semibold tracking-tight text-slate-950 dark:text-slate-100">

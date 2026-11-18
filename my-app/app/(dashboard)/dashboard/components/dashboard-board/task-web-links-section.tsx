@@ -134,7 +134,7 @@ export function TaskWebLinksSection({
                 }`}
               />
               <span className="text-[15px] font-semibold">Web Link</span>
-              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-[#343434] dark:text-slate-300">
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-[var(--border)] dark:text-slate-300">
                 {links.length}
               </span>
             </button>
@@ -199,7 +199,7 @@ export function TaskWebLinksSection({
                   }}
                   autoFocus
                   placeholder="https://www.example.com"
-                  className="h-8 border-slate-200 bg-white text-[13px] text-slate-900 dark:border-[#454545] dark:bg-[#1f1f1f] dark:text-slate-100"
+                  className="h-8 border-slate-200 bg-white text-[13px] text-slate-900 dark:border-[var(--surface-hover)] dark:bg-[var(--card)] dark:text-slate-100"
                 />
               </div>
 
@@ -223,7 +223,7 @@ export function TaskWebLinksSection({
                     }
                   }}
                   placeholder="Add a description..."
-                  className="h-8 border-slate-200 bg-white text-[13px] text-slate-900 dark:border-[#454545] dark:bg-[#1f1f1f] dark:text-slate-100"
+                  className="h-8 border-slate-200 bg-white text-[13px] text-slate-900 dark:border-[var(--surface-hover)] dark:bg-[var(--card)] dark:text-slate-100"
                 />
               </div>
             </div>
@@ -255,8 +255,8 @@ export function TaskWebLinksSection({
         ) : null}
 
         {links.length === 0 ? null : (
-          <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#3a3a3a] dark:bg-[#262626]">
-            <div className="divide-y divide-slate-200 dark:divide-[#3a3a3a]">
+          <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)]">
+            <div className="divide-y divide-slate-200 dark:divide-[var(--border)]">
               {links.map((link) => {
                 const canManageLink =
                   !readOnly &&
@@ -278,7 +278,7 @@ export function TaskWebLinksSection({
                     className="flex min-w-0 flex-1 items-center gap-3 rounded-[2px]"
                     title={link.url}
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[2px] border border-slate-200 bg-slate-100 dark:border-[#454545] dark:bg-[#1f1f1f]">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[2px] border border-slate-200 bg-slate-100 dark:border-[var(--surface-hover)] dark:bg-[var(--card)]">
                       {getFaviconUrl(link.url) ? (
                         <img
                           src={getFaviconUrl(link.url)}
@@ -319,7 +319,7 @@ export function TaskWebLinksSection({
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[#343434] dark:hover:text-slate-200"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-[var(--border)] dark:hover:text-slate-200"
                         aria-label={`Open actions for ${link.label || link.url}`}
                         title="Actions"
                       >
@@ -328,7 +328,7 @@ export function TaskWebLinksSection({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                      className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                     >
                       <DropdownMenuItem asChild>
                         <a href={link.url} target="_blank" rel="noreferrer">

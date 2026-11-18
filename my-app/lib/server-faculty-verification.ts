@@ -7,16 +7,19 @@ export type FacultyVerification = {
 }
 export async function getFacultyAccessState(userId: string) {
   await ensureMicrosoftLoginSchema()
-  const result = await getDb().query<{ status: string; reason: string | null }>(
-    `select faculty_verification_status as status, faculty_rejection_reason as reason
+  const result = await getDb().query<{ status: string; reason: string | null; used: number; retryAt: string | null }>(
+    `select faculty_verification_status as status, faculty_rejection_reason as reason,
+       (select count(*)::int from unnest(faculty_submission_attempts) as attempt where attempt > now()-interval '24 hours') as used,
+       (select case when count(*) >= 5 then (min(attempt)+interval '24 hours')::text else null end
+         from unnest(faculty_submission_attempts) as attempt where attempt > now()-interval '24 hours') as "retryAt"
      from users where microsoft_user_id=$1 order by login_at desc limit 1`, [userId])
-  return result.rows[0] ?? { status: "pending", reason: null }
+  return result.rows[0] ?? { status: "pending", reason: null, used: 0, retryAt: null }
 }
 export async function listFacultyVerifications(tenantId: string) {
   await ensureMicrosoftLoginSchema()
   const result = await getDb().query<FacultyVerification>(`
     select distinct on (microsoft_user_id) microsoft_user_id as "userId", name, email,
-      faculty_verification_status as status, login_at::text as "submittedAt", faculty_rejection_reason as reason
+      faculty_verification_status as status, faculty_requested_at::text as "submittedAt", faculty_rejection_reason as reason
     from users where tenant_id=$1 and role='faculty'
     order by microsoft_user_id, login_at desc`, [tenantId])
   return result.rows
@@ -28,4 +31,18 @@ export async function reviewFacultyVerification(input: { userId: string; tenantI
     where microsoft_user_id=$3 and tenant_id=$2 and role='faculty' and faculty_verification_status='pending'
     returning microsoft_user_id`, [input.reviewerId, input.tenantId, input.userId, input.status, input.status === "rejected" ? input.reason : null])
   return (result.rowCount ?? 0) > 0
+}
+
+export async function resubmitFacultyVerification(userId: string, tenantId: string) {
+  await ensureMicrosoftLoginSchema()
+  // One atomic write checks status and quota, including simultaneous requests.
+  const result = await getDb().query(`update users set faculty_verification_status='pending',
+    faculty_reviewed_by=null, faculty_reviewed_at=null, faculty_rejection_reason=null,
+    faculty_requested_at=now(),
+    faculty_submission_attempts=array(select attempt from unnest(faculty_submission_attempts) as attempt
+      where attempt > now()-interval '24 hours') || array[now()]
+    where microsoft_user_id=$1 and tenant_id=$2 and role='faculty' and faculty_verification_status='rejected'
+      and (select count(*) from unnest(faculty_submission_attempts) as attempt where attempt > now()-interval '24 hours') < 5
+    returning microsoft_user_id`, [userId, tenantId])
+  return (result.rowCount ?? 0) === 1
 }

@@ -80,7 +80,7 @@ type ArchiveGroup = {
 }
 
 const activeHeaderFilterItemClassName =
-  "bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.12)] data-[highlighted]:text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2] dark:data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.28)] dark:data-[highlighted]:text-[#c3dbef]"
+  "bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.12)] data-[highlighted]:text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[var(--brand-link)] dark:data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.28)] dark:data-[highlighted]:text-[var(--brand-link)]"
 
 function getStartOfDay(value: Date) {
   const nextDate = new Date(value)
@@ -442,14 +442,14 @@ export default function ArchivePage() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-300 dark:hover:bg-[#303030] dark:hover:text-slate-100"
+                  className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-300 dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-100"
                   aria-label="Filter archive items"
                   title="Filter"
                 >
                   <Filter className="h-3.5 w-3.5" />
                   <span>Filter</span>
                   {hasActiveFilters ? (
-                    <span className="inline-flex min-w-5 items-center justify-center rounded bg-[color:rgba(var(--brand-primary-rgb),0.1)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2]">
+                    <span className="inline-flex min-w-5 items-center justify-center rounded bg-[color:rgba(var(--brand-primary-rgb),0.1)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[var(--brand-link)]">
                       {activeFilterCount}
                     </span>
                   ) : null}
@@ -457,7 +457,7 @@ export default function ArchivePage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
               >
                 <DropdownMenuItem
                   className={
@@ -477,7 +477,7 @@ export default function ArchivePage() {
             {hasActiveFilters ? (
               <button
                 type="button"
-                className="text-xs text-slate-500 transition hover:text-slate-900 dark:text-[#9fadbc] dark:hover:text-[#dee4ea]"
+                className="text-xs text-slate-500 transition hover:text-slate-900 dark:text-[var(--muted-foreground)] dark:hover:text-[var(--foreground)]"
                 onClick={() => setFilterValue("none")}
               >
                 Clear filters
@@ -494,10 +494,10 @@ export default function ArchivePage() {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-xs dark:border-[#343434] dark:bg-[#1f1f1f]">
+      <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-xs dark:border-[var(--border)] dark:bg-[var(--card)]">
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse">
-            <thead className="border-b border-slate-200 bg-slate-50 dark:border-[#343434] dark:bg-[#202020]">
+            <thead className="border-b border-slate-200 bg-slate-50 dark:border-[var(--border)] dark:bg-[var(--card)]">
               <tr className="text-left">
                 <th className="w-9 px-2.5 py-2">
                   <Checkbox
@@ -527,7 +527,7 @@ export default function ArchivePage() {
 
                 return (
                   <React.Fragment key={group.id}>
-                    <tr className="bg-slate-50/80 dark:bg-[#202020]">
+                    <tr className="bg-slate-50/80 dark:bg-[var(--card)]">
                       <td colSpan={8} className="px-2.5 py-2">
                         <button
                           type="button"
@@ -560,7 +560,7 @@ export default function ArchivePage() {
                   return (
                     <tr
                       key={item.id}
-                      className="border-b border-slate-200 transition hover:bg-slate-50 dark:border-[#343434] dark:hover:bg-[#242424]"
+                      className="border-b border-slate-200 transition hover:bg-slate-50 dark:border-[var(--border)] dark:hover:bg-[var(--surface-hover)]"
                     >
                       <td className="px-2.5 py-2 align-middle">
                         <Checkbox
@@ -582,14 +582,14 @@ export default function ArchivePage() {
                         {renderArchiveKey(row, item.displayId)}
                       </td>
                       <td className="px-2 py-2 align-middle">
-                        <span className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-[#303030] dark:text-slate-300">
+                        <span className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-[var(--surface-hover)] dark:text-slate-300">
                           {getArchiveRowTypeLabel(row)}
                         </span>
                       </td>
                       <td className="max-w-[220px] px-2 py-2 align-middle text-sm text-slate-700 dark:text-slate-200">
                         <div className="flex min-w-0 items-center gap-2">
                           {row.depth > 0 ? (
-                            <span className="h-px w-4 bg-slate-300 dark:bg-[#4a4a4a]" aria-hidden="true" />
+                            <span className="h-px w-4 bg-slate-300 dark:bg-[var(--input)]" aria-hidden="true" />
                           ) : null}
                           <span className="truncate whitespace-nowrap" title={item.title}>
                             {item.title}
@@ -597,7 +597,7 @@ export default function ArchivePage() {
                         </div>
                       </td>
                       <td className="px-2 py-2 align-middle">
-                        <span className="inline-flex rounded-md border border-slate-300 px-1.5 py-0.5 text-xs text-slate-700 dark:border-[#4a4a4a] dark:text-slate-200">
+                        <span className="inline-flex rounded-md border border-slate-300 px-1.5 py-0.5 text-xs text-slate-700 dark:border-[var(--input)] dark:text-slate-200">
                           {item.archivedAt ? formatDeadline(item.archivedAt) : "-"}
                         </span>
                       </td>
@@ -627,7 +627,7 @@ export default function ArchivePage() {
                             <DropdownMenuTrigger asChild>
                               <button
                                 type="button"
-                                className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[#303030] dark:hover:text-slate-100"
+                                className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-100"
                                 aria-label={`Open actions for ${item.displayId}`}
                                 title="Actions"
                             >
@@ -636,7 +636,7 @@ export default function ArchivePage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                               align="end"
-                              className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                              className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                             >
                               <DropdownMenuItem onSelect={() => setPendingRestoreRow(row)}>
                                 <RotateCcw className="h-4 w-4" />
@@ -670,7 +670,7 @@ export default function ArchivePage() {
                 return (
                   <tr
                     key={item.id}
-                    className="border-b border-slate-200 transition hover:bg-slate-50 dark:border-[#343434] dark:hover:bg-[#242424]"
+                    className="border-b border-slate-200 transition hover:bg-slate-50 dark:border-[var(--border)] dark:hover:bg-[var(--surface-hover)]"
                   >
                     <td className="px-2.5 py-2 align-middle">
                       <Checkbox
@@ -690,14 +690,14 @@ export default function ArchivePage() {
                       {renderArchiveKey(row, displayId)}
                     </td>
                     <td className="px-2 py-2 align-middle">
-                      <span className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-[#303030] dark:text-slate-300">
+                      <span className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-[var(--surface-hover)] dark:text-slate-300">
                         {getArchiveRowTypeLabel(row)}
                       </span>
                     </td>
                     <td className="max-w-[220px] px-2 py-2 align-middle text-sm text-slate-700 dark:text-slate-200">
                       <div className="flex min-w-0 items-center gap-2">
                         {row.depth > 0 ? (
-                          <span className="h-px w-4 bg-slate-300 dark:bg-[#4a4a4a]" aria-hidden="true" />
+                          <span className="h-px w-4 bg-slate-300 dark:bg-[var(--input)]" aria-hidden="true" />
                         ) : null}
                         <span className="truncate whitespace-nowrap" title={resourceName}>
                           {resourceName}
@@ -705,7 +705,7 @@ export default function ArchivePage() {
                       </div>
                     </td>
                     <td className="px-2 py-2 align-middle">
-                      <span className="inline-flex rounded-md border border-slate-300 px-1.5 py-0.5 text-xs text-slate-700 dark:border-[#4a4a4a] dark:text-slate-200">
+                      <span className="inline-flex rounded-md border border-slate-300 px-1.5 py-0.5 text-xs text-slate-700 dark:border-[var(--input)] dark:text-slate-200">
                         {item.archivedAt ? formatDeadline(item.archivedAt) : "-"}
                       </span>
                     </td>
@@ -734,7 +734,7 @@ export default function ArchivePage() {
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[#303030] dark:hover:text-slate-100"
+                            className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-100"
                             aria-label={`Open actions for ${displayId}`}
                             title="Actions"
                           >
@@ -743,7 +743,7 @@ export default function ArchivePage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                          className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                         >
                           <DropdownMenuItem
                             disabled={!canManageAttachment}
@@ -772,7 +772,7 @@ export default function ArchivePage() {
           </table>
         </div>
 
-        <div className="border-t border-slate-200 px-4 py-2 text-center text-sm text-slate-500 dark:border-[#343434] dark:text-slate-400">
+        <div className="border-t border-slate-200 px-4 py-2 text-center text-sm text-slate-500 dark:border-[var(--border)] dark:text-slate-400">
           {archiveRows.length} of {totalArchiveRows.length}
         </div>
       </div>
@@ -785,7 +785,7 @@ export default function ArchivePage() {
           }
         }}
       >
-        <AlertDialogContent className="max-w-sm border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#3a3a3a] dark:bg-[#2f3033] dark:text-slate-100">
+        <AlertDialogContent className="max-w-sm border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
           <AlertDialogHeader className="place-items-start text-left">
             <AlertDialogTitle className="flex items-center gap-3 text-xl font-semibold leading-tight text-slate-950 dark:text-slate-100">
               <ArchiveRestore className="h-5 w-5 shrink-0 text-[var(--brand-primary-fixed)] dark:text-amber-400" />
@@ -807,7 +807,7 @@ export default function ArchivePage() {
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-[var(--brand-primary-fixed)] text-white hover:bg-[#084a7d] dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300"
+              className="bg-[var(--brand-primary-fixed)] text-white hover:bg-[var(--brand-hover)] dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300"
               onClick={() => void handleConfirmRestore()}
             >
               Restore

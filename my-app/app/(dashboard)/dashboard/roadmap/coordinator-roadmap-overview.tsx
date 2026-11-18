@@ -13,7 +13,7 @@ import type { DashboardProject } from "@/lib/projects"
 import type { BacklogApiItem } from "../types"
 
 const cardClass =
-  "rounded-lg border border-slate-200 bg-white p-3 dark:border-[#3a414b] dark:bg-[#202329]"
+  "rounded-lg border border-slate-200 bg-white p-3 dark:border-[var(--border)] dark:bg-[var(--card)]"
 
 const statusStyles = {
   todo: { label: "To Do", color: "text-slate-600 dark:text-slate-300", bar: "bg-slate-400" },
@@ -89,12 +89,12 @@ export function CoordinatorRoadmapOverview({ project, items }: {
         <SectionHeading icon={FileCheck2} title="Tasks per status" description="Current distribution of all group tasks." />
         <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {statusCards.map((status) => (
-            <div key={status.label} className="rounded-md border border-slate-200 p-2.5 dark:border-[#3a414b]">
+            <div key={status.label} className="rounded-md border border-slate-200 p-2.5 dark:border-[var(--border)]">
               <div className="flex items-end justify-between gap-3">
                 <p className={`text-sm font-medium ${status.color}`}>{status.label}</p>
                 <p className="text-lg font-bold text-slate-950 dark:text-white">{status.value}</p>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-[#303030]">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-[var(--surface-hover)]">
                 <div className={`h-full rounded-full ${status.bar}`} style={{ width: `${(status.value / largestStatusCount) * 100}%` }} />
               </div>
             </div>
@@ -107,7 +107,7 @@ export function CoordinatorRoadmapOverview({ project, items }: {
           <SectionHeading icon={CalendarClock} title="Upcoming deadlines" description="Next task deadlines from this group." />
           <div className="mt-3">
             {!upcomingDeadlines.length ? <EmptyState>No upcoming deadlines.</EmptyState> : upcomingDeadlines.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-2 border-b border-slate-100 py-2 last:border-0 dark:border-[#343a43]">
+              <div key={item.id} className="flex items-center justify-between gap-2 border-b border-slate-100 py-2 last:border-0 dark:border-[var(--border)]">
                 <div><p className="font-medium">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.priority ?? "Medium"} priority</p></div>
                 <p className="shrink-0 text-sm font-semibold text-blue-700 dark:text-blue-300">{formatDate(item.dueDate)}</p>
               </div>
@@ -130,7 +130,7 @@ export function CoordinatorRoadmapOverview({ project, items }: {
             {!delayedTasks.length ? <EmptyState>No delayed tasks.</EmptyState> : delayedTasks.map((item) => {
               const daysLate = Math.max(1, Math.ceil((now.getTime() - new Date(item.dueDate!).getTime()) / 86_400_000))
               return (
-                <div key={item.id} className="border-b border-slate-100 py-2 last:border-0 dark:border-[#343a43]">
+                <div key={item.id} className="border-b border-slate-100 py-2 last:border-0 dark:border-[var(--border)]">
                   <div className="flex flex-wrap items-start justify-between gap-2"><p className="font-medium">{item.title}</p><span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 dark:bg-red-950 dark:text-red-300">{daysLate} {daysLate === 1 ? "day" : "days"} late</span></div>
                   <p className="mt-2 text-xs text-muted-foreground">Due {formatDate(item.dueDate)}</p>
                 </div>
@@ -154,9 +154,9 @@ export function CoordinatorRoadmapOverview({ project, items }: {
         {!members.length ? <EmptyState>No student members assigned.</EmptyState> : (
           <div className="mt-3 grid gap-2 lg:grid-cols-3">
             {members.map((member) => (
-              <div key={member.name} className="rounded-md border border-slate-200 p-2.5 dark:border-[#3a414b]">
+              <div key={member.name} className="rounded-md border border-slate-200 p-2.5 dark:border-[var(--border)]">
                 <div className="flex items-center gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">{member.initials}</div><div><p className="font-semibold">{member.name}</p><p className="text-xs text-muted-foreground">{member.completed} of {member.assigned} tasks completed</p></div></div>
-                <div className="mt-2 flex items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-[#303030]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${member.percent}%` }} /></div><span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{member.percent}%</span></div>
+                <div className="mt-2 flex items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-[var(--surface-hover)]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${member.percent}%` }} /></div><span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{member.percent}%</span></div>
               </div>
             ))}
           </div>
@@ -170,8 +170,8 @@ export function CoordinatorRoadmapOverview({ project, items }: {
             const approved = item.status === "completed"
             return (
               <div key={item.id} className="relative flex gap-2.5 pb-3 last:pb-0">
-                {index < feedbackItems.length - 1 ? <div className="absolute left-[9px] top-5 h-full w-px bg-slate-200 dark:bg-[#3a3a3a]" /> : null}
-                <div className={`relative mt-1 h-5 w-5 shrink-0 rounded-full border-4 border-white dark:border-[#202329] ${approved ? "bg-emerald-500" : "bg-amber-500"}`} />
+                {index < feedbackItems.length - 1 ? <div className="absolute left-[9px] top-5 h-full w-px bg-slate-200 dark:bg-[var(--border)]" /> : null}
+                <div className={`relative mt-1 h-5 w-5 shrink-0 rounded-full border-4 border-white dark:border-[var(--card)] ${approved ? "bg-emerald-500" : "bg-amber-500"}`} />
                 <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:justify-between"><div><p className="font-medium">{item.title} {approved ? "approved" : "needs revision"}</p><p className="mt-1 text-sm text-muted-foreground">{item.description || (approved ? "Task marked as completed." : "Task returned for revision.")}</p></div><p className="shrink-0 text-xs text-muted-foreground">{formatDate(item.createdAt)}</p></div>
               </div>
             )

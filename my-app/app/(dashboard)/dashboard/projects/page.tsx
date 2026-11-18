@@ -190,7 +190,7 @@ function ProjectPeopleIndicator({
           {people.slice(0, 4).map((person, index) => (
             <Avatar
               key={`${emptyLabel}-${person}`}
-              className={`h-7 w-7 border-2 border-white dark:border-[#1f1f1f] ${
+              className={`h-7 w-7 border-2 border-white dark:border-[var(--card)] ${
                 index === 0 ? "" : "-ml-2"
               }`}
             >
@@ -298,15 +298,15 @@ export default function DashboardProjectsPage() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search projects"
-              className="h-8 rounded-sm border-slate-200 bg-white pl-8 text-xs dark:border-[#343434] dark:bg-[#242424] dark:text-slate-200 dark:placeholder:text-slate-500"
+              className="h-8 rounded-sm border-slate-200 bg-white pl-8 text-xs dark:border-[var(--border)] dark:bg-[var(--surface-hover)] dark:text-slate-200 dark:placeholder:text-slate-500"
             />
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm dark:border-[#343434] dark:bg-[#1f1f1f] dark:shadow-none">
+        <div className="overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:shadow-none">
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-xs">
-              <thead className="bg-slate-50 text-left text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:bg-[#242424] dark:text-slate-400">
+              <thead className="bg-slate-50 text-left text-[10px] uppercase tracking-[0.1em] text-slate-500 dark:bg-[var(--surface-hover)] dark:text-slate-400">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Name</th>
                   <th className="px-3 py-2 font-semibold">Key</th>
@@ -327,7 +327,7 @@ export default function DashboardProjectsPage() {
                     return (
                       <tr
                         key={project.id}
-                        className="cursor-pointer border-t border-slate-200 transition hover:bg-[color:rgba(var(--brand-primary-rgb),0.06)] dark:border-[#343434] dark:hover:bg-[#242424]"
+                        className="cursor-pointer border-t border-slate-200 transition hover:bg-[color:rgba(var(--brand-primary-rgb),0.06)] dark:border-[var(--border)] dark:hover:bg-[var(--surface-hover)]"
                         onClick={() => {
                           setDashboardProject(project.id)
                           router.push("/dashboard/board")

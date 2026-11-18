@@ -1264,7 +1264,13 @@ export function DashboardBoard({
       const destinationColumnId = destination.droppableId as TodoItem["status"]
       const draggedTodo = todos.find((todo) => todo.id === draggableId)
 
-      if (!draggedTodo || isTaskCompletionLocked(draggedTodo, todos)) {
+      if (!draggedTodo) return
+      if (isTaskCompletionLocked(draggedTodo, todos)) {
+        if (canEditAssignee && draggedTodo.status === "completed" &&
+            !hasCompletedTaskParent(draggedTodo, todos) && destinationColumnId === "revision") {
+          // Reopen through the status-only API path; completed records cannot be reordered.
+          void onStatusChange(draggableId, "revision")
+        }
         return
       }
 
@@ -1297,7 +1303,7 @@ export function DashboardBoard({
 
       void onMoveTodo(draggableId, targetTodo?.id ?? null, destinationColumnId)
     },
-    [canChangeTaskState, getColumnTodos, isDragDisabled, isSavingTaskStatus, onMoveTodo, onStatusChange, todos]
+    [canChangeTaskState, canEditAssignee, getColumnTodos, isDragDisabled, isSavingTaskStatus, onMoveTodo, onStatusChange, todos]
   )
 
   const selectedTodoIdParts = React.useMemo(() => {
@@ -1400,7 +1406,7 @@ export function DashboardBoard({
             </DialogHeader>
             {isFirstTaskOpenLoading ? (
               <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
-                <div className="min-h-0 p-4 sm:p-5 lg:border-r lg:p-6 dark:border-[#343434]">
+                <div className="min-h-0 p-4 sm:p-5 lg:border-r lg:p-6 dark:border-[var(--border)]">
                   <div className="space-y-5">
                     <div className="space-y-3">
                       <Skeleton className="h-4 w-20" />
@@ -1451,8 +1457,8 @@ export function DashboardBoard({
               <div
                 className={`min-h-0 p-4 sm:p-5 lg:p-6 ${
                   isSubmissionActionsOpen[selectedTodo.id]
-                    ? "order-1 border-slate-200 pt-10 dark:border-[#343434] sm:pt-12 lg:border-r lg:pt-12"
-                    : "order-2 border-t border-slate-200 dark:border-[#343434] lg:order-1 lg:border-r lg:border-t-0"
+                    ? "order-1 border-slate-200 pt-10 dark:border-[var(--border)] sm:pt-12 lg:border-r lg:pt-12"
+                    : "order-2 border-t border-slate-200 dark:border-[var(--border)] lg:order-1 lg:border-r lg:border-t-0"
                 }`}
               >
                 <ScrollArea className="h-full pr-2 sm:pr-3 lg:pr-4">
@@ -1460,12 +1466,12 @@ export function DashboardBoard({
                     <>
                       <DialogHeader className="mb-5 text-left sm:mb-6">
                         <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] border border-slate-200 bg-slate-50 text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] border border-slate-200 bg-slate-50 text-slate-600 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-300">
                             <FolderCheck className="h-3.5 w-3.5" />
                           </span>
                           <button
                             type="button"
-                            className="rounded-sm transition hover:text-[var(--brand-primary-fixed)] hover:underline dark:hover:text-[#9bc2e2]"
+                            className="rounded-sm transition hover:text-[var(--brand-primary-fixed)] hover:underline dark:hover:text-[var(--brand-link)]"
                             onClick={() => {
                               if (selectedParentTodo) {
                                 handleOpenTask(selectedParentTodo)
@@ -1480,12 +1486,12 @@ export function DashboardBoard({
                           {selectedTodoIdParts?.subtaskId ? (
                             <>
                               <span className="text-slate-400 dark:text-slate-500">/</span>
-                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] border border-slate-200 bg-slate-50 text-slate-600 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-300">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] border border-slate-200 bg-slate-50 text-slate-600 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-300">
                                 <GitFork className="h-3.5 w-3.5" />
                               </span>
                               <button
                                 type="button"
-                                className="rounded-sm transition hover:text-[var(--brand-primary-fixed)] hover:underline dark:hover:text-[#9bc2e2]"
+                                className="rounded-sm transition hover:text-[var(--brand-primary-fixed)] hover:underline dark:hover:text-[var(--brand-link)]"
                                 onClick={() => handleOpenTask(selectedTodo)}
                               >
                                 {selectedTodoIdParts.subtaskId}
@@ -1515,7 +1521,7 @@ export function DashboardBoard({
                         }}
                         onAssetAttach={handleAssetAttach}
                       />
-                      <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
+                      <Separator className="mt-4 bg-slate-200 dark:bg-[var(--border)]" />
                     </>
                   ) : null}
 
@@ -1546,7 +1552,7 @@ export function DashboardBoard({
                     onSubmissionUpload={handleSubmissionUpload}
                     onSubmissionArchive={handleArchiveSubmissionRequest}
                   />
-                  <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
+                  <Separator className="mt-4 bg-slate-200 dark:bg-[var(--border)]" />
 
                   <TaskWebLinksSection
                     links={taskWebLinks[selectedTodo.id] ?? []}
@@ -1563,7 +1569,7 @@ export function DashboardBoard({
                   (isSubmissionActionsOpen[selectedTodo.id] ?? false) ||
                   isUploadingSubmission ? null : (
                     <>
-                      <Separator className="mt-4 bg-slate-200 dark:bg-[#343434]" />
+                      <Separator className="mt-4 bg-slate-200 dark:bg-[var(--border)]" />
                       <TaskSubtasksSection
                         checklist={selectedTodo.checklist}
                         canChangeTaskState={canChangeTaskState && !isSavingTaskStatus && !selectedTaskLocked}
@@ -1643,7 +1649,7 @@ export function DashboardBoard({
         open={isEmptySubmissionAlertOpen}
         onOpenChange={setIsEmptySubmissionAlertOpen}
       >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <AlertDialogHeader className="place-items-start text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
@@ -1675,7 +1681,7 @@ export function DashboardBoard({
           }
         }}
       >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <AlertDialogHeader className="place-items-start text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
@@ -1732,7 +1738,7 @@ export function DashboardBoard({
           }
         }}
       >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <AlertDialogHeader className="place-items-start text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
@@ -1774,7 +1780,7 @@ export function DashboardBoard({
           }
         }}
       >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <AlertDialogHeader className="place-items-start text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">

@@ -45,7 +45,7 @@ function BoardCardSkeleton({ color }: { color: string }) {
           <Skeleton className="h-3 w-24" />
         </div>
 
-        <div className="my-1.5 h-px bg-slate-200 dark:bg-[#3a3a3a]" />
+        <div className="my-1.5 h-px bg-slate-200 dark:bg-[var(--border)]" />
 
         <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-3">
@@ -63,7 +63,7 @@ function BoardCardSkeleton({ color }: { color: string }) {
             <div className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 dark:text-slate-500">
               <Skeleton className="h-3.5 w-3.5 rounded-sm" />
             </div>
-            <div className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 dark:border-[#4a4a4a]">
+            <div className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 dark:border-[var(--input)]">
               <UserRound className="h-3 w-3 text-slate-400 dark:text-slate-500" />
             </div>
           </div>
@@ -114,7 +114,7 @@ function BoardColumnSkeleton({
           </div>
         </div>
 
-        <div className="mt-0 h-px w-full bg-slate-200 dark:bg-[#343434]" />
+        <div className="mt-0 h-px w-full bg-slate-200 dark:bg-[var(--border)]" />
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 p-2 pt-0">

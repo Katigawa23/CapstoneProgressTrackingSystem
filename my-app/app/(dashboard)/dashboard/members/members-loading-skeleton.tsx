@@ -13,8 +13,8 @@ export function MembersLoadingSkeleton() {
 
       <Skeleton className="h-8 w-full max-w-sm" />
 
-      <div className="overflow-hidden rounded-[6px] border border-slate-200 bg-white shadow-sm dark:border-[#2f313a] dark:bg-[#20212a]">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-[#2d2f38] dark:bg-[#171821]">
+      <div className="overflow-hidden rounded-[6px] border border-slate-200 bg-white shadow-sm dark:border-[var(--card)] dark:bg-[var(--card)]">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-[var(--card)] dark:bg-[var(--background)]">
           <div className="grid grid-cols-[48%_24%_28%] gap-3">
             <Skeleton className="h-4 w-20" />
             <Skeleton className="h-4 w-14" />
@@ -26,7 +26,7 @@ export function MembersLoadingSkeleton() {
           {Array.from({ length: 4 }).map((_, index) => (
             <div
               key={index}
-              className="grid grid-cols-[48%_24%_28%] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 dark:border-[#2d2f38]"
+              className="grid grid-cols-[48%_24%_28%] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 dark:border-[var(--card)]"
             >
               <div className="flex items-center gap-2">
                 <Skeleton className="h-7 w-7 rounded-full" />

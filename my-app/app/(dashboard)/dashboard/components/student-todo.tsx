@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowUpRight, CalendarDays, CheckCheck, ListTodo } from "lucide-react"
+import { ArrowUpRight, CalendarDays, CheckCheck } from "lucide-react"
 import type { BacklogApiItem } from "../types"
 import { PriorityBadge } from "./task-state-badges"
 import { formatTrustedDate } from "@/lib/trusted-time"
@@ -29,23 +29,22 @@ export function StudentTodo({ items, userId, projectIds }: {
   })
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-card dark:border-[#343434] dark:bg-[#1f1f1f]" aria-labelledby="student-todo-title">
-      <div className="flex items-center justify-between gap-2 border-b p-3">
+    <section className="border-t border-slate-200 pt-4 dark:border-slate-800" aria-labelledby="student-todo-title">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-[color:rgba(var(--brand-primary-rgb),0.12)] text-[var(--brand-primary-fixed)]"><ListTodo className="size-4" /></div>
-          <div><h2 id="student-todo-title" className="font-display text-sm font-semibold">To-do</h2><p className="text-xs text-muted-foreground">Your assigned tasks</p></div>
+          <div><h2 id="student-todo-title" className="font-display text-lg font-semibold tracking-tight">To-do</h2><p className="text-xs text-muted-foreground">Your assigned tasks</p></div>
         </div>
         <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold" aria-label={`${tasks.length} unfinished tasks`}>{tasks.length}</span>
       </div>
       {tasks.length ? (
-        <div className="max-h-[280px] space-y-1.5 overflow-y-auto overscroll-contain p-2" tabIndex={0} role="region" aria-label="Your unfinished tasks">
+        <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto overscroll-contain" tabIndex={0} role="region" aria-label="Your unfinished tasks">
           {tasks.map((task) => (
-            <Link key={task.id} href={`/dashboard/board?projectId=${encodeURIComponent(task.projectId ?? "")}&taskId=${encodeURIComponent(task.id)}`} className="group flex items-start gap-2 rounded-md border bg-background p-2 transition hover:border-[var(--brand-primary-fixed)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)]">
+            <Link key={task.id} href={`/dashboard/board?projectId=${encodeURIComponent(task.projectId ?? "")}&taskId=${encodeURIComponent(task.id)}`} className="group flex items-center gap-3 rounded-md px-1 py-3 transition hover:bg-muted/50 hover:border-[var(--brand-primary-fixed)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)]">
               <div className="pt-0.5"><PriorityBadge priority={task.priority} iconOnly /></div>
               <div className="min-w-0 flex-1">
-                <p className="break-words text-xs font-semibold">{task.title}</p>
-                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{task.projectName}</p>
-                <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground"><CalendarDays className="size-3.5 shrink-0" />{task.dueDate ? `Due ${formatTrustedDate(task.dueDate)}` : "No deadline"}</p>
+                <p className="break-words text-sm font-semibold">{task.title}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">{task.projectName}</p>
+                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><CalendarDays className="size-3.5 shrink-0" />{task.dueDate ? `Due ${formatTrustedDate(task.dueDate)}` : "No deadline"}</p>
               </div>
               <ArrowUpRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition group-hover:text-[var(--brand-primary-fixed)]" />
             </Link>

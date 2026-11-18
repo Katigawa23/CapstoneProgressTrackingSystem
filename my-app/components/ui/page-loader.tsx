@@ -24,7 +24,7 @@ export function PageLoader({
         compact
           ? "flex h-full min-h-[320px] items-center justify-center px-6"
           : "flex min-h-screen items-center justify-center px-6",
-        "bg-[radial-gradient(circle_at_top,_rgba(11,87,147,0.16),_transparent_45%),linear-gradient(180deg,_#f8fbff_0%,_#eef4ff_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(11,87,147,0.18),_transparent_40%),linear-gradient(180deg,_#171717_0%,_#101828_100%)]",
+        "bg-[radial-gradient(circle_at_top,_rgba(0,127,168,0.16),_transparent_45%),linear-gradient(180deg,_#f8fbff_0%,_#eef4ff_100%)] dark:bg-[radial-gradient(circle_at_top,_rgba(0,127,168,0.18),_transparent_40%),linear-gradient(180deg,_var(--background)_0%,_#101828_100%)]",
         className
       )}
       {...props}
@@ -38,9 +38,9 @@ export function PageLoader({
             <p className="text-sm text-slate-600 dark:text-slate-300">{description}</p>
           ) : null}
         </div>
-        <CustomLoader size={80} color="#0B5793" aria-hidden="true" />
+        <CustomLoader size={80} color="var(--brand-primary-fixed)" aria-hidden="true" />
         {message ? (
-          <p className="min-h-5 text-sm font-medium text-[var(--brand-primary-fixed)] dark:text-[#63a0d6]">{message}</p>
+          <p className="min-h-5 text-sm font-medium text-[var(--brand-primary-fixed)] dark:text-[var(--brand-link)]">{message}</p>
         ) : null}
       </div>
     </div>

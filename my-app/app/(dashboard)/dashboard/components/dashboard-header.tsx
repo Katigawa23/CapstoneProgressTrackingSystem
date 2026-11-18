@@ -20,7 +20,7 @@ import {
 export type DashboardBoardFilter = "none" | "assignee" | "subtask"
 
 const activeHeaderFilterItemClassName =
-  "bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.12)] data-[highlighted]:text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2] dark:data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.28)] dark:data-[highlighted]:text-[#c3dbef]"
+  "bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.12)] data-[highlighted]:text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[var(--brand-link)] dark:data-[highlighted]:bg-[color:rgba(var(--brand-primary-rgb),0.28)] dark:data-[highlighted]:text-[var(--brand-link)]"
 
 type DashboardHeaderProps = {
   breadcrumbSectionLabel?: string | null
@@ -140,14 +140,14 @@ export function DashboardHeader({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-300 dark:hover:bg-[#303030] dark:hover:text-slate-100"
+                      className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 shadow-xs transition hover:bg-slate-50 hover:text-slate-900 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-300 dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-100"
                       aria-label="Filter board items"
                       title="Filter"
                     >
                       <Filter className="h-3.5 w-3.5" />
                       <span>Filter</span>
                       {hasActiveFilters ? (
-                        <span className="inline-flex min-w-5 items-center justify-center rounded bg-[color:rgba(var(--brand-primary-rgb),0.1)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[#9bc2e2]">
+                        <span className="inline-flex min-w-5 items-center justify-center rounded bg-[color:rgba(var(--brand-primary-rgb),0.1)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.22)] dark:text-[var(--brand-link)]">
                           {activeFilterCount}
                         </span>
                       ) : null}
@@ -155,7 +155,7 @@ export function DashboardHeader({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
-                    className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                    className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                   >
                     <DropdownMenuItem
                       className={
@@ -175,7 +175,7 @@ export function DashboardHeader({
                 {hasActiveFilters ? (
                   <button
                     type="button"
-                    className="text-xs text-slate-500 transition hover:text-slate-900 dark:text-[#9fadbc] dark:hover:text-[#dee4ea]"
+                    className="text-xs text-slate-500 transition hover:text-slate-900 dark:text-[var(--muted-foreground)] dark:hover:text-[var(--foreground)]"
                     onClick={() => onFilterChange("none")}
                   >
                     Clear filters

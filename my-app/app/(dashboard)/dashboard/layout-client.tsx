@@ -125,7 +125,7 @@ function ProfileMenu({
       </DropdownMenu>
 
       <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
-        <AlertDialogContent className="max-w-sm rounded-[2px] border-slate-200 bg-white text-slate-950 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+        <AlertDialogContent className="max-w-sm rounded-[2px] border-slate-200 bg-white text-slate-950 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
           <AlertDialogHeader className="place-items-start text-left">
             <AlertDialogTitle>Logout?</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-600 dark:text-slate-300">
@@ -291,7 +291,7 @@ export function DashboardLayoutClient({
       taskReadOnly={!session?.user.id || coordinatorMode || isSuperAdminViewer(session.user.id)}
     >
       <SidebarProvider>
-        <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center border-b bg-background/80 px-4 shadow-sm backdrop-blur-md dark:border-[#343434] dark:bg-[#171717] dark:shadow-none sm:px-6">
+        <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center border-b bg-background/80 px-4 shadow-sm backdrop-blur-md dark:border-[var(--border)] dark:bg-[var(--background)] dark:shadow-none sm:px-6">
           <div className="flex items-center gap-3">
             <SidebarTrigger className="md:hidden" />
             <Link
@@ -299,8 +299,8 @@ export function DashboardLayoutClient({
               className="flex items-center gap-3 font-display text-xl font-extrabold tracking-tight sm:text-2xl"
             >
               <span>
-                <span className="text-slate-950 dark:text-slate-50">Track</span>
-                <span className="text-[var(--brand-primary-fixed)]">Sphere</span>
+                <span style={{ color: "var(--logo-track)" }}>Track</span>
+                <span style={{ color: "var(--logo-sphere)" }}>Sphere</span>
               </span>
             </Link>
           </div>
@@ -322,7 +322,7 @@ export function DashboardLayoutClient({
           coordinatorMode={coordinatorMode}
         />
 
-        <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] pt-16 dark:from-[#212121] dark:to-[#171717]">
+        <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] pt-16 dark:from-background dark:to-background">
           <main
             className={`flex h-full min-w-0 flex-col p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10 ${
               pathname === "/dashboard" || pathname === "/coordinator" ? "overflow-y-auto" : "overflow-hidden"

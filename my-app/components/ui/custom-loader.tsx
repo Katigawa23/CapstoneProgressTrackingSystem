@@ -9,7 +9,7 @@ type CustomLoaderProps = React.ComponentProps<"div"> & {
 
 export function CustomLoader({
   className,
-  color = "#0B5793",
+  color = "var(--brand-primary-fixed)",
   size = 80,
   style,
   ...props
