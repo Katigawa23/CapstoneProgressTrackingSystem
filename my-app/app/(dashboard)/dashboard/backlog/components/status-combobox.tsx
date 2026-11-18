@@ -55,7 +55,7 @@ export function StatusCombobox({
           {selectedOption.label}
           {canReopenCompleted ? <ChevronsUpDown className="ml-2 h-3 w-3" /> : null}
         </button>
-        <AlertDialogContent className="max-w-sm dark:border-[#343434] dark:bg-[#262626]">
+        <AlertDialogContent className="max-w-sm dark:border-[var(--border)] dark:bg-[var(--card)]">
           <AlertDialogHeader>
             <AlertDialogTitle>Reopen task for revision?</AlertDialogTitle>
             <AlertDialogDescription>This will move the task to Revision and allow changes and submissions again.</AlertDialogDescription>

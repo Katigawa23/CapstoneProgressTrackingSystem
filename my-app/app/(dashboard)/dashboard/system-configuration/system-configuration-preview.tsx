@@ -133,7 +133,7 @@ export function SystemConfigurationPreview() {
   }
 
   return <><div className="h-full overflow-y-auto pb-8 pr-1"><div className="mx-auto w-full max-w-6xl space-y-6">
-    <div className="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-[#343434]">
+    <div className="flex flex-col gap-3 border-b border-slate-200 pb-5 dark:border-[var(--border)]">
       <div className="flex items-center gap-1.5 text-sm">
         <Link href="/dashboard" className="text-muted-foreground transition-colors hover:text-[var(--brand-primary-fixed)] hover:underline">Project</Link>
         <span className="text-muted-foreground">/</span>
@@ -145,12 +145,12 @@ export function SystemConfigurationPreview() {
     {loading ? <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-5 animate-spin" /> Loading configuration...</div> :
     <div className="grid items-start gap-4 lg:grid-cols-2">{categoryDetails.map((category) => {
       const Icon = category.icon
-      return <section key={category.key} className="overflow-hidden rounded-xl border bg-card shadow-sm dark:border-[#343434] dark:bg-[#1f1f1f]">
-        <div className="flex items-start gap-3 border-b p-4 dark:border-[#343434]"><div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[color:rgba(var(--brand-primary-rgb),0.12)] text-[var(--brand-primary-fixed)]"><Icon className="size-5" /></div><div><h2 className="font-display text-base font-semibold">{category.title}</h2><p className="mt-0.5 text-xs text-muted-foreground">{category.description}</p></div></div>
+      return <section key={category.key} className="overflow-hidden rounded-xl border bg-card shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)]">
+        <div className="flex items-start gap-3 border-b p-4 dark:border-[var(--border)]"><div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[color:rgba(var(--brand-primary-rgb),0.12)] text-[var(--brand-primary-fixed)]"><Icon className="size-5" /></div><div><h2 className="font-display text-base font-semibold">{category.title}</h2><p className="mt-0.5 text-xs text-muted-foreground">{category.description}</p></div></div>
         <div className="space-y-3 p-4"><div className="flex gap-2"><Input value={drafts[category.key]} disabled={saving} onChange={(event) => setDrafts((current) => ({ ...current, [category.key]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") requestAddOption(category.key) }} placeholder={category.placeholder} className="h-9" /><Button type="button" size="sm" disabled={saving || !drafts[category.key].trim()} className="h-9 gap-1.5" onClick={() => requestAddOption(category.key)}><Plus className="size-4" /> Add</Button></div>
           <div className="max-h-[204px] space-y-2 overflow-y-auto pr-1">{options[category.key].map((option) => {
             const isEditing = editing?.category === category.key && editing.id === option.id
-            return <div key={option.id} className="flex min-h-11 items-center gap-2 rounded-lg border bg-background px-3 py-2 dark:border-[#343434]">
+            return <div key={option.id} className="flex min-h-11 items-center gap-2 rounded-lg border bg-background px-3 py-2 dark:border-[var(--border)]">
               {isEditing ? <Input autoFocus disabled={saving} value={editValue} onChange={(event) => setEditValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") requestSaveEdit(); if (event.key === "Escape") setEditing(null) }} className="h-8 flex-1" /> : <span className="min-w-0 flex-1 truncate text-sm font-medium">{option.label}</span>}
               {isEditing ? <><button disabled={saving} type="button" className="rounded-md p-1.5 text-emerald-500 hover:bg-emerald-500/10" onClick={requestSaveEdit} aria-label={`Save ${option.label}`}><Check className="size-4" /></button><button disabled={saving} type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted" onClick={() => setEditing(null)} aria-label="Cancel editing"><X className="size-4" /></button></> : <><button disabled={saving} type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => { setEditing({ category: category.key, id: option.id }); setEditValue(option.label) }} aria-label={`Edit ${option.label}`}><Pencil className="size-4" /></button><button disabled={saving} type="button" className="rounded-md p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500" onClick={() => setPendingDelete({ category: category.key, option })} aria-label={`Delete ${option.label}`}><Trash2 className="size-4" /></button></>}
             </div>
@@ -160,7 +160,7 @@ export function SystemConfigurationPreview() {
     })}</div>}
   </div></div>
     <AlertDialog open={Boolean(pendingAdd)} onOpenChange={(open) => { if (!open && !saving) setPendingAdd(null) }}>
-      <AlertDialogContent className="max-w-md rounded-xl border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100">
+      <AlertDialogContent className="max-w-md rounded-xl border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
         <AlertDialogHeader>
           <AlertDialogTitle>Add configuration option?</AlertDialogTitle>
           <AlertDialogDescription className="text-slate-600 dark:text-slate-300">
@@ -176,13 +176,13 @@ export function SystemConfigurationPreview() {
       </AlertDialogContent>
     </AlertDialog>
     <AlertDialog open={Boolean(pendingEdit)} onOpenChange={(open) => { if (!open && !saving) setPendingEdit(null) }}>
-      <AlertDialogContent className="max-w-md rounded-xl border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100">
+      <AlertDialogContent className="max-w-md rounded-xl border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
         <AlertDialogHeader>
           <AlertDialogTitle>Save configuration changes?</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3 text-slate-600 dark:text-slate-300">
               <p>This change will appear in the Coordinator Create Group form.</p>
-              <div className="rounded-lg border bg-slate-50 p-3 text-sm dark:border-[#343434] dark:bg-[#171717]">
+              <div className="rounded-lg border bg-slate-50 p-3 text-sm dark:border-[var(--border)] dark:bg-[var(--background)]">
                 <p><span className="text-muted-foreground">Current:</span> <span className="font-medium text-slate-900 dark:text-slate-100">{pendingEdit?.oldLabel}</span></p>
                 <p className="mt-1"><span className="text-muted-foreground">New:</span> <span className="font-medium text-[var(--brand-primary-fixed)]">{pendingEdit?.newLabel}</span></p>
               </div>
@@ -198,7 +198,7 @@ export function SystemConfigurationPreview() {
       </AlertDialogContent>
     </AlertDialog>
     <AlertDialog open={Boolean(pendingDelete)} onOpenChange={(open) => { if (!open && !saving) setPendingDelete(null) }}>
-      <AlertDialogContent className="max-w-md rounded-xl border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100">
+      <AlertDialogContent className="max-w-md rounded-xl border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
         <AlertDialogHeader>
           <AlertDialogTitle>Delete configuration option?</AlertDialogTitle>
           <AlertDialogDescription className="text-slate-600 dark:text-slate-300">

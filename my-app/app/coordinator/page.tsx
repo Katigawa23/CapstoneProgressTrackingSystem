@@ -108,7 +108,7 @@ export default function CoordinatorPage() {
             <button
               type="button"
               onClick={() => setShowAllGroups((current) => !current)}
-              className="text-sm font-medium text-[var(--brand-primary-fixed)] hover:text-[#084a7d] dark:text-[#63a0d6]"
+              className="text-sm font-medium text-[var(--brand-primary-fixed)] hover:text-[var(--brand-hover)] dark:text-[var(--brand-link)]"
             >
               {showAllGroups ? "Show less" : "View all groups"}
             </button>
@@ -116,7 +116,7 @@ export default function CoordinatorPage() {
         </div>
 
         {filteredGroups.length === 0 ? (
-          <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground dark:border-[#343434]">
+          <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground dark:border-[var(--border)]">
             {normalizedSearch ? "No matching groups found." : "No groups yet. Click Create to add your first group."}
           </div>
         ) : (
@@ -124,14 +124,14 @@ export default function CoordinatorPage() {
             {visibleGroups.map((group) => (
               <Card
                 key={group.id}
-                className="relative flex min-h-[160px] w-full cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[#343434] dark:bg-[#1f1f1f]"
+                className="relative flex min-h-[160px] w-full cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[var(--border)] dark:bg-[var(--card)]"
                 onClick={() => {
                   setDashboardProject(group.id)
                   router.push("/coordinator/board")
                 }}
               >
                 <div className="absolute inset-y-0 left-0 w-1.5 bg-[var(--brand-primary-fixed)]" />
-                <button type="button" onClick={(event) => event.stopPropagation()} aria-label={`More options for ${group.name}`} className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-[#2a2a2a]">
+                <button type="button" onClick={(event) => event.stopPropagation()} aria-label={`More options for ${group.name}`} className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-[var(--surface-hover)]">
                   <MoreHorizontal className="size-4" />
                 </button>
                 <CardHeader className="flex flex-1 flex-col px-5 pb-3 pt-4">
@@ -146,7 +146,7 @@ export default function CoordinatorPage() {
                   </p>
                   <div className="mt-auto flex items-center justify-end pt-3">
                     {[...group.advisers, ...group.members].slice(0, 4).map((person, personIndex) => (
-                      <Avatar key={`${group.id}-${person}-${personIndex}`} className={`size-7 border-2 border-white dark:border-[#1f1f1f] ${personIndex ? "-ml-2" : ""}`}>
+                      <Avatar key={`${group.id}-${person}-${personIndex}`} className={`size-7 border-2 border-white dark:border-[var(--card)] ${personIndex ? "-ml-2" : ""}`}>
                         <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-[10px] text-white">
                           {getInitials(person)}
                         </AvatarFallback>
@@ -174,7 +174,7 @@ export default function CoordinatorPage() {
                   setDashboardProject(group.id)
                   router.push("/coordinator/board")
                 }}
-                className="flex w-full items-center justify-between rounded-lg px-1 py-2 text-left hover:bg-slate-50 dark:hover:bg-[#242424]"
+                className="flex w-full items-center justify-between rounded-lg px-1 py-2 text-left hover:bg-slate-50 dark:hover:bg-[var(--surface-hover)]"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <Avatar className="size-8 rounded-md"><AvatarFallback className="rounded-md bg-[var(--brand-primary-fixed)] text-[10px] text-white">{getInitials(group.name)}</AvatarFallback></Avatar>

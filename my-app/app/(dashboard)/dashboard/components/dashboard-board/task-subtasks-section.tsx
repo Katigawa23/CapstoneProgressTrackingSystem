@@ -374,14 +374,14 @@ export function TaskSubtasksSection({
                   }`}
                 />
                 <span className="text-[15px] font-semibold">Subtasks</span>
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-[#343434] dark:text-slate-300">
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-[var(--border)] dark:text-slate-300">
                   {subtasks.length}
                 </span>
               </button>
             </CollapsibleTrigger>
 
             {isExpanded ? (
-              <p className="pl-6 text-sm text-slate-500 dark:text-[#9fadbc]">
+              <p className="pl-6 text-sm text-slate-500 dark:text-[var(--muted-foreground)]">
                 Break this task into smaller steps and manage them here.
               </p>
             ) : null}
@@ -421,7 +421,7 @@ export function TaskSubtasksSection({
                 style={{ width: `${completionPercent}%` }}
               />
             </div>
-            <p className="min-w-16 text-right text-sm text-slate-500 dark:text-[#9fadbc]">
+            <p className="min-w-16 text-right text-sm text-slate-500 dark:text-[var(--muted-foreground)]">
               {completionPercent}% Done
             </p>
           </div>
@@ -429,9 +429,9 @@ export function TaskSubtasksSection({
       </div>
 
       <CollapsibleContent>
-        <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[#454f59] dark:bg-[#1d2125]">
+        <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[var(--input)] dark:bg-[var(--card)]">
           <div
-            className={`${subtaskGridClass} border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-500 dark:border-[#2b3138] dark:bg-[#1d2125] dark:text-[#9fadbc]`}
+            className={`${subtaskGridClass} border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-500 dark:border-[#2b3138] dark:bg-[var(--card)] dark:text-[var(--muted-foreground)]`}
           >
             <span>Work</span>
             <span className="text-center">Created by</span>
@@ -444,7 +444,7 @@ export function TaskSubtasksSection({
 
           {subtasks.length === 0 ? (
             isCreatingSubtask ? null : (
-              <div className="px-3 py-4 text-sm text-slate-500 dark:text-[#9fadbc]">
+              <div className="px-3 py-4 text-sm text-slate-500 dark:text-[var(--muted-foreground)]">
                 No subtasks yet.
               </div>
             )
@@ -487,7 +487,7 @@ export function TaskSubtasksSection({
                         onOpenSubtask(subtask)
                       }
                     }}
-                    className={`${subtaskGridClass} group bg-white px-3 py-2 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] focus-visible:ring-inset dark:bg-[#1f1f23] dark:hover:bg-[#24292f] ${
+                    className={`${subtaskGridClass} group bg-white px-3 py-2 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] focus-visible:ring-inset dark:bg-[var(--card)] dark:hover:bg-[#24292f] ${
                       isEditingCurrentSubtask ? "" : "cursor-pointer"
                     }`}
                   >
@@ -515,9 +515,9 @@ export function TaskSubtasksSection({
                               }
                             }}
                             autoFocus
-                            className="h-8 border-[color:rgba(var(--brand-primary-rgb),0.28)] bg-white text-[13px] text-slate-900 shadow-none dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:bg-[#1d2125] dark:text-[#dee4ea]"
+                            className="h-8 border-[color:rgba(var(--brand-primary-rgb),0.28)] bg-white text-[13px] text-slate-900 shadow-none dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:bg-[var(--card)] dark:text-[var(--foreground)]"
                           />
-                          <span className="shrink-0 text-xs text-slate-500 dark:text-[#9fadbc]">
+                          <span className="shrink-0 text-xs text-slate-500 dark:text-[var(--muted-foreground)]">
                             {editingTitle.length}/{TASK_SPRINT_NAME_MAX_LENGTH}
                           </span>
                           {subtaskTitleError ? (
@@ -539,7 +539,7 @@ export function TaskSubtasksSection({
                         </div>
                       ) : (
                         <span
-                          className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left text-[13px] text-slate-900 transition group-hover:text-[var(--brand-primary-fixed)] dark:text-[#dee4ea] dark:group-hover:text-[#9bc2e2]"
+                          className="flex min-w-0 items-center gap-2 overflow-hidden rounded-[2px] text-left text-[13px] text-slate-900 transition group-hover:text-[var(--brand-primary-fixed)] dark:text-[var(--foreground)] dark:group-hover:text-[var(--brand-link)]"
                           title={`Open ${subtask.title}`}
                         >
                           <SubtaskGlyph />
@@ -576,7 +576,7 @@ export function TaskSubtasksSection({
                       }}
                     >
                       {subtask.startDate && !isEditingCurrentSubtask ? (
-                        <span className="text-[11px] text-slate-600 dark:text-[#dee4ea]">
+                        <span className="text-[11px] text-slate-600 dark:text-[var(--foreground)]">
                           {formatDeadline(subtask.startDate)}
                         </span>
                       ) : (
@@ -592,9 +592,9 @@ export function TaskSubtasksSection({
                               variant="outline"
                               disabled={!canUpdateSubtaskFields}
                               className={cn(
-                                "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
+                                "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[var(--input)] dark:bg-[var(--card)] dark:text-[var(--muted-foreground)]",
                                 subtask.startDate
-                                  ? "border-[color:rgba(var(--brand-primary-rgb),0.28)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:text-[#9bc2e2]"
+                                  ? "border-[color:rgba(var(--brand-primary-rgb),0.28)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:text-[var(--brand-link)]"
                                   : ""
                               )}
                               aria-label={
@@ -612,7 +612,7 @@ export function TaskSubtasksSection({
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent
-                            className="w-auto border-slate-200 bg-white p-0 dark:border-[#454f59] dark:bg-[#1d2125]"
+                            className="w-auto border-slate-200 bg-white p-0 dark:border-[var(--input)] dark:bg-[var(--card)]"
                             align="center"
                           >
                             <Calendar
@@ -638,7 +638,7 @@ export function TaskSubtasksSection({
                       }}
                     >
                       {subtask.deadline && !isEditingCurrentSubtask ? (
-                        <span className="text-[11px] text-slate-600 dark:text-[#dee4ea]">
+                        <span className="text-[11px] text-slate-600 dark:text-[var(--foreground)]">
                           {formatDeadline(subtask.deadline)}
                         </span>
                       ) : (
@@ -654,9 +654,9 @@ export function TaskSubtasksSection({
                               variant="outline"
                               disabled={!subtask.startDate || !canUpdateSubtaskFields}
                               className={cn(
-                                "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[#454f59] dark:bg-[#1d2125] dark:text-[#9fadbc]",
+                                "h-7 w-7 rounded-[2px] border-slate-200 bg-white p-0 text-slate-500 dark:border-[var(--input)] dark:bg-[var(--card)] dark:text-[var(--muted-foreground)]",
                                 subtask.deadline
-                                  ? "border-[color:rgba(var(--brand-primary-rgb),0.28)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:text-[#9bc2e2]"
+                                  ? "border-[color:rgba(var(--brand-primary-rgb),0.28)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:text-[var(--brand-link)]"
                                   : ""
                               )}
                               aria-label={
@@ -678,7 +678,7 @@ export function TaskSubtasksSection({
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent
-                            className="w-auto border-slate-200 bg-white p-0 dark:border-[#454f59] dark:bg-[#1d2125]"
+                            className="w-auto border-slate-200 bg-white p-0 dark:border-[var(--input)] dark:bg-[var(--card)]"
                             align="center"
                           >
                             <Calendar
@@ -708,11 +708,11 @@ export function TaskSubtasksSection({
                         onChange={(assigneeId) =>
                           onSubtaskAssigneeChange(subtask.id, assigneeId)
                         }
-                        className="h-5.5 w-5.5 rounded-full border-slate-200 bg-transparent p-0 hover:bg-slate-100 dark:border-[#4c525a] dark:bg-[#3b3f45] dark:hover:bg-[#4a4f57]"
+                        className="h-5.5 w-5.5 rounded-full border-slate-200 bg-transparent p-0 hover:bg-slate-100 dark:border-[#4c525a] dark:bg-[var(--border)] dark:hover:bg-[#4a4f57]"
                         avatarClassName="h-5.5 w-5.5"
-                        fallbackClassName="bg-[var(--brand-primary-fixed)] text-xs font-bold text-white dark:bg-[#3b3f45] dark:text-white"
-                        unassignedIconClassName="text-slate-500 dark:text-[#dee4ea]"
-                        contentClassName="dark:border-[#454f59] dark:bg-[#1d2125]"
+                        fallbackClassName="bg-[var(--brand-primary-fixed)] text-xs font-bold text-white dark:bg-[var(--border)] dark:text-white"
+                        unassignedIconClassName="text-slate-500 dark:text-[var(--foreground)]"
+                        contentClassName="dark:border-[var(--input)] dark:bg-[var(--card)]"
                       />
                     </div>
 
@@ -732,7 +732,7 @@ export function TaskSubtasksSection({
                           )
                         }
                         className="h-5.5 min-w-[80px] rounded-[2px] px-1.5 text-[10px] font-semibold uppercase tracking-[0.04em]"
-                        contentClassName="dark:border-[#454f59] dark:bg-[#1d2125]"
+                        contentClassName="dark:border-[var(--input)] dark:bg-[var(--card)]"
                       />
                       ) : <TaskStatusBadge status={subtask.status} />}
                     </div>
@@ -745,7 +745,7 @@ export function TaskSubtasksSection({
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-[#9fadbc] dark:hover:bg-[#2c333a] dark:hover:text-[#dee4ea]"
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-[2px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-[var(--muted-foreground)] dark:hover:bg-[#2c333a] dark:hover:text-[var(--foreground)]"
                             aria-label={`Open actions for ${subtask.title}`}
                             title="Actions"
                           >
@@ -754,7 +754,7 @@ export function TaskSubtasksSection({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                          className="w-36 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                         >
                           <DropdownMenuItem
                             disabled={!canManageSubtask}
@@ -786,7 +786,7 @@ export function TaskSubtasksSection({
           {canCreateSubtasks && isCreatingSubtask ? (
             <div
               ref={createSubtaskRowRef}
-              className={`${subtaskGridClass} border-t border-slate-200 bg-white px-3 py-2 dark:border-[#2b3138] dark:bg-[#1f1f23]`}
+              className={`${subtaskGridClass} border-t border-slate-200 bg-white px-3 py-2 dark:border-[#2b3138] dark:bg-[var(--card)]`}
             >
               <div className="flex min-w-0 items-center gap-2">
                 <SubtaskGlyph />
@@ -815,9 +815,9 @@ export function TaskSubtasksSection({
                     }}
                     autoFocus
                     placeholder="Create subtask title"
-                    className="h-8 w-full min-w-0 border-[color:rgba(var(--brand-primary-rgb),0.28)] bg-white text-[13px] text-slate-900 shadow-none dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:bg-[#1d2125] dark:text-[#dee4ea]"
+                    className="h-8 w-full min-w-0 border-[color:rgba(var(--brand-primary-rgb),0.28)] bg-white text-[13px] text-slate-900 shadow-none dark:border-[color:rgba(var(--brand-primary-rgb),0.45)] dark:bg-[var(--card)] dark:text-[var(--foreground)]"
                   />
-                  <span className="shrink-0 text-xs text-slate-500 dark:text-[#9fadbc]">
+                  <span className="shrink-0 text-xs text-slate-500 dark:text-[var(--muted-foreground)]">
                     {newSubtaskTitle.length}/{TASK_SPRINT_NAME_MAX_LENGTH}
                   </span>
                   {createSubtaskError ? (

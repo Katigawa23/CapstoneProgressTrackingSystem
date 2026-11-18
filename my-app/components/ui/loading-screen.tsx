@@ -20,7 +20,7 @@ export function LoadingScreen({
       )}
       {...props}
     >
-      <div className="flex flex-col items-center gap-3 rounded-[2px] bg-white/95 px-6 py-5 shadow-lg dark:bg-[#171717]/95">
+      <div className="flex flex-col items-center gap-3 rounded-[2px] bg-white/95 px-6 py-5 shadow-lg dark:bg-[var(--background)]/95">
         <Loading />
         <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
           {label}

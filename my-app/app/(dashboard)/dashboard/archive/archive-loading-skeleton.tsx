@@ -12,8 +12,8 @@ export function ArchiveLoadingSkeleton() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-xs dark:border-[#343434] dark:bg-[#1f1f1f]">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-[#343434] dark:bg-[#202020]">
+      <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-xs dark:border-[var(--border)] dark:bg-[var(--card)]">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <div className="grid grid-cols-[36px_120px_90px_minmax(160px,1fr)_120px_140px_140px_44px] gap-3">
             {Array.from({ length: 8 }).map((_, index) => (
               <Skeleton key={index} className="h-4 w-full" />
@@ -25,7 +25,7 @@ export function ArchiveLoadingSkeleton() {
           {Array.from({ length: 5 }).map((_, index) => (
             <div
               key={index}
-              className="grid grid-cols-[36px_120px_90px_minmax(160px,1fr)_120px_140px_140px_44px] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 dark:border-[#343434]"
+              className="grid grid-cols-[36px_120px_90px_minmax(160px,1fr)_120px_140px_140px_44px] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 dark:border-[var(--border)]"
             >
               <Skeleton className="h-4 w-4 rounded-sm" />
               <Skeleton className="h-4 w-20" />

@@ -27,8 +27,8 @@ export default async function StudentVerificationWaitingPage() {
   const rejected = access.status === "rejected"
   const Icon = rejected ? TriangleAlert : Clock3
   return <main className="flex min-h-dvh items-center justify-center bg-background p-5">
-    <section className="w-full max-w-md rounded-xl border bg-card p-6 shadow-sm dark:border-[#343434]">
-      <p className="font-display text-xl font-bold">Track<span className="text-[var(--brand-primary-fixed)]">Sphere</span></p>
+    <section className="w-full max-w-md rounded-xl border bg-card p-6 shadow-sm dark:border-[var(--border)]">
+      <p className="font-display text-xl font-bold"><span style={{ color: "var(--logo-track)" }}>Track</span><span style={{ color: "var(--logo-sphere)" }}>Sphere</span></p>
       <div className="mt-6 flex size-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500"><Icon className="size-5" /></div>
       <h1 className="mt-3 text-xl font-semibold">{rejected ? "Verification needs attention" : "Pending verification"}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{rejected ? "Your coordinator could not approve your details. Review the reason below and update your profile." : "Your profile has been sent to your program coordinator. You can enter the dashboard once your account is approved."}</p>

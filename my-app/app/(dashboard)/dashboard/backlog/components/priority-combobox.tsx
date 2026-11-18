@@ -28,7 +28,7 @@ function getPriorityOptionClassName(priority: PriorityValue) {
   }
 
   if (priority === "Low") {
-    return "border-[color:rgba(var(--brand-primary-rgb),0.2)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.18)] dark:text-[#9bc2e2]"
+    return "border-[color:rgba(var(--brand-primary-rgb),0.2)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.18)] dark:text-[var(--brand-link)]"
   }
 
   return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-300"
@@ -111,7 +111,7 @@ export function PriorityCombobox({
                   className={cn(
                     "flex items-center justify-between rounded-md px-2 py-2 text-xs text-slate-900 dark:text-slate-100",
                     value === option
-                      ? "bg-slate-100 dark:bg-[#343a42]"
+                      ? "bg-slate-100 dark:bg-[var(--border)]"
                       : "data-[selected=true]:bg-slate-50 dark:data-[selected=true]:bg-[#2a2f36]"
                 )}
               >

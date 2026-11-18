@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 function BacklogRowSkeleton() {
   return (
-    <div className="flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1.5 text-sm dark:border-[#343434] dark:bg-[#1f1f1f]">
+    <div className="flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1.5 text-sm dark:border-[var(--border)] dark:bg-[var(--card)]">
       <div className="flex min-w-0 items-center gap-2">
         <Skeleton className="h-4 w-4 rounded-sm" />
 
@@ -36,7 +36,7 @@ export function BacklogLoadingSkeleton() {
       {["Backlog"].map((label) => (
         <div
           key={label}
-          className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-[#343434] dark:bg-[#1f1f1f]"
+          className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-[var(--border)] dark:bg-[var(--card)]"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

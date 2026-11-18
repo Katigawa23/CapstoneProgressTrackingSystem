@@ -29,13 +29,13 @@ export default async function AdvisersPage() {
         </div>
 
         {!selectedProject ? (
-          <div className="rounded-lg border border-dashed border-slate-300 px-4 py-12 text-center dark:border-[#3a414b]">
+          <div className="rounded-lg border border-dashed border-slate-300 px-4 py-12 text-center dark:border-[var(--border)]">
             <p className="text-sm text-muted-foreground">
               Select a project or group to view its adviser.
             </p>
           </div>
         ) : selectedProject.advisers.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 px-4 py-12 text-center dark:border-[#3a414b]">
+          <div className="rounded-lg border border-dashed border-slate-300 px-4 py-12 text-center dark:border-[var(--border)]">
             <UserRoundCheck className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-3 text-sm font-medium">No adviser assigned</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -47,7 +47,7 @@ export default async function AdvisersPage() {
             {selectedProject.advisers.map((adviser) => (
               <article
                 key={adviser}
-                className="rounded-lg border border-slate-200 bg-white p-4 dark:border-[#3a414b] dark:bg-[#202329]"
+                className="rounded-lg border border-slate-200 bg-white p-4 dark:border-[var(--border)] dark:bg-[var(--card)]"
               >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-11 w-11">
@@ -63,7 +63,7 @@ export default async function AdvisersPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3 text-xs text-emerald-700 dark:border-[#343a43] dark:text-emerald-300">
+                <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3 text-xs text-emerald-700 dark:border-[var(--border)] dark:text-emerald-300">
                   <BadgeCheck className="h-4 w-4" />
                   Assigned to {selectedProject.name}
                 </div>

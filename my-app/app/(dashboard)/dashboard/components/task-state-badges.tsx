@@ -7,7 +7,7 @@ import { PriorityIcon } from "./priority-icon"
 const priorityStyles: Record<TodoItem["priority"], string> = {
   High: "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300",
   Medium: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-300",
-  Low: "border-[color:rgba(var(--brand-primary-rgb),0.2)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.18)] dark:text-[#9bc2e2]",
+  Low: "border-[color:rgba(var(--brand-primary-rgb),0.2)] bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:border-[color:rgba(var(--brand-primary-rgb),0.35)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.18)] dark:text-[var(--brand-link)]",
 }
 
 export function PriorityBadge({
@@ -48,7 +48,7 @@ export function TaskStatusBadge({
 
   return (
     <span className={cn(
-      "inline-flex h-6 items-center rounded border px-2 text-[11px] font-medium dark:bg-[#262626] dark:text-slate-200",
+      "inline-flex h-6 items-center rounded border px-2 text-[11px] font-medium dark:bg-[var(--card)] dark:text-slate-200",
       option.color,
       className
     )}>

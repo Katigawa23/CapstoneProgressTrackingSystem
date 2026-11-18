@@ -129,7 +129,7 @@ export function ThemeSwitch({
           disabled={disabled}
           aria-label="Toggle dark mode"
           title="Toggle dark mode"
-          className="rounded-full text-slate-600 hover:bg-[color:rgba(var(--brand-primary-rgb),0.08)] hover:text-[var(--brand-primary-fixed)] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-[var(--brand-primary-fixed)]"
+          className="rounded-full text-slate-600 hover:bg-[color:rgba(var(--brand-primary-rgb),0.08)] hover:text-[var(--brand-primary-fixed)] dark:text-slate-300 dark:hover:bg-accent dark:hover:text-[var(--brand-primary-fixed)]"
         >
           <Moon className="h-5 w-5" />
         </Button>
@@ -171,7 +171,7 @@ export function ThemeSwitch({
         onClick={() => handleCheckedChange(!isDark)}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
         title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-        className="rounded-full text-slate-600 hover:bg-[color:rgba(var(--brand-primary-rgb),0.08)] hover:text-[var(--brand-primary-fixed)] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-[var(--brand-primary-fixed)]"
+        className="rounded-full text-slate-600 hover:bg-[color:rgba(var(--brand-primary-rgb),0.08)] hover:text-[var(--brand-primary-fixed)] dark:text-slate-300 dark:hover:bg-accent dark:hover:text-[var(--brand-primary-fixed)]"
       >
         {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </Button>

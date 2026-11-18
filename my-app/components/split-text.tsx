@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 type SplitTextPart = {
   text: string
   className?: string
+  style?: CSSProperties
 }
 
 type SplitTextProps = {
@@ -75,7 +76,7 @@ export default function SplitText({
       aria-label={parts.map((part) => part.text).join("")}
     >
       {parts.map((part, partIndex) => (
-        <span key={`${part.text}-${partIndex}`} className={cn("inline-block", part.className)}>
+        <span key={`${part.text}-${partIndex}`} className={cn("inline-block", part.className)} style={part.style}>
           {Array.from(part.text).map((character, charIndex) => {
             const style: CSSProperties = {
               transitionDelay: `${initialDelay + characterIndex * delayStep}ms`,

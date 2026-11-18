@@ -65,7 +65,7 @@ export function StudentProfileSetup({ name, email, programs, yearLevels, initial
   return <DialogPrimitive.Root open>
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-md" />
-      <DialogPrimitive.Content onEscapeKeyDown={(event) => event.preventDefault()} onInteractOutside={(event) => event.preventDefault()} className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-card p-4 shadow-2xl outline-none sm:p-5 dark:border-[#343434] dark:bg-[#1f1f1f]">
+      <DialogPrimitive.Content onEscapeKeyDown={(event) => event.preventDefault()} onInteractOutside={(event) => event.preventDefault()} className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-card p-4 shadow-2xl outline-none sm:p-5 dark:border-[var(--border)] dark:bg-[var(--card)]">
       <div className="mb-3 flex size-9 items-center justify-center rounded-xl bg-[color:rgba(var(--brand-primary-rgb),0.12)] text-[var(--brand-primary-fixed)]"><GraduationCap className="size-5" /></div>
       <DialogPrimitive.Title className="font-display text-lg font-semibold">Complete your student profile</DialogPrimitive.Title>
       <DialogPrimitive.Description className="mt-1 text-xs leading-5 text-muted-foreground">Welcome to TrackSphere. Add your academic details to continue.</DialogPrimitive.Description>

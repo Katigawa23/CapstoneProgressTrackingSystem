@@ -377,7 +377,7 @@ export function DashboardPageClient({
                   return (
                     <div
                       key={project.id}
-                      className="flex w-full items-start justify-between gap-4 rounded-lg px-1 py-1.5 transition hover:bg-slate-50 dark:hover:bg-[#242424]"
+                      className="flex w-full items-start justify-between gap-4 rounded-lg px-1 py-1.5 transition hover:bg-slate-50 dark:hover:bg-[var(--surface-hover)]"
                     >
                       <button
                         type="button"
@@ -423,14 +423,14 @@ export function DashboardPageClient({
                             <button
                               type="button"
                               aria-label={`More options for ${project.name}`}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-500 dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-200"
                             >
                               <MoreHorizontal className="h-4 w-4" />
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                            className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                           >
                             <DropdownMenuItem
                               className="cursor-pointer"
@@ -531,7 +531,7 @@ export function DashboardPageClient({
             </div>
           ) : null}
 
-          <div className={currentUser?.role === "student" ? "grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]" : "space-y-6"}>
+          <div className="space-y-6">
           <div className="min-w-0 space-y-6">
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-4">
@@ -540,20 +540,20 @@ export function DashboardPageClient({
               </h2>
               {currentUser && currentUser.role !== "student" ? <Link
                 href="/dashboard/projects"
-                className="text-sm font-medium text-[var(--brand-primary-fixed)] transition hover:text-[#084a7d] dark:text-[#63a0d6] dark:hover:text-[#9bc2e2]"
+                className="text-sm font-medium text-[var(--brand-primary-fixed)] transition hover:text-[var(--brand-hover)] dark:text-[var(--brand-link)] dark:hover:text-[var(--brand-link)]"
               >
                 View all projects
               </Link> : null}
             </div>
 
-            <div className={currentUser?.role === "student" ? "grid gap-4 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2 xl:grid-cols-4"}>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {forYouProjects.map((project, index) => (
                 <div
                   key={project.id}
                   className="w-full"
                 >
                     <Card
-                      className="relative flex min-h-[124px] w-full cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[#343434] dark:bg-[#1f1f1f]"
+                      className="relative flex min-h-[124px] w-full cursor-pointer flex-col overflow-hidden rounded-none border-border/60 bg-card pt-0 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-[var(--border)] dark:bg-[var(--card)]"
                       onClick={() => {
                         setDashboardProject(project.id)
                         router.push("/dashboard/board")
@@ -566,7 +566,7 @@ export function DashboardPageClient({
                             <button
                               type="button"
                               aria-label={`More options for ${project.name}`}
-                              className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-500 dark:hover:bg-[#2a2a2a] dark:hover:text-slate-200"
+                              className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--brand-primary-fixed)] dark:text-slate-500 dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-200"
                               onClick={(event) => {
                                 event.stopPropagation()
                               }}
@@ -576,7 +576,7 @@ export function DashboardPageClient({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                            className="w-52 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                             onClick={(event) => {
                               event.stopPropagation()
                             }}
@@ -681,7 +681,7 @@ export function DashboardPageClient({
           }
         }}
       >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[#343434] dark:bg-[#262626]">
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <AlertDialogHeader className="place-items-start text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">

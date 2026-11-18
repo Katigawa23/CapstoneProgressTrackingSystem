@@ -198,7 +198,7 @@ export default function LandingPage() {
   const featureGroupCount = Math.ceil(featureCards.length / 3)
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] text-gray-800 dark:from-[#212121] dark:to-[#171717] dark:text-slate-100">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] text-gray-800 dark:from-background dark:to-background dark:text-slate-100">
       <Navbar />
 
       <section
@@ -209,8 +209,8 @@ export default function LandingPage() {
           <h1 className="font-display text-4xl leading-tight font-extrabold tracking-tight sm:text-5xl md:text-6xl">
             <SplitText
               parts={[
-                { text: "Track", className: "text-slate-950 dark:text-slate-50" },
-                { text: "Sphere", className: "text-[var(--brand-primary-fixed)]" },
+                { text: "Track", style: { color: "var(--logo-track)" } },
+                { text: "Sphere", style: { color: "var(--logo-sphere)" } },
               ]}
             />
             <ScrollReveal className="block" delay={340} yOffset={16}>
@@ -283,14 +283,14 @@ export default function LandingPage() {
           >
             <Card className="min-h-[13rem] rounded-xl border border-slate-200/80 bg-white/90 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.24)] backdrop-blur">
               <CardContent className="flex h-full min-h-[13rem] items-center justify-center p-5 sm:p-6">
-                <div className="h-full w-full rounded-xl border border-dashed border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[linear-gradient(135deg,rgba(11,87,147,0.12),rgba(255,255,255,0.9))] dark:border-[color:rgba(var(--brand-primary-rgb),0.4)] dark:bg-[linear-gradient(135deg,rgba(11,87,147,0.28),rgba(15,23,42,0.82))]" />
+                <div className="h-full w-full rounded-xl border border-dashed border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[linear-gradient(135deg,rgba(0,127,168,0.12),rgba(255,255,255,0.9))] dark:border-[color:rgba(var(--brand-primary-rgb),0.4)] dark:bg-[linear-gradient(135deg,rgba(0,127,168,0.28),rgba(15,23,42,0.82))]" />
               </CardContent>
             </Card>
           </AnimatedContent>
         </div>
 
         <div className="relative mx-auto hidden w-full max-w-3xl lg:block">
-          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,_rgba(11,87,147,0.16),_transparent_64%)] blur-3xl" />
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,_rgba(0,127,168,0.16),_transparent_64%)] blur-3xl" />
           <AnimatedContent
             delay={0.28}
             direction="horizontal"
@@ -301,7 +301,7 @@ export default function LandingPage() {
           >
             <Card className="min-h-[22rem] rounded-xl border border-slate-200/80 bg-white/90 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.24)] backdrop-blur">
               <CardContent className="flex h-full min-h-[22rem] items-center justify-center p-8">
-                <div className="h-full w-full rounded-xl border border-dashed border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[linear-gradient(135deg,rgba(11,87,147,0.12),rgba(255,255,255,0.9))] dark:border-[color:rgba(var(--brand-primary-rgb),0.4)] dark:bg-[linear-gradient(135deg,rgba(11,87,147,0.28),rgba(15,23,42,0.82))]" />
+                <div className="h-full w-full rounded-xl border border-dashed border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[linear-gradient(135deg,rgba(0,127,168,0.12),rgba(255,255,255,0.9))] dark:border-[color:rgba(var(--brand-primary-rgb),0.4)] dark:bg-[linear-gradient(135deg,rgba(0,127,168,0.28),rgba(15,23,42,0.82))]" />
               </CardContent>
             </Card>
           </AnimatedContent>
@@ -342,9 +342,9 @@ export default function LandingPage() {
                     key={feature.title}
                     className="pl-4 sm:basis-1/2 xl:basis-1/3"
                   >
-                    <Card className="h-full rounded-2l border border-slate-200/80 bg-white/95 shadow-sm transition duration-300 hover:scale-[1.01] hover:border-slate-200/80 hover:shadow-lg hover:ring-2 hover:ring-inset hover:ring-[var(--brand-primary-fixed)] dark:border-slate-800 dark:bg-slate-900/80 dark:hover:border-slate-800 dark:hover:ring-[var(--brand-primary-fixed)]">
+                    <Card className="h-full rounded-2l border border-slate-200/80 bg-white/95 shadow-sm transition duration-300 hover:scale-[1.01] hover:border-slate-200/80 hover:shadow-lg hover:ring-2 hover:ring-inset hover:ring-[var(--brand-primary-fixed)] dark:border-slate-800 dark:bg-card/80 dark:hover:border-slate-800 dark:hover:ring-[var(--brand-primary-fixed)]">
                       <CardContent className="flex h-full min-h-52 flex-col p-6">
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.2)] dark:text-[#63a0d6]">
+                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.2)] dark:text-[var(--brand-link)]">
                           <Icon className="h-6 w-6" />
                         </div>
                         <h3 className="mb-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -359,8 +359,8 @@ export default function LandingPage() {
                 )
               })}
             </CarouselContent>
-            <CarouselPrevious className="left-3 top-[calc(100%+1.25rem)] translate-y-0 border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 sm:top-1/2 sm:-left-4 sm:-translate-y-1/2" />
-            <CarouselNext className="right-3 top-[calc(100%+1.25rem)] translate-y-0 border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 sm:top-1/2 sm:-right-4 sm:-translate-y-1/2" />
+            <CarouselPrevious className="left-3 top-[calc(100%+1.25rem)] translate-y-0 border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-card dark:text-slate-100 dark:hover:bg-accent sm:top-1/2 sm:-left-4 sm:-translate-y-1/2" />
+            <CarouselNext className="right-3 top-[calc(100%+1.25rem)] translate-y-0 border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-card dark:text-slate-100 dark:hover:bg-accent sm:top-1/2 sm:-right-4 sm:-translate-y-1/2" />
           </Carousel>
 
           <div className="mt-14 flex items-center justify-center gap-3">
@@ -389,7 +389,7 @@ export default function LandingPage() {
       <section
         id="how-it-works"
         ref={howItWorksRef}
-        className="scroll-mt-24 bg-white px-4 py-16 dark:bg-[#1d1d1d] sm:px-6 md:py-20 xl:px-8"
+        className="scroll-mt-24 bg-white px-4 py-16 dark:bg-[var(--background)] sm:px-6 md:py-20 xl:px-8"
       >
         <ScrollReveal>
           <div className="mb-10 text-center md:mb-12">
@@ -428,7 +428,7 @@ export default function LandingPage() {
                 }}
               >
                 <div>
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.2)] dark:text-[#63a0d6]">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:rgba(var(--brand-primary-rgb),0.08)] text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.2)] dark:text-[var(--brand-link)]">
                     <Icon className="h-6 w-6" />
                   </div>
                   <h3
@@ -465,8 +465,8 @@ export default function LandingPage() {
             <SplitText
               parts={[
                 { text: "About", className: "text-slate-900 dark:text-slate-50" },
-                { text: " Track", className: "text-slate-900 dark:text-slate-50" },
-                { text: "Sphere", className: "text-[var(--brand-primary-fixed)]" },
+                { text: " Track", style: { color: "var(--logo-track)" } },
+                { text: "Sphere", style: { color: "var(--logo-sphere)" } },
               ]}
             />
           </h2>
@@ -485,13 +485,13 @@ TrackSphere is a web-based capstone and thesis project tracking and evaluation s
 
       <footer
         id="site-footer"
-        className="mt-10 border-t border-[color:rgba(var(--brand-primary-rgb),0.1)] bg-white/75 text-slate-700 backdrop-blur dark:border-[#343434] dark:bg-[#1d1d1d]/95 dark:text-slate-300"
+        className="mt-10 border-t border-[color:rgba(var(--brand-primary-rgb),0.1)] bg-white/75 text-slate-700 backdrop-blur dark:border-[var(--border)] dark:bg-[var(--background)]/95 dark:text-slate-300"
       >
         <div className="mx-auto grid w-full max-w-[92rem] gap-6 px-4 py-7 sm:px-6 md:grid-cols-[1.2fr_0.8fr] xl:px-8">
           <div>
             <h2 className="font-display text-lg font-semibold tracking-tight">
-              <span className="text-slate-950 dark:text-slate-50">Track</span>
-              <span className="text-[var(--brand-primary-fixed)]">Sphere</span>
+              <span style={{ color: "var(--logo-track)" }}>Track</span>
+              <span style={{ color: "var(--logo-sphere)" }}>Sphere</span>
             </h2>
             <p className="mt-2 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
               Manage milestones, submissions, and collaboration in one organized workspace.

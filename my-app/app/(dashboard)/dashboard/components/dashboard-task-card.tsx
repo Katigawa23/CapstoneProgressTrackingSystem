@@ -89,7 +89,7 @@ export function DashboardTaskCard({
         {...draggableProvided?.dragHandleProps}
         role="button"
         tabIndex={0}
-        className={`w-full border border-[var(--board-task-border)] bg-[var(--board-task-bg)] p-2 text-left shadow-[var(--board-task-shadow)] transition-[background-color,border-color,box-shadow] duration-300 hover:border-[color:rgba(var(--brand-primary-rgb),0.2)] hover:bg-[color:rgba(var(--brand-primary-rgb),0.06)] hover:shadow-[var(--board-task-shadow-hover)] focus:outline-none focus:ring-2 focus:ring-slate-300 dark:hover:border-[color:rgba(var(--brand-primary-rgb),0.55)] dark:hover:bg-[color:rgba(var(--brand-primary-rgb),0.14)] dark:focus:ring-[#4a4a4a] ${
+        className={`w-full border border-[var(--board-task-border)] bg-[var(--board-task-bg)] p-2 text-left shadow-[var(--board-task-shadow)] transition-[background-color,border-color,box-shadow] duration-300 hover:border-[color:rgba(var(--brand-primary-rgb),0.2)] hover:bg-[color:rgba(var(--brand-primary-rgb),0.06)] hover:shadow-[var(--board-task-shadow-hover)] focus:outline-none focus:ring-2 focus:ring-slate-300 dark:hover:border-[color:rgba(var(--brand-primary-rgb),0.55)] dark:hover:bg-[color:rgba(var(--brand-primary-rgb),0.14)] dark:focus:ring-[var(--input)] ${
           !canChangeTaskState
             ? isSubtask ? "cursor-pointer border-l-2 border-l-[var(--brand-primary-fixed)]" : "cursor-pointer"
             : isSubtask
@@ -130,7 +130,7 @@ export function DashboardTaskCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="shrink-0 rounded-sm p-1 text-slate-400 transition-[background-color,color] duration-200 hover:bg-slate-100 hover:text-slate-600 focus:outline-none dark:hover:bg-[#303030] dark:hover:text-slate-200"
+              className="shrink-0 rounded-sm p-1 text-slate-400 transition-[background-color,color] duration-200 hover:bg-slate-100 hover:text-slate-600 focus:outline-none dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-200"
               type="button"
               aria-label={`Open actions for ${todo.title}`}
               onClick={(event) => event.stopPropagation()}
@@ -140,7 +140,7 @@ export function DashboardTaskCard({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+            className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
             onClick={(event) => event.stopPropagation()}
           >
             {canChangeTaskState ? (
@@ -149,13 +149,13 @@ export function DashboardTaskCard({
                 <PencilLine className="h-4 w-4" />
                 Change status
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+              <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200">
                 {columns.map((column) => (
                   <DropdownMenuItem
                     key={column.id}
                     className={
                       column.id === todo.status
-                        ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                        ? "bg-slate-100 text-slate-900 dark:bg-[var(--surface-hover)] dark:text-slate-100"
                         : undefined
                     }
                     onSelect={() => onStatusChange(todo.id, column.id)}
@@ -174,16 +174,16 @@ export function DashboardTaskCard({
                     <UserRound className="h-4 w-4" />
                     Assignee
                   </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-56 border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200">
+                  <DropdownMenuSubContent className="w-56 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200">
                     <DropdownMenuItem
                       className={
                         !todo.assigneeId
-                          ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                          ? "bg-slate-100 text-slate-900 dark:bg-[var(--surface-hover)] dark:text-slate-100"
                           : undefined
                       }
                       onSelect={() => onAssigneeChange(todo.id, null)}
                     >
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[#4a4a4a] dark:bg-[#262626]">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[var(--input)] dark:bg-[var(--card)]">
                         <UserRound className="h-3.5 w-3.5 text-slate-500 dark:text-slate-300" />
                       </span>
                       <span className="flex-1">Unassigned</span>
@@ -193,7 +193,7 @@ export function DashboardTaskCard({
                         key={option.id}
                         className={
                           todo.assigneeId === option.id
-                            ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                            ? "bg-slate-100 text-slate-900 dark:bg-[var(--surface-hover)] dark:text-slate-100"
                             : undefined
                         }
                         onSelect={() => onAssigneeChange(todo.id, option.id)}
@@ -233,7 +233,7 @@ export function DashboardTaskCard({
         <span>{formatDeadline(todo.deadline)}</span>
       </div>
 
-      <div className="my-1.5 h-px bg-slate-200 dark:bg-[#3a3a3a]" />
+      <div className="my-1.5 h-px bg-slate-200 dark:bg-[var(--border)]" />
 
       <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
         <div className="flex items-center gap-3">
@@ -276,11 +276,11 @@ export function DashboardTaskCard({
             value={todo.assigneeId}
             disabled={!canEditAssignee}
             onChange={(assigneeId) => onAssigneeChange(todo.id, assigneeId)}
-            className="h-5 w-5 rounded-full border-slate-200 bg-transparent p-0 transition-[background-color,border-color,transform] duration-200 hover:scale-105 hover:bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#262626] dark:hover:bg-[#303030]"
+            className="h-5 w-5 rounded-full border-slate-200 bg-transparent p-0 transition-[background-color,border-color,transform] duration-200 hover:scale-105 hover:bg-slate-100 dark:border-[var(--input)] dark:bg-[var(--card)] dark:hover:bg-[var(--surface-hover)]"
             avatarClassName="h-5 w-5"
             fallbackClassName="text-[8px]"
             unassignedIconClassName="h-3 w-3 text-slate-500 dark:text-slate-300"
-            contentClassName="dark:border-[#343434] dark:bg-[#262626]"
+            contentClassName="dark:border-[var(--border)] dark:bg-[var(--card)]"
           />
         </div>
       </div>

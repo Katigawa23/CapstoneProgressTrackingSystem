@@ -196,7 +196,7 @@ export function TaskCommentsPanel({
       segment.type === "mention" ? (
         <span
           key={`${comment.id}-mention-${index}`}
-          className="rounded-full bg-[color:rgba(var(--brand-primary-rgb),0.1)] px-2 py-0.5 text-xs font-medium text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.2)] dark:text-[#9bc2e2]"
+          className="rounded-full bg-[color:rgba(var(--brand-primary-rgb),0.1)] px-2 py-0.5 text-xs font-medium text-[var(--brand-primary-fixed)] dark:bg-[color:rgba(var(--brand-primary-rgb),0.2)] dark:text-[var(--brand-link)]"
         >
           {segment.value}
         </span>
@@ -214,7 +214,7 @@ export function TaskCommentsPanel({
   return (
     <aside className="order-1 min-h-0 p-4 sm:p-5 lg:order-2 lg:p-6">
       <div className={`flex flex-col pr-2 sm:pr-3 lg:pr-4 ${canAccessComments ? "h-full min-h-[550px]" : ""}`}>
-        <section className="mb-3 rounded-[2px] border border-slate-200 bg-slate-50/80 p-2.5 dark:border-[#343434] dark:bg-[#202020]">
+        <section className="mb-3 rounded-[2px] border border-slate-200 bg-slate-50/80 p-2.5 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <div className="mb-2">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Details
@@ -252,10 +252,10 @@ export function TaskCommentsPanel({
                       <AssigneeCombobox
                         value={selectedTodo.assigneeId}
                         onChange={(assigneeId) => onAssigneeChange(selectedTodo.id, assigneeId)}
-                        className="border-slate-200 bg-transparent hover:bg-slate-100 dark:border-[#4a4a4a] dark:bg-[#262626] dark:hover:bg-[#303030]"
+                        className="border-slate-200 bg-transparent hover:bg-slate-100 dark:border-[var(--input)] dark:bg-[var(--card)] dark:hover:bg-[var(--surface-hover)]"
                         fallbackClassName="text-[9px]"
                         unassignedIconClassName="text-slate-500 dark:text-slate-300"
-                        contentClassName="dark:border-[#343434] dark:bg-[#262626]"
+                        contentClassName="dark:border-[var(--border)] dark:bg-[var(--card)]"
                       />
                     ) : (
                     <TooltipProvider>
@@ -268,7 +268,7 @@ export function TaskCommentsPanel({
                               </AvatarFallback>
                             </Avatar>
                           ) : (
-                            <div className="flex h-7 w-7 cursor-default items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-500 dark:border-[#4a4a4a] dark:bg-[#262626] dark:text-slate-300">
+                            <div className="flex h-7 w-7 cursor-default items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-500 dark:border-[var(--input)] dark:bg-[var(--card)] dark:text-slate-300">
                               -
                             </div>
                           )}
@@ -289,7 +289,7 @@ export function TaskCommentsPanel({
                         </AvatarFallback>
                       </Avatar>
                     ) : (
-                      <div className="flex h-7 w-7 shrink-0 cursor-default items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-500 dark:border-[#4a4a4a] dark:bg-[#262626] dark:text-slate-300">
+                      <div className="flex h-7 w-7 shrink-0 cursor-default items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-500 dark:border-[var(--input)] dark:bg-[var(--card)] dark:text-slate-300">
                         -
                       </div>
                     )}
@@ -317,7 +317,7 @@ export function TaskCommentsPanel({
         </section>
 
         {canAccessComments ? (
-        <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-[2px] border border-slate-200 bg-white p-4 dark:border-[#343434] dark:bg-[#1f1f1f]">
+        <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-[2px] border border-slate-200 bg-white p-4 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <div className="mb-4 shrink-0">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               Comments
@@ -360,7 +360,7 @@ export function TaskCommentsPanel({
                             <button
                               type="button"
                               disabled={!canManageComment}
-                              className="ml-auto rounded-[2px] p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-[#303030] dark:hover:text-slate-200"
+                              className="ml-auto rounded-[2px] p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-[var(--surface-hover)] dark:hover:text-slate-200"
                             >
                               <Ellipsis className="h-4 w-4" />
                             </button>
@@ -394,7 +394,7 @@ export function TaskCommentsPanel({
                           {comment.attachments.map((asset) => (
                             <span
                               key={`${comment.id}-${asset}`}
-                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-[#3a3a3a] dark:bg-[#303030] dark:text-slate-300"
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-[var(--border)] dark:bg-[var(--surface-hover)] dark:text-slate-300"
                             >
                               <File className="h-3.5 w-3.5" />
                               {asset}
@@ -425,21 +425,21 @@ export function TaskCommentsPanel({
                 })}
                 </div>
               ) : (
-                <div className="flex flex-1 items-center justify-center rounded-[2px] border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center dark:border-[#343434] dark:bg-[#202020]">
+                <div className="flex flex-1 items-center justify-center rounded-[2px] border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center dark:border-[var(--border)] dark:bg-[var(--card)]">
                   <p className="text-sm text-slate-500 dark:text-slate-400">No comments yet.</p>
                 </div>
               )}
               </div>
           </div>
 
-          <div className="shrink-0 border-t border-slate-200 pt-4 dark:border-[#343434]">
+          <div className="shrink-0 border-t border-slate-200 pt-4 dark:border-[var(--border)]">
             {isEditingComments ? (
-              <div className="space-y-2 rounded-[2px] border border-slate-200 bg-white p-3 dark:border-[#343434] dark:bg-[#1f1f1f]">
-                <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[#343434]">
+              <div className="space-y-2 rounded-[2px] border border-slate-200 bg-white p-3 dark:border-[var(--border)] dark:bg-[var(--card)]">
+                <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2 dark:border-[var(--border)]">
                   <button
                     type="button"
                     disabled={isSavingComment}
-                    className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
+                    className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[var(--border)] dark:text-slate-300 dark:hover:bg-[var(--surface-hover)]"
                     onClick={() => commentImageInputRef.current?.click()}
                   >
                     <ImageIcon className="h-3 w-3" />
@@ -448,7 +448,7 @@ export function TaskCommentsPanel({
                   <button
                     type="button"
                     disabled={isSavingComment}
-                    className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-300 dark:hover:bg-[#303030]"
+                    className="inline-flex min-h-7 items-center gap-1.5 rounded-[2px] border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 dark:border-[var(--border)] dark:text-slate-300 dark:hover:bg-[var(--surface-hover)]"
                     onClick={() => commentFileInputRef.current?.click()}
                   >
                     <Paperclip className="h-3 w-3" />
@@ -500,7 +500,7 @@ export function TaskCommentsPanel({
                     {commentAssets.map((asset) => (
                       <span
                         key={asset}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-[#3a3a3a] dark:bg-[#303030] dark:text-slate-300"
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-[var(--border)] dark:bg-[var(--surface-hover)] dark:text-slate-300"
                       >
                         <File className="h-3.5 w-3.5" />
                         {asset}
@@ -533,7 +533,7 @@ export function TaskCommentsPanel({
             ) : (
               <button
                 type="button"
-                className="w-full rounded-[2px] border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 transition hover:border-slate-300 hover:bg-white dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-300 dark:hover:border-[#454545] dark:hover:bg-[#2a2a2a]"
+                className="w-full rounded-[2px] border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-600 transition hover:border-slate-300 hover:bg-white dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-300 dark:hover:border-[var(--surface-hover)] dark:hover:bg-[var(--surface-hover)]"
                 onClick={onCommentEditStart}
               >
                 {commentDraft || "Add a comment..."}

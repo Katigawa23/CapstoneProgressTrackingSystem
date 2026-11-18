@@ -412,7 +412,7 @@ export default function MembersPage() {
             value={searchValue}
             onChange={(event) => setSearchValue(event.target.value)}
             placeholder="Search"
-            className="h-9 rounded-[8px] border-slate-200 bg-white pl-9 text-xs shadow-sm dark:border-[#343434] dark:bg-[#1d1d1d]"
+            className="h-9 rounded-[8px] border-slate-200 bg-white pl-9 text-xs shadow-sm dark:border-[var(--border)] dark:bg-[var(--background)]"
           />
         </div>
       </div>
@@ -435,12 +435,12 @@ export default function MembersPage() {
               }}
               onFocus={() => setIsMemberOptionsOpen(true)}
               placeholder="Add student member"
-              className="h-8 rounded-[6px] border-slate-200 bg-white pl-9 text-xs shadow-sm dark:border-[#343434] dark:bg-[#1d1d1d]"
+              className="h-8 rounded-[6px] border-slate-200 bg-white pl-9 text-xs shadow-sm dark:border-[var(--border)] dark:bg-[var(--background)]"
             />
           </div>
 
           {isMemberOptionsOpen ? (
-            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-[6px] border border-slate-200 bg-white p-1 shadow-lg dark:border-[#343434] dark:bg-[#1b1b1b]">
+            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-[6px] border border-slate-200 bg-white p-1 shadow-lg dark:border-[var(--border)] dark:bg-[var(--background)]">
               {isLoadingMemberOptions ? (
                 <div className="flex items-center justify-center gap-2 px-3 py-5 text-xs text-slate-500 dark:text-slate-400">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -452,7 +452,7 @@ export default function MembersPage() {
                     <button
                       key={member.id}
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-[5px] px-2 py-2 text-left transition hover:bg-slate-50 dark:hover:bg-[#252734]"
+                      className="flex w-full items-center gap-2 rounded-[5px] px-2 py-2 text-left transition hover:bg-slate-50 dark:hover:bg-[var(--card)]"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
                         const currentGroup = getDashboardProjects().find(
@@ -494,10 +494,10 @@ export default function MembersPage() {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-[6px] border border-slate-200 bg-white shadow-sm dark:border-[#2f313a] dark:bg-[#20212a]">
+      <div className="overflow-hidden rounded-[6px] border border-slate-200 bg-white shadow-sm dark:border-[var(--card)] dark:bg-[var(--card)]">
         <div className="overflow-x-auto">
           <table className="min-w-full table-fixed border-collapse">
-            <thead className="border-b border-slate-200 bg-slate-50 dark:border-[#2d2f38] dark:bg-[#171821]">
+            <thead className="border-b border-slate-200 bg-slate-50 dark:border-[var(--card)] dark:bg-[var(--background)]">
               <tr className="text-left">
                 <th className="w-[48%] px-4 py-2 text-[11px] font-semibold text-slate-600 dark:text-slate-200">
                   Name
@@ -510,7 +510,7 @@ export default function MembersPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-[#2d2f38]">
+            <tbody className="divide-y divide-slate-100 dark:divide-[var(--card)]">
               {isLoading ? (
                 <tr>
                   <td colSpan={3} className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
@@ -532,7 +532,7 @@ export default function MembersPage() {
                   return (
                     <tr
                       key={member.userId}
-                      className="transition hover:bg-slate-50 dark:hover:bg-[#252734]"
+                      className="transition hover:bg-slate-50 dark:hover:bg-[var(--card)]"
                     >
                       <td className="px-4 py-2">
                         <div className="flex min-w-0 items-center gap-2">
@@ -592,7 +592,7 @@ export default function MembersPage() {
                             />
                             <button
                               type="button"
-                              className="inline-flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-[5px] border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a3d48] dark:text-slate-300 dark:hover:bg-[#252734] dark:hover:text-white"
+                              className="inline-flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-[5px] border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a3d48] dark:text-slate-300 dark:hover:bg-[var(--card)] dark:hover:text-white"
                               disabled={!canEditRole}
                               aria-label={`Save role for ${member.name}`}
                               title="Save role"
@@ -680,7 +680,7 @@ export default function MembersPage() {
           if (!open) setPendingAddMember(null)
         }}
       >
-        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+        <AlertDialogContent className="max-w-md rounded-[2px] border-slate-200 bg-white text-slate-950 shadow-2xl dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
           <AlertDialogHeader className="text-left">
             <AlertDialogTitle>
               {pendingAddMember?.requiresTransfer ? "Transfer student?" : "Add student?"}
@@ -733,7 +733,7 @@ export default function MembersPage() {
           }
         }}
       >
-        <AlertDialogContent className="border-slate-200 bg-white text-slate-950 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-100">
+        <AlertDialogContent className="border-slate-200 bg-white text-slate-950 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this member?</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-600 dark:text-slate-300">

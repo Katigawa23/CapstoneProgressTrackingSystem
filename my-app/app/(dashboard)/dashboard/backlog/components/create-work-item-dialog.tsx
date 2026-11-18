@@ -118,8 +118,8 @@ export function CreateWorkItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-md overflow-hidden rounded-[2px] border-slate-200 bg-white px-5 py-4 text-slate-900 dark:border-[#343434] dark:bg-[#171717] dark:text-slate-100 sm:max-w-md">
-        <DialogHeader className="border-b border-slate-200 pb-2 dark:border-[#343434]">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md overflow-hidden rounded-[2px] border-slate-200 bg-white px-5 py-4 text-slate-900 dark:border-[var(--border)] dark:bg-[var(--background)] dark:text-slate-100 sm:max-w-md">
+        <DialogHeader className="border-b border-slate-200 pb-2 dark:border-[var(--border)]">
           <DialogTitle className="font-display text-left tracking-tight text-slate-900 dark:text-slate-100">
             {isSubtaskMode ? "Create new subtask." : "Create new task."}
           </DialogTitle>
@@ -141,7 +141,7 @@ export function CreateWorkItemDialog({
               onChange={(event) => onTitleChange(event.target.value)}
               placeholder="Enter task title"
               maxLength={TASK_SPRINT_NAME_MAX_LENGTH}
-              className="h-8 max-w-full rounded-[2px] border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-500 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="h-8 max-w-full rounded-[2px] border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-500 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100 dark:placeholder:text-slate-500"
             />
             {titleError ? (
               <p className="text-xs text-red-500">{titleError}</p>
@@ -156,7 +156,7 @@ export function CreateWorkItemDialog({
                 </Label>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="outline" className="h-8 w-full justify-between rounded-[2px] border-slate-200 bg-white px-3 text-sm font-normal dark:border-[#343434] dark:bg-[#1f1f1f]">
+                    <Button type="button" variant="outline" className="h-8 w-full justify-between rounded-[2px] border-slate-200 bg-white px-3 text-sm font-normal dark:border-[var(--border)] dark:bg-[var(--card)]">
                       <span>{chapterNumber ? `Chapter ${chapterNumber}` : "Select chapter"}</span>
                       <ChevronDown className="h-4 w-4 text-slate-500" />
                     </Button>
@@ -181,7 +181,7 @@ export function CreateWorkItemDialog({
                     <Button
                       variant="outline"
                       className={cn(
-                        "h-8 w-full justify-start rounded-[2px] border-slate-200 bg-white px-3 text-left text-sm font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
+                        "h-8 w-full justify-start rounded-[2px] border-slate-200 bg-white px-3 text-left text-sm font-normal text-slate-900 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100",
                         !startDate && "text-slate-500 dark:text-slate-500"
                       )}
                     >
@@ -189,7 +189,7 @@ export function CreateWorkItemDialog({
                       {startDate ? format(startDate, "PPP") : "Select date"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto border-slate-200 bg-white p-0 dark:border-[#343434] dark:bg-[#1f1f1f]" align="start">
+                  <PopoverContent className="w-auto border-slate-200 bg-white p-0 dark:border-[var(--border)] dark:bg-[var(--card)]" align="start">
                     <Calendar
                       mode="single"
                       selected={startDate}
@@ -224,7 +224,7 @@ export function CreateWorkItemDialog({
                       variant="outline"
                       disabled={!startDate}
                       className={cn(
-                        "h-8 w-full justify-start rounded-[2px] border-slate-200 bg-white px-3 text-left text-sm font-normal text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100",
+                        "h-8 w-full justify-start rounded-[2px] border-slate-200 bg-white px-3 text-left text-sm font-normal text-slate-900 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100",
                         !dueDate && "text-slate-500 dark:text-slate-500"
                       )}
                     >
@@ -236,7 +236,7 @@ export function CreateWorkItemDialog({
                         : "Select start date first"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto border-slate-200 bg-white p-0 dark:border-[#343434] dark:bg-[#1f1f1f]" align="start">
+                  <PopoverContent className="w-auto border-slate-200 bg-white p-0 dark:border-[var(--border)] dark:bg-[var(--card)]" align="start">
                     <Calendar
                       mode="single"
                       selected={dueDate}
@@ -262,7 +262,7 @@ export function CreateWorkItemDialog({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="!h-8 !min-h-8 w-full justify-between rounded-[2px] border-slate-200 bg-white px-2 py-0 text-left text-sm font-normal leading-none text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
+                        className="!h-8 !min-h-8 w-full justify-between rounded-[2px] border-slate-200 bg-white px-2 py-0 text-left text-sm font-normal leading-none text-slate-900 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100"
                       >
                         <span className="flex min-w-0 items-center gap-2">
                           {selectedAssignee ? (
@@ -272,7 +272,7 @@ export function CreateWorkItemDialog({
                               </AvatarFallback>
                             </Avatar>
                           ) : (
-                            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[#4a4a4a] dark:bg-[#262626]">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[var(--input)] dark:bg-[var(--card)]">
                               <UserRound className="h-3.5 w-3.5 text-slate-500 dark:text-slate-300" />
                             </span>
                           )}
@@ -285,17 +285,17 @@ export function CreateWorkItemDialog({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="start"
-                      className="w-[var(--radix-dropdown-menu-trigger-width)] border-slate-200 bg-white text-slate-700 dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                      className="w-[var(--radix-dropdown-menu-trigger-width)] border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                     >
                       <DropdownMenuItem
                         className={
                           !assigneeId
-                            ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                            ? "bg-slate-100 text-slate-900 dark:bg-[var(--surface-hover)] dark:text-slate-100"
                             : undefined
                         }
                         onSelect={() => onAssigneeChange?.(null)}
                       >
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[#4a4a4a] dark:bg-[#262626]">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[var(--input)] dark:bg-[var(--card)]">
                           <UserRound className="h-3.5 w-3.5 text-slate-500 dark:text-slate-300" />
                         </span>
                         <span className="flex-1">Unassigned</span>
@@ -306,7 +306,7 @@ export function CreateWorkItemDialog({
                           key={option.id}
                           className={
                             assigneeId === option.id
-                              ? "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                              ? "bg-slate-100 text-slate-900 dark:bg-[var(--surface-hover)] dark:text-slate-100"
                               : undefined
                           }
                           onSelect={() => onAssigneeChange?.(option.id)}
@@ -341,7 +341,7 @@ export function CreateWorkItemDialog({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="!h-8 !min-h-8 w-full justify-between rounded-[2px] border-slate-200 bg-white px-3 py-0 text-sm font-normal leading-none text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
+                        className="!h-8 !min-h-8 w-full justify-between rounded-[2px] border-slate-200 bg-white px-3 py-0 text-sm font-normal leading-none text-slate-900 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100"
                       >
                         <span className="flex items-center gap-2">
                           <PriorityIcon
@@ -361,7 +361,7 @@ export function CreateWorkItemDialog({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="start"
-                      className="w-[var(--radix-dropdown-menu-trigger-width)] rounded-[6px] border-slate-200 bg-white p-1 shadow-md dark:border-[#343434] dark:bg-[#262626] dark:text-slate-200"
+                      className="w-[var(--radix-dropdown-menu-trigger-width)] rounded-[6px] border-slate-200 bg-white p-1 shadow-md dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
                     >
                       {(["Low", "Medium", "High"] as const).map((option) => (
                         <DropdownMenuItem
@@ -369,7 +369,7 @@ export function CreateWorkItemDialog({
                           className={cn(
                             "rounded-[4px] text-sm",
                             priority === option &&
-                              "bg-slate-100 text-slate-900 dark:bg-[#303030] dark:text-slate-100"
+                              "bg-slate-100 text-slate-900 dark:bg-[var(--surface-hover)] dark:text-slate-100"
                           )}
                           onSelect={() => onPriorityChange?.(option)}
                         >
@@ -402,16 +402,16 @@ export function CreateWorkItemDialog({
               placeholder="Write a short description"
               maxLength={TASK_DESCRIPTION_MAX_LENGTH}
               wrap="soft"
-              className="min-h-[112px] max-h-[112px] max-w-full resize-none overflow-y-auto break-words rounded-[2px] border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-500 [field-sizing:fixed] [overflow-wrap:anywhere] dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="min-h-[112px] max-h-[112px] max-w-full resize-none overflow-y-auto break-words rounded-[2px] border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-500 [field-sizing:fixed] [overflow-wrap:anywhere] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100 dark:placeholder:text-slate-500"
             />
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-slate-200 pt-2.5 dark:border-[#343434]">
+          <div className="flex justify-end gap-2 border-t border-slate-200 pt-2.5 dark:border-[var(--border)]">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 min-w-24 rounded-[2px] border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-[#343434] dark:bg-[#1f1f1f] dark:text-slate-100"
+              className="h-8 min-w-24 rounded-[2px] border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100"
               disabled={isSubmitting}
               onClick={() => onOpenChange(false)}
             >

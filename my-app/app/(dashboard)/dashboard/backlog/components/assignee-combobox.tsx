@@ -137,8 +137,8 @@ export function AssigneeCombobox({
                   setOpen(false)
                 }}
                 className={cn(
-                  "flex min-h-9 items-center gap-2 rounded-md px-2 py-1.5 text-slate-900 data-[selected=true]:bg-slate-100 data-[selected=true]:text-slate-950 dark:text-slate-100 dark:data-[selected=true]:bg-[#343a42] dark:data-[selected=true]:text-white",
-                  !value && "bg-slate-100 dark:bg-[#343a42]"
+                  "flex min-h-9 items-center gap-2 rounded-md px-2 py-1.5 text-slate-900 data-[selected=true]:bg-slate-100 data-[selected=true]:text-slate-950 dark:text-slate-100 dark:data-[selected=true]:bg-[var(--border)] dark:data-[selected=true]:text-white",
+                  !value && "bg-slate-100 dark:bg-[var(--border)]"
                 )}
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-[#4b5563] dark:bg-[#252a31]">
@@ -168,8 +168,8 @@ export function AssigneeCombobox({
                     setOpen(false)
                   }}
                   className={cn(
-                    "mt-1 flex min-h-9 items-start gap-2 rounded-md px-2 py-1.5 text-slate-900 data-[selected=true]:bg-slate-100 data-[selected=true]:text-slate-950 dark:text-slate-100 dark:data-[selected=true]:bg-[#343a42] dark:data-[selected=true]:text-white",
-                    value === option.id && "bg-slate-100 dark:bg-[#343a42]"
+                    "mt-1 flex min-h-9 items-start gap-2 rounded-md px-2 py-1.5 text-slate-900 data-[selected=true]:bg-slate-100 data-[selected=true]:text-slate-950 dark:text-slate-100 dark:data-[selected=true]:bg-[var(--border)] dark:data-[selected=true]:text-white",
+                    value === option.id && "bg-slate-100 dark:bg-[var(--border)]"
                   )}
                 >
                   <Avatar className="mt-0.5 h-7 w-7">
