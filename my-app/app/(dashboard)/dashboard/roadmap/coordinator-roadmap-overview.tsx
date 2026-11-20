@@ -9,6 +9,7 @@ import {
   Users,
 } from "lucide-react"
 
+import { AvatarNameTooltip } from "@/components/ui/avatar"
 import type { DashboardProject } from "@/lib/projects"
 import type { BacklogApiItem } from "../types"
 
@@ -155,7 +156,7 @@ export function CoordinatorRoadmapOverview({ project, items }: {
           <div className="mt-3 grid gap-2 lg:grid-cols-3">
             {members.map((member) => (
               <div key={member.name} className="rounded-md border border-slate-200 p-2.5 dark:border-[var(--border)]">
-                <div className="flex items-center gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">{member.initials}</div><div><p className="font-semibold">{member.name}</p><p className="text-xs text-muted-foreground">{member.completed} of {member.assigned} tasks completed</p></div></div>
+                <div className="flex items-center gap-3"><AvatarNameTooltip name={member.name}><div tabIndex={0} className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">{member.initials}</div></AvatarNameTooltip><div><p className="font-semibold">{member.name}</p><p className="text-xs text-muted-foreground">{member.completed} of {member.assigned} tasks completed</p></div></div>
                 <div className="mt-2 flex items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-[var(--surface-hover)]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${member.percent}%` }} /></div><span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{member.percent}%</span></div>
               </div>
             ))}

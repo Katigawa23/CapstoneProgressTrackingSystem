@@ -113,7 +113,7 @@ export function NotificationMenu({ disabled = false }: { disabled?: boolean }) {
           const source = item.actorName?.trim() || "TrackSphere"
           return <button key={item.id} type="button" onClick={() => openNotification(item)} className={`group block w-full border-b px-4 py-3 text-left transition-colors hover:bg-muted/60 ${item.read ? "" : "bg-blue-500/5"}`}>
             <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 shrink-0">
+              <Avatar name={source} className="h-10 w-10 shrink-0">
                 <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-xs font-semibold text-white">{getInitials(source)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">

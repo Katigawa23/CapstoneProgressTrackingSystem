@@ -24,11 +24,11 @@ export async function PUT(request: Request) {
   const facultyId = typeof body.facultyId === "string" ? body.facultyId.trim() : ""
   const reason = typeof body.reason === "string" ? body.reason.trim() : ""
   const status = body.status
-  if (!facultyId || facultyId.length > 200 || !["approved", "rejected"].includes(String(status)) ||
+  if (!facultyId || facultyId.length > 200 || (status !== "approved" && status !== "rejected" && status !== "revoked" && status !== "restore") ||
       reason.length > 1000 || (status === "rejected" && !reason)) {
     return NextResponse.json({ error: "Select a faculty account and provide a reason when rejecting (up to 1,000 characters)." }, { status: 400 })
   }
-  const saved = await reviewFacultyVerification({ reviewerId: user.id, tenantId: user.tenantId, userId: facultyId, status: status as "approved" | "rejected", reason })
-  if (!saved) return NextResponse.json({ error: "Request is no longer pending or unavailable to this account." }, { status: 409 })
+  const saved = await reviewFacultyVerification({ reviewerId: user.id, tenantId: user.tenantId, userId: facultyId, status, reason })
+  if (!saved) return NextResponse.json({ error: "Account status changed or is unavailable. Reassign any active groups or programs before revoking access." }, { status: 409 })
   return NextResponse.json({ saved: true })
 }

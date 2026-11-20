@@ -635,7 +635,7 @@ export function DashboardPageClient({
                         <div className="flex justify-end">
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="flex items-center">
+                              <div className="flex items-center" tabIndex={0}>
                                 {project.members.slice(0, 4).map((member, index) => (
                                   <Avatar
                                     key={`${project.id}-${member}`}

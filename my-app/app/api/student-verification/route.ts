@@ -25,11 +25,11 @@ export async function PUT(request: Request) {
   const studentId = typeof body.studentId === "string" ? body.studentId.trim() : ""
   const reason = typeof body.reason === "string" ? body.reason.trim() : ""
   const status = body.status
-  if (!studentId || studentId.length > 200 || !["approved", "rejected"].includes(String(status)) ||
+  if (!studentId || studentId.length > 200 || (status !== "approved" && status !== "rejected" && status !== "revoked" && status !== "restore") ||
       reason.length > 1000 || (status === "rejected" && !reason)) {
     return NextResponse.json({ error: "Select a student and provide a reason when rejecting (up to 1,000 characters)." }, { status: 400 })
   }
-  const saved = await reviewStudentVerification({ coordinatorId: user.id, tenantId: user.tenantId, studentId, status: status as "approved" | "rejected", reason })
-  if (!saved) return NextResponse.json({ error: "Request is no longer pending or is outside your assigned program." }, { status: 409 })
+  const saved = await reviewStudentVerification({ coordinatorId: user.id, tenantId: user.tenantId, studentId, status, reason })
+  if (!saved) return NextResponse.json({ error: "Account status changed or is outside your assigned program." }, { status: 409 })
   return NextResponse.json({ saved: true })
 }

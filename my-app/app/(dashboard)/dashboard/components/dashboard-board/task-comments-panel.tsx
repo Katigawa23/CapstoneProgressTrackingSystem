@@ -212,15 +212,15 @@ export function TaskCommentsPanel({
   }
 
   return (
-    <aside className="order-1 min-h-0 p-4 sm:p-5 lg:order-2 lg:p-6">
-      <div className={`flex flex-col pr-2 sm:pr-3 lg:pr-4 ${canAccessComments ? "h-full min-h-[550px]" : ""}`}>
+    <aside className="order-2 min-w-0 shrink-0 border-t p-4 sm:p-5 lg:min-h-0 lg:border-t-0 lg:p-6">
+      <div className={`flex min-w-0 flex-col pr-2 sm:pr-3 lg:pr-4 ${canAccessComments ? "lg:h-full" : ""}`}>
         <section className="mb-3 rounded-[2px] border border-slate-200 bg-slate-50/80 p-2.5 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <div className="mb-2">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Details
             </h3>
           </div>
-          <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
             {taskMeta.map((item) => (
               <div
                 key={item.label}
@@ -262,13 +262,13 @@ export function TaskCommentsPanel({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           {selectedAssignee?.initials ? (
-                            <Avatar className="h-7 w-7 cursor-default">
+                            <Avatar tabIndex={0} className="h-7 w-7 cursor-default">
                               <AvatarFallback className="text-[9px]">
                                 {selectedAssignee.initials}
                               </AvatarFallback>
                             </Avatar>
                           ) : (
-                            <div className="flex h-7 w-7 cursor-default items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-500 dark:border-[var(--input)] dark:bg-[var(--card)] dark:text-slate-300">
+                            <div tabIndex={0} className="flex h-7 w-7 cursor-default items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-500 dark:border-[var(--input)] dark:bg-[var(--card)] dark:text-slate-300">
                               -
                             </div>
                           )}
@@ -283,7 +283,7 @@ export function TaskCommentsPanel({
                 ) : item.label === "Created by" ? (
                   <div className="mt-1 flex min-w-0 items-center gap-2">
                     {createdByUserId ? (
-                      <Avatar className="h-7 w-7 shrink-0 cursor-default">
+                      <Avatar name={item.value} className="h-7 w-7 shrink-0 cursor-default">
                         <AvatarFallback className="text-[9px]">
                           {getInitials(item.value)}
                         </AvatarFallback>
@@ -323,7 +323,7 @@ export function TaskCommentsPanel({
               Comments
             </h3>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="max-h-80 min-h-0 flex-1 overflow-y-auto pr-1 lg:max-h-none">
               <div className="flex min-h-full flex-col">
               {isLoadingComments ? (
                 <div className="space-y-4">
@@ -340,7 +340,7 @@ export function TaskCommentsPanel({
 
                   return (
                     <div key={comment.id} className="flex gap-3">
-                    <Avatar className="h-9 w-9">
+                    <Avatar name={comment.author || "Unknown user"} className="h-9 w-9">
                       <AvatarFallback className="text-xs">
                         {getInitials(comment.author || "Unknown User")}
                       </AvatarFallback>

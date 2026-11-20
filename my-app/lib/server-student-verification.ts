@@ -1,10 +1,11 @@
 import { getDb } from "@/lib/server-db"
+import { ensureActiveSessionSchema } from "@/lib/server-active-session"
 import { ensureStudentProfileSchema } from "@/lib/server-student-profile"
 import { ensureCoordinatorAssignmentSchema } from "@/lib/server-coordinator-assignments"
 
 export type StudentVerification = {
   userId: string; name: string; email: string; program: string; yearLevel: string
-  status: "pending" | "approved" | "rejected"; submittedAt: string; reason: string | null
+  status: "pending" | "approved" | "rejected" | "revoked"; submittedAt: string; reason: string | null
 }
 
 export async function listStudentVerifications(coordinatorId: string, tenantId: string) {
@@ -25,21 +26,33 @@ export async function listStudentVerifications(coordinatorId: string, tenantId: 
 }
 
 export async function reviewStudentVerification(input: {
-  coordinatorId: string; tenantId: string; studentId: string; status: "approved" | "rejected"; reason: string
+  coordinatorId: string; tenantId: string; studentId: string; status: "approved" | "rejected" | "revoked" | "restore"; reason: string
 }) {
   await ensureCoordinatorAssignmentSchema()
   await ensureStudentProfileSchema()
-  // Scope and pending-state checks are part of the write, including concurrent reviews.
+  await ensureActiveSessionSchema()
+  const source = input.status === "restore" ? "revoked" : input.status === "revoked" ? "approved" : "pending"
+  const status = input.status === "restore" ? "approved" : input.status
   const result = await getDb().query(`
+    with target as (
+      select microsoft_user_id from public.users
+      where microsoft_user_id=$3 and tenant_id=$2
+        and role='student' and student_profile_required=true
+      for update
+    ), reviewed as (
     update public.student_profiles p set verification_status=$4, rejection_reason=$5,
       reviewed_by_user_id=$1, reviewed_at=now()
-    from public.users u, public.program_coordinator_assignments a
-    where p.user_id=$3 and u.microsoft_user_id=p.user_id and u.tenant_id=$2
-      and u.role='student' and u.student_profile_required=true
+    from target, public.program_coordinator_assignments a
+    where p.user_id=target.microsoft_user_id
       and a.program_option_id=p.program_option_id and a.faculty_user_id=$1
-      and p.verification_status='pending'
-    returning p.user_id`,
-    [input.coordinatorId, input.tenantId, input.studentId, input.status,
-      input.status === "rejected" ? input.reason : null])
+      and p.verification_status=$6
+    returning p.user_id
+    ), signed_out as (
+      update public.users u set active_session_id=null from reviewed
+      where u.microsoft_user_id=reviewed.user_id and $4='revoked'
+    )
+    select user_id from reviewed`,
+    [input.coordinatorId, input.tenantId, input.studentId, status,
+      input.status === "rejected" ? input.reason : null, source])
   return (result.rowCount ?? 0) === 1
 }

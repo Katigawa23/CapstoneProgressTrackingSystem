@@ -79,10 +79,10 @@ export function AssigneeCombobox({
                 type="button"
                 variant="ghost"
                 size="icon"
-                disabled={disabled}
+                aria-disabled={disabled}
                 aria-label={`Assignee: ${selectedAssignee?.name ?? "Unassigned"}`}
                 className={cn(
-                  "h-7 w-7 rounded-full border border-slate-200 bg-white p-0 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60",
+                  "h-7 w-7 rounded-full border border-slate-200 bg-white p-0 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-60",
                   className
                 )}
                 onClick={handleTriggerClick}
@@ -106,11 +106,9 @@ export function AssigneeCombobox({
               </Button>
             </PopoverTrigger>
           </TooltipTrigger>
-          {selectedAssignee ? (
-            <TooltipContent sideOffset={6}>
-              <p className="text-xs font-medium">{selectedAssignee.name}</p>
-            </TooltipContent>
-          ) : null}
+          <TooltipContent sideOffset={6} className="z-[100] max-w-[min(18rem,90vw)] break-words">
+            {selectedAssignee?.name ?? (value ? "Unknown assignee" : "Unassigned")}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
 
@@ -172,7 +170,7 @@ export function AssigneeCombobox({
                     value === option.id && "bg-slate-100 dark:bg-[var(--border)]"
                   )}
                 >
-                  <Avatar className="mt-0.5 h-7 w-7">
+                  <Avatar name={option.name} className="mt-0.5 h-7 w-7">
                     <AvatarFallback className="text-[9px]">
                       {option.initials ?? "A"}
                     </AvatarFallback>

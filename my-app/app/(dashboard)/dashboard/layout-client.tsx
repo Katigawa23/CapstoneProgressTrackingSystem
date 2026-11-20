@@ -46,9 +46,11 @@ import { NotificationMenu } from "@/components/notification-menu"
 
 function ProfileMenu({
   session,
+  pathname,
   disabled = false,
 }: {
   session: AuthSession | null
+  pathname: string
   disabled?: boolean
 }) {
   const [mounted, setMounted] = React.useState(false)
@@ -93,7 +95,7 @@ function ProfileMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-9 w-9 rounded-full p-0" disabled={disabled}>
+          <Button variant="ghost" className="h-9 w-9 rounded-full p-0" disabled={disabled} aria-label={session?.user.name ?? "My Account"}>
             <span
               className="inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold tracking-tight text-[var(--brand-primary-fixed-foreground)]"
               style={{
@@ -113,7 +115,7 @@ function ProfileMenu({
             ) : null}
           </DropdownMenuLabel>
           <DropdownMenuItem asChild>
-            <Link href="/dashboard/profile">Profile</Link>
+            <Link href={pathname === "/dashboard/profile" ? pathname : { pathname: "/dashboard/profile", query: { from: pathname } }}>Profile</Link>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
@@ -273,6 +275,7 @@ export function DashboardLayoutClient({
   }, [session?.sessionId])
 
   const role: UserRole = isUserRole(session?.user.role) ? session.user.role : "student"
+  const isProfilePage = pathname === "/dashboard/profile"
   const isCoordinatorRestrictedPath =
     pathname === "/dashboard/backlog" ||
     pathname.startsWith("/dashboard/backlog/") ||
@@ -293,9 +296,9 @@ export function DashboardLayoutClient({
       <SidebarProvider>
         <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center border-b bg-background/80 px-4 shadow-sm backdrop-blur-md dark:border-[var(--border)] dark:bg-[var(--background)] dark:shadow-none sm:px-6">
           <div className="flex items-center gap-3">
-            <SidebarTrigger className="md:hidden" />
+            {!isProfilePage && <SidebarTrigger className="md:hidden" />}
             <Link
-              href={coordinatorMode ? "/coordinator" : "/dashboard/board"}
+              href={coordinatorMode ? "/coordinator" : isProfilePage ? "/dashboard" : "/dashboard/board"}
               className="flex items-center gap-3 font-display text-xl font-extrabold tracking-tight sm:text-2xl"
             >
               <span>
@@ -310,22 +313,22 @@ export function DashboardLayoutClient({
 
             <NotificationMenu disabled={authLoading} />
 
-            <ProfileMenu session={session} disabled={authLoading} />
+            <ProfileMenu session={session} pathname={pathname} disabled={authLoading} />
           </div>
         </header>
 
-        <AppSidebar
+        {!isProfilePage && <AppSidebar
           role={role}
           currentUserId={session?.user.id}
           initialProjects={initialProjects}
           initialTeam={initialTeam}
           coordinatorMode={coordinatorMode}
-        />
+        />}
 
-        <SidebarInset className="h-svh overflow-hidden bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] pt-16 dark:from-background dark:to-background">
+        <SidebarInset className={`bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] pt-16 dark:from-background dark:to-background ${isProfilePage ? "min-h-svh" : "h-svh overflow-hidden"}`}>
           <main
-            className={`flex h-full min-w-0 flex-col p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10 ${
-              pathname === "/dashboard" || pathname === "/coordinator" ? "overflow-y-auto" : "overflow-hidden"
+            className={`flex min-w-0 flex-col p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10 ${
+              isProfilePage ? "" : pathname === "/dashboard" || pathname === "/coordinator" ? "h-full overflow-y-auto" : "h-full overflow-hidden"
             }`}
           >
             {authLoading

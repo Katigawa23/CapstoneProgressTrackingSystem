@@ -113,6 +113,13 @@ export async function ensureMicrosoftLoginSchema() {
           alter table users alter column student_profile_required set default true;
 alter table public.users add column if not exists faculty_verification_status text not null default 'approved' check (faculty_verification_status in ('pending','approved','rejected'));
 alter table public.users alter column faculty_verification_status set default 'pending';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conrelid='public.users'::regclass and conname='users_faculty_verification_status_v2_check') then
+    alter table public.users drop constraint if exists users_faculty_verification_status_check;
+    alter table public.users add constraint users_faculty_verification_status_v2_check
+      check (faculty_verification_status in ('pending','approved','rejected','revoked'));
+  end if;
+end $$;
 alter table public.users add column if not exists faculty_reviewed_by text;
 alter table public.users add column if not exists faculty_reviewed_at timestamptz;
 alter table public.users add column if not exists faculty_rejection_reason text;

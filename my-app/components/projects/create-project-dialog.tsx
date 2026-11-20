@@ -470,7 +470,7 @@ export function CreateProjectDialog({
                                   }}
                                   className="flex items-center gap-3 px-3 py-2"
                                 >
-                                  <Avatar className="size-8"><AvatarFallback className="text-[10px]">{getInitials(adviser.name)}</AvatarFallback></Avatar>
+                                  <Avatar name={adviser.name} className="size-8"><AvatarFallback className="text-[10px]">{getInitials(adviser.name)}</AvatarFallback></Avatar>
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-[13px] font-medium">{getMemberDisplayName(adviser.name)}</p>
                                     <p className="truncate text-[11px] text-muted-foreground">{adviser.email}</p>
@@ -575,7 +575,7 @@ export function CreateProjectDialog({
                                   }}
                                   className="flex items-start gap-3 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100"
                                 >
-                                  <Avatar className="mt-0.5 h-8 w-8">
+                                  <Avatar name={member.name} className="mt-0.5 h-8 w-8">
                                     <AvatarFallback className="text-[10px]">
                                       {getInitials(member.name) || <UserRound className="h-3.5 w-3.5" />}
                                     </AvatarFallback>

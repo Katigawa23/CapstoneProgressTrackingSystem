@@ -1,5 +1,7 @@
 "use client"
 
+import { LandingBannerSettings } from "@/components/landing-banner-settings"
+
 import * as React from "react"
 import Link from "next/link"
 import { Check, GraduationCap, Layers3, Loader2, Pencil, Plus, School, Trash2, X } from "lucide-react"
@@ -141,6 +143,7 @@ export function SystemConfigurationPreview() {
       </div>
       <div><h1 className="font-display text-2xl font-semibold tracking-tight">System Configuration</h1><p className="mt-1 text-sm text-muted-foreground">Manage the choices displayed in the Create Group form.</p></div>
     </div>
+    <LandingBannerSettings />
     {error ? <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">{error}</div> : null}
     {loading ? <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-5 animate-spin" /> Loading configuration...</div> :
     <div className="grid items-start gap-4 lg:grid-cols-2">{categoryDetails.map((category) => {

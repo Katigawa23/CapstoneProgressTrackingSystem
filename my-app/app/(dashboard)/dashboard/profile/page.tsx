@@ -1,5 +1,6 @@
 import Link from "next/link"
 import {
+  ArrowLeft,
   ArrowRight,
   BriefcaseBusiness,
   CalendarClock,
@@ -41,9 +42,17 @@ function formatDate(value: string | null) {
   }).format(new Date(value))
 }
 
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: {
+  searchParams: Promise<{ from?: string | string[] }>
+}) {
   const user = await readAuthenticatedUser()
   if (!user?.id) return null
+  const { from } = await searchParams
+  const backHref = typeof from === "string" &&
+    /^\/(dashboard|coordinator)(\/[\w-]+)*$/.test(from) &&
+    from !== "/dashboard/profile"
+    ? from
+    : user.id === "tester-coordinator" ? "/coordinator" : "/dashboard"
 
   const { projects, selectedProject, items } = await getSelectedProjectData()
   const studentProfile = user.role === "student" ? await getStudentProfile(user.id) : null
@@ -95,8 +104,12 @@ export default async function ProfilePage() {
         ]
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div>
       <div className="mx-auto w-full max-w-6xl space-y-5 pb-8">
+        <Link href={backHref} className="inline-flex items-center gap-2 rounded-sm text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Back
+        </Link>
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--brand-primary-fixed)]">Account</p>
           <h1 className="mt-1 font-display text-2xl font-bold tracking-tight">My Profile</h1>
@@ -107,7 +120,7 @@ export default async function ProfilePage() {
           <div className="h-20 bg-gradient-to-r from-[var(--brand-primary-fixed)] to-blue-400/70" />
           <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex min-w-0 items-end gap-4">
-              <Avatar className="-mt-8 h-20 w-20 shrink-0 border-4 border-card dark:border-[var(--card)]">
+              <Avatar name={user.name} className="-mt-8 h-20 w-20 shrink-0 border-4 border-card dark:border-[var(--card)]">
                 <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-xl font-bold text-white">{getInitials(user.name)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 pb-1">

@@ -4,16 +4,35 @@ import * as React from "react"
 import { Avatar as AvatarPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip"
+
+function AvatarNameTooltip({ name, children }: { name: string; children: React.ReactElement }) {
+  if (!name.trim()) return children
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent sideOffset={6} className="z-[100] max-w-[min(18rem,90vw)] break-words">
+          {name}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 
 function Avatar({
   className,
+  name,
   size = "default",
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Root> & {
   size?: "default" | "sm" | "lg"
+  name?: string
 }) {
-  return (
+  const avatar = (
     <AvatarPrimitive.Root
+      tabIndex={name?.trim() ? 0 : undefined}
       data-slot="avatar"
       data-size={size}
       className={cn(
@@ -23,6 +42,8 @@ function Avatar({
       {...props}
     />
   )
+
+  return name ? <AvatarNameTooltip name={name}>{avatar}</AvatarNameTooltip> : avatar
 }
 
 function AvatarImage({
@@ -107,6 +128,7 @@ function AvatarGroupCount({
 
 export {
   Avatar,
+  AvatarNameTooltip,
   AvatarImage,
   AvatarFallback,
   AvatarBadge,

@@ -10,6 +10,15 @@ export default async function FacultyWaitingPage() {
   if (user.role !== "faculty") redirect("/dashboard")
   const access = await getFacultyAccessState(user.id)
   if (access.status === "approved") redirect("/dashboard")
+  if (access.status === "revoked") {
+    return <main className="flex min-h-dvh items-center justify-center bg-background p-5">
+      <section className="w-full max-w-md rounded-xl border bg-card p-6">
+        <h1 className="text-xl font-semibold">Access revoked</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Contact your super admin to request access to TrackSphere again.</p>
+        <VerificationRefresh />
+      </section>
+    </main>
+  }
   return <main className="flex min-h-dvh items-center justify-center bg-background p-5"><section className="w-full max-w-md rounded-xl border bg-card p-6 shadow-sm">
     <p className="font-display text-xl font-bold"><span style={{ color: "var(--logo-track)" }}>Track</span><span style={{ color: "var(--logo-sphere)" }}>Sphere</span></p>
     <h1 className="mt-6 text-xl font-semibold">{access.status === "rejected" ? "Verification rejected" : "Pending faculty verification"}</h1>
