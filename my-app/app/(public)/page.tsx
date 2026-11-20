@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import AnimatedContent from "@/components/animated-content"
 import Navbar from "@/components/navbar"
+import { LandingBanner } from "@/components/landing-banner"
 import ScrollReveal from "@/components/scroll-reveal"
 import SplitText from "@/components/split-text"
 import { Button } from "@/components/ui/button"
@@ -272,39 +273,8 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="relative mx-auto mt-2 w-full max-w-xl lg:hidden">
-          <AnimatedContent
-            delay={0.36}
-            direction="vertical"
-            duration={1.2}
-            distance={28}
-            initialOpacity={0}
-            scale={0.97}
-          >
-            <Card className="min-h-[13rem] rounded-xl border border-slate-200/80 bg-white/90 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.24)] backdrop-blur">
-              <CardContent className="flex h-full min-h-[13rem] items-center justify-center p-5 sm:p-6">
-                <div className="h-full w-full rounded-xl border border-dashed border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[linear-gradient(135deg,rgba(0,127,168,0.12),rgba(255,255,255,0.9))] dark:border-[color:rgba(var(--brand-primary-rgb),0.4)] dark:bg-[linear-gradient(135deg,rgba(0,127,168,0.28),rgba(15,23,42,0.82))]" />
-              </CardContent>
-            </Card>
-          </AnimatedContent>
-        </div>
-
-        <div className="relative mx-auto hidden w-full max-w-3xl lg:block">
-          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,_rgba(0,127,168,0.16),_transparent_64%)] blur-3xl" />
-          <AnimatedContent
-            delay={0.28}
-            direction="horizontal"
-            duration={1.2}
-            distance={32}
-            initialOpacity={0}
-            scale={0.94}
-          >
-            <Card className="min-h-[22rem] rounded-xl border border-slate-200/80 bg-white/90 shadow-[0_24px_60px_-24px_rgba(15,23,42,0.24)] backdrop-blur">
-              <CardContent className="flex h-full min-h-[22rem] items-center justify-center p-8">
-                <div className="h-full w-full rounded-xl border border-dashed border-[color:rgba(var(--brand-primary-rgb),0.18)] bg-[linear-gradient(135deg,rgba(0,127,168,0.12),rgba(255,255,255,0.9))] dark:border-[color:rgba(var(--brand-primary-rgb),0.4)] dark:bg-[linear-gradient(135deg,rgba(0,127,168,0.28),rgba(15,23,42,0.82))]" />
-              </CardContent>
-            </Card>
-          </AnimatedContent>
+        <div className="relative mx-auto w-full max-w-3xl">
+          <LandingBanner />
         </div>
 
       </section>

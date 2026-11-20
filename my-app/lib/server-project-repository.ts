@@ -197,7 +197,7 @@ function showFallbackWarning(error: unknown) {
   )
 }
 
-async function ensureProjectsSchema() {
+export async function ensureProjectsSchema() {
   if (!schemaReady) {
     schemaReady = ensureMicrosoftLoginSchema()
       .then(() =>

@@ -26,10 +26,10 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -48,6 +48,7 @@ import type {
 } from "../../types"
 import { compareTasksByPriority, dedupeItemsById } from "../../utils"
 import { DashboardColumn } from "./dashboard-column"
+import { useRole } from "@/lib/role-context"
 import { TaskCommentsPanel } from "./task-comments-panel"
 import { TaskDetailsSection } from "./task-details-section"
 import { TaskSubmissionsSection } from "./task-attachment-section"
@@ -123,6 +124,7 @@ export function DashboardBoard({
   onArchiveTodo,
 }: DashboardBoardProps) {
   const isMobile = useIsMobile()
+  const isStudent = useRole() === "student"
   const canAccessComments = Boolean(currentUserId?.trim()) && !isSuperAdminViewer(currentUserId)
   const todos = React.useMemo(
     () => dedupeItemsById(incomingTodos),
@@ -1265,6 +1267,13 @@ export function DashboardBoard({
       const draggedTodo = todos.find((todo) => todo.id === draggableId)
 
       if (!draggedTodo) return
+      if (isStudent) {
+        if (draggedTodo.status === "todo" && destinationColumnId === "inprogress" &&
+            !isTaskCompletionLocked(draggedTodo, todos)) {
+          void onStatusChange(draggableId, "inprogress")
+        }
+        return
+      }
       if (isTaskCompletionLocked(draggedTodo, todos)) {
         if (canEditAssignee && draggedTodo.status === "completed" &&
             !hasCompletedTaskParent(draggedTodo, todos) && destinationColumnId === "revision") {
@@ -1303,7 +1312,7 @@ export function DashboardBoard({
 
       void onMoveTodo(draggableId, targetTodo?.id ?? null, destinationColumnId)
     },
-    [canChangeTaskState, canEditAssignee, getColumnTodos, isDragDisabled, isSavingTaskStatus, onMoveTodo, onStatusChange, todos]
+    [canChangeTaskState, canEditAssignee, getColumnTodos, isDragDisabled, isSavingTaskStatus, isStudent, onMoveTodo, onStatusChange, todos]
   )
 
   const selectedTodoIdParts = React.useMemo(() => {
@@ -1355,7 +1364,8 @@ export function DashboardBoard({
                   canChangeTaskState={canChangeTaskState && !isSavingTaskStatus}
                   canEditAssignee={canEditAssignee}
                   canManageOtherProjectResources={canManageOtherProjectResources}
-                  isDragDisabled={!canChangeTaskState || isDragDisabled}
+                  isDragDisabled={!canChangeTaskState || isDragDisabled || (isStudent && column.id !== "todo")}
+                  isDropDisabled={isStudent && column.id !== "inprogress"}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
                   onOpenTask={handleOpenTask}
@@ -1387,7 +1397,8 @@ export function DashboardBoard({
               canChangeTaskState={canChangeTaskState && !isSavingTaskStatus}
               canEditAssignee={canEditAssignee}
               canManageOtherProjectResources={canManageOtherProjectResources}
-              isDragDisabled={!canChangeTaskState || isDragDisabled}
+              isDragDisabled={!canChangeTaskState || isDragDisabled || (isStudent && column.id !== "todo")}
+              isDropDisabled={isStudent && column.id !== "inprogress"}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}
               onOpenTask={handleOpenTask}
@@ -1400,12 +1411,13 @@ export function DashboardBoard({
 
       <Dialog open={selectedTodo !== null} onOpenChange={handleDialogOpenChange}>
         {selectedTodo ? (
-          <DialogContent className="h-[92vh] max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden border-[var(--board-column-border)] bg-[var(--board-dialog-bg)] p-0 shadow-[var(--board-dialog-shadow)] transition-[background-color,border-color,box-shadow] duration-300 sm:h-[90vh] sm:max-h-[90vh] sm:w-[94vw] sm:max-w-[94vw] lg:h-[88vh] lg:max-h-[88vh] lg:w-[90vw] lg:max-w-[90vw]">
+          <DialogContent className="h-[92dvh] max-h-[92dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden border-[var(--board-column-border)] bg-[var(--board-dialog-bg)] p-0 shadow-[var(--board-dialog-shadow)] transition-[background-color,border-color,box-shadow] duration-300 sm:h-[90dvh] sm:max-h-[90dvh] sm:w-[94vw] sm:max-w-[94vw] lg:h-[88dvh] lg:max-h-[88dvh] lg:w-[90vw] lg:max-w-[90vw]">
             <DialogHeader className="sr-only">
               <DialogTitle>{selectedTodo.title}</DialogTitle>
+              <DialogDescription>Task details and activity</DialogDescription>
             </DialogHeader>
             {isFirstTaskOpenLoading ? (
-              <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
+              <div className="flex h-full min-h-0 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)] lg:overflow-hidden">
                 <div className="min-h-0 p-4 sm:p-5 lg:border-r lg:p-6 dark:border-[var(--border)]">
                   <div className="space-y-5">
                     <div className="space-y-3">
@@ -1453,15 +1465,15 @@ export function DashboardBoard({
                 </div>
               </div>
             ) : (
-            <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
+            <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-y-auto overflow-x-hidden lg:grid lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)] lg:overflow-hidden">
               <div
-                className={`min-h-0 p-4 sm:p-5 lg:p-6 ${
+                className={`min-w-0 shrink-0 p-4 sm:p-5 lg:min-h-0 lg:p-6 ${
                   isSubmissionActionsOpen[selectedTodo.id]
                     ? "order-1 border-slate-200 pt-10 dark:border-[var(--border)] sm:pt-12 lg:border-r lg:pt-12"
-                    : "order-2 border-t border-slate-200 dark:border-[var(--border)] lg:order-1 lg:border-r lg:border-t-0"
+                    : "order-1 border-slate-200 dark:border-[var(--border)] lg:border-r"
                 }`}
               >
-                <ScrollArea className="h-full pr-2 sm:pr-3 lg:pr-4">
+                <div className="min-w-0 [overflow-wrap:anywhere] sm:pr-3 lg:h-full lg:overflow-y-auto lg:pr-4">
                   {!isSubmissionActionsOpen[selectedTodo.id] ? (
                     <>
                       <DialogHeader className="mb-5 text-left sm:mb-6">
@@ -1499,7 +1511,7 @@ export function DashboardBoard({
                             </>
                           ) : null}
                         </div>
-                        <DialogTitle className="font-display text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
+                        <DialogTitle className="break-words font-display text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
                           {selectedTodo.title}
                         </DialogTitle>
                       </DialogHeader>
@@ -1592,7 +1604,7 @@ export function DashboardBoard({
                       />
                     </>
                   )}
-                </ScrollArea>
+                </div>
               </div>
 
               <TaskCommentsPanel

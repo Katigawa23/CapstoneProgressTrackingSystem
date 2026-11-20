@@ -468,7 +468,7 @@ export default function MembersPage() {
                         setIsMemberOptionsOpen(false)
                       }}
                     >
-                      <Avatar className="h-7 w-7">
+                      <Avatar name={member.name} className="h-7 w-7">
                         <AvatarFallback className="text-[10px]">
                           {getInitials(member.name) || <UserRound className="h-3.5 w-3.5" />}
                         </AvatarFallback>
@@ -536,7 +536,7 @@ export default function MembersPage() {
                     >
                       <td className="px-4 py-2">
                         <div className="flex min-w-0 items-center gap-2">
-                          <Avatar className="h-7 w-7">
+                          <Avatar name={member.name} className="h-7 w-7">
                             <AvatarFallback className="bg-emerald-500 text-[10px] font-semibold text-white dark:bg-emerald-500">
                               {getInitials(member.name) || <UserRound className="h-4 w-4" />}
                             </AvatarFallback>

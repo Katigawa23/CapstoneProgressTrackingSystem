@@ -603,7 +603,7 @@ export default function ArchivePage() {
                       </td>
                       <td className="px-2 py-2 align-middle">
                         <div className="flex items-center gap-2">
-                          <Avatar size="sm">
+                          <Avatar name={createdByName} size="sm">
                             <AvatarFallback>{getInitials(createdByName)}</AvatarFallback>
                           </Avatar>
                           <span className="text-sm text-slate-700 dark:text-slate-200">
@@ -613,7 +613,7 @@ export default function ArchivePage() {
                       </td>
                       <td className="px-2 py-2 align-middle">
                         <div className="flex items-center gap-2">
-                          <Avatar size="sm">
+                          <Avatar name={archivedByName} size="sm">
                             <AvatarFallback>{getInitials(archivedByName)}</AvatarFallback>
                           </Avatar>
                           <span className="text-sm text-slate-700 dark:text-slate-200">
@@ -711,7 +711,7 @@ export default function ArchivePage() {
                     </td>
                     <td className="px-2 py-2 align-middle">
                       <div className="flex items-center gap-2">
-                        <Avatar size="sm">
+                        <Avatar name={createdByName} size="sm">
                           <AvatarFallback>{getInitials(createdByName)}</AvatarFallback>
                         </Avatar>
                         <span className="text-sm text-slate-700 dark:text-slate-200">
@@ -721,7 +721,7 @@ export default function ArchivePage() {
                     </td>
                     <td className="px-2 py-2 align-middle">
                       <div className="flex items-center gap-2">
-                        <Avatar size="sm">
+                        <Avatar name={archivedByName} size="sm">
                           <AvatarFallback>{getInitials(archivedByName)}</AvatarFallback>
                         </Avatar>
                         <span className="text-sm text-slate-700 dark:text-slate-200">

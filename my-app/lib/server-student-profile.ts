@@ -18,6 +18,13 @@ export const studentProfileSchema = `
   alter table public.student_profiles add column if not exists program_option_id uuid references public.project_configuration_options(id) on delete set null;
   alter table public.student_profiles add column if not exists verification_status text not null default 'pending' check (verification_status in ('pending', 'approved', 'rejected'));
   alter table public.student_profiles add column if not exists reviewed_by_user_id text;
+  do $$ begin
+    if not exists (select 1 from pg_constraint where conrelid='public.student_profiles'::regclass and conname='student_profiles_verification_status_v2_check') then
+      alter table public.student_profiles drop constraint if exists student_profiles_verification_status_check;
+      alter table public.student_profiles add constraint student_profiles_verification_status_v2_check
+        check (verification_status in ('pending','approved','rejected','revoked'));
+    end if;
+  end $$;
   alter table public.student_profiles add column if not exists reviewed_at timestamptz;
   alter table public.student_profiles add column if not exists rejection_reason text;
   update public.student_profiles p set program_option_id=o.id
@@ -104,7 +111,7 @@ export async function saveStudentProfile(userId: string, profile: StudentProfile
 
 export type StudentAccessState = {
   required: boolean; profileComplete: boolean
-  status: "pending" | "approved" | "rejected" | null
+  status: "pending" | "approved" | "rejected" | "revoked" | null
   reason: string | null; program: string | null; yearLevel: string | null
 }
 

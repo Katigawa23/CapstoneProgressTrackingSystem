@@ -1,8 +1,11 @@
 import { getDb } from "@/lib/server-db"
+import { ensureActiveSessionSchema } from "@/lib/server-active-session"
+import { ensureCoordinatorAssignmentSchema } from "@/lib/server-coordinator-assignments"
+import { ensureProjectsSchema } from "@/lib/server-project-repository"
 import { ensureMicrosoftLoginSchema } from "@backend/repositories/users-repository"
 
 export type FacultyVerification = {
-  userId: string; name: string; email: string; status: "pending" | "approved" | "rejected"
+  userId: string; name: string; email: string; status: "pending" | "approved" | "rejected" | "revoked"
   submittedAt: string; reason: string | null
 }
 export async function getFacultyAccessState(userId: string) {
@@ -24,12 +27,28 @@ export async function listFacultyVerifications(tenantId: string) {
     order by microsoft_user_id, login_at desc`, [tenantId])
   return result.rows
 }
-export async function reviewFacultyVerification(input: { userId: string; tenantId: string; reviewerId: string; status: "approved" | "rejected"; reason: string }) {
+export async function reviewFacultyVerification(input: { userId: string; tenantId: string; reviewerId: string; status: "approved" | "rejected" | "revoked" | "restore"; reason: string }) {
   await ensureMicrosoftLoginSchema()
+  await ensureActiveSessionSchema()
+  const source = input.status === "restore" ? "revoked" : input.status === "revoked" ? "approved" : "pending"
+  const status = input.status === "restore" ? "approved" : input.status
+  let assignmentGuard = ""
+  if (status === "revoked") {
+    await ensureCoordinatorAssignmentSchema()
+    await ensureProjectsSchema()
+    assignmentGuard = `
+      and not exists (select 1 from public.program_coordinator_assignments where faculty_user_id=$3)
+      and not exists (
+        select 1 from public.groups g join public.projects p on p.id=g.project_id
+        where g.adviser_user_id=$3 and not p.is_archived
+      )`
+  }
   const result = await getDb().query(`update users set faculty_verification_status=$4,
-    faculty_reviewed_by=$1, faculty_reviewed_at=now(), faculty_rejection_reason=$5
-    where microsoft_user_id=$3 and tenant_id=$2 and role='faculty' and faculty_verification_status='pending'
-    returning microsoft_user_id`, [input.reviewerId, input.tenantId, input.userId, input.status, input.status === "rejected" ? input.reason : null])
+    faculty_reviewed_by=$1, faculty_reviewed_at=now(), faculty_rejection_reason=$5,
+    active_session_id=case when $4='revoked' then null else active_session_id end
+    where microsoft_user_id=$3 and tenant_id=$2 and role='faculty' and faculty_verification_status=$6
+    ${assignmentGuard}
+    returning microsoft_user_id`, [input.reviewerId, input.tenantId, input.userId, status, input.status === "rejected" ? input.reason : null, source])
   return (result.rowCount ?? 0) > 0
 }
 

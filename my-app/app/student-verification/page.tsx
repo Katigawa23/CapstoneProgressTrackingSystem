@@ -24,6 +24,15 @@ export default async function StudentVerificationWaitingPage() {
     where p.user_id=$1 limit 1`, [user.id])
   const coordinatorName = coordinator.rows[0]?.name
   const submissionLimit = await getStudentSubmissionLimit(user.id)
+  if (access.status === "revoked") {
+    return <main className="flex min-h-dvh items-center justify-center bg-background p-5">
+      <section className="w-full max-w-md rounded-xl border bg-card p-6">
+        <h1 className="text-xl font-semibold">Access revoked</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Contact your program coordinator to request access to TrackSphere again.</p>
+        <VerificationRefresh />
+      </section>
+    </main>
+  }
   const rejected = access.status === "rejected"
   const Icon = rejected ? TriangleAlert : Clock3
   return <main className="flex min-h-dvh items-center justify-center bg-background p-5">

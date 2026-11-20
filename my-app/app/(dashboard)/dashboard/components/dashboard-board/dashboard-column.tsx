@@ -18,6 +18,7 @@ type DashboardColumnProps = {
   canEditAssignee?: boolean
   canManageOtherProjectResources?: boolean
   isDragDisabled?: boolean
+  isDropDisabled?: boolean
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
   onOpenTask: (todo: TodoItem, target?: OpenTaskTarget) => void
@@ -35,6 +36,7 @@ export function DashboardColumn({
   canEditAssignee = false,
   canManageOtherProjectResources = false,
   isDragDisabled = false,
+  isDropDisabled = false,
   onStatusChange,
   onAssigneeChange,
   onOpenTask,
@@ -46,7 +48,7 @@ export function DashboardColumn({
   const normalizedCurrentUserId = currentUserId?.trim() ?? ""
 
   return (
-    <Droppable droppableId={column.id}>
+    <Droppable droppableId={column.id} isDropDisabled={isDropDisabled}>
       {(provided, snapshot) => (
         <Card
           className={`flex h-full min-h-0 min-w-0 flex-col rounded-xl border-[color:var(--board-column-border)] bg-[var(--board-column-bg)] shadow-[var(--board-column-shadow)] transition-[background-color,border-color,box-shadow,transform] duration-300 ${

@@ -151,7 +151,7 @@ function ProjectAdviserAvatar({ project }: { project: DashboardProject }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Avatar className="h-8 w-8">
+        <Avatar tabIndex={0} className="h-8 w-8">
           <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-[10px] font-semibold text-white dark:bg-[var(--brand-primary-fixed)]">
             {getInitials(adviserName)}
           </AvatarFallback>
@@ -186,7 +186,7 @@ function ProjectPeopleIndicator({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex items-center">
+        <div className="flex items-center" tabIndex={0}>
           {people.slice(0, 4).map((person, index) => (
             <Avatar
               key={`${emptyLabel}-${person}`}

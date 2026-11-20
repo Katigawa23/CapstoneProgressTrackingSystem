@@ -5,7 +5,7 @@ import { ensureMicrosoftLoginSchema } from "@backend/repositories/users-reposito
 
 let schemaReady: Promise<void> | null = null
 
-async function ensureActiveSessionSchema() {
+export async function ensureActiveSessionSchema() {
   await ensureMicrosoftLoginSchema()
 
   schemaReady ??= getDb()

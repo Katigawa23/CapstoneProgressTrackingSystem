@@ -352,7 +352,7 @@ export default function DashboardProjectArchivePage() {
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div className="inline-flex items-center gap-2">
-                              <Avatar className="h-7 w-7">
+                              <Avatar name={project.archivedBy ?? "Unknown user"} className="h-7 w-7">
                                 <AvatarFallback className="text-[10px]">
                                   {getInitials(project.archivedBy ?? "Unknown user") || "?"}
                                 </AvatarFallback>

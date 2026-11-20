@@ -111,7 +111,7 @@ function SubtaskGlyph() {
 }
 
 const subtaskGridClass =
-  "grid grid-cols-[minmax(0,1.2fr)_72px_68px_68px_84px_108px_52px] items-center gap-x-2.5"
+  "grid min-w-[620px] grid-cols-[minmax(0,1.2fr)_72px_68px_68px_84px_108px_52px] items-center gap-x-2.5"
 
 export function TaskSubtasksSection({
   checklist,
@@ -429,7 +429,7 @@ export function TaskSubtasksSection({
       </div>
 
       <CollapsibleContent>
-        <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[var(--input)] dark:bg-[var(--card)]">
+        <div className="overflow-x-auto rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[var(--input)] dark:bg-[var(--card)]" role="region" aria-label="Subtask table" tabIndex={0}>
           <div
             className={`${subtaskGridClass} border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-500 dark:border-[#2b3138] dark:bg-[var(--card)] dark:text-[var(--muted-foreground)]`}
           >
@@ -554,7 +554,7 @@ export function TaskSubtasksSection({
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Avatar size="sm">
+                            <Avatar size="sm" tabIndex={0} aria-label={createdByName}>
                               <AvatarFallback className="text-xs font-bold">
                                 {getInitials(createdByName)}
                               </AvatarFallback>
