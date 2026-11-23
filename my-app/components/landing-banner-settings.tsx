@@ -18,7 +18,6 @@ export function LandingBannerSettings() {
   const [file, setFile] = useState<File>()
   const [preview, setPreview] = useState("")
   const [mayCrop, setMayCrop] = useState(false)
-  const [alt, setAlt] = useState("")
 
   useEffect(() => {
     const controller = new AbortController()
@@ -47,7 +46,6 @@ export function LandingBannerSettings() {
     setPreview("")
     setMayCrop(false)
     setFile(undefined)
-    setAlt(slide?.alt ?? "")
     setDraft({ action, slide })
   }
 
@@ -62,7 +60,6 @@ export function LandingBannerSettings() {
       if (slide) body.set("id", slide.id)
       if ((action === "add" || action === "replace") && file) {
         body.set("image", file)
-        body.set("alt", alt.trim())
       }
       const response = await fetch("/api/landing-banner", { method: "POST", body })
       const data = await response.json()
@@ -95,7 +92,6 @@ export function LandingBannerSettings() {
         {slides.map((slide) => (
           <li key={slide.id} className="w-56 max-w-full shrink-0 snap-start overflow-hidden rounded-lg border bg-background">
             <Image src={landingBannerImageUrl(slide)} alt="" width={224} height={126} unoptimized className="aspect-video w-full bg-muted object-cover" />
-            <p title={slide.alt} className="truncate px-3 pt-2 text-sm font-medium">{slide.alt}</p>
             <div className="flex flex-wrap items-center gap-1 px-2 pb-2 pt-1">
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => open("remove", slide)}>Remove</Button>
             </div>
@@ -113,7 +109,7 @@ export function LandingBannerSettings() {
         <DialogContent showCloseButton={!busy}>
           <DialogHeader>
             <DialogTitle>{draft?.action === "remove" ? "Remove picture?" : draft?.action === "replace" ? "Replace picture" : "Add picture"}</DialogTitle>
-            <DialogDescription>{draft?.action === "remove" ? `“${draft.slide?.alt}” will be removed from the public banner.` : "Preview the picture before saving it to the public banner."}</DialogDescription>
+            <DialogDescription>{draft?.action === "remove" ? "This picture will be removed from the public banner." : "Preview the picture before saving it to the public banner."}</DialogDescription>
           </DialogHeader>
           {draft && draft.action !== "remove" && (
             <div className="space-y-3">
@@ -150,16 +146,12 @@ export function LandingBannerSettings() {
                   This picture may be cropped. Use a 16:9 image, such as 1600 × 900 px, to show it in full.
                 </p>
               )}
-              <label className="block space-y-1 text-sm font-medium">
-                <span>Picture description</span>
-                <Input maxLength={160} value={alt} disabled={busy} onChange={(event) => setAlt(event.target.value)} />
-              </label>
             </div>
           )}
           {error && draft && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button variant="outline" disabled={busy} onClick={() => { setDraft(undefined); setFile(undefined); setPreview(""); setError("") }}>Cancel</Button>
-            <Button variant={draft?.action === "remove" ? "destructive" : "default"} disabled={busy || !draft || (draft.action !== "remove" && (!file || !alt.trim()))} onClick={() => { if (draft) void save(draft.action, draft.slide) }}>
+            <Button variant={draft?.action === "remove" ? "destructive" : "default"} disabled={busy || !draft || (draft.action !== "remove" && !file)} onClick={() => { if (draft) void save(draft.action, draft.slide) }}>
               {busy ? "Saving…" : draft?.action === "remove" ? "Remove picture" : "Save picture"}
             </Button>
           </DialogFooter>

@@ -37,3 +37,10 @@ export function validateDisplayName(
 
   return null
 }
+
+
+export const TASK_TITLE_CHARACTERS_ERROR = "Use letters, numbers, and spaces only."
+
+export function hasInvalidTaskTitleCharacters(value: string) {
+  return /[^\p{L}\p{M}\p{Nd} ]/u.test(value)
+}
