@@ -4,6 +4,7 @@ import {
   getMicrosoftTenantId,
   type MicrosoftUser,
   normalizeMicrosoftRole,
+  fetchMicrosoftProfilePhoto,
   redeemMicrosoftCode,
 } from "@backend/auth/microsoft"
 
@@ -15,7 +16,7 @@ import {
   readStateCookieValue,
 } from "@backend/auth/session"
 
-import { saveMicrosoftAccountLogin, getStoredUserRole } from "@backend/repositories/users-repository"
+import { saveMicrosoftAccountLogin, getStoredUserRole, saveMicrosoftProfilePhoto } from "@backend/repositories/users-repository"
 import { createActiveSession } from "@/lib/server-active-session"
 
 export const runtime = "nodejs"
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
     }
 
     // âœ… exchange code â†’ user
-    const user = await redeemMicrosoftCode(request, code)
+    const { user, accessToken } = await redeemMicrosoftCode(request, code)
 
     // âœ… Check database for stored role (for testing: if admin edited role in DB, use it)
     const storedRole = await getStoredUserRole(user.id)
@@ -75,6 +76,14 @@ export async function GET(request: NextRequest) {
 
     // âœ… SAVE TO DATABASE
     await saveMicrosoftAccountLogin(user, getMicrosoftTenantId())
+    if (accessToken && process.env.DATABASE_URL?.trim()) {
+      try {
+        const photo = await fetchMicrosoftProfilePhoto(accessToken)
+        if (photo !== undefined) await saveMicrosoftProfilePhoto(user.id, photo)
+      } catch {
+        console.warn("Microsoft profile photo sync could not complete.")
+      }
+    }
     const sessionId = await createActiveSession(user.id)
 
     // âœ… redirect to completion page

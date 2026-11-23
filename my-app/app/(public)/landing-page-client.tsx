@@ -224,10 +224,7 @@ export function LandingPageClient({ slides }: { slides: LandingBannerSlide[] }) 
 
           <ScrollReveal className="mx-auto mt-6 max-w-md md:mx-0" delay={120}>
             <p className="text-base text-gray-600 dark:text-slate-300 sm:text-lg">
-             Manage y
-             
-             
-             our capstone and thesis projects with ease through real-time tracking, smooth collaboration, and clear workflows.
+             Manage your capstone and thesis projects with ease through real-time tracking, smooth collaboration, and clear workflows.
             </p>
           </ScrollReveal>
 

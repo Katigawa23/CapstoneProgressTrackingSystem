@@ -5,12 +5,14 @@ import { DashboardLayoutClient } from "./layout-client"
 export function DashboardLayoutShell({
   children,
   initialAuthSession,
+  profilePhoto,
   initialProjects,
   initialTeam,
   coordinatorMode = false,
 }: {
   children: React.ReactNode
   initialAuthSession: AuthSession | null
+  profilePhoto?: string | null
   initialProjects: DashboardProject[]
   initialTeam: DashboardProject | null
   coordinatorMode?: boolean
@@ -18,6 +20,7 @@ export function DashboardLayoutShell({
   return (
     <DashboardLayoutClient
       initialAuthSession={initialAuthSession}
+      profilePhoto={profilePhoto}
       initialProjects={initialProjects}
       initialTeam={initialTeam}
       coordinatorMode={coordinatorMode}
