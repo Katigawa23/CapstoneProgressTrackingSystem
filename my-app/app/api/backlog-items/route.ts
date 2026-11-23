@@ -44,6 +44,7 @@ function toActiveBacklogItemResponse(item: Awaited<ReturnType<typeof listBacklog
     priority: item.priority,
     createdAt: item.createdAt,
     commentCount: item.commentCount,
+    hasSubmission: item.hasSubmission,
   }
 }
 

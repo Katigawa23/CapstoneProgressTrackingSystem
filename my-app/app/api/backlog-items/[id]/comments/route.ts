@@ -1,6 +1,9 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
+import { getPreferredStorageMode } from "@backend/config/storage-mode"
+import { getDb } from "@backend/db/connection"
+import { COMMENT_ASSET_ENCODED_LIMIT, readCommentAsset } from "@/lib/comment-assets"
 import { getMicrosoftTenantId } from "@backend/auth/microsoft"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
@@ -27,7 +30,16 @@ export async function GET(
 
     const { id } = await params
     const comments = await listBacklogComments(id, user.id)
-    return NextResponse.json({ comments })
+    if (getPreferredStorageMode() === "file" || !comments.length) return NextResponse.json({ comments })
+
+    await ensureCommentLikes()
+    const { rows } = await getDb().query<{ comment_id: string; likeCount: number; liked: boolean }>(
+      `select comment_id, count(*)::int as "likeCount", bool_or(user_id = $2) as liked
+       from comment_likes where comment_id = any($1::uuid[]) group by comment_id`,
+      [comments.map((comment) => comment.id), user.id]
+    )
+    const likes = new Map(rows.map(({ comment_id, ...reaction }) => [comment_id, reaction]))
+    return NextResponse.json({ comments: comments.map((comment) => ({ ...comment, ...likes.get(comment.id) })) })
   } catch (error) {
     console.error("Failed to load backlog comments", error)
     return NextResponse.json(
@@ -59,6 +71,7 @@ export async function POST(
       body?: string
       attachments?: string[]
       requestId?: string
+      replyToCommentId?: string
     }
     const trimmedBody = body.body?.trim() ?? ""
     const requestId = typeof body.requestId === "string" ? body.requestId.trim() : ""
@@ -67,6 +80,11 @@ export async function POST(
           .map((item) => String(item).trim())
           .filter(Boolean)
       : []
+
+    if (normalizedAttachments.reduce((size, asset) => size + asset.length, 0) > COMMENT_ASSET_ENCODED_LIMIT ||
+        normalizedAttachments.some((asset) => !readCommentAsset(asset))) {
+      return NextResponse.json({ error: "Invalid comment attachments or combined size exceeds 2 MB." }, { status: 400 })
+    }
 
     if (!trimmedBody && normalizedAttachments.length === 0) {
       return NextResponse.json(
@@ -95,6 +113,7 @@ export async function POST(
       body: trimmedBody,
       attachments: normalizedAttachments,
       requestId: requestId || null,
+      replyToCommentId: typeof body.replyToCommentId === "string" ? body.replyToCommentId : null,
     }, user.id)
 
     if (!comment) {
@@ -119,5 +138,55 @@ export async function POST(
       },
       { status: 500 }
     )
+  }
+}
+
+let likesSchema: Promise<unknown> | undefined
+
+function ensureCommentLikes() {
+  return likesSchema ??= getDb().query(`
+    create table if not exists comment_likes (
+      comment_id uuid not null references comments(id) on delete cascade,
+      user_id text not null,
+      primary key (comment_id, user_id)
+    )
+  `).catch((error) => {
+    likesSchema = undefined
+    throw error
+  })
+}
+
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const user = await requireAuthenticatedUser()
+    const readOnlyResponse = rejectSuperAdminMutation(user.id)
+    if (readOnlyResponse) return readOnlyResponse
+
+    const { id } = await params
+    const { commentId, liked } = await request.json()
+    if (typeof commentId !== "string" || typeof liked !== "boolean") {
+      return NextResponse.json({ error: "Invalid comment reaction." }, { status: 400 })
+    }
+    const comments = await listBacklogComments(id, user.id)
+    if (!comments.some((comment) => comment.id === commentId)) {
+      return NextResponse.json({ error: "Comment not found." }, { status: 404 })
+    }
+
+    await ensureCommentLikes()
+    const db = getDb()
+    await db.query(
+      liked
+        ? "insert into comment_likes (comment_id, user_id) values ($1, $2) on conflict do nothing"
+        : "delete from comment_likes where comment_id = $1 and user_id = $2",
+      [commentId, user.id]
+    )
+    const { rows } = await db.query<{ likeCount: number; liked: boolean }>(
+      `select count(*)::int as "likeCount", coalesce(bool_or(user_id = $2), false) as liked
+       from comment_likes where comment_id = $1`,
+      [commentId, user.id]
+    )
+    return NextResponse.json(rows[0])
+  } catch {
+    return NextResponse.json({ error: "Could not update the like." }, { status: 500 })
   }
 }

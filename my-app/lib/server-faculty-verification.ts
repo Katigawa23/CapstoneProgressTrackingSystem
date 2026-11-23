@@ -43,13 +43,13 @@ export async function reviewFacultyVerification(input: { userId: string; tenantI
         where g.adviser_user_id=$3 and not p.is_archived
       )`
   }
-  const result = await getDb().query(`update users set faculty_verification_status=$4,
+  const result = await getDb().query<{ reviewedAt: string }>(`update users set faculty_verification_status=$4,
     faculty_reviewed_by=$1, faculty_reviewed_at=now(), faculty_rejection_reason=$5,
     active_session_id=case when $4='revoked' then null else active_session_id end
     where microsoft_user_id=$3 and tenant_id=$2 and role='faculty' and faculty_verification_status=$6
     ${assignmentGuard}
-    returning microsoft_user_id`, [input.reviewerId, input.tenantId, input.userId, status, input.status === "rejected" ? input.reason : null, source])
-  return (result.rowCount ?? 0) > 0
+    returning faculty_reviewed_at::text as "reviewedAt"`, [input.reviewerId, input.tenantId, input.userId, status, input.status === "rejected" ? input.reason : null, source])
+  return result.rows[0] ?? null
 }
 
 export async function resubmitFacultyVerification(userId: string, tenantId: string) {

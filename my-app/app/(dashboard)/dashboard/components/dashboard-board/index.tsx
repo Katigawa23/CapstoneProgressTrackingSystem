@@ -49,6 +49,7 @@ import type {
 import { compareTasksByPriority, dedupeItemsById } from "../../utils"
 import { DashboardColumn } from "./dashboard-column"
 import { useRole } from "@/lib/role-context"
+import { COMMENT_ASSET_ENCODED_LIMIT, COMMENT_ASSET_LIMIT } from "@/lib/comment-assets"
 import { TaskCommentsPanel } from "./task-comments-panel"
 import { TaskDetailsSection } from "./task-details-section"
 import { TaskSubmissionsSection } from "./task-attachment-section"
@@ -138,6 +139,11 @@ export function DashboardBoard({
   const [isEditingComments, setIsEditingComments] = React.useState(false)
   const [editingCommentId, setEditingCommentId] = React.useState<string | null>(null)
   const [descriptionDraft, setDescriptionDraft] = React.useState("")
+  const [commentError, setCommentError] = React.useState<string | null>(null)
+  const [pendingDeleteComment, setPendingDeleteComment] = React.useState<DashboardComment | null>(null)
+  const [isDeletingComment, setIsDeletingComment] = React.useState(false)
+  const deletingCommentRef = React.useRef(false)
+  const [replyToComment, setReplyToComment] = React.useState<DashboardComment | null>(null)
   const [commentDraft, setCommentDraft] = React.useState("")
   const [descriptionAssets, setDescriptionAssets] = React.useState<
     Record<string, string[]>
@@ -187,6 +193,7 @@ export function DashboardBoard({
   const submissionInputRef = React.useRef<HTMLInputElement | null>(null)
   const initializedCommentTodoIdRef = React.useRef<string | null>(null)
   const commentSaveInFlightRef = React.useRef(false)
+  const readingCommentAssetsRef = React.useRef(0)
   const commentRequestIdRef = React.useRef<string | null>(null)
   const commentEditorRevisionRef = React.useRef(0)
   const selectedTodoId = selectedTodo?.id ?? null
@@ -223,6 +230,7 @@ export function DashboardBoard({
     setDescriptionDraft(selectedTodo.description ?? "")
     if (isNewSelectedTodo) {
       setCommentDraft("")
+      setReplyToComment(null)
     }
     setIsEditingDescription(false)
     setIsEditingComments(canAccessComments && openTarget === "comments")
@@ -493,7 +501,10 @@ export function DashboardBoard({
           ...current,
           [todoId]: linksData.links,
         }))
-        onTodoUpdate(todoId, { links: linksData.links.length })
+        onTodoUpdate(todoId, {
+          links: linksData.links.length,
+          hasSubmission: submissionsData.submissions.length > 0 || linksData.links.length > 0,
+        })
       } catch (error) {
         if ((error as { name?: string })?.name !== "AbortError") {
           console.error("Failed to refresh task resources", error)
@@ -546,18 +557,41 @@ export function DashboardBoard({
   )
 
   const handleCommentAssetAttach = React.useCallback(
-    (todoId: string, files: FileList | null) => {
-      if (!canAccessComments || !files || files.length === 0) {
+    async (todoId: string, files: FileList | null) => {
+      if (!canAccessComments || !files?.length) return
+
+      setCommentError(null)
+      const selectedFiles = Array.from(files)
+      if (selectedFiles.reduce((size, file) => size + file.size, 0) > COMMENT_ASSET_LIMIT) {
+        setCommentError("Comment attachments must total 2 MB or less.")
         return
       }
 
-      setCommentAssets((current) => ({
-        ...current,
-        [todoId]: [
-          ...(current[todoId] ?? []),
-          ...Array.from(files).map((file) => file.name),
-        ],
-      }))
+      readingCommentAssetsRef.current += 1
+      try {
+        const assets = await Promise.all(selectedFiles.map(async (file) => {
+          const data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "")
+            reader.onerror = () => reject(reader.error)
+            reader.readAsDataURL(file)
+          })
+          return JSON.stringify({ name: file.name, mime: file.type, data })
+        }))
+        setCommentAssets((current) => ({
+          ...current,
+          [todoId]: [
+            ...(current[todoId] ?? []).filter(
+              (asset) => !selectedFiles.some((file) => file.name === asset)
+            ),
+            ...assets,
+          ],
+        }))
+      } catch {
+        setCommentError("Could not read the selected attachments.")
+      } finally {
+        readingCommentAssetsRef.current -= 1
+      }
     },
     [canAccessComments]
   )
@@ -834,12 +868,21 @@ export function DashboardBoard({
 
       const todoId = selectedTodo.id
       const editorRevision = commentEditorRevisionRef.current
+      setCommentError(null)
       const trimmedComment = commentDraft.trim()
+      if (readingCommentAssetsRef.current > 0) {
+        setCommentError("Wait for the attachments to finish loading before saving.")
+        return
+      }
+
       const attachments = commentAssets[todoId] ?? []
+      if (attachments.reduce((size, asset) => size + asset.length, 0) > COMMENT_ASSET_ENCODED_LIMIT) {
+        setCommentError("Comment attachments must total 2 MB or less. Cancel editing to clear the selection.")
+        return
+      }
 
       if (!trimmedComment && attachments.length === 0) {
-        setIsEditingComments(false)
-        setEditingCommentId(null)
+        setCommentError("Write a comment or attach a file before saving.")
         return
       }
 
@@ -869,6 +912,7 @@ export function DashboardBoard({
                 body: trimmedComment,
                 attachments,
                 requestId,
+                replyToCommentId: replyToComment?.backlogItemId === todoId ? replyToComment.id : undefined,
               }),
             })
 
@@ -909,11 +953,14 @@ export function DashboardBoard({
           commentEditorRevisionRef.current === editorRevision
         ) {
           setCommentDraft("")
+          setReplyToComment(null)
           setIsEditingComments(false)
           setEditingCommentId(null)
         }
       } catch (error) {
-        console.error(error)
+        if (commentEditorRevisionRef.current === editorRevision) {
+          setCommentError(error instanceof Error ? error.message : "Failed to save comment.")
+        }
       } finally {
         commentSaveInFlightRef.current = false
         setIsSavingComment(false)
@@ -927,20 +974,26 @@ export function DashboardBoard({
     commentDraft,
     commentThreads,
     editingCommentId,
+    replyToComment,
     onTodoUpdate,
     selectedTodo,
   ])
 
-  const handleReplyToComment = React.useCallback((author: string) => {
-    if (!canAccessComments) return
-    setCommentDraft(`@${author} `.slice(0, COMMENT_BODY_MAX_LENGTH))
+  const handleReplyToComment = React.useCallback((comment: DashboardComment) => {
+    if (!canAccessComments || commentSaveInFlightRef.current) return
+    if (editingCommentId) {
+      setCommentDraft("")
+      setCommentAssets((current) => ({ ...current, [comment.backlogItemId]: [] }))
+    }
+    setReplyToComment(comment)
     commentRequestIdRef.current = null
     setIsEditingComments(true)
     setEditingCommentId(null)
-  }, [canAccessComments])
+  }, [canAccessComments, editingCommentId])
 
   const handleEditComment = React.useCallback((comment: DashboardComment) => {
     if (!canAccessComments) return
+    setReplyToComment(null)
     setCommentDraft(comment.body.slice(0, COMMENT_BODY_MAX_LENGTH))
     commentRequestIdRef.current = null
     setCommentAssets((current) => ({
@@ -953,15 +1006,11 @@ export function DashboardBoard({
 
   const handleDeleteComment = React.useCallback(
     async (comment: DashboardComment) => {
-      if (!canAccessComments || !selectedTodo) {
-        return
-      }
+      if (!canAccessComments || selectedTodo?.id !== comment.backlogItemId || deletingCommentRef.current) return
 
-      const confirmed = window.confirm("Delete this comment?")
-      if (!confirmed) {
-        return
-      }
-
+      deletingCommentRef.current = true
+      setIsDeletingComment(true)
+      setCommentError(null)
       try {
         const response = await fetch(`/api/backlog-comments/${comment.id}`, {
           method: "DELETE",
@@ -995,6 +1044,7 @@ export function DashboardBoard({
 
         if (editingCommentId === comment.id) {
           setCommentDraft("")
+          setReplyToComment(null)
           setCommentAssets((current) => ({
             ...current,
             [selectedTodo.id]: [],
@@ -1002,8 +1052,12 @@ export function DashboardBoard({
           setEditingCommentId(null)
           setIsEditingComments(false)
         }
+        setPendingDeleteComment(null)
       } catch (error) {
-        console.error(error)
+        setCommentError(error instanceof Error ? error.message : "Failed to delete comment.")
+      } finally {
+        deletingCommentRef.current = false
+        setIsDeletingComment(false)
       }
     },
     [canAccessComments, commentThreads, editingCommentId, onTodoUpdate, selectedTodo]
@@ -1266,7 +1320,7 @@ export function DashboardBoard({
       const destinationColumnId = destination.droppableId as TodoItem["status"]
       const draggedTodo = todos.find((todo) => todo.id === draggableId)
 
-      if (!draggedTodo) return
+      if (!draggedTodo || (draggedTodo.status === "todo" && !draggedTodo.hasSubmission)) return
       if (isStudent) {
         if (draggedTodo.status === "todo" && destinationColumnId === "inprogress" &&
             !isTaskCompletionLocked(draggedTodo, todos)) {
@@ -1617,14 +1671,17 @@ export function DashboardBoard({
                 currentUserId={currentUserId}
                 creatorNamesById={creatorNamesById}
                 comments={commentThreads[selectedTodo.id] ?? []}
+                submissions={submissionThreads[selectedTodo.id] ?? []}
                 isLoadingComments={isLoadingComments}
                 isSavingComment={isSavingComment}
                 isEditingComments={isEditingComments}
                 commentDraft={commentDraft}
+                replyToComment={replyToComment?.backlogItemId === selectedTodo.id ? replyToComment : null}
                 commentAssets={commentAssets[selectedTodo.id] ?? []}
                 commentImageInputRef={commentImageInputRef}
                 commentFileInputRef={commentFileInputRef}
                 onCommentDraftChange={(value) => {
+                  setCommentError(null)
                   setCommentDraft(value)
                   if (!commentSaveInFlightRef.current) commentRequestIdRef.current = null
                 }}
@@ -1635,8 +1692,10 @@ export function DashboardBoard({
                 }}
                 onCommentSave={handleCommentSave}
                 onCommentCancel={() => {
+                  setCommentError(null)
                   commentRequestIdRef.current = null
                   setCommentDraft("")
+                  setReplyToComment(null)
                   setCommentAssets((current) => ({
                     ...current,
                     [selectedTodo.id]: [],
@@ -1647,7 +1706,11 @@ export function DashboardBoard({
                 onCommentAssetAttach={handleCommentAssetAttach}
                 onReplyToComment={handleReplyToComment}
                 onEditComment={handleEditComment}
-                onDeleteComment={handleDeleteComment}
+                commentError={commentError}
+                onDeleteComment={(comment) => {
+                  setCommentError(null)
+                  setPendingDeleteComment(comment)
+                }}
                 onStatusChange={onStatusChange}
                 onAssigneeChange={onAssigneeChange}
               />
@@ -1656,6 +1719,37 @@ export function DashboardBoard({
           </DialogContent>
         ) : null}
       </Dialog>
+
+      <AlertDialog
+        open={canAccessComments && pendingDeleteComment !== null && pendingDeleteComment.backlogItemId === selectedTodo?.id}
+        onOpenChange={(open) => {
+          if (!open && !deletingCommentRef.current) {
+            setPendingDeleteComment(null)
+            setCommentError(null)
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md dark:border-[var(--border)] dark:bg-[var(--card)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete comment?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently remove the comment and its attachments.</AlertDialogDescription>
+          </AlertDialogHeader>
+          {commentError ? <p role="alert" className="text-sm text-destructive">{commentError}</p> : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingComment}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isDeletingComment}
+              onClick={(event) => {
+                event.preventDefault()
+                if (pendingDeleteComment) void handleDeleteComment(pendingDeleteComment)
+              }}
+            >
+              {isDeletingComment ? "Deleting?" : "Delete comment"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={isEmptySubmissionAlertOpen}

@@ -168,6 +168,7 @@ export function mapBacklogItemsToTodos(
         deleted: item.deleted ?? false,
         deletedAt: item.deletedAt ?? null,
         comments: item.commentCount ?? 0,
+        hasSubmission: item.hasSubmission,
         links: 0,
         checklist: `${completedSubtasks}/${childItems.length}`,
         priority: item.priority ?? "Medium",

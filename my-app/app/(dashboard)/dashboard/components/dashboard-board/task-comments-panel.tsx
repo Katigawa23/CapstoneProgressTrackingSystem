@@ -1,3 +1,5 @@
+import { useRef, useState } from "react"
+import { isCommentImage, readCommentAsset } from "@/lib/comment-assets"
 import { Ellipsis, File, ImageIcon, Paperclip, Reply, ThumbsUp, Trash2 } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -23,7 +25,7 @@ import { AssigneeCombobox } from "../../backlog/components/assignee-combobox"
 import { StatusCombobox } from "../../backlog/components/status-combobox"
 import { getAssigneeOption } from "../../backlog/types"
 import { PriorityBadge, TaskStatusBadge } from "../task-state-badges"
-import type { DashboardComment, TodoItem } from "../../types"
+import type { DashboardComment, DashboardSubmission, TodoItem } from "../../types"
 import { formatDeadline, getInitials } from "../../utils"
 import { formatCommentTime } from "./utils"
 
@@ -37,10 +39,13 @@ type TaskCommentsPanelProps = {
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
   comments: DashboardComment[]
+  submissions: DashboardSubmission[]
   isLoadingComments: boolean
   isSavingComment: boolean
   isEditingComments: boolean
+  commentError: string | null
   commentDraft: string
+  replyToComment: DashboardComment | null
   commentAssets: string[]
   commentImageInputRef: React.RefObject<HTMLInputElement | null>
   commentFileInputRef: React.RefObject<HTMLInputElement | null>
@@ -49,11 +54,113 @@ type TaskCommentsPanelProps = {
   onCommentSave: () => void
   onCommentCancel: () => void
   onCommentAssetAttach: (todoId: string, files: FileList | null) => void
-  onReplyToComment: (author: string) => void
+  onReplyToComment: (comment: DashboardComment) => void
   onEditComment: (comment: DashboardComment) => void
   onDeleteComment: (comment: DashboardComment) => void
   onStatusChange: (todoId: string, nextStatus: TodoItem["status"]) => void
   onAssigneeChange: (todoId: string, assigneeId: string | null) => void
+}
+
+function CommentAttachment({
+  value,
+  submissions = [],
+}: {
+  value: string
+  submissions?: DashboardSubmission[]
+}) {
+  const asset = readCommentAsset(value)
+  const matches = asset ? [] : submissions.filter((submission) => submission.fileName === value)
+  const submission = matches.length === 1 ? matches[0] : undefined
+  const name = asset?.name ?? value
+  const mime = asset?.mime ?? submission?.fileType ?? ""
+  const fileClassName = "inline-flex max-w-full items-center gap-2 break-all rounded-lg border px-3 py-1 text-xs"
+
+  if (!asset && !submission) {
+    return <span className={fileClassName} title="Original file unavailable. Reattach it by editing the comment.">{name}</span>
+  }
+
+  if (isCommentImage(mime)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={asset ? `data:${mime};base64,${asset.data}` : submission?.fileUrl}
+        alt={name}
+        className="block max-h-64 max-w-full rounded-md object-contain"
+      />
+    )
+  }
+
+  const fileUrl = submission?.fileUrl ?? ""
+  return (
+    <a
+      href={asset ? `data:application/octet-stream;base64,${asset.data}` : `${fileUrl}${fileUrl.includes("?") ? "&" : "?"}download=1`}
+      download={name}
+      className={`${fileClassName} hover:underline`}
+      aria-label={`Download ${name}`}
+    >
+      <File className="h-3.5 w-3.5 shrink-0" />
+      {name}
+    </a>
+  )
+}
+
+function CommentQuote({ comment, submissions }: {
+  comment?: DashboardComment
+  submissions: DashboardSubmission[]
+}) {
+  if (!comment) {
+    return <p className="text-xs text-muted-foreground">Original comment unavailable</p>
+  }
+
+  return (
+    <blockquote className="min-w-0 rounded-md border-l-2 border-primary bg-muted/50 px-3 py-2 text-xs">
+      <p className="mb-1 font-medium text-muted-foreground">Replying to comment</p>
+      {comment.body ? (
+        <p className="whitespace-pre-wrap break-words">{comment.body}</p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {comment.attachments.map((asset, index) => (
+          <CommentAttachment key={index} value={asset} submissions={submissions} />
+        ))}
+      </div>
+    </blockquote>
+  )
+}
+
+function CommentLike({ comment, taskId }: { comment: DashboardComment; taskId: string }) {
+  const [reaction, setReaction] = useState({ liked: comment.liked ?? false, likeCount: comment.likeCount ?? 0 })
+  const pending = useRef(false)
+  const [likeError, setLikeError] = useState(false)
+
+  async function toggleLike() {
+    if (pending.current) return
+    pending.current = true
+    setLikeError(false)
+    try {
+      const response = await fetch(`/api/backlog-items/${taskId}/comments`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentId: comment.id, liked: !reaction.liked }),
+      })
+      if (!response.ok) throw new Error("Could not update the like.")
+      setReaction(await response.json())
+    } catch {
+      setLikeError(true)
+    } finally {
+      pending.current = false
+    }
+  }
+
+  return (
+    <>
+      <button type="button" aria-pressed={reaction.liked} onClick={() => void toggleLike()}
+        className={`inline-flex items-center gap-1 text-xs hover:underline ${reaction.liked ? "text-[var(--brand-primary)]" : ""}`}>
+        <ThumbsUp className="h-3.5 w-3.5" />
+        {reaction.liked ? "Liked" : "Like"}{reaction.likeCount > 0 ? ` (${reaction.likeCount})` : ""}
+      </button>
+      {likeError ? <span role="alert" className="text-xs text-destructive">Could not update like. Try again.</span> : null}
+    </>
+  )
 }
 
 function escapeRegExp(value: string) {
@@ -70,10 +177,13 @@ export function TaskCommentsPanel({
   currentUserId = null,
   creatorNamesById = {},
   comments,
+  submissions,
   isLoadingComments,
   isSavingComment,
   isEditingComments,
+  commentError,
   commentDraft,
+  replyToComment,
   commentAssets,
   commentImageInputRef,
   commentFileInputRef,
@@ -384,6 +494,12 @@ export function TaskCommentsPanel({
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
+                      {comment.replyToCommentId ? (
+                        <CommentQuote
+                          comment={comments.find((original) => original.id === comment.replyToCommentId)}
+                          submissions={submissions}
+                        />
+                      ) : null}
                       {comment.body ? (
                         <div className="flex flex-wrap items-center gap-1 text-sm text-slate-700 dark:text-slate-300">
                           {renderCommentBody(comment)}
@@ -391,14 +507,8 @@ export function TaskCommentsPanel({
                       ) : null}
                       {comment.attachments.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
-                          {comment.attachments.map((asset) => (
-                            <span
-                              key={`${comment.id}-${asset}`}
-                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-[var(--border)] dark:bg-[var(--surface-hover)] dark:text-slate-300"
-                            >
-                              <File className="h-3.5 w-3.5" />
-                              {asset}
-                            </span>
+                          {comment.attachments.map((asset, index) => (
+                            <CommentAttachment key={index} value={asset} submissions={submissions} />
                           ))}
                         </div>
                       ) : null}
@@ -406,18 +516,12 @@ export function TaskCommentsPanel({
                         <button
                           type="button"
                           className="inline-flex items-center gap-1 text-xs transition hover:text-slate-700 dark:hover:text-slate-200"
-                          onClick={() => onReplyToComment(comment.author)}
+                          onClick={() => onReplyToComment(comment)}
                         >
                           <Reply className="h-3.5 w-3.5" />
                           <span>Reply</span>
                         </button>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1 text-xs transition hover:text-slate-700 dark:hover:text-slate-200"
-                        >
-                          <ThumbsUp className="h-3.5 w-3.5" />
-                          <span>Like</span>
-                        </button>
+                        <CommentLike key={`${comment.id}-${currentUserId}`} comment={comment} taskId={selectedTodo.id} />
                       </div>
                     </div>
                   </div>
@@ -476,6 +580,7 @@ export function TaskCommentsPanel({
                     }}
                   />
                 </div>
+                {replyToComment ? <CommentQuote comment={replyToComment} submissions={submissions} /> : null}
                 <Textarea
                   autoFocus
                   disabled={isSavingComment}
@@ -497,17 +602,12 @@ export function TaskCommentsPanel({
                 </div>
                 {commentAssets.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {commentAssets.map((asset) => (
-                      <span
-                        key={asset}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-[var(--border)] dark:bg-[var(--surface-hover)] dark:text-slate-300"
-                      >
-                        <File className="h-3.5 w-3.5" />
-                        {asset}
-                      </span>
+                    {commentAssets.map((asset, index) => (
+                      <CommentAttachment key={index} value={asset} />
                     ))}
                   </div>
                 )}
+                {commentError ? <p role="alert" className="text-sm text-destructive">{commentError}</p> : null}
                 <div className="flex shrink-0 items-center gap-2">
                   <Button
                     type="button"

@@ -81,10 +81,10 @@ export function CoordinatorRoadmapChart({
   })
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-3 dark:border-[var(--border)] dark:bg-[var(--card)]">
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-sm font-semibold tracking-tight text-slate-950 dark:text-slate-100">
+          <h2 className="font-display text-base font-semibold tracking-tight text-card-foreground">
             Group task progress
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -92,7 +92,7 @@ export function CoordinatorRoadmapChart({
           </p>
         </div>
 
-        <div className="text-left sm:text-right">
+        <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
             Group created
           </p>
@@ -102,8 +102,8 @@ export function CoordinatorRoadmapChart({
         </div>
       </div>
 
-      <ChartContainer config={chartConfig} className="h-[210px] w-full">
-        <BarChart data={roadmapData} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+      <ChartContainer config={chartConfig} className="h-[200px] w-full sm:h-[230px]">
+        <BarChart accessibilityLayer data={roadmapData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
           <CartesianGrid vertical={false} strokeDasharray="2 4" />
           <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={10} />
           <YAxis
@@ -116,7 +116,7 @@ export function CoordinatorRoadmapChart({
             cursor={false}
             content={<ChartTooltipContent formatter={(value) => `${value}%`} />}
           />
-          <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="value" fill="var(--color-value)" radius={[7, 7, 0, 0]} maxBarSize={84} />
         </BarChart>
       </ChartContainer>
     </section>

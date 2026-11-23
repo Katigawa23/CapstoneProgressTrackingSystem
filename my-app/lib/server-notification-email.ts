@@ -6,6 +6,8 @@ export const emailNotificationTypes = new Set([
   "task_approved", "task_revision_requested",
   "coordinator_assigned", "coordinator_removed", "adviser_assigned",
   "journal_submitted", "journal_adviser_feedback",
+  "verification_approved", "verification_declined",
+  "verification_revoked", "verification_restored",
 ])
 
 export const notificationEmailSchema = `
@@ -64,6 +66,7 @@ export function buildTaskNotificationEmail(notification: EmailNotification, appU
   link.searchParams.set("notificationId", notification.id)
   const buttonLabel = notification.type.startsWith("journal_") ? "View weekly journal"
     : notification.type.startsWith("coordinator_") ? "View dashboard"
+    : notification.type.startsWith("verification_") ? "Open TrackSphere"
     : notification.type === "adviser_assigned" ? "View group" : "View task"
   const details = [
     ["Task", notification.task_title], ["Group / project", notification.project_name],
@@ -79,7 +82,7 @@ export function buildTaskNotificationEmail(notification: EmailNotification, appU
     <div style="max-width:600px;margin:auto;background:#fff;border:1px solid #dbe3eb;border-radius:10px;overflow:hidden">
       <div style="background:#0b5d96;color:#fff;padding:20px;font-size:22px;font-weight:bold">TrackSphere</div>
       <div style="padding:24px;color:#172b4d"><h2>${escapeHtml(notification.title)}</h2>
-      <p>Hello ${escapeHtml(notification.recipient_name)},</p><p>${escapeHtml(notification.message)}</p>
+      <p>Hello ${escapeHtml(notification.recipient_name)},</p><p style="white-space:pre-wrap">${escapeHtml(notification.message)}</p>
       <table style="width:100%;font-size:14px">${details.map(([label, value]) =>
         `<tr><td style="padding:8px 0;color:#64748b">${escapeHtml(label!)}</td><td>${escapeHtml(value!)}</td></tr>`).join("")}</table>
       ${notification.description ? `<p style="white-space:pre-wrap">${escapeHtml(notification.description)}</p>` : ""}
@@ -155,6 +158,8 @@ export async function processPendingTaskEmails(limit = 5, notificationId?: strin
               and n.recipient_user_id = any(g.member_user_ids))
           ))
           or (n.type in ('coordinator_assigned', 'coordinator_removed') and n.project_id is null)
+          or (n.type in ('verification_approved', 'verification_declined', 'verification_revoked', 'verification_restored')
+            and n.project_id is null and n.backlog_item_id is null)
         )
       `, [id])
       const notification = result.rows[0]

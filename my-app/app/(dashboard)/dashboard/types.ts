@@ -23,6 +23,7 @@ export type TodoItem = {
   deletedAt?: string | null
   comments: number
   links: number
+  hasSubmission?: boolean
   checklist: string
   priority: "Low" | "Medium" | "High"
 }
@@ -51,9 +52,13 @@ export type BacklogApiItem = {
   deletedAt?: string | null
   createdAt?: string
   commentCount?: number
+  hasSubmission?: boolean
 }
 
 export type DashboardComment = {
+  replyToCommentId?: string | null
+  liked?: boolean
+  likeCount?: number
   id: string
   backlogItemId: string
   authorUserId?: string | null

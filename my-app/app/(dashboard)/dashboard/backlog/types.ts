@@ -187,3 +187,8 @@ export function getAssigneeOption(value?: string | null) {
   if (!value) return null
   return assigneeOptions.find((option) => option.id === value) ?? null
 }
+
+
+export function isOverdueWorkItem(item: WorkItem, todayStart: number) {
+  return item.status !== "completed" && (item.dueDate?.getTime() ?? Infinity) < todayStart
+}

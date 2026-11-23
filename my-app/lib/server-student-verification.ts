@@ -33,7 +33,7 @@ export async function reviewStudentVerification(input: {
   await ensureActiveSessionSchema()
   const source = input.status === "restore" ? "revoked" : input.status === "revoked" ? "approved" : "pending"
   const status = input.status === "restore" ? "approved" : input.status
-  const result = await getDb().query(`
+  const result = await getDb().query<{ reviewedAt: string }>(`
     with target as (
       select microsoft_user_id from public.users
       where microsoft_user_id=$3 and tenant_id=$2
@@ -46,13 +46,13 @@ export async function reviewStudentVerification(input: {
     where p.user_id=target.microsoft_user_id
       and a.program_option_id=p.program_option_id and a.faculty_user_id=$1
       and p.verification_status=$6
-    returning p.user_id
+    returning p.user_id, p.reviewed_at::text as "reviewedAt"
     ), signed_out as (
       update public.users u set active_session_id=null from reviewed
       where u.microsoft_user_id=reviewed.user_id and $4='revoked'
     )
-    select user_id from reviewed`,
+    select "reviewedAt" from reviewed`,
     [input.coordinatorId, input.tenantId, input.studentId, status,
       input.status === "rejected" ? input.reason : null, source])
-  return (result.rowCount ?? 0) === 1
+  return result.rows[0] ?? null
 }

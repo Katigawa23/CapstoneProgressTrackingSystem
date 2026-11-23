@@ -236,7 +236,7 @@ function toWebLinkRecord(row: BacklogWebLinkRow): BacklogSubmissionRecord {
   }
 }
 
-async function ensureSubmissionSchema() {
+export async function ensureSubmissionSchema() {
   if (!schemaReady) {
     schemaReady = getDb()
       .query(`

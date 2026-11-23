@@ -5,12 +5,9 @@ import { LayoutDashboard } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { landingBannerImageUrl, type LandingBannerSlide } from "@/lib/landing-banner"
 
-export function LandingBanner() {
-  const [slides, setSlides] = useState<LandingBannerSlide[]>([])
+export function LandingBanner({ slides }: { slides: LandingBannerSlide[] }) {
   const [{ index, previous }, setPosition] = useState({ index: 0, previous: -1 })
-  const [paused, setPaused] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [focused, setFocused] = useState(false)
   const [failedSlides, setFailedSlides] = useState<string[]>([])
   const loaded = useRef(new Set<string>())
   const requested = useRef<number | null>(null)
@@ -29,28 +26,17 @@ export function LandingBanner() {
   }, [slides, failedSlides])
 
   useEffect(() => {
-    const controller = new AbortController()
-    fetch("/api/landing-banner", { signal: controller.signal })
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => {
-        if (controller.signal.aborted || !Array.isArray(data?.slides)) return
-        setPaused(window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-        setSlides(data.slides)
-      })
-      .catch(() => {})
-    return () => controller.abort()
-  }, [])
-
-  useEffect(() => {
-    if (count < 2 || paused || hovered || focused) return
+    if (count < 2 || hovered) return
     const next = slides.findIndex((_, offset) => {
       const candidate = (index + offset + 1) % count
       return candidate !== index && !failedSlides.includes(slides[candidate].id)
     })
     if (next < 0) return
-    const timer = window.setTimeout(() => show((index + next + 1) % count), 5000)
+    const timer = window.setTimeout(() => {
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) show((index + next + 1) % count)
+    }, 5000)
     return () => window.clearTimeout(timer)
-  }, [count, index, paused, hovered, focused, slides, failedSlides, show])
+  }, [count, index, hovered, slides, failedSlides, show])
 
   return (
     <section aria-label="TrackSphere banner" className="w-full space-y-3">
@@ -82,6 +68,7 @@ export function LandingBanner() {
               fill
               unoptimized
               loading="eager"
+              fetchPriority={i === 0 ? "high" : "low"}
               draggable={false}
               className="pointer-events-none object-cover"
               onLoad={() => {
@@ -97,7 +84,7 @@ export function LandingBanner() {
         ))}
       </div>
       {count > 1 && (
-        <div className="flex flex-wrap items-center justify-center gap-1.5" onFocus={() => setFocused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false) }}>
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
           {slides.map((item, i) => (
             <button key={item.id} type="button" aria-label={`Show picture ${i + 1}`} aria-current={i === index ? "true" : undefined} disabled={failedSlides.includes(item.id)} onClick={() => show(i)} className="rounded-md p-2 disabled:opacity-40">
               <span className={`block size-2.5 rounded-full ${i === index ? "bg-[var(--brand-primary-fixed)]" : "bg-muted-foreground/50"}`} />

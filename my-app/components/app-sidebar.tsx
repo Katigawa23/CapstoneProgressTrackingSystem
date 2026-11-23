@@ -9,7 +9,7 @@ import {
   ChevronRight,
   LayoutDashboard,
   Map,
-  Milestone,
+  FolderCheck,
   Rows3,
   Settings2,
   UserRoundCheck,
@@ -69,7 +69,7 @@ const projectItems: NavItem[] = [
 
 const documentationItems: NavItem[] = [
   { title: "Weekly Journal", href: "/dashboard/journal", icon: BookOpen },
-  { title: "Milestones", href: "/dashboard/milestones", icon: Milestone },
+  { title: "Milestones", href: "/dashboard/milestones", icon: FolderCheck },
   { title: "Archive", href: "/dashboard/archive", icon: Archive },
 ]
 

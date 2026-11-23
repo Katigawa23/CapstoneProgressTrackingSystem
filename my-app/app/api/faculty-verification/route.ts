@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { listFacultyVerifications, reviewFacultyVerification } from "@/lib/server-faculty-verification"
+import { notifyVerificationDecision } from "@/lib/server-verification-notification"
 
 export const dynamic = "force-dynamic"
 
@@ -30,5 +31,6 @@ export async function PUT(request: Request) {
   }
   const saved = await reviewFacultyVerification({ reviewerId: user.id, tenantId: user.tenantId, userId: facultyId, status, reason })
   if (!saved) return NextResponse.json({ error: "Account status changed or is unavailable. Reassign any active groups or programs before revoking access." }, { status: 409 })
+  await notifyVerificationDecision({ kind: "faculty", recipientUserId: facultyId, reviewerId: user.id, status, reason, reviewedAt: saved.reviewedAt })
   return NextResponse.json({ saved: true })
 }
