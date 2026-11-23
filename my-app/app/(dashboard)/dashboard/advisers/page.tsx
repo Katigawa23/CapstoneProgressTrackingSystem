@@ -50,7 +50,7 @@ export default async function AdvisersPage() {
                 className="rounded-lg border border-slate-200 bg-white p-4 dark:border-[var(--border)] dark:bg-[var(--card)]"
               >
                 <div className="flex items-center gap-3">
-                  <Avatar name={adviser} className="h-11 w-11">
+                  <Avatar name={adviser} userId={adviser === selectedProject.ownerName ? selectedProject.ownerUserId : undefined} className="h-11 w-11">
                     <AvatarFallback className="bg-blue-600 text-sm font-semibold text-white">
                       {getInitials(adviser) || "AD"}
                     </AvatarFallback>

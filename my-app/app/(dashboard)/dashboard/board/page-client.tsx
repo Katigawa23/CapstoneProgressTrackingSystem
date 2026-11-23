@@ -1,4 +1,14 @@
 "use client"
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 
 import * as React from "react"
@@ -1224,11 +1234,22 @@ export function DashboardBoardPageClient({
         }}
       />
       <div className="min-h-0 w-full min-w-0 flex-1 overflow-x-auto">
-        {statusChangeError ? (
-          <p role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
-            {statusChangeError}
-          </p>
-        ) : null}
+        <AlertDialog
+          open={statusChangeError !== null}
+          onOpenChange={(open) => {
+            if (!open) setStatusChangeError(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unable to move task</AlertDialogTitle>
+              <AlertDialogDescription>{statusChangeError}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction>OK</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <div className="min-h-0 w-full min-w-0 md:max-w-[calc(100vw-var(--sidebar-width)-3rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
           <DashboardBoard
             todos={filteredTodos}

@@ -6,6 +6,15 @@ import { Avatar as AvatarPrimitive } from "radix-ui"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip"
 
+const AvatarPhotosContext = React.createContext<Record<string, string | null>>({})
+
+export function AvatarPhotosProvider({ photos, children }: {
+  photos: Record<string, string | null>
+  children: React.ReactNode
+}) {
+  return <AvatarPhotosContext.Provider value={photos}>{children}</AvatarPhotosContext.Provider>
+}
+
 function AvatarNameTooltip({ name, children }: { name: string; children: React.ReactElement }) {
   if (!name.trim()) return children
 
@@ -24,12 +33,17 @@ function AvatarNameTooltip({ name, children }: { name: string; children: React.R
 function Avatar({
   className,
   name,
+  userId,
+  children,
   size = "default",
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Root> & {
   size?: "default" | "sm" | "lg"
   name?: string
+  userId?: string | null
 }) {
+  const photos = React.useContext(AvatarPhotosContext)
+  const photo = userId && Object.hasOwn(photos, userId) ? photos[userId] : null
   const avatar = (
     <AvatarPrimitive.Root
       tabIndex={name?.trim() ? 0 : undefined}
@@ -40,7 +54,10 @@ function Avatar({
         className
       )}
       {...props}
-    />
+    >
+      {photo && <AvatarImage src={photo} alt="" className="object-cover" />}
+      {children}
+    </AvatarPrimitive.Root>
   )
 
   return name ? <AvatarNameTooltip name={name}>{avatar}</AvatarNameTooltip> : avatar

@@ -638,7 +638,7 @@ export function DashboardPageClient({
                               <div className="flex items-center" tabIndex={0}>
                                 {project.members.slice(0, 4).map((member, index) => (
                                   <Avatar
-                                    key={`${project.id}-${member}`}
+                                    userId={project.memberUserIds.length === project.members.length ? project.memberUserIds[index] : undefined} key={`${project.id}-${index}`}
                                     className={`h-7 w-7 border-2 border-white ${index === 0 ? "" : "-ml-2"}`}
                                   >
                                     <AvatarFallback className="text-[10px]">

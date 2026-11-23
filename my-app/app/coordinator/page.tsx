@@ -146,7 +146,7 @@ export default function CoordinatorPage() {
                   </p>
                   <div className="mt-auto flex items-center justify-end pt-3">
                     {[...group.advisers, ...group.members].slice(0, 4).map((person, personIndex) => (
-                      <Avatar name={person} key={`${group.id}-${person}-${personIndex}`} className={`size-7 border-2 border-white dark:border-[var(--card)] ${personIndex ? "-ml-2" : ""}`}>
+                      <Avatar name={person} userId={personIndex < group.advisers.length ? (person === group.ownerName ? group.ownerUserId : undefined) : group.memberUserIds.length === group.members.length ? group.memberUserIds[personIndex - group.advisers.length] : undefined} key={`${group.id}-${person}-${personIndex}`} className={`size-7 border-2 border-white dark:border-[var(--card)] ${personIndex ? "-ml-2" : ""}`}>
                         <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-[10px] text-white">
                           {getInitials(person)}
                         </AvatarFallback>

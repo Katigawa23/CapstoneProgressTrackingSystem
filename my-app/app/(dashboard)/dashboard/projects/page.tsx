@@ -151,7 +151,7 @@ function ProjectAdviserAvatar({ project }: { project: DashboardProject }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Avatar tabIndex={0} className="h-8 w-8">
+        <Avatar userId={adviserName === project.ownerName ? project.ownerUserId : undefined} tabIndex={0} className="h-8 w-8">
           <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-[10px] font-semibold text-white dark:bg-[var(--brand-primary-fixed)]">
             {getInitials(adviserName)}
           </AvatarFallback>
@@ -175,9 +175,11 @@ function ProjectAdviserAvatar({ project }: { project: DashboardProject }) {
 function ProjectPeopleIndicator({
   emptyLabel,
   people,
+  userIds,
 }: {
   emptyLabel: string
   people: string[]
+  userIds: string[]
 }) {
   if (people.length === 0) {
     return <span className="text-xs text-slate-400 dark:text-slate-500">-</span>
@@ -189,7 +191,7 @@ function ProjectPeopleIndicator({
         <div className="flex items-center" tabIndex={0}>
           {people.slice(0, 4).map((person, index) => (
             <Avatar
-              key={`${emptyLabel}-${person}`}
+              userId={userIds.length === people.length ? userIds[index] : undefined} key={`${emptyLabel}-${index}`}
               className={`h-7 w-7 border-2 border-white dark:border-[var(--card)] ${
                 index === 0 ? "" : "-ml-2"
               }`}
@@ -348,7 +350,7 @@ export default function DashboardProjectsPage() {
                           {project.projectType || "No project type"}
                         </td>
                         <td className="px-3 py-2.5">
-                          <ProjectPeopleIndicator emptyLabel="Members" people={project.members} />
+                          <ProjectPeopleIndicator emptyLabel="Members" people={project.members} userIds={project.memberUserIds} />
                         </td>
                         <td className="px-3 py-2.5">
                           <ProjectAdviserAvatar project={project} />

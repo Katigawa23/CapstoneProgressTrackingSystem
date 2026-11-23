@@ -88,7 +88,7 @@ export function AssigneeCombobox({
                 onClick={handleTriggerClick}
               >
                 {selectedAssignee?.initials ? (
-                  <Avatar className={cn("h-7 w-7", avatarClassName)}>
+                  <Avatar userId={selectedAssignee.id} className={cn("h-7 w-7", avatarClassName)}>
                     <AvatarFallback
                       className={cn(
                         "text-[10px]",
@@ -170,7 +170,7 @@ export function AssigneeCombobox({
                     value === option.id && "bg-slate-100 dark:bg-[var(--border)]"
                   )}
                 >
-                  <Avatar name={option.name} className="mt-0.5 h-7 w-7">
+                  <Avatar name={option.name} userId={option.id} className="mt-0.5 h-7 w-7">
                     <AvatarFallback className="text-[9px]">
                       {option.initials ?? "A"}
                     </AvatarFallback>

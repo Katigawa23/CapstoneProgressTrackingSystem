@@ -372,7 +372,7 @@ export function TaskCommentsPanel({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           {selectedAssignee?.initials ? (
-                            <Avatar tabIndex={0} className="h-7 w-7 cursor-default">
+                            <Avatar userId={selectedTodo.assigneeId} tabIndex={0} className="h-7 w-7 cursor-default">
                               <AvatarFallback className="text-[9px]">
                                 {selectedAssignee.initials}
                               </AvatarFallback>
@@ -393,7 +393,7 @@ export function TaskCommentsPanel({
                 ) : item.label === "Created by" ? (
                   <div className="mt-1 flex min-w-0 items-center gap-2">
                     {createdByUserId ? (
-                      <Avatar name={item.value} className="h-7 w-7 shrink-0 cursor-default">
+                      <Avatar name={item.value} userId={createdByUserId} className="h-7 w-7 shrink-0 cursor-default">
                         <AvatarFallback className="text-[9px]">
                           {getInitials(item.value)}
                         </AvatarFallback>
@@ -450,7 +450,7 @@ export function TaskCommentsPanel({
 
                   return (
                     <div key={comment.id} className="flex gap-3">
-                    <Avatar name={comment.author || "Unknown user"} className="h-9 w-9">
+                    <Avatar userId={comment.authorUserId} name={comment.author || "Unknown user"} className="h-9 w-9">
                       <AvatarFallback className="text-xs">
                         {getInitials(comment.author || "Unknown User")}
                       </AvatarFallback>
