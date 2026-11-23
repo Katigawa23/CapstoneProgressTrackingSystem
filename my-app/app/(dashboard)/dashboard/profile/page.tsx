@@ -1,4 +1,7 @@
+import { getMicrosoftProfilePhoto } from "@backend/repositories/users-repository"
 import Link from "next/link"
+import { redirect } from "next/navigation"
+import { isSuperAdminViewer } from "@/lib/server-admin-viewer"
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,7 +15,7 @@ import {
   UsersRound,
 } from "lucide-react"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { roleLabels, type UserRole } from "@/lib/rbac"
@@ -47,6 +50,7 @@ export default async function ProfilePage({ searchParams }: {
 }) {
   const user = await readAuthenticatedUser()
   if (!user?.id) return null
+  if (isSuperAdminViewer(user.id)) redirect("/dashboard")
   const { from } = await searchParams
   const backHref = typeof from === "string" &&
     /^\/(dashboard|coordinator)(\/[\w-]+)*$/.test(from) &&
@@ -54,7 +58,10 @@ export default async function ProfilePage({ searchParams }: {
     ? from
     : user.id === "tester-coordinator" ? "/coordinator" : "/dashboard"
 
-  const { projects, selectedProject, items } = await getSelectedProjectData()
+  const [{ projects, selectedProject, items }, profilePhoto] = await Promise.all([
+    getSelectedProjectData(),
+    getMicrosoftProfilePhoto(user.id),
+  ])
   const studentProfile = user.role === "student" ? await getStudentProfile(user.id) : null
   const isCoordinator = user.id === "tester-coordinator"
   const isAdviser = user.role === "faculty"
@@ -117,10 +124,10 @@ export default async function ProfilePage({ searchParams }: {
         </div>
 
         <section className="overflow-hidden rounded-xl border bg-card shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:shadow-none">
-          <div className="h-20 bg-gradient-to-r from-[var(--brand-primary-fixed)] to-blue-400/70" />
-          <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex min-w-0 items-end gap-4">
-              <Avatar name={user.name} className="-mt-8 h-20 w-20 shrink-0 border-4 border-card dark:border-[var(--card)]">
+          <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <Avatar name={user.name} className="h-20 w-20 shrink-0">
+                {profilePhoto ? <AvatarImage src={profilePhoto} alt="" className="object-cover" /> : null}
                 <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-xl font-bold text-white">{getInitials(user.name)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 pb-1">

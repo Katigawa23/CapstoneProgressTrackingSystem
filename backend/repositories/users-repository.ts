@@ -109,6 +109,7 @@ export async function ensureMicrosoftLoginSchema() {
         // Try to create unique index (will fail silently if duplicates exist)
         // Existing accounts keep access; only newly registered accounts need onboarding.
         await getDb().query(`
+          alter table users add column if not exists microsoft_profile_photo text;
           alter table users add column if not exists student_profile_required boolean not null default false;
           alter table users alter column student_profile_required set default true;
 alter table public.users add column if not exists faculty_verification_status text not null default 'approved' check (faculty_verification_status in ('pending','approved','rejected'));
@@ -280,4 +281,27 @@ export async function searchRegisteredMicrosoftUsers({
     tenantId: row.tenant_id,
     loginAt: row.login_at,
   }))
+}
+
+export async function saveMicrosoftProfilePhoto(userId: string, photo: string | null) {
+  await ensureMicrosoftLoginSchema()
+  await getDb().query(
+    "update users set microsoft_profile_photo = $2 where microsoft_user_id = $1",
+    [userId, photo]
+  )
+}
+
+export async function getMicrosoftProfilePhoto(userId: string) {
+  if (!process.env.DATABASE_URL?.trim()) return null
+
+  try {
+    await ensureMicrosoftLoginSchema()
+    const { rows } = await getDb().query<{ microsoft_profile_photo: string | null }>(
+      "select microsoft_profile_photo from users where microsoft_user_id = $1",
+      [userId]
+    )
+    return rows[0]?.microsoft_profile_photo ?? null
+  } catch {
+    return null
+  }
 }

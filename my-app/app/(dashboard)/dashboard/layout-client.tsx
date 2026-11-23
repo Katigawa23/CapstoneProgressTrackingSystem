@@ -1,5 +1,6 @@
 "use client"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -45,10 +46,12 @@ import { BacklogLoadingSkeleton } from "./backlog/backlog-loading-skeleton"
 import { NotificationMenu } from "@/components/notification-menu"
 
 function ProfileMenu({
+  photo,
   session,
   pathname,
   disabled = false,
 }: {
+  photo?: string | null
   session: AuthSession | null
   pathname: string
   disabled?: boolean
@@ -76,17 +79,17 @@ function ProfileMenu({
     window.location.replace("/")
   }, [])
 
+  const avatar = (
+    <Avatar className="size-9">
+      {photo ? <AvatarImage src={photo} alt="" className="object-cover" /> : null}
+      <AvatarFallback className="text-xs tracking-tight">{initials}</AvatarFallback>
+    </Avatar>
+  )
+
   if (!mounted) {
     return (
       <Button variant="ghost" className="h-9 w-9 rounded-full p-0" disabled={disabled}>
-        <span
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold tracking-tight text-[var(--brand-primary-fixed-foreground)]"
-          style={{
-            backgroundColor: "var(--brand-primary-fixed)",
-          }}
-        >
-          {initials}
-        </span>
+        {avatar}
       </Button>
     )
   }
@@ -96,14 +99,7 @@ function ProfileMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-9 w-9 rounded-full p-0" disabled={disabled} aria-label={session?.user.name ?? "My Account"}>
-            <span
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold tracking-tight text-[var(--brand-primary-fixed-foreground)]"
-              style={{
-                backgroundColor: "var(--brand-primary-fixed)",
-              }}
-            >
-              {initials}
-            </span>
+            {avatar}
           </Button>
         </DropdownMenuTrigger>
 
@@ -114,9 +110,11 @@ function ProfileMenu({
               <div className="text-xs font-normal text-muted-foreground">{session.user.email}</div>
             ) : null}
           </DropdownMenuLabel>
-          <DropdownMenuItem asChild>
-            <Link href={pathname === "/dashboard/profile" ? pathname : { pathname: "/dashboard/profile", query: { from: pathname } }}>Profile</Link>
-          </DropdownMenuItem>
+          {session?.user.id && !isSuperAdminViewer(session.user.id) ? (
+            <DropdownMenuItem asChild>
+              <Link href={pathname === "/dashboard/profile" ? pathname : { pathname: "/dashboard/profile", query: { from: pathname } }}>Profile</Link>
+            </DropdownMenuItem>
+          ) : null}
 
           <DropdownMenuSeparator />
 
@@ -172,12 +170,14 @@ function AccessDenied({ role }: { role: UserRole }) {
 export function DashboardLayoutClient({
   children,
   initialAuthSession,
+  profilePhoto,
   initialProjects,
   initialTeam,
   coordinatorMode = false,
 }: {
   children: React.ReactNode
   initialAuthSession: AuthSession | null
+  profilePhoto?: string | null
   initialProjects: DashboardProject[]
   initialTeam: DashboardProject | null
   coordinatorMode?: boolean
@@ -313,7 +313,7 @@ export function DashboardLayoutClient({
 
             <NotificationMenu disabled={authLoading} />
 
-            <ProfileMenu session={session} pathname={pathname} disabled={authLoading} />
+            <ProfileMenu photo={session?.user.id === initialAuthSession?.user.id ? profilePhoto : null} session={session} pathname={pathname} disabled={authLoading} />
           </div>
         </header>
 

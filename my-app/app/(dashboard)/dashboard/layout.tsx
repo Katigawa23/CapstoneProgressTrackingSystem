@@ -1,3 +1,4 @@
+import { getMicrosoftProfilePhoto } from "@backend/repositories/users-repository"
 import { getFacultyAccessState } from "@/lib/server-faculty-verification"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -43,8 +44,11 @@ export default async function DashboardLayout({
     await needsStudentProfileSetup(authenticatedUser.id)
   const profileOptions = needsStudentProfile ? await listProjectConfigurationOptions() : []
 
+  const profilePhoto = authenticatedUser ? await getMicrosoftProfilePhoto(authenticatedUser.id) : null
+
   return (
     <DashboardLayoutShell
+      profilePhoto={profilePhoto}
       coordinatorMode={coordinatorMode}
       initialAuthSession={
         authenticatedUser?.id

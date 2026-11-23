@@ -251,5 +251,39 @@ export async function redeemMicrosoftCode(
     throw new Error("Microsoft did not return an ID token")
   }
 
-  return getUserFromIdToken(data.id_token)
+  return { user: getUserFromIdToken(data.id_token), accessToken: data.access_token }
+}
+
+export async function fetchMicrosoftProfilePhoto(accessToken: string) {
+  const graphMe = "https://graph.microsoft.com/v1.0/me"
+  const options = {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store" as const,
+    signal: AbortSignal.timeout(5000),
+  }
+  let response = await fetch(`${graphMe}/photos/96x96/$value`, options)
+  if (response.status === 400 || response.status === 404 || response.status === 405) {
+    await response.body?.cancel()
+    response = await fetch(`${graphMe}/photo/$value`, options)
+  }
+
+  if (response.status === 404) return null
+  if (!response.ok) {
+    console.warn("Microsoft profile photo request failed", { status: response.status })
+    await response.body?.cancel()
+    return undefined
+  }
+
+  const photo = Buffer.from(await response.arrayBuffer())
+  if (photo.length > 1024 * 1024) return undefined
+
+  let mime: string
+  if (photo.subarray(0, 3).equals(Buffer.from([255, 216, 255]))) {
+    mime = "image/jpeg"
+  } else if (photo.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+    mime = "image/png"
+  } else {
+    return undefined
+  }
+  return `data:${mime};base64,${photo.toString("base64")}`
 }
