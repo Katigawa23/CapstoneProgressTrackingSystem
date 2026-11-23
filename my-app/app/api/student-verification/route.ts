@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
 import { listStudentVerifications, reviewStudentVerification } from "@/lib/server-student-verification"
+import { notifyVerificationDecision } from "@/lib/server-verification-notification"
 
 export const dynamic = "force-dynamic"
 
@@ -31,5 +32,6 @@ export async function PUT(request: Request) {
   }
   const saved = await reviewStudentVerification({ coordinatorId: user.id, tenantId: user.tenantId, studentId, status, reason })
   if (!saved) return NextResponse.json({ error: "Account status changed or is outside your assigned program." }, { status: 409 })
+  await notifyVerificationDecision({ kind: "student", recipientUserId: studentId, reviewerId: user.id, status, reason, reviewedAt: saved.reviewedAt })
   return NextResponse.json({ saved: true })
 }

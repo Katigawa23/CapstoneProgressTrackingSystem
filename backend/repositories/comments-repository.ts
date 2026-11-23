@@ -18,6 +18,7 @@ export type BacklogCommentRow = {
   author: string
   body: string
   attachments: string[]
+  replyToCommentId?: string | null
   createdAt: string
 }
 
@@ -27,6 +28,7 @@ type CreateBacklogCommentInput = {
   author: string
   body: string
   attachments: string[]
+  replyToCommentId?: string | null
   requestId?: string | null
 }
 
@@ -47,6 +49,7 @@ type BacklogCommentRecord = {
   body: string
   attachments: string[] | null
   created_at: string
+  reply_to_comment_id?: string | null
   request_id?: string | null
 }
 
@@ -78,6 +81,7 @@ function showFallbackWarning(error: unknown) {
 
 function mapRecord(record: BacklogCommentRecord): BacklogCommentRow {
   return {
+    replyToCommentId: record.reply_to_comment_id ?? null,
     id: record.id,
     backlogItemId: record.backlog_item_id,
     authorUserId: record.author_user_id,
@@ -96,6 +100,7 @@ function toRecord(row: BacklogCommentRow): BacklogCommentRecord {
     author: row.author,
     body: row.body,
     attachments: row.attachments,
+    reply_to_comment_id: row.replyToCommentId,
     created_at: row.createdAt,
     request_id: null,
   }
@@ -160,7 +165,8 @@ async function ensureCommentSchema() {
       .then(() =>
         getDb().query(`
           alter table comments
-          add column if not exists request_id text;
+          add column if not exists request_id text,
+          add column if not exists reply_to_comment_id text;
         `)
       )
       .then(() =>
@@ -324,6 +330,7 @@ export async function listBacklogComments(backlogItemId: string, ownerUserId: st
           comments.author,
           comments.body,
           comments.attachments,
+          comments.reply_to_comment_id,
           comments.created_at
         from comments
         inner join backlog
@@ -367,6 +374,7 @@ export async function createBacklogComment(
         input.authorUserId ?? "",
         input.body.trim(),
         serializedAttachments,
+        input.replyToCommentId ?? "",
       ].join("\u001f")
 
       try {
@@ -377,7 +385,7 @@ export async function createBacklogComment(
 
         const recentDuplicate = await client.query<BacklogCommentRecord>(
           `select comments.id, comments.backlog_item_id, comments.author_user_id,
-                  comments.author, comments.body, comments.attachments, comments.created_at
+                  comments.author, comments.body, comments.attachments, comments.reply_to_comment_id, comments.created_at
            from comments
            inner join backlog on backlog.id = comments.backlog_item_id
            inner join projects on projects.id = backlog.project_id
@@ -385,6 +393,7 @@ export async function createBacklogComment(
              and comments.author_user_id = $2
              and comments.body = $3
              and comments.attachments = $4::jsonb
+             and comments.reply_to_comment_id is not distinct from $6::text
              and comments.created_at >= now() - interval '5 seconds'
              and (projects.owner_user_id = $5 or $5 = any(projects.member_user_ids))
            order by comments.created_at desc
@@ -395,6 +404,7 @@ export async function createBacklogComment(
             input.body,
             serializedAttachments,
             ownerUserId,
+            input.replyToCommentId ?? null,
           ]
         )
 
@@ -411,7 +421,8 @@ export async function createBacklogComment(
           author,
           body,
           attachments,
-          request_id
+          request_id,
+          reply_to_comment_id
         )
         select
           $1,
@@ -420,7 +431,8 @@ export async function createBacklogComment(
           $4,
           $5,
           $6::jsonb,
-          $8
+          $8,
+          $9
         from backlog
         inner join projects
           on projects.id = backlog.project_id
@@ -429,6 +441,10 @@ export async function createBacklogComment(
             projects.owner_user_id = $7
             or $7 = any(projects.member_user_ids)
           )
+          and ($9::text is null or exists (
+            select 1 from comments parent
+            where parent.id::text = $9 and parent.backlog_item_id = backlog.id
+          ))
         on conflict (request_id) where request_id is not null do nothing
         returning
           id,
@@ -437,6 +453,7 @@ export async function createBacklogComment(
           author,
           body,
           attachments,
+          reply_to_comment_id,
           created_at`,
         [
           randomUUID(),
@@ -447,6 +464,7 @@ export async function createBacklogComment(
           serializedAttachments,
           ownerUserId,
           input.requestId ?? null,
+          input.replyToCommentId ?? null,
         ]
       )
 
@@ -461,7 +479,7 @@ export async function createBacklogComment(
 
         const existing = await client.query<BacklogCommentRecord>(
         `select comments.id, comments.backlog_item_id, comments.author_user_id,
-                comments.author, comments.body, comments.attachments, comments.created_at
+                comments.author, comments.body, comments.attachments, comments.reply_to_comment_id, comments.created_at
          from comments
          inner join backlog on backlog.id = comments.backlog_item_id
          inner join projects on projects.id = backlog.project_id
@@ -489,6 +507,7 @@ export async function createBacklogComment(
         author: input.author,
         body: input.body,
         attachments: input.attachments,
+        replyToCommentId: input.replyToCommentId ?? null,
         createdAt: new Date().toISOString(),
       }
 
@@ -498,11 +517,16 @@ export async function createBacklogComment(
         : undefined
       if (existing) return mapRecord(existing)
 
+      if (input.replyToCommentId && !records.some((record) =>
+        record.id === input.replyToCommentId && record.backlog_item_id === input.backlogItemId
+      )) return null
+
       const recentDuplicate = records.find(
         (record) =>
           record.backlog_item_id === input.backlogItemId &&
           record.author_user_id === (input.authorUserId ?? null) &&
           record.body === input.body &&
+          (record.reply_to_comment_id ?? null) === (input.replyToCommentId ?? null) &&
           JSON.stringify(record.attachments ?? []) === JSON.stringify(input.attachments) &&
           Date.now() - new Date(record.created_at).getTime() <= 5_000
       )
@@ -602,6 +626,7 @@ export async function updateBacklogComment(
           author,
           body,
           attachments,
+          reply_to_comment_id,
           created_at`,
         [...values, ownerUserId]
       )

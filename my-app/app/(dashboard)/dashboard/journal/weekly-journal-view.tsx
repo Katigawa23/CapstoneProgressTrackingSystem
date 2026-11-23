@@ -1,12 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, CheckCircle2, CircleDashed, Clock3, Download, FileText, ListChecks, Loader2, RefreshCw, Save, Send, ShieldCheck, Sparkles, Target, TriangleAlert, Trophy, Upload, UserRoundCheck } from "lucide-react"
+import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, CheckCircle2, Clock3, Download, ListChecks, Loader2, RefreshCw, Save, ShieldCheck, Sparkles, Target, TriangleAlert, Trophy, Upload, UserRoundCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type StoredStatus = "approved" | "submitted" | "draft"
-type DisplayStatus = "Approved" | "Submitted" | "Draft" | "Not started"
 type Fields = {
   weeklyObjectives: string; workCompleted: string; memberContributions: string
   challenges: string; actionsTaken: string; nextWeekPlan: string
@@ -15,6 +14,9 @@ type Fields = {
 type Entry = Fields & { id: string; weekNumber: number; status: StoredStatus; submittedAt: string | null; approvedAt: string | null; adviserReviewedAt: string | null }
 type AutoSummary = Omit<Fields, "adviserFeedback"> & {
   weekNumber: number; tasksCreated: number; tasksCompleted: number; revisions: number; delayed: number
+  completedTasks: string[]
+  revisionTasks?: { title: string; when?: string; subtasks: string[] }[]
+  subtasks?: string[]
 }
 type Week = { week: number; dateRange: string }
 
@@ -27,20 +29,16 @@ const FIELD_DEFINITIONS = [
 ] satisfies Array<{ key: keyof Fields; title: string; description: string; icon: typeof Target; accent: string; iconBackground: string }>
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000
-const statusStyles: Record<DisplayStatus, string> = {
-  Approved: "border-emerald-500/25 bg-emerald-500/10 text-emerald-500",
-  Submitted: "border-blue-500/25 bg-blue-500/10 text-blue-500",
-  Draft: "border-amber-500/25 bg-amber-500/10 text-amber-500",
-  "Not started": "border-border bg-muted/40 text-muted-foreground",
-}
-function displayStatus(status?: StoredStatus): DisplayStatus {
-  return status ? `${status[0].toUpperCase()}${status.slice(1)}` as DisplayStatus : "Not started"
-}
-function StatusIcon({ status }: { status: DisplayStatus }) {
-  if (status === "Approved") return <CheckCircle2 className="h-3.5 w-3.5" />
-  if (status === "Submitted") return <Clock3 className="h-3.5 w-3.5" />
-  if (status === "Draft") return <FileText className="h-3.5 w-3.5" />
-  return <CircleDashed className="h-3.5 w-3.5" />
+function JournalStatusBadge({ entry }: { entry?: Entry }) {
+  const approved = entry?.status === "approved"
+  if (!approved && !entry?.adviserReviewedAt) return null
+
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium", approved ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300")}>
+      <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />
+      {approved ? "Approved" : "Reviewed by adviser"}
+    </span>
+  )
 }
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }).format(date)
@@ -109,10 +107,10 @@ function ActivityList({ content }: { content: string }) {
     {activities.map((activity, index) => {
       const style = getActivityStyle(activity.text)
       const Icon = style.icon
-      return <div key={`${activity.text}-${index}`} className="flex gap-2.5 rounded-md border bg-muted/15 p-2.5">
+      return <div key={`${activity.text}-${index}`} className="flex gap-3 rounded-xl border border-border bg-muted/25 px-3 py-2.5">
         <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-md", style.background, style.color)}><Icon className="h-3.5 w-3.5" /></div>
         <div className="min-w-0 flex-1">
-          <p className={cn("text-[9px] font-semibold uppercase tracking-wide", style.color)}>{style.label}</p>
+          <p className={cn("text-[10px] font-semibold uppercase tracking-wide", style.color)}>{style.label}</p>
           <p className="mt-0.5 break-words text-[11px] leading-4 text-foreground">{activity.text}</p>
           {activity.detail ? <p className="mt-1 flex items-center gap-1 text-[9px] text-muted-foreground"><Clock3 className="h-2.5 w-2.5" />{activity.detail}</p> : null}
         </div>
@@ -131,22 +129,21 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
   const [autoSummaries, setAutoSummaries] = React.useState<AutoSummary[]>([])
   const [form, setForm] = React.useState<Fields>(EMPTY)
   const [loading, setLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState("")
   const [saving, setSaving] = React.useState(false)
   const [message, setMessage] = React.useState("")
   const weeks = React.useMemo(() => makeWeeks(groupCreatedAt, now), [groupCreatedAt, now])
   const entry = selected ? entries.find((item) => item.weekNumber === selected.week) : undefined
   const autoSummary = selected ? autoSummaries.find((item) => item.weekNumber === selected.week) : undefined
-  const hasAutomaticContent = autoSummary && Object.entries(autoSummary).some(([key, value]) => key !== "weekNumber" && typeof value === "string" && value.length > 0)
-  const status: DisplayStatus = entry ? displayStatus(entry.status) : hasAutomaticContent ? "Draft" : "Not started"
-  const studentCanEdit = userRole === "student" && (!entry || entry.status === "draft")
   const adviserCanReview = userRole === "faculty" && (!entry || ((entry.status === "draft" || entry.status === "submitted") && !entry.adviserReviewedAt))
 
   React.useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
+    setLoadError("")
     fetch(`/api/weekly-journals?projectId=${encodeURIComponent(projectId)}`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.error || "Failed to load journals"); setEntries(data.entries); setAutoSummaries(data.autoSummaries ?? []) })
-      .catch((error) => { if (error.name !== "AbortError") setMessage(error.message) })
+      .catch((error) => { if (error.name !== "AbortError") setLoadError(error.message) })
       .finally(() => setLoading(false))
     return () => controller.abort()
   }, [projectId])
@@ -161,7 +158,7 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
     return () => window.clearTimeout(timer)
   }, [groupCreatedAt, now])
 
-  async function update(action: "save" | "submit" | "feedback" | "approve") {
+  async function update(action: "feedback" | "approve") {
     if (!selected || saving) return
     setSaving(true); setMessage("")
     try {
@@ -169,27 +166,60 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Failed to update journal")
       setEntries((current) => [...current.filter((item) => item.weekNumber !== data.entry.weekNumber), data.entry])
-      setMessage(action === "approve" ? "Journal approved." : action === "submit" ? "Journal submitted." : action === "feedback" ? "Feedback saved. Journal marked as checked by adviser." : "Changes saved.")
+      setMessage(action === "approve" ? "Journal approved." : "Feedback saved. Journal marked as reviewed by adviser.")
     } catch (error) { setMessage(error instanceof Error ? error.message : "Failed to update journal") }
     finally { setSaving(false) }
   }
 
   const printDate = (value: string | null | undefined) => value ? formatDate(new Date(value)) : "________________"
-  const printActivity = [autoSummary?.weeklyObjectives, autoSummary?.workCompleted, autoSummary?.memberContributions, autoSummary?.actionsTaken, form.weeklyObjectives, form.workCompleted, form.memberContributions, form.actionsTaken].filter(Boolean).join("\n") || "No recorded activity for this week."
-  const printRemarks = [autoSummary?.challenges, autoSummary?.nextWeekPlan, form.challenges, form.nextWeekPlan, form.adviserFeedback].filter(Boolean).join("\n") || "No remarks recorded."
 
   async function downloadPdf() {
     if (!selected) return
+    let exportSummary: AutoSummary | undefined
+    try {
+      const response = await fetch(`/api/weekly-journals?projectId=${encodeURIComponent(projectId)}`, { cache: "no-store" })
+      if (!response.ok) throw new Error("Could not load the latest journal for export.")
+      const data = (await response.json()) as { autoSummaries: AutoSummary[]; privacyRestricted: boolean }
+      if (data.privacyRestricted) return
+      exportSummary = data.autoSummaries.find((summary) => summary.weekNumber === selected.week)
+    } catch {
+      setMessage("Could not load the latest journal for export.")
+      return
+    }
     const { jsPDF } = await import("jspdf")
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
     const clean = (value: string) => value.replace(/•/g, "-").replace(/[—–]/g, "-")
-    const fitLines = (value: string, width: number, maximum: number) => {
-      const lines = pdf.splitTextToSize(clean(value), width) as string[]
-      return lines.length > maximum ? [...lines.slice(0, maximum - 1), "..."] : lines
-    }
     const left = 15
     const width = 180
     const column = width / 2
+    const completed = exportSummary?.completedTasks ?? []
+    const formatTaskGroup = (heading: string, subtasks: string[]) => [
+      `- ${heading}`,
+      ...subtasks.map((subtask) => `\u00a0\u00a0\u00a0- ${subtask} (subtask)`),
+    ].join("\n")
+    const legacySubtasksByParent = new Map<string, string[]>()
+    for (const label of exportSummary?.subtasks ?? []) {
+      const match = /^(.+) \(([^()]*(?:\([^()]*\)[^()]*)*)\)$/.exec(label)
+      if (!match) continue
+      const [, title, parent] = match
+      legacySubtasksByParent.set(parent, [...(legacySubtasksByParent.get(parent) ?? []), title])
+    }
+    const legacyRevisions = (exportSummary?.challenges ?? "").split("\n").flatMap((line) => {
+      const match = /^\s*(?:\u2022\s*)?Revision required:\s*(.+)$/.exec(line)
+      if (!match) return []
+      const title = match[1].replace(/\s+[\u2014\u2013-]\s+\w{3} \d{1,2}, \d{1,2}:\d{2}\s*[AP]M$/i, "")
+      return [{ title, subtasks: legacySubtasksByParent.get(title) ?? [] }]
+    })
+    const revisionTasks = exportSummary?.revisionTasks ?? legacyRevisions
+    const revisions = revisionTasks.map(({ title, subtasks }) => formatTaskGroup(title, subtasks))
+    const feedback = form.adviserFeedback.trim()
+    const activity = completed.length
+      ? completed.map((task) => `- ${task}`).join("\n\n")
+      : "No completed tasks recorded for this week."
+    const remarks = [
+      revisions.length > 0 && `Revisions\n${revisions.join("\n")}`,
+      feedback && `Adviser feedback\n${feedback}`,
+    ].filter(Boolean).join("\n\n") || "No remarks recorded."
 
     pdf.setTextColor(0, 0, 0)
     pdf.setFont("helvetica", "bold"); pdf.setFontSize(14)
@@ -205,16 +235,31 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
     const tableTop = 58
     const headerHeight = 12
     const bodyHeight = 108
-    pdf.setFillColor(75, 75, 75); pdf.setTextColor(255, 255, 255)
-    pdf.rect(left, tableTop, column, headerHeight, "FD"); pdf.rect(left + column, tableTop, column, headerHeight, "FD")
-    pdf.setFontSize(7); pdf.setFont("helvetica", "bold")
-    pdf.text("ACTIVITY / ACCOMPLISHMENT", left + column / 2, tableTop + 7, { align: "center" })
-    pdf.text("REMARKS / COMMENTS / SUGGESTIONS /", left + column + column / 2, tableTop + 5, { align: "center" })
-    pdf.text("DELIVERABLES AND DUE DATE", left + column + column / 2, tableTop + 9, { align: "center" })
-    pdf.setTextColor(0, 0, 0); pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5)
-    pdf.rect(left, tableTop + headerHeight, column, bodyHeight); pdf.rect(left + column, tableTop + headerHeight, column, bodyHeight)
-    pdf.text(fitLines(printActivity, column - 8, 25), left + 4, tableTop + headerHeight + 6, { lineHeightFactor: 1.25 })
-    pdf.text(fitLines(printRemarks, column - 8, 25), left + column + 4, tableTop + headerHeight + 6, { lineHeightFactor: 1.25 })
+    pdf.setFont("helvetica", "normal")
+    pdf.setFontSize(9)
+    const activityLines = pdf.splitTextToSize(clean(activity), column - 10) as string[]
+    const remarkLines = pdf.splitTextToSize(clean(remarks), column - 10) as string[]
+    const linesPerPage = 25
+    const pageCount = Math.ceil(Math.max(activityLines.length, remarkLines.length) / linesPerPage)
+    for (let page = 0; page < pageCount; page += 1) {
+      if (page > 0) {
+        pdf.addPage()
+        pdf.setFont("helvetica", "bold")
+        pdf.setFontSize(12)
+        pdf.text(`Week ${selected.week} journal (continued)`, left, 27)
+      }
+      pdf.setFillColor(75, 75, 75); pdf.setTextColor(255, 255, 255)
+      pdf.rect(left, tableTop, column, headerHeight, "FD"); pdf.rect(left + column, tableTop, column, headerHeight, "FD")
+      pdf.setFontSize(7); pdf.setFont("helvetica", "bold")
+      pdf.text("ACTIVITY / ACCOMPLISHMENT", left + column / 2, tableTop + 7, { align: "center" })
+      pdf.text("REMARKS / COMMENTS / SUGGESTIONS /", left + column + column / 2, tableTop + 5, { align: "center" })
+      pdf.text("DELIVERABLES AND DUE DATE", left + column + column / 2, tableTop + 9, { align: "center" })
+      pdf.setTextColor(0, 0, 0); pdf.setFont("helvetica", "normal"); pdf.setFontSize(9)
+      pdf.rect(left, tableTop + headerHeight, column, bodyHeight); pdf.rect(left + column, tableTop + headerHeight, column, bodyHeight)
+      const firstLine = page * linesPerPage
+      pdf.text(activityLines.slice(firstLine, firstLine + linesPerPage), left + 5, tableTop + headerHeight + 7, { lineHeightFactor: 1.25 })
+      pdf.text(remarkLines.slice(firstLine, firstLine + linesPerPage), left + column + 5, tableTop + headerHeight + 7, { lineHeightFactor: 1.25 })
+    }
 
     const signTop = tableTop + headerHeight + bodyHeight
     const signHeight = 92
@@ -241,25 +286,33 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
     pdf.line(left + column + 4, signTop + 61, left + width - 4, signTop + 61)
     pdf.setFontSize(6); pdf.text("Name of Thesis/Capstone Project Coordinator", rightCenter, signTop + 65, { align: "center" })
     pdf.setFontSize(7); pdf.text(`Date Signed: ${printDate(entry?.approvedAt)}`, rightCenter, signTop + 75, { align: "center" })
-    pdf.setFont("helvetica", "bold"); pdf.setFontSize(7)
-    pdf.line(left, 284, left + width, 284)
-    pdf.text("ACCOMPLISHMENT AND CONSULTATION FORM | FT-CRD-187-00 | PAGE 1 OF 1", 105, 289, { align: "center" })
+    for (let page = 1; page <= pageCount; page += 1) {
+      pdf.setPage(page)
+      pdf.setFont("helvetica", "bold"); pdf.setFontSize(7)
+      pdf.line(left, 284, left + width, 284)
+      pdf.text(`ACCOMPLISHMENT AND CONSULTATION FORM | FT-CRD-187-00 | PAGE ${page} OF ${pageCount}`, 105, 289, { align: "center" })
+    }
     const filename = `${projectName}-Week-${selected.week}-Weekly-Journal.pdf`.replace(/[\\/:*?"<>|]/g, "-")
     pdf.save(filename)
   }
 
-  return <div className="h-full overflow-y-auto pb-8 pr-1"><div className="w-full space-y-5 print:hidden">
-    <header className="space-y-1"><h1 className="font-display text-xl font-semibold">Weekly Journal</h1><p className="text-sm text-muted-foreground">Keep a simple record of the group&apos;s progress every week.</p></header>
-    {!selected ? <section className="rounded-[8px] border bg-card p-4">
+  return <div className="h-full overflow-y-auto pb-8 pr-1"><div className="mx-auto w-full max-w-[1440px] space-y-5 print:hidden">
+    <header className="flex items-center gap-3 border-b border-border pb-4">
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color:rgba(var(--brand-primary-rgb),0.12)] text-[var(--brand-primary-fixed)] dark:text-cyan-300">
+        <BookOpen className="size-5" aria-hidden="true" />
+      </span>
+      <h1 className="font-display text-2xl font-semibold tracking-tight">Weekly Journal</h1>
+    </header>
+    {loadError ? <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-foreground">{loadError}</p> : null}
+    {!selected ? <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
       <div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Journal weeks</h2><p className="text-xs text-muted-foreground">Select a week to view its journal entry.</p></div><div className="flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{weeks.length} {weeks.length === 1 ? "week" : "weeks"}</div></div>
-      {loading ? <div className="flex h-28 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div> : <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">{weeks.map((week) => { const saved = entries.find((item) => item.weekNumber === week.week); const automatic = autoSummaries.find((item) => item.weekNumber === week.week); const hasAutomatic = automatic && Object.entries(automatic).some(([key, value]) => key !== "weekNumber" && typeof value === "string" && value.length > 0); const state: DisplayStatus = saved ? displayStatus(saved.status) : hasAutomatic ? "Draft" : "Not started"; return <button key={week.week} onClick={() => setSelected(week)} className="group rounded-[6px] border bg-background p-3 text-left hover:bg-muted/40"><div className="flex justify-between"><div className="flex h-8 w-8 items-center justify-center rounded bg-muted text-sm font-semibold">{week.week}</div><span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]", statusStyles[state])}><StatusIcon status={state} />{state}</span></div><h3 className="mt-3 text-sm font-semibold">Week {week.week}</h3><p className="text-xs text-muted-foreground">{week.dateRange}</p><div className="mt-3 flex justify-between text-xs text-muted-foreground"><span>{saved || hasAutomatic ? "Open journal entry" : "No journal entry yet."}</span><ArrowRight className="h-3.5 w-3.5" /></div></button> })}</div>}
+      {loading ? <div className="flex h-28 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div> : <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">{weeks.map((week) => { const saved = entries.find((item) => item.weekNumber === week.week); const automatic = autoSummaries.find((item) => item.weekNumber === week.week); const hasAutomatic = automatic && Object.entries(automatic).some(([key, value]) => key !== "weekNumber" && typeof value === "string" && value.length > 0); return <button key={week.week} onClick={() => setSelected(week)} className="group rounded-[6px] border bg-background p-3 text-left hover:bg-muted/40"><div className="flex justify-between"><div className="flex h-8 w-8 items-center justify-center rounded bg-muted text-sm font-semibold">{week.week}</div><JournalStatusBadge entry={saved} /></div><h3 className="mt-3 text-sm font-semibold">Week {week.week}</h3><p className="text-xs text-muted-foreground">{week.dateRange}</p><div className="mt-3 flex justify-between text-xs text-muted-foreground"><span>{saved || hasAutomatic ? "Open journal entry" : "No journal entry yet."}</span><ArrowRight className="h-3.5 w-3.5" /></div></button> })}</div>}
     </section> : <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden"><button onClick={() => setSelected(null)} className="inline-flex h-8 items-center gap-2 rounded-[6px] border bg-card px-3 text-xs font-medium"><ArrowLeft className="h-3.5 w-3.5" />Back to weeks</button><div className="flex gap-2">
         {!isPrivacyRestricted ? <button type="button" onClick={downloadPdf} className="inline-flex h-8 items-center gap-2 rounded-[6px] border px-3 text-xs"><Download className="h-3.5 w-3.5" />Download PDF</button> : null}
-        {studentCanEdit ? <><button disabled={saving} onClick={() => update("save")} className="inline-flex h-8 items-center gap-2 rounded-[6px] border px-3 text-xs"><Save className="h-3.5 w-3.5" />Save draft</button><button disabled={saving} onClick={() => update("submit")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-[var(--brand-primary-fixed)] px-3 text-xs font-semibold text-white"><Send className="h-3.5 w-3.5" />Submit</button></> : null}
         {canApprove && entry?.status === "submitted" && entry.adviserReviewedAt ? <button disabled={saving} onClick={() => update("approve")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-emerald-600 px-3 text-xs font-semibold text-white"><CheckCircle2 className="h-3.5 w-3.5" />Approve journal</button> : null}
       </div></div>
-      <section className="overflow-hidden rounded-xl border bg-card shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:shadow-none"><div className="flex items-start justify-between border-b bg-gradient-to-r from-[color:rgba(var(--brand-primary-rgb),0.12)] via-transparent to-transparent p-5"><div className="flex gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--brand-primary-fixed)] text-white shadow-sm"><BookOpen className="h-5 w-5" /></div><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--brand-primary-fixed)]">Weekly progress report</p><h2 className="mt-0.5 font-display text-base font-semibold">Week {selected.week} journal</h2><p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{selected.dateRange}</p></div></div><span className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium", statusStyles[status])}><StatusIcon status={status} />{status}</span></div>
+      <section className="overflow-hidden rounded-xl border bg-card shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:shadow-none"><div className="flex items-start justify-between border-b bg-gradient-to-r from-[color:rgba(var(--brand-primary-rgb),0.12)] via-transparent to-transparent p-5"><div className="flex gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--brand-primary-fixed)] text-white shadow-sm"><BookOpen className="h-5 w-5" /></div><div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--brand-primary-fixed)]">Weekly progress report</p><h2 className="mt-0.5 font-display text-base font-semibold">Week {selected.week} journal</h2><p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{selected.dateRange}</p></div></div><JournalStatusBadge entry={entry} /></div>
         {isPrivacyRestricted ? <div className="space-y-4 p-4">
           <div className="flex items-start gap-3 rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500"><ShieldCheck className="h-4.5 w-4.5" /></div>
@@ -275,11 +328,11 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
           </div>
         </div> : <>
         <Tabs key={`${projectId}-${selected.week}`} defaultValue="weeklyObjectives" className="gap-4 p-4">
-          <div className="overflow-x-auto overflow-y-hidden border-b pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <TabsList variant="line" aria-label="Weekly journal sections" className="min-w-full justify-start gap-2">
+          <div className="min-w-0 rounded-xl border border-border bg-muted/30 p-1.5">
+            <TabsList aria-label="Weekly journal sections" className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0 md:grid-cols-4">
               {FIELD_DEFINITIONS.map(({ key, title, icon: Icon }) => (
-                <TabsTrigger key={key} value={key} className="h-10 shrink-0 px-3 text-xs data-[state=active]:text-[var(--brand-primary-fixed)] after:bg-[var(--brand-primary-fixed)]">
-                  <Icon className="h-4 w-4" />{title}
+                <TabsTrigger key={key} value={key} className="h-auto min-h-10 min-w-0 justify-start whitespace-normal rounded-lg px-2 py-2 text-left text-xs leading-tight data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-[var(--brand-primary-fixed)] dark:data-[state=active]:text-cyan-300 sm:px-3">
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />{title}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -287,9 +340,9 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
           {FIELD_DEFINITIONS.map(({ key, title, description, icon: Icon, accent, iconBackground }) => {
           const automaticValue = autoSummary?.[key as keyof Omit<AutoSummary, "weekNumber">] ?? ""
           const automatic = typeof automaticValue === "string" ? automaticValue : ""
-          return <TabsContent key={key} value={key} className="min-w-0"><div className="flex min-h-80 flex-col rounded-lg border bg-background p-4 sm:p-5"><div className="flex shrink-0 items-start gap-3"><div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", iconBackground, accent)}><Icon className="h-4 w-4" /></div><div><h3 className="text-xs font-semibold">{title}</h3><p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">{description}</p></div></div>{automatic ? <ActivityList content={automatic} /> : <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed bg-muted/20 px-3 text-center"><Icon className={cn("h-5 w-5 opacity-60", accent)} /><p className="mt-1.5 text-[11px] font-medium">Nothing recorded yet</p><p className="mt-0.5 text-[10px] text-muted-foreground">Updates will appear automatically from group activity.</p></div>}{studentCanEdit ? <textarea aria-label={`${title} additional notes`} value={form[key]} onChange={(event) => setForm((value) => ({ ...value, [key]: event.target.value }))} placeholder="Add student notes..." maxLength={5000} className="mt-4 min-h-28 w-full resize-none rounded-md border bg-transparent p-2 text-xs leading-5 outline-none transition-colors placeholder:text-muted-foreground focus:border-[var(--brand-primary-fixed)]" /> : form[key] ? <div className="mt-4 border-t pt-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Student notes</p><p className="mt-1 whitespace-pre-line text-xs leading-5">{form[key]}</p></div> : null}</div></TabsContent>
+          return <TabsContent key={key} value={key} className="min-w-0"><div className="flex min-h-80 flex-col rounded-lg border bg-background p-4 sm:p-5"><div className="flex shrink-0 items-start gap-3"><div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", iconBackground, accent)}><Icon className="h-4 w-4" /></div><div><h3 className="text-xs font-semibold">{title}</h3><p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">{description}</p></div></div>{automatic ? <ActivityList content={automatic} /> : <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed bg-muted/20 px-3 text-center"><Icon className={cn("h-5 w-5 opacity-60", accent)} /><p className="mt-1.5 text-[11px] font-medium">Nothing recorded yet</p><p className="mt-0.5 text-[10px] text-muted-foreground">Updates will appear automatically from group activity.</p></div>}{form[key] ? <div className="mt-4 border-t pt-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Student notes</p><p className="mt-1 whitespace-pre-line text-xs leading-5">{form[key]}</p></div> : null}</div></TabsContent>
         })}</Tabs>
-        <div className="mx-4 mb-4 rounded-lg border bg-background p-4"><div className="flex items-center justify-between gap-2"><div><span className="text-xs font-semibold">Adviser feedback</span><p className="mt-0.5 text-[10px] text-muted-foreground">Comments, recommendations, and confirmation from the assigned adviser.</p></div>{entry?.adviserReviewedAt ? <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-500"><CheckCircle2 className="h-3 w-3" />Checked by adviser</span> : entry?.status === "submitted" ? <span className="rounded-full border bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground">Awaiting adviser feedback</span> : null}</div><textarea aria-label="Adviser feedback" value={form.adviserFeedback} disabled={!adviserCanReview} onChange={(event) => setForm((value) => ({ ...value, adviserFeedback: event.target.value }))} placeholder="Adviser comments and recommendations will appear here." maxLength={5000} className="mt-3 min-h-24 w-full resize-none rounded-md border bg-muted/10 p-3 text-xs leading-5 outline-none placeholder:text-muted-foreground focus:border-[var(--brand-primary-fixed)] disabled:cursor-default disabled:border-transparent disabled:bg-transparent disabled:p-0" />{adviserCanReview ? <div className="mt-3 flex justify-end"><button type="button" disabled={saving} onClick={() => update("feedback")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-[var(--brand-primary-fixed)] px-3 text-xs font-semibold text-white disabled:opacity-60"><Save className="h-3.5 w-3.5" />Save feedback</button></div> : null}</div>
+        <div className="mx-4 mb-4 rounded-lg border bg-background p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><span className="text-xs font-semibold">Adviser feedback</span><p className="mt-0.5 text-[10px] text-muted-foreground">Comments, recommendations, and confirmation from the assigned adviser.</p></div>{entry?.adviserFeedback.trim() ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="size-3.5" aria-hidden="true" />Reviewed by adviser</span> : null}</div>{adviserCanReview ? <textarea aria-label="Adviser feedback" value={form.adviserFeedback} onChange={(event) => setForm((value) => ({ ...value, adviserFeedback: event.target.value }))} placeholder="Write feedback for this week…" maxLength={5000} className="mt-3 min-h-24 w-full resize-none rounded-md border bg-muted/10 p-3 text-xs leading-5 outline-none placeholder:text-muted-foreground focus:border-[var(--brand-primary-fixed)]" /> : form.adviserFeedback.trim() ? <p className="mt-3 whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">{form.adviserFeedback}</p> : <p className="mt-3 text-sm text-muted-foreground">No adviser feedback yet.</p>}{adviserCanReview ? <div className="mt-3 flex justify-end"><button type="button" disabled={saving} onClick={() => update("feedback")} className="inline-flex h-8 items-center gap-2 rounded-[6px] bg-[var(--brand-primary-fixed)] px-3 text-xs font-semibold text-white disabled:opacity-60"><Save className="h-3.5 w-3.5" />Save feedback</button></div> : null}</div>
         </>}
         {message ? <p className="mt-3 text-xs text-muted-foreground">{message}</p> : null}
       </section>

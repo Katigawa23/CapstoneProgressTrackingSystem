@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
+import { COMMENT_ASSET_ENCODED_LIMIT } from "@/lib/comment-assets"
 import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 import {
   deleteBacklogComment,
@@ -27,6 +28,10 @@ export async function PATCH(
     const normalizedAttachments = Array.isArray(body.attachments)
       ? body.attachments.map((item) => String(item).trim()).filter(Boolean)
       : undefined
+
+    if (normalizedAttachments && normalizedAttachments.reduce((size, asset) => size + asset.length, 0) > COMMENT_ASSET_ENCODED_LIMIT) {
+      return NextResponse.json({ error: "Comment attachments must total 2 MB or less." }, { status: 400 })
+    }
 
     if (
       typeof trimmedBody === "string" &&

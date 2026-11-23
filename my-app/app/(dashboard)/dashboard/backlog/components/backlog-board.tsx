@@ -203,6 +203,12 @@ export function BacklogBoard({
                     year: "numeric",
                   })
                 : "No due date"}
+              {item.status !== "completed" && item.dueDate &&
+              item.dueDate.getTime() < new Date().setHours(0, 0, 0, 0) ? (
+                <span className="ml-2 inline-block rounded bg-red-500/10 px-1.5 py-0.5 font-semibold text-red-700 dark:text-red-300">
+                  Overdue
+                </span>
+              ) : null}
             </div>
           </div>
         </div>

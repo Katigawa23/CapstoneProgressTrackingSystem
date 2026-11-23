@@ -1,3 +1,4 @@
+import { listBacklogSubmissions, listBacklogWebLinks } from "@backend/repositories/attachments-repository"
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
@@ -131,6 +132,19 @@ export async function PATCH(
       ...(typeof body.orderIndex === "number" && Number.isFinite(body.orderIndex)
         ? { orderIndex: body.orderIndex }
         : {}),
+    }
+
+    if (completionLock?.status === "todo" && updates.status === "inprogress") {
+      const [files, links] = await Promise.all([
+        listBacklogSubmissions(id, user.id),
+        listBacklogWebLinks(id, user.id),
+      ])
+      if (!files.length && !links.length) {
+        return NextResponse.json(
+          { error: "Upload a file or submit a web link before moving this task to In Progress." },
+          { status: 409 }
+        )
+      }
     }
 
     const item = await updateBacklogItem(id, user.id, updates, user.role)

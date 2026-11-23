@@ -36,6 +36,10 @@ export async function GET(request: Request) {
     [notificationId, user.id]
   )
   const notification = result.rows[0]
+  if (notification?.type.startsWith("verification_") &&
+    !notification.project_id && !notification.backlog_item_id) {
+    return NextResponse.redirect(new URL("/dashboard", url.origin))
+  }
   const projects = notification ? await listProjects(user.id) : []
   const coordinatorUpdate = notification?.type === "coordinator_assigned" || notification?.type === "coordinator_removed"
   if (!notification || (!coordinatorUpdate && !projects.some((project) => project.id === notification.project_id))) {

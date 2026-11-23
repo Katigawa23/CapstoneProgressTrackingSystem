@@ -392,6 +392,11 @@ export function DashboardBoardPageClient({
       if (hasCompletedTaskParent(currentTodo, todos) ||
         (currentTodo.status === "completed" && (!canEditTaskAssignee || nextStatus !== "revision"))) return
 
+      if (currentTodo.status === "todo" && nextStatus === "inprogress" && !currentTodo.hasSubmission) {
+        setStatusChangeError("Upload a file or submit a web link before moving this task to In Progress.")
+        return
+      }
+
       statusSaveInFlightRef.current = true
       setIsSavingTaskStatus(true)
       setStatusChangeError(null)

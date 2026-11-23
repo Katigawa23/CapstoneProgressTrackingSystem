@@ -1,4 +1,6 @@
 "use client"
+
+import { isOverdueWorkItem } from "./types"
 import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 
 import * as React from "react"
@@ -867,57 +869,14 @@ export function BacklogPageClient({
     [canChangeTaskState]
   )
 
-  const filteredBoardItems = React.useMemo(
+  const todayStart = new Date().setHours(0, 0, 0, 0)
+  const boardItems = React.useMemo(
     () => filterSectionItems(
-      orderedItems.filter((item) => item.status !== "completed"),
+      orderedItems.filter((item) => isOverdueWorkItem(item, todayStart)),
       boardSearchValue,
       boardFilterValue
     ),
-    [boardFilterValue, boardSearchValue, filterSectionItems, orderedItems]
-  )
-
-  const buildSectionTree = React.useCallback((sourceItems: WorkItem[], predicate: (item: WorkItem) => boolean) => {
-    const childItemsByParentId = new Map<string, WorkItem[]>()
-
-    for (const item of sourceItems) {
-      if (!item.parentId) {
-        continue
-      }
-
-      const currentChildren = childItemsByParentId.get(item.parentId) ?? []
-      currentChildren.push(item)
-      childItemsByParentId.set(item.parentId, currentChildren)
-    }
-
-    const scopedItems: WorkItem[] = []
-    const appendTree = (item: WorkItem) => {
-      scopedItems.push(item)
-
-      const childItems = childItemsByParentId.get(item.id) ?? []
-
-      for (const childItem of childItems) {
-        appendTree(childItem)
-      }
-    }
-
-    for (const item of sourceItems) {
-      if (item.parentId || !predicate(item)) {
-        continue
-      }
-
-      appendTree(item)
-    }
-
-    return scopedItems
-  }, [])
-
-  const boardItems = React.useMemo(
-    () =>
-      buildSectionTree(
-        filteredBoardItems,
-        () => true
-      ),
-    [buildSectionTree, filteredBoardItems]
+    [boardFilterValue, boardSearchValue, filterSectionItems, orderedItems, todayStart]
   )
 
   const visibleRootItems = React.useMemo(
@@ -1095,7 +1054,7 @@ export function BacklogPageClient({
               canEditAssignee={canEditTaskFields}
               canMoveItems={canChangeTaskState}
               canChangeTaskState={canChangeTaskState}
-              emptyLabel="There's nothing in this backlog"
+              emptyLabel="No overdue items match your search or filters."
             />
           </div>
         </div>

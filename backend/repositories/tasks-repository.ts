@@ -11,6 +11,9 @@ import {
 import { ensureMicrosoftLoginSchema } from "@backend/repositories/users-repository"
 import {
   archiveBacklogAttachmentsForItems,
+  ensureSubmissionSchema,
+  listBacklogSubmissions,
+  listBacklogWebLinks,
   restoreBacklogAttachmentsForItems,
 } from "@backend/repositories/attachments-repository"
 import {
@@ -43,6 +46,7 @@ export type BacklogRow = {
   deletedAt: string | null
   createdAt: string
   commentCount?: number
+  hasSubmission?: boolean
 }
 
 type CreateBacklogItemInput = {
@@ -98,6 +102,7 @@ type BacklogRecord = {
 }
 
 type BacklogRecordWithStats = BacklogRecord & {
+  has_submission?: boolean
   comment_count?: number | string | null
 }
 
@@ -243,6 +248,7 @@ function mapRecord(record: BacklogRecordWithStats): BacklogRow {
     deleted: record.is_deleted ?? false,
     deletedAt: record.deleted_at ?? null,
     createdAt: record.created_at,
+    hasSubmission: record.has_submission,
     commentCount:
       typeof record.comment_count === "number"
         ? record.comment_count
@@ -1232,6 +1238,7 @@ export async function listBacklogItemsWithStats(
       const deleted = options.deleted === true
       const limit = Math.max(1, Math.min(options.limit ?? 200, 500))
       const offset = Math.max(0, options.offset ?? 0)
+      await ensureSubmissionSchema()
       const result = await getDb().query<BacklogRecordWithStats>(
         `select
           backlog.id,
@@ -1259,6 +1266,13 @@ export async function listBacklogItemsWithStats(
           backlog.is_deleted,
           backlog.deleted_at,
           backlog.created_at,
+          (exists (
+            select 1 from attachments where backlog_item_id = backlog.id
+              and attachment_type = 'file' and not is_archived and not is_deleted
+          ) or exists (
+            select 1 from weblinks where backlog_item_id = backlog.id
+              and not is_archived and not is_deleted
+          )) as has_submission,
           coalesce(comment_counts.comment_count, 0) as comment_count
         from backlog
         inner join projects
@@ -1313,7 +1327,7 @@ export async function listBacklogItemsWithStats(
         namesById.set(project.ownerUserId, project.ownerName.trim())
       }
 
-      return records
+      const matchingRecords = records
         .filter(
           (record) =>
             record.project_id === projectId &&
@@ -1323,10 +1337,18 @@ export async function listBacklogItemsWithStats(
         )
         .sort((left, right) => left.order_index - right.order_index)
         .slice(options.offset ?? 0, (options.offset ?? 0) + (options.limit ?? 200))
-        .map((record) => mapRecord({
-          ...record,
-          created_by_name: record.created_by_name || namesById.get(record.created_by_user_id ?? "") || null,
-        }))
+        .map(async (record) => {
+          const [files, links] = await Promise.all([
+            listBacklogSubmissions(record.id, ownerUserId),
+            listBacklogWebLinks(record.id, ownerUserId),
+          ])
+          return mapRecord({
+            ...record,
+            has_submission: files.length > 0 || links.length > 0,
+            created_by_name: record.created_by_name || namesById.get(record.created_by_user_id ?? "") || null,
+          })
+        })
+      return Promise.all(matchingRecords)
     }
   )
 }

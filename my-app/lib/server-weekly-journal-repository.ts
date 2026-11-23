@@ -201,18 +201,20 @@ export async function listWeeklyJournalAutoSummaries(projectId: string) {
       left join users u on u.microsoft_user_id = w.uploaded_by_user_id
       where b.project_id = $1 and w.is_archived = false and w.is_deleted = false`, [projectId]),
     getDb().query(`select e.event_type, e.old_value, e.new_value, e.occurred_at,
-      b.title, coalesce(u.name, b.assignee_id, 'Unassigned') as assignee_name
+      b.id as task_id, b.title, b.parent_id, coalesce(u.name, b.assignee_id, 'Unassigned') as assignee_name
       from task_activity_events e join backlog b on b.id = e.backlog_item_id
       left join users u on u.microsoft_user_id = b.assignee_id
       where e.project_id = $1 order by e.occurred_at`, [projectId]),
   ])
   type SummaryTextKey = "weeklyObjectives" | "workCompleted" | "memberContributions" |
-    "challenges" | "actionsTaken" | "nextWeekPlan"
-  const summaries = new Map<number, Record<SummaryTextKey, string[]>>()
+    "challenges" | "actionsTaken" | "nextWeekPlan" | "completedTasks"
+  const summaries = new Map<number, Record<SummaryTextKey, string[]> & {
+    revisionTasks: Map<string, { title: string; when?: string }>
+  }>()
   const getWeek = (week: number) => {
     if (!summaries.has(week)) summaries.set(week, {
       weeklyObjectives: [], workCompleted: [], memberContributions: [], challenges: [],
-      actionsTaken: [], nextWeekPlan: [],
+      actionsTaken: [], nextWeekPlan: [], completedTasks: [], revisionTasks: new Map(),
     })
     return summaries.get(week)!
   }
@@ -229,10 +231,14 @@ export async function listWeeklyJournalAutoSummaries(projectId: string) {
     getWeek(createdWeek).weeklyObjectives.push(`${row.title} — ${row.priority} priority, due ${row.due_date ? formatEventDate(row.due_date) : "not set"}`)
     getWeek(createdWeek).actionsTaken.push(`Task created: ${row.title} — ${formatEventDate(row.created_at)}`)
     if (row.assignee_id) getWeek(createdWeek).memberContributions.push(`${row.assignee_name}: assigned to ${row.title}`)
-    const hasStatusEvent = eventsResult.rows.some((event) => event.title === row.title && event.event_type === "status")
-    if (row.status === "completed" && !hasStatusEvent) getWeek(dueWeek).workCompleted.push(`${row.title} — ${row.assignee_name}`)
+    const hasStatusEvent = eventsResult.rows.some((event) => event.task_id === row.id && event.event_type === "status")
+    if (row.status === "completed" && !hasStatusEvent) {
+      getWeek(dueWeek).workCompleted.push(`${row.title} — ${row.assignee_name}`)
+      if (!row.parent_id) getWeek(dueWeek).completedTasks.push(row.title)
+    }
     if (row.status === "revision" && !hasStatusEvent) {
       getWeek(currentWeek).challenges.push(`Revision required: ${row.title}`)
+      getWeek(currentWeek).revisionTasks.set(row.id, { title: row.title })
       if (row.assignee_id) getWeek(currentWeek).memberContributions.push(`${row.assignee_name}: working on revision for ${row.title}`)
     }
     if (row.due_date && new Date(row.due_date).getTime() < today && row.status !== "completed") {
@@ -245,8 +251,10 @@ export async function listWeeklyJournalAutoSummaries(projectId: string) {
     const when = formatEventDate(row.occurred_at)
     if (row.event_type === "status" && row.new_value === "completed") {
       getWeek(week).workCompleted.push(`${row.title} — completed by ${row.assignee_name}, ${when}`)
+      if (!row.parent_id) getWeek(week).completedTasks.push(`${row.title} (${when})`)
     } else if (row.event_type === "status" && row.new_value === "revision") {
       getWeek(week).challenges.push(`Revision required: ${row.title} — ${when}`)
+      getWeek(week).revisionTasks.set(row.task_id, { title: row.title, when })
       getWeek(week).memberContributions.push(`${row.assignee_name}: assigned to revise ${row.title}`)
     } else if (row.event_type === "assignee") {
       getWeek(week).actionsTaken.push(`${row.title} was reassigned to ${row.assignee_name} — ${when}`)
@@ -276,6 +284,14 @@ export async function listWeeklyJournalAutoSummaries(projectId: string) {
     challenges: uniqueLines(values.challenges),
     actionsTaken: uniqueLines(values.actionsTaken),
     nextWeekPlan: uniqueLines(values.nextWeekPlan),
+    completedTasks: [...new Set(values.completedTasks)],
+    revisionTasks: [...values.revisionTasks].map(([taskId, revision]) => ({
+      ...revision,
+      subtasks: tasksResult.rows
+        .filter((row) => row.parent_id === taskId && !row.is_archived)
+        .sort((a, b) => a.sequence_number - b.sequence_number)
+        .map((row) => String(row.title)),
+    })),
     tasksCreated: tasksResult.rows.filter((row) => weekOf(row.created_at) === weekNumber).length,
     tasksCompleted: values.workCompleted.length,
     revisions: values.challenges.filter((line) => line.startsWith("Revision required:")).length,

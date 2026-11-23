@@ -45,6 +45,8 @@ export async function GET(request: Request) {
           challenges: "",
           actionsTaken: "",
           nextWeekPlan: "",
+          completedTasks: [],
+          revisionTasks: [],
         }))
       : autoSummaries
 
@@ -76,7 +78,7 @@ export async function PUT(request: Request) {
     }
 
     let entry
-    if (action === "save" || action === "submit") {
+    if (action === "save") {
       if (user.role !== "student") {
         return NextResponse.json({ error: "Only students can edit journal entries" }, { status: 403 })
       }
@@ -85,7 +87,7 @@ export async function PUT(request: Request) {
         weeklyObjectives: text("weeklyObjectives"), workCompleted: text("workCompleted"),
         memberContributions: text("memberContributions"), challenges: text("challenges"),
         actionsTaken: text("actionsTaken"), nextWeekPlan: text("nextWeekPlan"),
-      }, action === "submit")
+      }, false)
     } else if (action === "feedback") {
       if (user.role !== "faculty") {
         return NextResponse.json({ error: "Only advisers can review journals" }, { status: 403 })
@@ -114,10 +116,10 @@ export async function PUT(request: Request) {
         { status: 409 }
       )
     }
-    if (action === "submit" || action === "feedback") {
+    if (action === "feedback") {
       await notifyProjectEmailEvent({ projectId, actorUserId: user.id, actorName: user.name,
-        type: action === "submit" ? "journal_submitted" : "journal_adviser_feedback",
-        weekNumber, eventId: `${entry.id}:${action === "submit" ? entry.submittedAt : entry.adviserReviewedAt}` })
+        type: "journal_adviser_feedback",
+        weekNumber, eventId: `${entry.id}:${entry.adviserReviewedAt}` })
     }
     return NextResponse.json({ entry })
   } catch (error) {

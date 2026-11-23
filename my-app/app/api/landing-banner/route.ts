@@ -1,32 +1,13 @@
 import { NextResponse } from "next/server"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { getDb } from "@/lib/server-db"
+import { ensureLandingBannerSchema, listLandingBannerSlides } from "@/lib/server-landing-banner"
 import { LANDING_BANNER_MAX_BYTES, LANDING_BANNER_MAX_IMAGES, type LandingBannerSlide } from "@/lib/landing-banner"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-let schemaReady: Promise<unknown> | undefined
 const uuidPattern = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i
-
-function ensureSchema() {
-  schemaReady ??= getDb().query(`
-    create table if not exists public.landing_banner_slides (
-      id uuid primary key default gen_random_uuid(),
-      alt text not null,
-      mime text not null check (mime in ('image/jpeg', 'image/png', 'image/webp')),
-      image bytea not null,
-      position integer not null,
-      revision uuid not null default gen_random_uuid()
-    );
-    alter table public.landing_banner_slides enable row level security;
-    revoke all on public.landing_banner_slides from anon, authenticated;
-  `).catch((error) => {
-    schemaReady = undefined
-    throw error
-  })
-  return schemaReady
-}
 
 function identifyImage(bytes: Buffer) {
   if (bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255]))) return "image/jpeg"
@@ -39,8 +20,8 @@ export async function GET(request: Request) {
   try {
     const id = new URL(request.url).searchParams.get("id")
     if (id !== null && !uuidPattern.test(id)) return new Response(null, { status: 404 })
-    await ensureSchema()
     if (id) {
+      await ensureLandingBannerSchema()
       const { rows: [slide] } = await getDb().query<{ image: Buffer; mime: string }>(
         "select image, mime from public.landing_banner_slides where id=$1", [id],
       )
@@ -49,10 +30,8 @@ export async function GET(request: Request) {
         headers: { "Content-Type": slide.mime, "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" },
       })
     }
-    const { rows } = await getDb().query<LandingBannerSlide>(
-      "select id, alt, revision from public.landing_banner_slides order by position, id",
-    )
-    return NextResponse.json({ slides: rows }, { headers: { "Cache-Control": "no-store" } })
+    const slides = await listLandingBannerSlides()
+    return NextResponse.json({ slides }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("Could not load landing banner", error)
     return NextResponse.json({ error: "Could not load the landing page banner." }, { status: 500 })
@@ -94,7 +73,7 @@ export async function POST(request: Request) {
       }
     }
 
-    await ensureSchema()
+    await ensureLandingBannerSchema()
     const client = await getDb().connect()
     try {
       await client.query("begin")
