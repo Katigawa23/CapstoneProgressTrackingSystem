@@ -60,11 +60,11 @@ export async function POST(request: Request) {
 
     let image: Buffer | undefined
     let mime: string | null = null
-    const alt = String(form.get("alt") ?? "").trim()
+    const alt = "Landing page banner picture"
     if (action === "add" || action === "replace") {
       const file = form.get("image")
-      if (!(file instanceof File) || !file.size || file.size > LANDING_BANNER_MAX_BYTES || !alt || alt.length > 160) {
-        return NextResponse.json({ error: "Choose an image up to 2 MB and enter a short description." }, { status: 400 })
+      if (!(file instanceof File) || !file.size || file.size > LANDING_BANNER_MAX_BYTES) {
+        return NextResponse.json({ error: "Choose an image up to 2 MB." }, { status: 400 })
       }
       image = Buffer.from(await file.arrayBuffer())
       mime = identifyImage(image)
@@ -85,6 +85,16 @@ export async function POST(request: Request) {
       if (action === "add" && rows.length >= LANDING_BANNER_MAX_IMAGES || action !== "add" && index === -1) {
         await client.query("rollback")
         return NextResponse.json({ error: action === "add" ? "The banner already has eight pictures." : "This picture is no longer available." }, { status: 409 })
+      }
+      if (image) {
+        const { rows: [match] } = await client.query<{ duplicate: boolean }>(
+          "select exists (select 1 from public.landing_banner_slides where image = $1::bytea) as duplicate",
+          [image],
+        )
+        if (match.duplicate) {
+          await client.query("rollback")
+          return NextResponse.json({ error: "This picture is already in the banner. Choose a different image." }, { status: 409 })
+        }
       }
       if (action === "add") {
         await client.query("insert into public.landing_banner_slides (alt, mime, image, position) values ($1,$2,$3,$4)",

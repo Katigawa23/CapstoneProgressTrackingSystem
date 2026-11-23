@@ -29,7 +29,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { TASK_SPRINT_NAME_MAX_LENGTH } from "@/lib/text-validation"
+import { hasInvalidTaskTitleCharacters, TASK_SPRINT_NAME_MAX_LENGTH, TASK_TITLE_CHARACTERS_ERROR } from "@/lib/text-validation"
 import { PriorityIcon } from "../../components/priority-icon"
 import { assigneeOptions, getAssigneeOption } from "../types"
 
@@ -80,6 +80,8 @@ export function CreateWorkItemDialog({
   onAddItem,
   mode = "task",
 }: CreateWorkItemDialogProps) {
+  const hasInvalidTitle = hasInvalidTaskTitleCharacters(title)
+  const displayedTitleError = hasInvalidTitle ? TASK_TITLE_CHARACTERS_ERROR : titleError
   const [startDateOpen, setStartDateOpen] = React.useState(false)
   const [dueDateOpen, setDueDateOpen] = React.useState(false)
 
@@ -137,14 +139,16 @@ export function CreateWorkItemDialog({
             </div>
             <Input
               id="title"
+              aria-invalid={Boolean(displayedTitleError)}
+              aria-describedby={displayedTitleError ? "task-title-error" : undefined}
               value={title}
               onChange={(event) => onTitleChange(event.target.value)}
               placeholder="Enter task title"
               maxLength={TASK_SPRINT_NAME_MAX_LENGTH}
               className="h-8 max-w-full rounded-[2px] border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-500 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100 dark:placeholder:text-slate-500"
             />
-            {titleError ? (
-              <p className="text-xs text-red-500">{titleError}</p>
+            {displayedTitleError ? (
+              <p id="task-title-error" className="text-xs text-red-500">{displayedTitleError}</p>
             ) : null}
           </div>
 
@@ -429,6 +433,7 @@ export function CreateWorkItemDialog({
             disabled={
               isSubmitting ||
               !title.trim() ||
+              hasInvalidTitle ||
               (!isSubtaskMode && (!startDate || !dueDate))
               || (!isSubtaskMode && !chapterNumber)
             }

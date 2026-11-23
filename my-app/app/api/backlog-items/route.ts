@@ -4,7 +4,8 @@ import { NextResponse } from "next/server"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import { rejectCompletedTaskMutation } from "@/lib/server-completed-task"
 import {
-  stripEmoji,
+  hasInvalidTaskTitleCharacters,
+  TASK_TITLE_CHARACTERS_ERROR,
   TASK_SPRINT_NAME_MAX_LENGTH,
   validateDisplayName,
 } from "@/lib/text-validation"
@@ -116,8 +117,10 @@ export async function POST(request: Request) {
       chapterNumber?: number
     }
 
-    const rawTitle = body.title?.trim()
-    const title = rawTitle ? stripEmoji(rawTitle).trim() : rawTitle
+    const title = typeof body.title === "string" ? body.title.trim() : ""
+    if (typeof body.title === "string" && hasInvalidTaskTitleCharacters(body.title)) {
+      return NextResponse.json({ error: TASK_TITLE_CHARACTERS_ERROR }, { status: 400 })
+    }
     const projectId = body.projectId?.trim()
     const requestedParentId =
       typeof body.parentId === "string" && body.parentId.trim().length > 0
