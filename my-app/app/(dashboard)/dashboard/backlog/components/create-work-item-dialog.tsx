@@ -270,7 +270,7 @@ export function CreateWorkItemDialog({
                       >
                         <span className="flex min-w-0 items-center gap-2">
                           {selectedAssignee ? (
-                            <Avatar name={selectedAssignee.name} className="h-6 w-6">
+                            <Avatar name={selectedAssignee.name} userId={selectedAssignee.id} className="h-6 w-6">
                               <AvatarFallback className="text-[9px]">
                                 {selectedAssignee.initials ?? "A"}
                               </AvatarFallback>
@@ -315,7 +315,7 @@ export function CreateWorkItemDialog({
                           }
                           onSelect={() => onAssigneeChange?.(option.id)}
                         >
-                          <Avatar name={option.name} className="h-7 w-7">
+                          <Avatar name={option.name} userId={option.id} className="h-7 w-7">
                             <AvatarFallback className="text-[9px]">
                               {option.initials ?? "A"}
                             </AvatarFallback>

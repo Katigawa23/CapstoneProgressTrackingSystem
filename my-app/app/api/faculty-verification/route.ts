@@ -1,3 +1,4 @@
+import { withMicrosoftProfilePhotos } from "@backend/repositories/users-repository"
 import { NextResponse } from "next/server"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { listFacultyVerifications, reviewFacultyVerification } from "@/lib/server-faculty-verification"
@@ -9,7 +10,7 @@ export async function GET() {
   const user = await readAuthenticatedUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (user.role !== "admin" || user.id !== "tester-admin") return NextResponse.json({ error: "Superadmin only." }, { status: 403 })
-  return NextResponse.json({ faculty: await listFacultyVerifications(user.tenantId) }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ faculty: await withMicrosoftProfilePhotos(await listFacultyVerifications(user.tenantId)) }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function PUT(request: Request) {

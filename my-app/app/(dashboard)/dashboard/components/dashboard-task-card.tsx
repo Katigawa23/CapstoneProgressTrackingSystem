@@ -198,7 +198,7 @@ export function DashboardTaskCard({
                         }
                         onSelect={() => onAssigneeChange(todo.id, option.id)}
                       >
-                        <Avatar name={option.name} className="h-7 w-7">
+                        <Avatar name={option.name} userId={option.id} className="h-7 w-7">
                           <AvatarFallback className="text-[9px]">
                             {option.initials ?? "A"}
                           </AvatarFallback>

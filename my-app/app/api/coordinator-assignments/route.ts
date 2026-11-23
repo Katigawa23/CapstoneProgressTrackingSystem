@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { getMicrosoftProfilePhotos } from "@backend/repositories/users-repository"
 import { assignProgramCoordinator, listCoordinatorAssignments, removeProgramCoordinator } from "@/lib/server-coordinator-assignments"
 
 async function requireSuperadmin() {
@@ -14,7 +15,17 @@ function revalidateCoordinatorProjects() {
 }
 
 export async function GET() {
-  try { await requireSuperadmin(); return NextResponse.json({ assignments: await listCoordinatorAssignments() }) }
+  try {
+    await requireSuperadmin()
+    const assignments = await listCoordinatorAssignments()
+    const photos = await getMicrosoftProfilePhotos(assignments.flatMap(({ facultyUserId }) => facultyUserId ? [facultyUserId] : []))
+    return NextResponse.json({
+      assignments: assignments.map((assignment) => ({
+        ...assignment,
+        profilePhoto: photos.get(assignment.facultyUserId ?? "") ?? null,
+      })),
+    }, { headers: { "Cache-Control": "private, no-store" } })
+  }
   catch (error) { return NextResponse.json({ error: error instanceof Error && error.message === "FORBIDDEN" ? "Superadmin access is required." : "Failed to load coordinator assignments." }, { status: error instanceof Error && error.message === "FORBIDDEN" ? 403 : 500 }) }
 }
 

@@ -554,7 +554,7 @@ export function TaskSubtasksSection({
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Avatar size="sm" tabIndex={0} aria-label={createdByName}>
+                            <Avatar userId={subtask.createdByUserId} size="sm" tabIndex={0} aria-label={createdByName}>
                               <AvatarFallback className="text-xs font-bold">
                                 {getInitials(createdByName)}
                               </AvatarFallback>

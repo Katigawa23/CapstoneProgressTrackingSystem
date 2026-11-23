@@ -291,17 +291,30 @@ export async function saveMicrosoftProfilePhoto(userId: string, photo: string | 
   )
 }
 
-export async function getMicrosoftProfilePhoto(userId: string) {
-  if (!process.env.DATABASE_URL?.trim()) return null
+export async function getMicrosoftProfilePhotos(userIds: string[]) {
+  if (!userIds.length || !process.env.DATABASE_URL?.trim()) return new Map<string, string | null>()
 
   try {
     await ensureMicrosoftLoginSchema()
-    const { rows } = await getDb().query<{ microsoft_profile_photo: string | null }>(
-      "select microsoft_profile_photo from users where microsoft_user_id = $1",
-      [userId]
+    const { rows } = await getDb().query<{ microsoft_user_id: string; microsoft_profile_photo: string | null }>(
+      "select microsoft_user_id, microsoft_profile_photo from users where microsoft_user_id = any($1::text[])",
+      [userIds]
     )
-    return rows[0]?.microsoft_profile_photo ?? null
+    return new Map(rows.map((row) => [row.microsoft_user_id, row.microsoft_profile_photo]))
   } catch {
-    return null
+    return new Map<string, string | null>()
   }
+}
+
+export async function getMicrosoftProfilePhoto(userId: string) {
+  const photos = await getMicrosoftProfilePhotos([userId])
+  return photos.get(userId) ?? null
+}
+
+export async function withMicrosoftProfilePhotos<T extends { userId: string }>(accounts: T[]) {
+  const photos = await getMicrosoftProfilePhotos(accounts.map(({ userId }) => userId))
+  return accounts.map((account) => ({
+    ...account,
+    profilePhoto: photos.get(account.userId) ?? null,
+  }))
 }

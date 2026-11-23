@@ -1,3 +1,4 @@
+import { withMicrosoftProfilePhotos } from "@backend/repositories/users-repository"
 import { NextResponse } from "next/server"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
@@ -10,7 +11,7 @@ export async function GET() {
   const user = await readAuthenticatedUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (user.role !== "faculty" || !await isAssignedCoordinator(user.id)) return NextResponse.json({ error: "Assigned coordinators only." }, { status: 403 })
-  return NextResponse.json({ students: await listStudentVerifications(user.id, user.tenantId) }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ students: await withMicrosoftProfilePhotos(await listStudentVerifications(user.id, user.tenantId)) }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function PUT(request: Request) {

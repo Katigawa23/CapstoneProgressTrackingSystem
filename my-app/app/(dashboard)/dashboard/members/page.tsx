@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { readClientAuthSession, subscribeToAuthChange } from "@/lib/auth-client"
 import { markDashboardProjectPageSeenInSession } from "@/lib/dashboard-first-open"
@@ -37,6 +37,7 @@ import { canCreateProject, isUserRole } from "@/lib/rbac"
 
 type ProjectMember = {
   userId: string
+  profilePhoto?: string | null
   name: string
   email: string
   role: "student" | "faculty" | "admin"
@@ -537,6 +538,9 @@ export default function MembersPage() {
                       <td className="px-4 py-2">
                         <div className="flex min-w-0 items-center gap-2">
                           <Avatar name={member.name} className="h-7 w-7">
+                            {member.profilePhoto && (
+                              <AvatarImage src={member.profilePhoto} alt="" className="object-cover" />
+                            )}
                             <AvatarFallback className="bg-emerald-500 text-[10px] font-semibold text-white dark:bg-emerald-500">
                               {getInitials(member.name) || <UserRound className="h-4 w-4" />}
                             </AvatarFallback>

@@ -1,3 +1,4 @@
+import { withMicrosoftProfilePhotos } from "@backend/repositories/users-repository"
 import { redirect } from "next/navigation"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { isAssignedCoordinator, listAssignedCoordinatorProgramLabels } from "@/lib/server-coordinator-assignments"
@@ -11,5 +12,5 @@ export default async function StudentVerificationPage() {
   if (!user) redirect("/")
   if (user.role !== "faculty" || !await isAssignedCoordinator(user.id)) redirect("/dashboard")
   const programs = await listAssignedCoordinatorProgramLabels(user.id)
-  return <StudentVerificationList key={`${user.id}:${programs.join("|")}`} initialStudents={await listStudentVerifications(user.id, user.tenantId)} />
+  return <StudentVerificationList key={`${user.id}:${programs.join("|")}`} initialStudents={await withMicrosoftProfilePhotos(await listStudentVerifications(user.id, user.tenantId))} />
 }

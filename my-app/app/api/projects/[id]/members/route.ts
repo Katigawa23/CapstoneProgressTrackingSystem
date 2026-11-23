@@ -7,6 +7,7 @@ import { NextResponse } from "next/server"
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import { canCreateProject, isUserRole } from "@/lib/rbac"
+import { getMicrosoftProfilePhoto, getMicrosoftProfilePhotos } from "@backend/repositories/users-repository"
 import {
   addProjectStudentMember,
   listProjectMembers,
@@ -38,9 +39,10 @@ export async function GET(
     }
 
     const members = await listProjectMembers(projectId, user.id, user.role)
+    const photos = await getMicrosoftProfilePhotos(members.map((member) => member.userId))
 
     return NextResponse.json(
-      { members },
+      { members: members.map((member) => ({ ...member, profilePhoto: photos.get(member.userId) ?? null })) },
       {
         headers: {
           "Cache-Control": "no-store, max-age=0",
@@ -110,7 +112,8 @@ export async function PATCH(
 
     revalidateProjectData()
 
-    return NextResponse.json({ member })
+    const profilePhoto = await getMicrosoftProfilePhoto(member.userId)
+    return NextResponse.json({ member: { ...member, profilePhoto } })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const isAuthError = errorMessage === "Unauthorized"
@@ -170,7 +173,8 @@ export async function POST(
 
     revalidateProjectData()
 
-    return NextResponse.json({ member }, { status: 201 })
+    const profilePhoto = await getMicrosoftProfilePhoto(member.userId)
+    return NextResponse.json({ member: { ...member, profilePhoto } }, { status: 201 })
   } catch (error) {
     if (error instanceof StudentAlreadyAssignedError) {
       return NextResponse.json({ error: error.message, code: "STUDENT_ALREADY_ASSIGNED" }, { status: 409 })

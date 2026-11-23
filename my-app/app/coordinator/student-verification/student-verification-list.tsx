@@ -1,15 +1,16 @@
 "use client"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import * as React from "react"
 import Link from "next/link"
-import { Check, Loader2, Search, ShieldCheck, X } from "lucide-react"
+import { Check, Loader2, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useVerificationBulkActions } from "@/components/verification-bulk-actions"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { StudentVerification } from "@/lib/server-student-verification"
 
-export function StudentVerificationList({ initialStudents }: { initialStudents: StudentVerification[] }) {
+export function StudentVerificationList({ initialStudents }: { initialStudents: (StudentVerification & { profilePhoto?: string | null })[] }) {
   const [students, setStudents] = React.useState(initialStudents)
   const [search, setSearch] = React.useState("")
   const [filter, setFilter] = React.useState("pending")
@@ -106,7 +107,12 @@ export function StudentVerificationList({ initialStudents }: { initialStudents: 
     {bulk.controls}
     <div className="overflow-hidden rounded-xl border bg-card dark:border-[var(--border)]">
       {bulk.toolbar}
-      {visible.length ? <div className="divide-y">{visible.map((student) => <div key={student.userId} className="flex flex-wrap items-center justify-between gap-4 p-4"><div className="flex min-w-0 items-start gap-3">{bulk.checkbox(student)}<div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[color:rgba(var(--brand-primary-rgb),0.1)] text-[var(--brand-primary-fixed)]"><ShieldCheck className="size-4" /></div><div className="min-w-0"><p className="text-sm font-semibold">{student.name}</p><p className="break-all text-xs text-muted-foreground">{student.email}</p><p className="mt-2 text-xs">{student.program} · {student.yearLevel}</p><p className="mt-1 text-[11px] text-muted-foreground">Submitted {new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "Asia/Manila" }).format(new Date(student.submittedAt))}</p>{student.reason ? <p className="mt-2 max-w-xl break-words text-xs text-red-500">{student.reason}</p> : null}</div></div><div className="flex items-center gap-2">{student.status === "pending" ? <><Button size="sm" variant="outline" onClick={() => { setError(""); setReason(""); setReview({ student, status: "rejected" }) }}><X className="size-3.5" />Reject</Button><Button size="sm" className="bg-[var(--brand-primary-fixed)] text-white" onClick={() => { setError(""); setReason(""); setReview({ student, status: "approved" }) }}><Check className="size-3.5" />Approve</Button></> : <><span className={`rounded-full border px-2.5 py-1 text-xs ${student.status === "approved" ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500" : "border-red-500/25 bg-red-500/10 text-red-500"}`}>{student.status === "approved" ? "Approved" : student.status === "revoked" ? "Revoked" : "Rejected"}</span></>}</div></div>)}</div> : <div className="p-12 text-center text-sm text-muted-foreground">No {filter === "all" ? "matching" : filter} student requests.</div>}
+      {visible.length ? <div className="divide-y">{visible.map((student) => <div key={student.userId} className="flex flex-wrap items-center justify-between gap-4 p-4"><div className="flex min-w-0 items-start gap-3">{bulk.checkbox(student)}
+        <Avatar name={student.name} className="size-9">
+          {student.profilePhoto && <AvatarImage src={student.profilePhoto} alt="" className="object-cover" />}
+          <AvatarFallback className="text-xs">{student.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?"}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0"><p className="text-sm font-semibold">{student.name}</p><p className="break-all text-xs text-muted-foreground">{student.email}</p><p className="mt-2 text-xs">{student.program} · {student.yearLevel}</p><p className="mt-1 text-[11px] text-muted-foreground">Submitted {new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "Asia/Manila" }).format(new Date(student.submittedAt))}</p>{student.reason ? <p className="mt-2 max-w-xl break-words text-xs text-red-500">{student.reason}</p> : null}</div></div><div className="flex items-center gap-2">{student.status === "pending" ? <><Button size="sm" variant="outline" onClick={() => { setError(""); setReason(""); setReview({ student, status: "rejected" }) }}><X className="size-3.5" />Reject</Button><Button size="sm" className="bg-[var(--brand-primary-fixed)] text-white" onClick={() => { setError(""); setReason(""); setReview({ student, status: "approved" }) }}><Check className="size-3.5" />Approve</Button></> : <><span className={`rounded-full border px-2.5 py-1 text-xs ${student.status === "approved" ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-500" : "border-red-500/25 bg-red-500/10 text-red-500"}`}>{student.status === "approved" ? "Approved" : student.status === "revoked" ? "Revoked" : "Rejected"}</span></>}</div></div>)}</div> : <div className="p-12 text-center text-sm text-muted-foreground">No {filter === "all" ? "matching" : filter} student requests.</div>}
     </div>
     <Dialog open={review !== null} onOpenChange={(open) => { if (!open && !saving) setReview(null) }}>
       <DialogContent showCloseButton={!saving} onEscapeKeyDown={(event) => { if (saving) event.preventDefault() }} onInteractOutside={(event) => { if (saving) event.preventDefault() }}>

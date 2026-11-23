@@ -7,6 +7,7 @@ import { getDashboardProjectsData } from "@/app/(dashboard)/dashboard/data"
 import { getUserScopedProjectCookieKey, PROJECT_COOKIE_KEY } from "@/lib/projects"
 import { readAuthenticatedUser } from "@/lib/server-auth"
 import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
+import { getMicrosoftProfilePhoto } from "@backend/repositories/users-repository"
 
 export default async function CoordinatorLayout({ children }: { children: React.ReactNode }) {
   const [cookieStore, user, initialProjects] = await Promise.all([
@@ -27,6 +28,7 @@ export default async function CoordinatorLayout({ children }: { children: React.
   return (
     <DashboardLayoutShell
       coordinatorMode
+      profilePhoto={await getMicrosoftProfilePhoto(user.id)}
       initialAuthSession={{
         user: { id: user.id, name: user.name, email: user.email, role: user.role },
         tenantId: user.tenantId,

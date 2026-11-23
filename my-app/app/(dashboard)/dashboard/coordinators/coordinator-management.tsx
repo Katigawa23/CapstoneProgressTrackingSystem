@@ -1,6 +1,6 @@
 "use client"
 
-import { AvatarNameTooltip } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage, AvatarNameTooltip } from "@/components/ui/avatar"
 import * as React from "react"
 import Link from "next/link"
 import { Loader2, Search, ShieldCheck, UserRoundCheck, UserRoundPlus, UserX } from "lucide-react"
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
-type Assignment = { programId: string; programLabel: string; facultyUserId: string | null; facultyName: string | null; facultyEmail: string | null; assignedAt: string | null }
+type Assignment = { programId: string; programLabel: string; facultyUserId: string | null; facultyName: string | null; facultyEmail: string | null; assignedAt: string | null; profilePhoto: string | null }
 type Faculty = { id: string; name: string; email: string; role: string }
 
 async function responseJson<T>(response: Response): Promise<T> {
@@ -104,7 +104,10 @@ export function CoordinatorManagement() {
         <div className="grid gap-4 md:grid-cols-2">{assignments.map((item) => <section key={item.programId} className="rounded-xl border bg-card p-5 shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)]">
           <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium uppercase tracking-wider text-[var(--brand-primary-fixed)]">Academic program</p><h2 className="mt-1 text-lg font-semibold">{item.programLabel}</h2></div><ShieldCheck className="size-5 text-muted-foreground" /></div>
           <div className="mt-5 rounded-lg border bg-background p-4 dark:border-[var(--border)]">
-            {item.facultyUserId ? <div className="flex items-center gap-3"><AvatarNameTooltip name={item.facultyName ?? ""}><div tabIndex={0} className="flex size-10 items-center justify-center rounded-full bg-[var(--brand-primary-fixed)] text-sm font-semibold text-white">{item.facultyName?.split(/\s+/).map((part) => part[0]).slice(0,2).join("").toUpperCase() || "FC"}</div></AvatarNameTooltip><div className="min-w-0"><p className="truncate text-sm font-semibold">{item.facultyName}</p><p className="truncate text-xs text-muted-foreground">{item.facultyEmail}</p></div></div> : <div className="flex items-center gap-3 text-muted-foreground"><UserRoundCheck className="size-9 rounded-full border p-2" /><div><p className="text-sm font-medium text-foreground">No coordinator assigned</p><p className="text-xs">Select a registered faculty account.</p></div></div>}
+            {item.facultyUserId ? <div className="flex items-center gap-3"><Avatar name={item.facultyName ?? undefined} className="size-10">
+              {item.profilePhoto && <AvatarImage src={item.profilePhoto} alt="" className="object-cover" />}
+              <AvatarFallback>{item.facultyName?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "FC"}</AvatarFallback>
+            </Avatar><div className="min-w-0"><p className="truncate text-sm font-semibold">{item.facultyName}</p><p className="truncate text-xs text-muted-foreground">{item.facultyEmail}</p></div></div> : <div className="flex items-center gap-3 text-muted-foreground"><UserRoundCheck className="size-9 rounded-full border p-2" /><div><p className="text-sm font-medium text-foreground">No coordinator assigned</p><p className="text-xs">Select a registered faculty account.</p></div></div>}
           </div>
           <div className="mt-4 flex justify-end gap-2">{item.facultyUserId ? <Button variant="outline" size="sm" onClick={() => setRemoveProgram(item)} className="gap-2 text-red-500"><UserX className="size-4" />Remove</Button> : null}<Button size="sm" onClick={() => openAssignment(item)} className="gap-2"><UserRoundPlus className="size-4" />{item.facultyUserId ? "Change" : "Assign"}</Button></div>
         </section>)}{assignments.length === 0 ? <div className="col-span-full rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">No programs configured. Add a program in System Configuration first.</div> : null}</div>}

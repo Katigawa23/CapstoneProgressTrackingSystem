@@ -1320,7 +1320,13 @@ export function DashboardBoard({
       const destinationColumnId = destination.droppableId as TodoItem["status"]
       const draggedTodo = todos.find((todo) => todo.id === draggableId)
 
-      if (!draggedTodo || (draggedTodo.status === "todo" && !draggedTodo.hasSubmission)) return
+      if (!draggedTodo) return
+      if (draggedTodo.status === "todo" && !draggedTodo.hasSubmission && sourceColumnId !== destinationColumnId) {
+        if (destinationColumnId === "inprogress") {
+          void onStatusChange(draggableId, destinationColumnId)
+        }
+        return
+      }
       if (isStudent) {
         if (draggedTodo.status === "todo" && destinationColumnId === "inprogress" &&
             !isTaskCompletionLocked(draggedTodo, todos)) {

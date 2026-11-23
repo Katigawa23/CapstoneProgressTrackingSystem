@@ -100,7 +100,7 @@ export function DashboardColumn({
                     key={todo.id}
                     draggableId={todo.id}
                     index={index}
-                    isDragDisabled={!canChangeTaskState || isDragDisabled || (todo.status === "completed" && !canEditAssignee) || (todo.status === "todo" && !todo.hasSubmission)}
+                    isDragDisabled={!canChangeTaskState || isDragDisabled || (todo.status === "completed" && !canEditAssignee)}
                   >
                     {(draggableProvided, dragSnapshot) => (
                       <DashboardTaskCard
