@@ -120,7 +120,7 @@ export function CreateWorkItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-md overflow-hidden rounded-[2px] border-slate-200 bg-white px-5 py-4 text-slate-900 dark:border-[var(--border)] dark:bg-[var(--background)] dark:text-slate-100 sm:max-w-md">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-md overflow-y-auto rounded-[2px] border-slate-200 bg-white px-3 py-4 text-slate-900 sm:px-5 dark:border-[var(--border)] dark:bg-[var(--background)] dark:text-slate-100">
         <DialogHeader className="border-b border-slate-200 pb-2 dark:border-[var(--border)]">
           <DialogTitle className="font-display text-left tracking-tight text-slate-900 dark:text-slate-100">
             {isSubtaskMode ? "Create new subtask." : "Create new task."}

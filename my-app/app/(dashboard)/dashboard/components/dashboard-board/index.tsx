@@ -1484,14 +1484,14 @@ export function DashboardBoard({
 
       <Dialog open={selectedTodo !== null} onOpenChange={handleDialogOpenChange}>
         {selectedTodo ? (
-          <DialogContent className="h-[92dvh] max-h-[92dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden border-[var(--board-column-border)] bg-[var(--board-dialog-bg)] p-0 shadow-[var(--board-dialog-shadow)] transition-[background-color,border-color,box-shadow] duration-300 sm:h-[90dvh] sm:max-h-[90dvh] sm:w-[94vw] sm:max-w-[94vw] lg:h-[88dvh] lg:max-h-[88dvh] lg:w-[90vw] lg:max-w-[90vw]">
+          <DialogContent className="h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-none grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden border-[var(--board-column-border)] bg-[var(--board-dialog-bg)] p-0 shadow-[var(--board-dialog-shadow)] transition-[background-color,border-color,box-shadow] duration-300 sm:h-[90dvh] sm:w-[94vw] sm:max-w-none lg:h-[88dvh] lg:w-[90vw]">
             <DialogHeader className="sr-only">
               <DialogTitle>{selectedTodo.title}</DialogTitle>
               <DialogDescription>Task details and activity</DialogDescription>
             </DialogHeader>
             {isFirstTaskOpenLoading ? (
               <div className="flex h-full min-h-0 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)] lg:overflow-hidden">
-                <div className="min-h-0 p-4 sm:p-5 lg:border-r lg:p-6 dark:border-[var(--border)]">
+                <div className="min-w-0 shrink-0 p-4 sm:p-5 lg:min-h-0 lg:border-r lg:p-6 dark:border-[var(--border)]">
                   <div className="space-y-5">
                     <div className="space-y-3">
                       <Skeleton className="h-4 w-20" />
@@ -1525,8 +1525,8 @@ export function DashboardBoard({
                   </div>
                 </div>
 
-                <div className="min-h-0 p-4 sm:p-5 lg:p-6">
-                  <div className="flex h-full min-h-[550px] flex-col gap-4">
+                <div className="min-w-0 shrink-0 p-4 sm:p-5 lg:min-h-0 lg:p-6">
+                  <div className="flex min-h-48 flex-col gap-4 lg:h-full lg:min-h-0">
                     <Skeleton className="h-32 w-full rounded-[2px]" />
                     {canAccessComments ? (
                     <>

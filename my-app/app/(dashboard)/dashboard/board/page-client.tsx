@@ -1198,7 +1198,7 @@ export function DashboardBoardPageClient({
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4 overflow-hidden">
+    <div className="flex w-full min-w-0 shrink-0 flex-col gap-4 md:h-full md:min-h-0 md:shrink md:overflow-hidden">
       <DashboardHeader
         breadcrumbSectionLabel={breadcrumbSectionLabel}
         boardTitle="Board"
@@ -1230,7 +1230,7 @@ export function DashboardBoardPageClient({
           setCreateOpen(true)
         }}
       />
-      <div className="min-h-0 w-full min-w-0 flex-1 overflow-x-auto">
+      <div className="min-h-0 w-full min-w-0 flex-1 md:overflow-x-auto">
         <AlertDialog
           open={statusChangeError !== null}
           onOpenChange={(open) => {
