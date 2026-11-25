@@ -178,7 +178,7 @@ export function BacklogBoard({
           <div onClick={(event) => event.stopPropagation()}>
             <Checkbox
               checked={item.checked}
-              disabled={!canChangeTaskState || isTaskCompletionLocked(item, items)}
+              disabled={!canEditItems || isTaskCompletionLocked(item, items)}
               onCheckedChange={(checked) =>
                 onToggleCheckbox(item.id, !!checked)
               }
@@ -222,7 +222,6 @@ export function BacklogBoard({
           {canChangeTaskState && !hasCompletedTaskParent(item, items) ? (
             <StatusCombobox
               value={item.status}
-              canReopenCompleted={canEditAssignee}
               onChange={(nextStatus) => onUpdateStatus(item.id, nextStatus)}
             />
           ) : (

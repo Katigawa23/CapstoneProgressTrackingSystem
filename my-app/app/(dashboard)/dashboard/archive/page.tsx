@@ -1,5 +1,6 @@
 "use client"
 
+import { useTaskReadOnly } from "@/lib/role-context"
 import * as React from "react"
 import {
   ArchiveRestore,
@@ -135,9 +136,11 @@ const archiveGroupOrder = [
 ]
 
 export default function ArchivePage() {
+  const taskReadOnly = useTaskReadOnly()
   const [searchValue, setSearchValue] = React.useState("")
   const [filterValue, setFilterValue] = React.useState<ArchiveFilter>("none")
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
+  const [archiveNamesById, setArchiveNamesById] = React.useState<Record<string, string>>({})
   const [archiveItems, setArchiveItems] = React.useState<ArchiveItem[]>([])
   const [archivedAttachments, setArchivedAttachments] = React.useState<ArchivedAttachment[]>([])
   const [projectId, setProjectId] = React.useState<string | null>(null)
@@ -154,6 +157,7 @@ export default function ArchivePage() {
     if (!nextProjectId) {
       setArchiveItems([])
       setArchivedAttachments([])
+      setArchiveNamesById({})
       return
     }
 
@@ -168,9 +172,10 @@ export default function ArchivePage() {
       throw new Error("Failed to load archived items")
     }
 
-    const data = (await response.json()) as { items: ArchiveItem[]; attachments: ArchivedAttachment[] }
+    const data = (await response.json()) as { items: ArchiveItem[]; attachments: ArchivedAttachment[]; namesById?: Record<string, string> }
     setArchiveItems(data.items)
     setArchivedAttachments(data.attachments)
+    setArchiveNamesById(data.namesById ?? {})
   }, [])
 
   React.useEffect(() => {
@@ -234,19 +239,21 @@ export default function ArchivePage() {
       }
     })
 
+    Object.assign(next, archiveNamesById)
+
     if (currentUserId && currentUserName) {
       next[currentUserId] = currentUserName
     }
 
     return next
-  }, [currentUserId, currentUserName, selectedProject])
+  }, [archiveNamesById, currentUserId, currentUserName, selectedProject])
 
   const visibleItems = React.useMemo(() => {
     const normalizedSearch = searchValue.trim().toLowerCase()
 
     return todos.filter((item) => {
-      const createdByName = namesById[item.createdByUserId ?? ""] ?? item.createdByUserId ?? "Unknown user"
-      const archivedByName = namesById[item.archivedByUserId ?? ""] ?? item.archivedByUserId ?? "Unknown user"
+      const createdByName = namesById[item.createdByUserId ?? ""] ?? "Unknown user"
+      const archivedByName = namesById[item.archivedByUserId ?? ""] ?? "Unknown user"
       const matchesSearch =
         !normalizedSearch ||
         item.displayId.toLowerCase().includes(normalizedSearch) ||
@@ -265,8 +272,8 @@ export default function ArchivePage() {
     const normalizedSearch = searchValue.trim().toLowerCase()
 
     return archivedAttachments.filter((item) => {
-      const createdByName = namesById[item.uploadedByUserId ?? ""] ?? item.uploadedByUserId ?? "Unknown user"
-      const archivedByName = namesById[item.archivedByUserId ?? ""] ?? item.archivedByUserId ?? "Unknown user"
+      const createdByName = namesById[item.uploadedByUserId ?? ""] ?? "Unknown user"
+      const archivedByName = namesById[item.archivedByUserId ?? ""] ?? "Unknown user"
       const displayId =
         item.backlogItemParentId && item.parentSequenceNumber
           ? buildSubtaskDisplayId(
@@ -326,7 +333,17 @@ export default function ArchivePage() {
       .filter((group) => group.rows.length > 0)
   }, [archiveRows])
 
-  const allRows = archiveRows.map((row) => row.item.id)
+  const restorableRows = archiveRows.filter((row) => !taskReadOnly && (
+    row.type === "item"
+      ? currentUserRole === "faculty" && selectedProject?.advisers.some((name) => name.trim().toLowerCase() === currentUserName.toLowerCase()) === true
+      : ["faculty", "admin"].includes(currentUserRole) || row.item.uploadedByUserId === currentUserId
+  ))
+  const showSelection = currentUserRole !== "" && currentUserRole !== "student"
+  const columnCount = showSelection ? 8 : 6
+  const allRows = restorableRows.map((row) => row.item.id)
+  const selectedRows = restorableRows.filter((row) => selectedIds.includes(row.item.id))
+  const [bulkRestoreOpen, setBulkRestoreOpen] = React.useState(false)
+  const [restoring, setRestoring] = React.useState(false)
   const allVisibleSelected =
     allRows.length > 0 &&
     allRows.every((id) => selectedIds.includes(id))
@@ -373,59 +390,56 @@ export default function ArchivePage() {
     }
   }, [])
 
-  const handleRestore = React.useCallback(async (itemId: string) => {
+  const restoreRows = async (rows: ArchiveTableRow[]) => {
+    if (restoring) return
+    setRestoring(true)
     setActionError(null)
-    const response = await fetch(`/api/backlog-items/${itemId}/restore`, {
-      method: "POST",
-    })
+    const restored: string[] = []
+    const failures: string[] = []
 
-    if (!response.ok) {
-      setActionError(await readErrorMessage(response, "Failed to restore archived item"))
-      return
+    try {
+      for (const row of rows) {
+        const item = row.item
+        let route = `/api/backlog-items/${item.id}/restore`
+        if (row.type === "attachment") {
+          const attachment = row.item
+          route = attachment.attachmentType === "file"
+            ? `/api/backlog-items/${attachment.backlogItemId}/submissions/restore?submissionId=${encodeURIComponent(attachment.id)}`
+            : `/api/backlog-items/${attachment.backlogItemId}/links/restore?linkId=${encodeURIComponent(attachment.id)}`
+        }
+        try {
+          const response = await fetch(route, { method: "POST" })
+          if (!response.ok) throw new Error(await readErrorMessage(response, "Restore failed"))
+          restored.push(item.id)
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : "Restore failed")
+        }
+      }
+      setSelectedIds((current) => current.filter((id) => !restored.includes(id)))
+      await loadArchiveItems(projectId).catch(() => failures.push("Could not refresh the archive"))
+      if (failures.length) setActionError(failures.join(" ? "))
+    } finally {
+      setRestoring(false)
     }
+  }
 
-    await loadArchiveItems(projectId)
-  }, [loadArchiveItems, projectId, readErrorMessage])
-
-  const handleRestoreAttachment = React.useCallback(async (item: ArchivedAttachment) => {
-    setActionError(null)
-    const route =
-      item.attachmentType === "file"
-        ? `/api/backlog-items/${item.backlogItemId}/submissions/restore?submissionId=${encodeURIComponent(item.id)}`
-        : `/api/backlog-items/${item.backlogItemId}/links/restore?linkId=${encodeURIComponent(item.id)}`
-
-    const response = await fetch(route, { method: "POST" })
-
-    if (!response.ok) {
-      setActionError(await readErrorMessage(response, "Failed to restore archived resource"))
-      return
-    }
-
-    await loadArchiveItems(projectId)
-  }, [loadArchiveItems, projectId, readErrorMessage])
-
-  const handleConfirmRestore = React.useCallback(async () => {
-    if (!pendingRestoreRow) {
-      return
-    }
-
-    const row = pendingRestoreRow
+  const handleConfirmRestore = () => {
+    void restoreRows(pendingRestoreRow ? [pendingRestoreRow] : selectedRows)
     setPendingRestoreRow(null)
-
-    if (row.type === "item") {
-      await handleRestore(row.item.id)
-      return
-    }
-
-    await handleRestoreAttachment(row.item)
-  }, [handleRestore, handleRestoreAttachment, pendingRestoreRow])
+    setBulkRestoreOpen(false)
+  }
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-display text-xl font-semibold tracking-tight">Archive</h1>
-
-        <div className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+          {showSelection && selectedRows.length > 0 ? (
+            <button type="button" disabled={restoring} onClick={() => setBulkRestoreOpen(true)}
+              className="h-8 shrink-0 rounded-md bg-primary px-3 text-xs text-primary-foreground">
+              Restore selected ({selectedRows.length})
+            </button>
+          ) : null}
           <div className="relative min-w-0 flex-1 sm:w-[220px] sm:flex-none">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -499,8 +513,9 @@ export default function ArchivePage() {
           <table className="min-w-full border-collapse">
             <thead className="border-b border-slate-200 bg-slate-50 dark:border-[var(--border)] dark:bg-[var(--card)]">
               <tr className="text-left">
-                <th className="w-9 px-2.5 py-2">
+                <th hidden={!showSelection} className="w-9 px-2.5 py-2">
                   <Checkbox
+                    disabled={restoring || !allRows.length}
                     checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
                     onCheckedChange={(checked) => {
                       if (checked) {
@@ -512,13 +527,13 @@ export default function ArchivePage() {
                     aria-label="Select all archived items"
                   />
                 </th>
-                <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Key</th>
+                <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Task ID</th>
                 <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Type</th>
                 <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Name</th>
                 <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Date archived</th>
                 <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Created by</th>
                 <th className="px-2 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">Archived by</th>
-                <th className="w-11 px-2 py-2 text-right text-xs font-medium text-slate-500 dark:text-slate-400">Actions</th>
+                <th hidden={!showSelection} className="w-11 px-2 py-2 text-right text-xs font-medium text-slate-500 dark:text-slate-400">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -528,7 +543,7 @@ export default function ArchivePage() {
                 return (
                   <React.Fragment key={group.id}>
                     <tr className="bg-slate-50/80 dark:bg-[var(--card)]">
-                      <td colSpan={8} className="px-2.5 py-2">
+                      <td colSpan={columnCount} className="px-2.5 py-2">
                         <button
                           type="button"
                           className="flex w-full items-center gap-2 text-left text-sm font-semibold text-slate-700 transition hover:text-slate-950 dark:text-slate-200 dark:hover:text-white"
@@ -552,18 +567,19 @@ export default function ArchivePage() {
                       : group.rows.map((row) => {
                 if (row.type === "item") {
                   const item = row.item
-                  const createdByName = namesById[item.createdByUserId ?? ""] ?? item.createdByUserId ?? "Unknown user"
-                  const archivedByName = namesById[item.archivedByUserId ?? ""] ?? item.archivedByUserId ?? "Unknown user"
+                  const createdByName = namesById[item.createdByUserId ?? ""] ?? "Unknown user"
+                  const archivedByName = namesById[item.archivedByUserId ?? ""] ?? "Unknown user"
                   const isSelected = selectedIds.includes(item.id)
-                  const canRestoreTask = currentUserRole === "faculty"
+                  const canRestoreTask = allRows.includes(item.id)
 
                   return (
                     <tr
                       key={item.id}
                       className="border-b border-slate-200 transition hover:bg-slate-50 dark:border-[var(--border)] dark:hover:bg-[var(--surface-hover)]"
                     >
-                      <td className="px-2.5 py-2 align-middle">
+                      <td hidden={!showSelection} className="px-2.5 py-2 align-middle">
                         <Checkbox
+                          disabled={restoring || !allRows.includes(item.id)}
                           checked={isSelected}
                           onCheckedChange={(checked) => {
                             setSelectedIds((current) =>
@@ -621,7 +637,7 @@ export default function ArchivePage() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-2 py-2 align-middle text-right">
+                      <td hidden={!showSelection} className="px-2 py-2 align-middle text-right">
                         {canRestoreTask ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -651,12 +667,10 @@ export default function ArchivePage() {
                 }
 
                 const item = row.item
-                const createdByName = namesById[item.uploadedByUserId ?? ""] ?? item.uploadedByUserId ?? "Unknown user"
-                const archivedByName = namesById[item.archivedByUserId ?? ""] ?? item.archivedByUserId ?? "Unknown user"
+                const createdByName = namesById[item.uploadedByUserId ?? ""] ?? "Unknown user"
+                const archivedByName = namesById[item.archivedByUserId ?? ""] ?? "Unknown user"
                 const isSelected = selectedIds.includes(item.id)
-                const canManageAttachment =
-                  ["faculty", "admin"].includes(currentUserRole) ||
-                  item.uploadedByUserId === currentUserId
+                const canManageAttachment = allRows.includes(item.id)
                 const displayId =
                   item.backlogItemParentId && item.parentSequenceNumber
                     ? buildSubtaskDisplayId(
@@ -672,9 +686,10 @@ export default function ArchivePage() {
                     key={item.id}
                     className="border-b border-slate-200 transition hover:bg-slate-50 dark:border-[var(--border)] dark:hover:bg-[var(--surface-hover)]"
                   >
-                    <td className="px-2.5 py-2 align-middle">
+                    <td hidden={!showSelection} className="px-2.5 py-2 align-middle">
                       <Checkbox
-                        checked={isSelected}
+                        disabled={restoring || !allRows.includes(item.id)}
+                          checked={isSelected}
                         onCheckedChange={(checked) => {
                           setSelectedIds((current) =>
                             checked ? [...current, item.id] : current.filter((id) => id !== item.id)
@@ -729,7 +744,7 @@ export default function ArchivePage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-2 py-2 align-middle text-right">
+                    <td hidden={!showSelection} className="px-2 py-2 align-middle text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
@@ -763,7 +778,7 @@ export default function ArchivePage() {
               })}
               {archiveRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                  <td colSpan={columnCount} className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
                     No archived items match your search or filter.
                   </td>
                 </tr>
@@ -778,10 +793,11 @@ export default function ArchivePage() {
       </div>
 
       <AlertDialog
-        open={pendingRestoreRow !== null}
+        open={pendingRestoreRow !== null || bulkRestoreOpen}
         onOpenChange={(open) => {
           if (!open) {
             setPendingRestoreRow(null)
+            setBulkRestoreOpen(false)
           }
         }}
       >
@@ -789,14 +805,14 @@ export default function ArchivePage() {
           <AlertDialogHeader className="place-items-start text-left">
             <AlertDialogTitle className="flex items-center gap-3 text-xl font-semibold leading-tight text-slate-950 dark:text-slate-100">
               <ArchiveRestore className="h-5 w-5 shrink-0 text-[var(--brand-primary-fixed)] dark:text-amber-400" />
-              You&apos;re about to restore this work item
+              {bulkRestoreOpen ? `Restore ${selectedRows.length} selected items?` : "Restore this work item?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm leading-relaxed text-slate-600 dark:text-slate-200">
-              Once restored, you&apos;ll be able to view and edit the work item
+              Restored items will return to the project
               {pendingRestoreRow?.type === "item" && !pendingRestoreRow.item.parentId
                 ? ", including subtasks,"
                 : ""}
-              {" "}from this space.
+              {"."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

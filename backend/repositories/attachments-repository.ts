@@ -783,14 +783,12 @@ export async function deleteBacklogSubmission(
   return withSubmissionStore(
     async () => {
       const result = await getDb().query<BacklogSubmissionRecord>(
-        `update attachments
-        set is_deleted = true,
-            deleted_at = now(),
-            deleted_by_user_id = $3
+        `delete from attachments
         where attachments.id = $1
           and attachments.backlog_item_id = $2
           and attachments.attachment_type = 'file'
           and attachments.is_deleted = false
+          and attachments.is_archived = false
           and exists (
             select 1
             from backlog
@@ -798,14 +796,9 @@ export async function deleteBacklogSubmission(
               on projects.id = backlog.project_id
             where backlog.id = attachments.backlog_item_id
               and (
-                projects.owner_user_id = $3
-                or $3 = any(projects.member_user_ids)
-              )
-              and (
                 attachments.uploaded_by_user_id = $3
                 or projects.owner_user_id = $3
-                or $4 in ('faculty', 'admin')
-                or $3 = any(projects.sprint_creator_user_ids)
+                or $4 = 'faculty'
               )
           )
         returning
@@ -813,7 +806,6 @@ export async function deleteBacklogSubmission(
           attachments.backlog_item_id,
           attachments.uploaded_by_user_id,
           attachments.archived_by_user_id,
-          attachments.deleted_by_user_id,
           attachments.deleted_by_user_id,
           attachments.attachment_type,
           attachments.file_name,
@@ -823,8 +815,6 @@ export async function deleteBacklogSubmission(
           attachments.link_label,
           attachments.is_archived,
           attachments.archived_at,
-          attachments.is_deleted,
-          attachments.deleted_at,
           attachments.is_deleted,
           attachments.deleted_at,
           attachments.uploaded_at`,
@@ -839,7 +829,7 @@ export async function deleteBacklogSubmission(
         (record) =>
           record.id === submissionId &&
           record.backlog_item_id === backlogItemId &&
-          record.attachment_type === "file"
+          record.attachment_type === "file" && !record.is_archived && !record.is_deleted
       )
 
       if (recordIndex < 0) {
@@ -857,15 +847,9 @@ export async function deleteBacklogSubmission(
         return null
       }
 
-      records[recordIndex] = {
-        ...records[recordIndex],
-        is_deleted: true,
-        deleted_at: new Date().toISOString(),
-        deleted_by_user_id: ownerUserId,
-      }
+      const [deleted] = records.splice(recordIndex, 1)
       await writeFileRecords(records)
-
-      return mapRecord(records[recordIndex])
+      return mapRecord(deleted)
     }
   )
 }

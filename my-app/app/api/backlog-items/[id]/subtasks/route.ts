@@ -1,3 +1,5 @@
+import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
+import { canAccessTask } from "@/lib/server-project-access"
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
@@ -12,6 +14,7 @@ import {
 import {
   BacklogItemNameConflictError,
   createBacklogItem,
+  isBacklogItemAssignedToAdviser,
   updateBacklogItem,
 } from "@backend/repositories/tasks-repository"
 
@@ -40,15 +43,17 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
-    const completionResponse = await rejectCompletedTaskMutation((await params).id)
-    if (completionResponse) return completionResponse
-    if (user.role === "admin") {
-      return NextResponse.json(
-        { error: "Coordinators cannot create subtasks." },
-        { status: 403 }
-      )
-    }
     const { id: parentId } = await params
+    if (!(await canAccessTask(parentId, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
+    if (user.role !== "faculty" || user.id === "tester-coordinator" ||
+        await isAssignedCoordinator(user.id) ||
+        !(await isBacklogItemAssignedToAdviser(parentId, user.id, user.name))) {
+      return NextResponse.json({ error: "Only the assigned adviser can create subtasks." }, { status: 403 })
+    }
+    const completionResponse = await rejectCompletedTaskMutation(parentId)
+    if (completionResponse) return completionResponse
     const body = (await request.json()) as {
       projectId?: string
       title?: string

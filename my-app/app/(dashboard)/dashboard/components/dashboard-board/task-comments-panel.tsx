@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { isCommentImage, readCommentAsset } from "@/lib/comment-assets"
-import { Ellipsis, File, ImageIcon, Paperclip, Reply, ThumbsUp, Trash2 } from "lucide-react"
+import { Ellipsis, File, ImageIcon, Paperclip, Reply, ThumbsUp, Trash2, X } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -34,7 +34,6 @@ type TaskCommentsPanelProps = {
   canAccessComments: boolean
   canChangeTaskState: boolean
   canEditAssignee?: boolean
-  canReopenCompletedTask?: boolean
   isSavingTaskStatus?: boolean
   currentUserId?: string | null
   creatorNamesById?: Record<string, string>
@@ -54,6 +53,7 @@ type TaskCommentsPanelProps = {
   onCommentSave: () => void
   onCommentCancel: () => void
   onCommentAssetAttach: (todoId: string, files: FileList | null) => void
+  onCommentAssetRemove: (index: number) => void
   onReplyToComment: (comment: DashboardComment) => void
   onEditComment: (comment: DashboardComment) => void
   onDeleteComment: (comment: DashboardComment) => void
@@ -172,7 +172,6 @@ export function TaskCommentsPanel({
   canAccessComments,
   canChangeTaskState,
   canEditAssignee = false,
-  canReopenCompletedTask = false,
   isSavingTaskStatus = false,
   currentUserId = null,
   creatorNamesById = {},
@@ -192,6 +191,7 @@ export function TaskCommentsPanel({
   onCommentSave,
   onCommentCancel,
   onCommentAssetAttach,
+  onCommentAssetRemove,
   onReplyToComment,
   onEditComment,
   onDeleteComment,
@@ -344,7 +344,6 @@ export function TaskCommentsPanel({
                     {canChangeTaskState ? (
                     <StatusCombobox
                       value={selectedTodo.status}
-                      canReopenCompleted={canReopenCompletedTask}
                       disabled={isSavingTaskStatus}
                       onChange={(value) =>
                         onStatusChange(selectedTodo.id, value as TodoItem["status"])
@@ -592,7 +591,7 @@ export function TaskCommentsPanel({
                   }
                   maxLength={COMMENT_BODY_MAX_LENGTH}
                   placeholder="Add a comment..."
-                  className="min-h-10 max-h-40 resize-none overflow-y-auto border-0 px-0 text-sm text-slate-700 shadow-none focus-visible:ring-0 dark:bg-transparent dark:text-slate-200 sm:min-h-12"
+                  className="min-h-10 max-h-24 resize-none overflow-y-auto border-0 px-0 text-sm text-slate-700 shadow-none focus-visible:ring-0 dark:bg-transparent dark:text-slate-200 sm:min-h-12"
                 />
                 <div className="flex items-center justify-between gap-3 text-[11px] text-slate-500 dark:text-slate-400">
                   <span>Maximum {COMMENT_BODY_MAX_LENGTH} characters</span>
@@ -601,10 +600,31 @@ export function TaskCommentsPanel({
                   </span>
                 </div>
                 {commentAssets.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {commentAssets.map((asset, index) => (
-                      <CommentAttachment key={index} value={asset} />
-                    ))}
+                  <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
+                    {commentAssets.map((asset, index) => {
+                      const attachment = readCommentAsset(asset)
+                      const isImage = attachment && isCommentImage(attachment.mime)
+
+                      return (
+                        <div
+                          key={index}
+                          className={isImage
+                            ? "relative h-16 w-24 shrink-0 rounded-md bg-muted [&>img]:h-full [&>img]:w-full"
+                            : "relative flex max-w-full items-center rounded-lg border pr-8 [&>a]:border-0 [&>span]:border-0"}
+                        >
+                          <CommentAttachment value={asset} />
+                          <button
+                            type="button"
+                            className={`absolute right-1 grid size-6 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 ${isImage ? "top-1 bg-slate-950/85 text-white hover:bg-slate-950" : "hover:bg-muted"}`}
+                            aria-label={`Remove ${attachment?.name ?? asset}`}
+                            disabled={isSavingComment}
+                            onClick={() => onCommentAssetRemove(index)}
+                          >
+                            <X className="size-3.5" aria-hidden="true" />
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
                 {commentError ? <p role="alert" className="text-sm text-destructive">{commentError}</p> : null}
@@ -616,7 +636,7 @@ export function TaskCommentsPanel({
                     disabled={isSavingComment}
                     onClick={onCommentSave}
                   >
-                    {isSavingComment ? "Saving..." : "Save"}
+                    {isSavingComment ? "Sending..." : "Send"}
                   </Button>
                   <Button
                     type="button"

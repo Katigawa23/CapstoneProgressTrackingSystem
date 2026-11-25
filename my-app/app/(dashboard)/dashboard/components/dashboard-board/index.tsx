@@ -1,9 +1,10 @@
 "use client"
 
+import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
 import * as React from "react"
 import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
-import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
-import { Archive, CircleAlert, FolderCheck, GitFork } from "lucide-react"
+import { DragDropContext, type DragStart, type DropResult } from "@hello-pangea/dnd"
+import { Archive, CircleAlert, FolderCheck, GitFork, Trash2 } from "lucide-react"
 import { isSuperAdminViewer } from "@backend/auth/access-control"
 
 import {
@@ -49,7 +50,7 @@ import type {
 import { compareTasksByPriority, dedupeItemsById } from "../../utils"
 import { DashboardColumn } from "./dashboard-column"
 import { useRole } from "@/lib/role-context"
-import { COMMENT_ASSET_ENCODED_LIMIT, COMMENT_ASSET_LIMIT } from "@/lib/comment-assets"
+import { COMMENT_ASSET_ENCODED_LIMIT, COMMENT_ASSET_LIMIT, readCommentAsset } from "@/lib/comment-assets"
 import { TaskCommentsPanel } from "./task-comments-panel"
 import { TaskDetailsSection } from "./task-details-section"
 import { TaskSubmissionsSection } from "./task-attachment-section"
@@ -177,7 +178,7 @@ export function DashboardBoard({
   const [isUploadingSubmission, setIsUploadingSubmission] = React.useState(false)
   const [loadedTaskIds, setLoadedTaskIds] = React.useState<Record<string, true>>({})
   const [pendingArchiveTodo, setPendingArchiveTodo] = React.useState<TodoItem | null>(null)
-  const [pendingArchiveSubmission, setPendingArchiveSubmission] = React.useState<{
+  const [pendingDeleteSubmission, setPendingDeleteSubmission] = React.useState<{
     todoId: string
     submission: DashboardSubmission
   } | null>(null)
@@ -576,24 +577,40 @@ export function DashboardBoard({
             reader.onerror = () => reject(reader.error)
             reader.readAsDataURL(file)
           })
-          return JSON.stringify({ name: file.name, mime: file.type, data })
+          return { name: file.name, mime: file.type, data }
         }))
-        setCommentAssets((current) => ({
-          ...current,
-          [todoId]: [
-            ...(current[todoId] ?? []).filter(
-              (asset) => !selectedFiles.some((file) => file.name === asset)
-            ),
-            ...assets,
-          ],
-        }))
+        const existingContents = new Set(
+          (commentAssets[todoId] ?? []).map((asset) => readCommentAsset(asset)?.data)
+        )
+        if (
+          new Set(assets.map((asset) => asset.data)).size < assets.length ||
+          assets.some((asset) => existingContents.has(asset.data))
+        ) {
+          setCommentError("Duplicate images or files were skipped.")
+        }
+
+        setCommentAssets((current) => {
+          const existing = current[todoId] ?? []
+          const contents = new Set(existing.map((asset) => readCommentAsset(asset)?.data))
+          const additions: string[] = []
+
+          for (const asset of assets) {
+            if (contents.has(asset.data)) continue
+            contents.add(asset.data)
+            additions.push(JSON.stringify(asset))
+          }
+
+          return additions.length > 0
+            ? { ...current, [todoId]: [...existing, ...additions] }
+            : current
+        })
       } catch {
         setCommentError("Could not read the selected attachments.")
       } finally {
         readingCommentAssetsRef.current -= 1
       }
     },
-    [canAccessComments]
+    [canAccessComments, commentAssets]
   )
 
   const uploadSubmissionFile = React.useCallback(
@@ -1179,7 +1196,7 @@ export function DashboardBoard({
     setPendingArchiveTodo(todo)
   }, [canArchiveTodo])
 
-  const handleArchiveSubmissionRequest = React.useCallback(
+  const handleDeleteSubmissionRequest = React.useCallback(
     (todoId: string, submission: DashboardSubmission) => {
       const normalizedCurrentUserId = currentUserId?.trim() ?? ""
 
@@ -1191,7 +1208,7 @@ export function DashboardBoard({
         return
       }
 
-      setPendingArchiveSubmission({ todoId, submission })
+      setPendingDeleteSubmission({ todoId, submission })
     },
     [canManageOtherProjectResources, currentUserId]
   )
@@ -1230,38 +1247,39 @@ export function DashboardBoard({
     }
   }, [onArchiveTodo, pendingArchiveTodo, selectedTodo])
 
-  const handleConfirmArchiveSubmission = React.useCallback(async () => {
-    if (!pendingArchiveSubmission) {
+  const handleConfirmDeleteSubmission = React.useCallback(async () => {
+    if (!pendingDeleteSubmission) {
       return
     }
 
     try {
       const response = await fetch(
-        `/api/backlog-items/${pendingArchiveSubmission.todoId}/submissions/archive?submissionId=${encodeURIComponent(pendingArchiveSubmission.submission.id)}`,
-        { method: "POST" }
+        `/api/backlog-items/${pendingDeleteSubmission.todoId}/submissions/delete?submissionId=${encodeURIComponent(pendingDeleteSubmission.submission.id)}`,
+        { method: "DELETE" }
       )
 
       if (!response.ok) {
-        throw new Error("Failed to archive attachment")
+        throw new Error("Failed to delete attachment")
       }
 
       setSubmissionThreads((current) => ({
         ...current,
-        [pendingArchiveSubmission.todoId]: (current[pendingArchiveSubmission.todoId] ?? []).filter(
-          (submission) => submission.id !== pendingArchiveSubmission.submission.id
+        [pendingDeleteSubmission.todoId]: (current[pendingDeleteSubmission.todoId] ?? []).filter(
+          (submission) => submission.id !== pendingDeleteSubmission.submission.id
         ),
       }))
       broadcastDashboardActivitySync({
-        itemId: pendingArchiveSubmission.todoId,
+        itemId: pendingDeleteSubmission.todoId,
         detailsChanged: true,
       })
-      void refreshTaskResources(pendingArchiveSubmission.todoId)
+      void refreshTaskResources(pendingDeleteSubmission.todoId)
     } catch (error) {
-      console.error(error)
+      setSubmissionAlertDescription(error instanceof Error ? error.message : "Could not delete the file.")
+      setIsEmptySubmissionAlertOpen(true)
     } finally {
-      setPendingArchiveSubmission(null)
+      setPendingDeleteSubmission(null)
     }
-  }, [pendingArchiveSubmission, refreshTaskResources])
+  }, [pendingDeleteSubmission, refreshTaskResources])
 
   const handleConfirmArchiveLink = React.useCallback(async () => {
     if (!pendingArchiveLink) {
@@ -1304,8 +1322,23 @@ export function DashboardBoard({
     [todos]
   )
 
+  const [dragSource, setDragSource] = React.useState<TodoItem["status"] | null>(null)
+  const handleDragStart = (result: DragStart) => {
+    setDragSource(result.source.droppableId as TodoItem["status"])
+  }
+
+  const isDropDisabled = (target: TodoItem["status"]) => {
+    if (!dragSource) return false
+    if (target === dragSource) return isStudent || dragSource === "revision"
+    // Let adviser drops on earlier stages reach the status warning.
+    if (!isStudent && ((dragSource === "revision" && target === "inprogress") ||
+      ((dragSource === "inprogress" || dragSource === "revision") && target === "todo"))) return false
+    return !canTransitionTaskStatus(dragSource, target, isStudent ? "student" : "faculty")
+  }
+
   const handleDragEnd = React.useCallback(
     (result: DropResult) => {
+      setDragSource(null)
       if (!canChangeTaskState || isSavingTaskStatus || isDragDisabled) {
         return
       }
@@ -1321,34 +1354,14 @@ export function DashboardBoard({
       const draggedTodo = todos.find((todo) => todo.id === draggableId)
 
       if (!draggedTodo) return
-      if (draggedTodo.status === "todo" && !draggedTodo.hasSubmission && sourceColumnId !== destinationColumnId) {
-        if (destinationColumnId === "inprogress") {
+      if (isTaskCompletionLocked(draggedTodo, todos)) return
+      if (sourceColumnId !== destinationColumnId) {
+        if (!isStudent || canTransitionTaskStatus(sourceColumnId, destinationColumnId, "student")) {
           void onStatusChange(draggableId, destinationColumnId)
         }
         return
       }
-      if (isStudent) {
-        if (draggedTodo.status === "todo" && destinationColumnId === "inprogress" &&
-            !isTaskCompletionLocked(draggedTodo, todos)) {
-          void onStatusChange(draggableId, "inprogress")
-        }
-        return
-      }
-      if (isTaskCompletionLocked(draggedTodo, todos)) {
-        if (canEditAssignee && draggedTodo.status === "completed" &&
-            !hasCompletedTaskParent(draggedTodo, todos) && destinationColumnId === "revision") {
-          // Reopen through the status-only API path; completed records cannot be reordered.
-          void onStatusChange(draggableId, "revision")
-        }
-        return
-      }
-
-      if (draggedTodo.parentId) {
-        if (draggedTodo.status !== destinationColumnId) {
-          void onStatusChange(draggableId, destinationColumnId)
-        }
-        return
-      }
+      if (isStudent || sourceColumnId === "revision") return
 
       const destinationTodos = getColumnTodos(destinationColumnId)
 
@@ -1372,7 +1385,7 @@ export function DashboardBoard({
 
       void onMoveTodo(draggableId, targetTodo?.id ?? null, destinationColumnId)
     },
-    [canChangeTaskState, canEditAssignee, getColumnTodos, isDragDisabled, isSavingTaskStatus, isStudent, onMoveTodo, onStatusChange, todos]
+    [canChangeTaskState, getColumnTodos, isDragDisabled, isSavingTaskStatus, isStudent, onMoveTodo, onStatusChange, todos]
   )
 
   const selectedTodoIdParts = React.useMemo(() => {
@@ -1407,7 +1420,7 @@ export function DashboardBoard({
   )
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
+    <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       {renderColumns && isMobile ? (
       <Carousel opts={{ align: "start" }} className="w-full px-2 sm:px-4">
         <CarouselContent className="items-stretch">
@@ -1425,7 +1438,7 @@ export function DashboardBoard({
                   canEditAssignee={canEditAssignee}
                   canManageOtherProjectResources={canManageOtherProjectResources}
                   isDragDisabled={!canChangeTaskState || isDragDisabled || (isStudent && column.id !== "todo")}
-                  isDropDisabled={isStudent && column.id !== "inprogress"}
+                  isDropDisabled={isDropDisabled(column.id)}
                   onStatusChange={onStatusChange}
                   onAssigneeChange={onAssigneeChange}
                   onOpenTask={handleOpenTask}
@@ -1458,7 +1471,7 @@ export function DashboardBoard({
               canEditAssignee={canEditAssignee}
               canManageOtherProjectResources={canManageOtherProjectResources}
               isDragDisabled={!canChangeTaskState || isDragDisabled || (isStudent && column.id !== "todo")}
-              isDropDisabled={isStudent && column.id !== "inprogress"}
+              isDropDisabled={isDropDisabled(column.id)}
               onStatusChange={onStatusChange}
               onAssigneeChange={onAssigneeChange}
               onOpenTask={handleOpenTask}
@@ -1622,7 +1635,7 @@ export function DashboardBoard({
                     }
                     onSubmissionAttach={handleSubmissionAttach}
                     onSubmissionUpload={handleSubmissionUpload}
-                    onSubmissionArchive={handleArchiveSubmissionRequest}
+                    onSubmissionDelete={handleDeleteSubmissionRequest}
                   />
                   <Separator className="mt-4 bg-slate-200 dark:bg-[var(--border)]" />
 
@@ -1642,11 +1655,11 @@ export function DashboardBoard({
                   isUploadingSubmission ? null : (
                     <>
                       <Separator className="mt-4 bg-slate-200 dark:bg-[var(--border)]" />
-                      <TaskSubtasksSection
+                      {(!isStudent || selectedTodo.status === "revision") && (<TaskSubtasksSection
                         checklist={selectedTodo.checklist}
                         canChangeTaskState={canChangeTaskState && !isSavingTaskStatus && !selectedTaskLocked}
                         subtasks={todos.filter((todo) => todo.parentId === selectedTodo.id)}
-                        canCreateSubtasks={canCreateSubtasks && !selectedTaskLocked}
+                        canCreateSubtasks={canCreateSubtasks && !isStudent && !selectedTaskLocked}
                         currentUserId={currentUserId}
                         canEditAssignee={canEditAssignee && !selectedTaskLocked}
                         canManageOtherProjectResources={canManageOtherProjectResources && !selectedTaskLocked}
@@ -1661,7 +1674,7 @@ export function DashboardBoard({
                         onEditSubtaskTitle={handleEditSubtaskTitle}
                         onUpdateSubtask={onUpdateSubtask}
                         onArchiveSubtask={handleArchiveTodoRequest}
-                      />
+                      />)}
                     </>
                   )}
                 </div>
@@ -1671,7 +1684,6 @@ export function DashboardBoard({
                 selectedTodo={selectedTodo}
                 canChangeTaskState={canChangeTaskState && !selectedParentCompleted}
                 canEditAssignee={canEditAssignee && !selectedTaskLocked}
-                canReopenCompletedTask={canEditAssignee && !selectedParentCompleted}
                 isSavingTaskStatus={isSavingTaskStatus}
                 canAccessComments={canAccessComments}
                 currentUserId={currentUserId}
@@ -1710,6 +1722,17 @@ export function DashboardBoard({
                   setIsEditingComments(false)
                 }}
                 onCommentAssetAttach={handleCommentAssetAttach}
+                onCommentAssetRemove={(index) => {
+                  if (commentSaveInFlightRef.current) return
+                  commentRequestIdRef.current = null
+                  setCommentError(null)
+                  setCommentAssets((current) => ({
+                    ...current,
+                    [selectedTodo.id]: (current[selectedTodo.id] ?? []).filter(
+                      (_, assetIndex) => assetIndex !== index
+                    ),
+                  }))
+                }}
                 onReplyToComment={handleReplyToComment}
                 onEditComment={handleEditComment}
                 commentError={commentError}
@@ -1843,10 +1866,10 @@ export function DashboardBoard({
       </AlertDialog>
 
       <AlertDialog
-        open={pendingArchiveSubmission !== null}
+        open={pendingDeleteSubmission !== null}
         onOpenChange={(nextOpen) => {
           if (!nextOpen) {
-            setPendingArchiveSubmission(null)
+            setPendingDeleteSubmission(null)
           }
         }}
       >
@@ -1854,18 +1877,15 @@ export function DashboardBoard({
           <AlertDialogHeader className="place-items-start text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
-                <Archive className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" />
               </div>
               <AlertDialogTitle>
-                Archive Attachment
+                Delete Attachment
               </AlertDialogTitle>
             </div>
             <AlertDialogDescription className="space-y-2 pt-2">
               <span className="block">
-                This attachment will be archived and removed from this task view.
-              </span>
-              <span className="block">
-                You can restore it later from Archives.
+                This file will be removed from the task.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1876,9 +1896,9 @@ export function DashboardBoard({
             <AlertDialogAction
               size="sm"
               className="rounded-[2px] bg-amber-400 text-white hover:bg-amber-300"
-              onClick={() => void handleConfirmArchiveSubmission()}
+              onClick={() => void handleConfirmDeleteSubmission()}
             >
-              Archive
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

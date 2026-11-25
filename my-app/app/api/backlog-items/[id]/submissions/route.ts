@@ -1,3 +1,4 @@
+import { canAccessTask } from "@/lib/server-project-access"
 import { revalidateTag } from "next/cache"
 import { randomUUID } from "crypto"
 
@@ -136,6 +137,9 @@ export async function GET(
     }
 
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
     const submissions = await listBacklogSubmissions(id, user.id)
 
     return NextResponse.json({
@@ -168,8 +172,6 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
-    const completionResponse = await rejectCompletedTaskMutation((await params).id)
-    if (completionResponse) return completionResponse
     if (user.role !== "student") {
       return NextResponse.json(
         { error: "Only students can upload task files." },
@@ -177,6 +179,11 @@ export async function POST(
       )
     }
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
+    const completionResponse = await rejectCompletedTaskMutation(id)
+    if (completionResponse) return completionResponse
     const formData = await request.formData()
     const files = formData.getAll("files").filter((value): value is File => value instanceof File)
 

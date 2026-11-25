@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
-import { listNotifications, markNotificationRead } from "@/lib/server-notification-repository"
+import { deleteNotifications, listNotifications, markNotificationRead } from "@/lib/server-notification-repository"
 
 export async function GET() {
   try {
@@ -26,3 +26,20 @@ export async function PATCH(request: Request) {
   }
 }
 
+
+export async function DELETE(request: Request) {
+  try {
+    const user = await requireAuthenticatedUser()
+    const body = await request.json().catch(() => null)
+    const ids = body?.ids
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100 ||
+        !ids.every((id) => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id))) {
+      return NextResponse.json({ error: "Select valid notifications." }, { status: 400 })
+    }
+    await deleteNotifications(user.id, ids)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Failed to delete notifications", error)
+    return NextResponse.json({ error: "Failed to delete notifications" }, { status: 500 })
+  }
+}

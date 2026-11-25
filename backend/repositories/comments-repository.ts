@@ -315,6 +315,19 @@ async function writeFileRecords(records: BacklogCommentRecord[]) {
   await writeFile(commentsFilePath, JSON.stringify(records, null, 2), "utf8")
 }
 
+export async function getCommentTaskId(commentId: string) {
+  return withCommentStore(
+    async () => {
+      const { rows } = await getDb().query<{ backlog_item_id: string }>(
+        "select backlog_item_id from comments where id::text = $1",
+        [commentId]
+      )
+      return rows[0]?.backlog_item_id ?? null
+    },
+    async () => (await readFileRecords()).find((comment) => comment.id === commentId)?.backlog_item_id ?? null
+  )
+}
+
 export async function listBacklogComments(backlogItemId: string, ownerUserId: string) {
   if (isSuperAdminViewer(ownerUserId)) {
     return []

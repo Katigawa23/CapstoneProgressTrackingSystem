@@ -1,3 +1,5 @@
+import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
+import { useRole } from "@/lib/role-context"
 import type {
   DraggableProvided,
   DraggableStateSnapshot,
@@ -70,6 +72,8 @@ export function DashboardTaskCard({
   draggableProvided,
   dragSnapshot,
 }: DashboardTaskCardProps) {
+  const role = useRole()
+  const availableStatuses = columns.filter((column) => canTransitionTaskStatus(todo.status, column.id, role))
   const [completedSubtasksRaw = "0", totalSubtasksRaw = "0"] = todo.checklist.split("/")
   const completedSubtasks = Number.parseInt(completedSubtasksRaw, 10) || 0
   const subtaskCount = Number.parseInt(totalSubtasksRaw, 10) || 0
@@ -143,14 +147,14 @@ export function DashboardTaskCard({
             className="w-48 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200"
             onClick={(event) => event.stopPropagation()}
           >
-            {canChangeTaskState ? (
+            {canChangeTaskState && availableStatuses.length > 0 ? (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <PencilLine className="h-4 w-4" />
                 Change status
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-40 border-slate-200 bg-white text-slate-700 dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-200">
-                {columns.map((column) => (
+                {availableStatuses.map((column) => (
                   <DropdownMenuItem
                     key={column.id}
                     className={

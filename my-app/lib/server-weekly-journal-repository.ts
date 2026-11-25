@@ -141,25 +141,6 @@ function mapEntry(row: Record<string, unknown>): WeeklyJournalEntry {
   }
 }
 
-export async function canAccessJournal(projectId: string, userId: string, role: string) {
-  if (role === "admin") return true
-  const result = await getDb().query(
-    `select 1 from projects p
-     left join groups g on g.project_id = p.id
-     where p.id = $1 and (
-       p.owner_user_id = $2 or $2 = any(p.member_user_ids) or
-       $2 = any(coalesce(g.member_user_ids, '{}')) or g.adviser_user_id = $2 or
-       exists (
-         select 1 from users adviser
-         where adviser.microsoft_user_id = $2
-           and adviser.name = any(p.project_adviser)
-       )
-     ) limit 1`,
-    [projectId, userId]
-  )
-  return result.rowCount === 1
-}
-
 export async function listWeeklyJournals(projectId: string) {
   await ensureSchema()
   const result = await getDb().query(

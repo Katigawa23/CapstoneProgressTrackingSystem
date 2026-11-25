@@ -2,8 +2,10 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Bell, CheckCheck, ChevronRight, Loader2 } from "lucide-react"
+import { Bell, CheckCheck, ChevronRight, Loader2, Trash2 } from "lucide-react"
 
+import { Checkbox } from "@/components/ui/checkbox"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -26,6 +28,33 @@ export function NotificationMenu({ disabled = false }: { disabled?: boolean }) {
   const [items, setItems] = React.useState<Notification[]>([])
   const [loading, setLoading] = React.useState(false)
   const [markingAllRead, setMarkingAllRead] = React.useState(false)
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([])
+  const [pendingDelete, setPendingDelete] = React.useState<string[]>([])
+  const [deleting, setDeleting] = React.useState(false)
+  const [deleteError, setDeleteError] = React.useState("")
+  const visibleSelected = items.filter((item) => selectedIds.includes(item.id)).map((item) => item.id)
+
+  const confirmDelete = async () => {
+    if (deleting || !pendingDelete.length) return
+    const ids = pendingDelete
+    setDeleting(true)
+    setDeleteError("")
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      })
+      if (!response.ok) throw new Error("Could not delete notifications")
+      setSelectedIds((current) => current.filter((id) => !ids.includes(id)))
+      setItems((current) => current.filter((item) => !ids.includes(item.id)))
+    } catch {
+      setDeleteError("Could not delete notifications. Please try again.")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const unread = items.filter((item) => !item.read).length
 
   const load = React.useCallback(async () => {
@@ -81,7 +110,8 @@ export function NotificationMenu({ disabled = false }: { disabled?: boolean }) {
     router.push(`${destination.pathname}${destination.search}${destination.hash}`)
   }
 
-  return <DropdownMenu open={open} onOpenChange={(nextOpen) => {
+  return <>
+  <DropdownMenu open={open} onOpenChange={(nextOpen) => {
     setOpen(nextOpen)
     if (nextOpen) void load()
   }}>
@@ -108,10 +138,38 @@ export function NotificationMenu({ disabled = false }: { disabled?: boolean }) {
         </button>
       </div>
       <DropdownMenuSeparator className="m-0" />
+      {items.length > 0 ? (
+        <div className="flex min-h-12 items-center justify-between gap-2 border-b px-4 py-2">
+          <label className="flex items-center gap-2 text-xs">
+            <Checkbox checked={visibleSelected.length === items.length ? true : visibleSelected.length > 0 ? "indeterminate" : false}
+              onCheckedChange={(checked) => setSelectedIds(checked ? items.map((item) => item.id) : [])} />
+            Select all shown
+          </label>
+          {visibleSelected.length > 0 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 rounded-full border-destructive/30 bg-destructive/10 px-2.5 text-xs text-red-700 hover:bg-destructive/20 hover:text-red-800 dark:text-red-300 dark:hover:text-red-200"
+              disabled={deleting}
+              onClick={() => {
+                setOpen(false)
+                setPendingDelete(visibleSelected)
+              }}
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+              Delete selected ({visibleSelected.length})
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {deleteError ? <p role="alert" className="px-4 py-2 text-xs text-destructive">{deleteError}</p> : null}
       <div className="max-h-[420px] overflow-y-auto">
         {loading && !items.length ? <div className="flex h-24 items-center justify-center"><Loader2 className="h-4 w-4 animate-spin" /></div> : items.length ? items.map((item) => {
           const source = item.actorName?.trim() || "TrackSphere"
-          return <button key={item.id} type="button" onClick={() => openNotification(item)} className={`group block w-full border-b px-4 py-3 text-left transition-colors hover:bg-muted/60 ${item.read ? "" : "bg-blue-500/5"}`}>
+          return <div key={item.id} className={`flex items-center gap-2 border-b pl-4 transition-colors hover:bg-muted/60 ${selectedIds.includes(item.id) ? "bg-accent" : item.read ? "" : "bg-blue-500/5"}`}>
+          <Checkbox aria-label={`Select ${item.title}`} checked={selectedIds.includes(item.id)}
+            onCheckedChange={(checked) => setSelectedIds((current) => checked ? [...current, item.id] : current.filter((id) => id !== item.id))} />
+          <button type="button" onClick={() => openNotification(item)} className="group block min-w-0 flex-1 py-3 pl-2 pr-4 text-left">
             <div className="flex items-center gap-3">
               <Avatar name={source} className="h-10 w-10 shrink-0">
                 <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-xs font-semibold text-white">{getInitials(source)}</AvatarFallback>
@@ -128,8 +186,22 @@ export function NotificationMenu({ disabled = false }: { disabled?: boolean }) {
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
             </div>
           </button>
+          </div>
         }) : <p className="px-3 py-8 text-center text-xs text-muted-foreground">No notifications yet.</p>}
       </div>
     </DropdownMenuContent>
   </DropdownMenu>
+  <AlertDialog open={pendingDelete.length > 0} onOpenChange={(nextOpen) => { if (!nextOpen) { setPendingDelete([]); setOpen(true) } }}>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Delete {pendingDelete.length === 1 ? "this notification" : `${pendingDelete.length} notifications`}?</AlertDialogTitle>
+        <AlertDialogDescription>These notifications will be removed from your list.</AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction onClick={() => void confirmDelete()}>Delete</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+  </>
 }
