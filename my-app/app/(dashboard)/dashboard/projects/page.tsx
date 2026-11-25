@@ -1,5 +1,6 @@
 "use client"
 
+import { useCoordinatorMode } from "@/lib/role-context"
 import * as React from "react"
 import { Search } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -106,28 +107,8 @@ function getProjectDisplayId(projectType: string, index: number) {
   return `${getProjectTypeCode(projectType)}-${year}${String(index + 1).padStart(3, "0")}`
 }
 
-function getProjectAdvisers(project: DashboardProject) {
-  const advisers = [
-    project.ownerName?.trim() ||
-      project.ownerEmail?.trim() ||
-      project.ownerUserId?.trim() ||
-      "",
-    ...project.advisers,
-  ]
-
-  return advisers.filter((adviser, index) => {
-    const normalizedAdviser = adviser.trim().toLowerCase()
-
-    if (!normalizedAdviser) {
-      return false
-    }
-
-    return advisers.findIndex((candidate) => candidate.trim().toLowerCase() === normalizedAdviser) === index
-  })
-}
-
 function getProjectAdviser(project: DashboardProject) {
-  return getProjectAdvisers(project)[0] ?? ""
+  return project.assignedAdviser === undefined ? project.advisers[0]?.trim() ?? "" : project.assignedAdviser?.name ?? ""
 }
 
 function getInitials(name: string) {
@@ -142,16 +123,16 @@ function getInitials(name: string) {
 
 function ProjectAdviserAvatar({ project }: { project: DashboardProject }) {
   const adviserName = getProjectAdviser(project)
-  const adviserEmail = project.ownerEmail?.trim() ?? ""
+  const adviserEmail = project.assignedAdviser?.email ?? ""
 
   if (!adviserName) {
-    return <span className="text-xs text-slate-400 dark:text-slate-500">-</span>
+    return <span className="text-xs text-slate-400 dark:text-slate-500">Unassigned</span>
   }
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Avatar userId={adviserName === project.ownerName ? project.ownerUserId : undefined} tabIndex={0} className="h-8 w-8">
+        <Avatar userId={project.assignedAdviser?.id} tabIndex={0} className="h-8 w-8">
           <AvatarFallback className="bg-[var(--brand-primary-fixed)] text-[10px] font-semibold text-white dark:bg-[var(--brand-primary-fixed)]">
             {getInitials(adviserName)}
           </AvatarFallback>
@@ -221,6 +202,7 @@ function ProjectPeopleIndicator({
 
 export default function DashboardProjectsPage() {
   const router = useRouter()
+  const showAdviser = useCoordinatorMode()
   const [projects, setProjects] = React.useState<DashboardProject[]>([])
   const [searchQuery, setSearchQuery] = React.useState("")
 
@@ -285,6 +267,7 @@ export default function DashboardProjectsPage() {
     <TooltipProvider>
       <div className="mx-auto flex h-full w-full max-w-[92rem] flex-col gap-4 overflow-auto pb-6">
         <div>
+          <button type="button" onClick={() => router.push(showAdviser ? "/coordinator" : "/dashboard")} className="mb-2 text-sm text-muted-foreground hover:text-foreground">? Back to dashboard</button>
           <h1 className="font-display text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
             Projects
           </h1>
@@ -314,13 +297,13 @@ export default function DashboardProjectsPage() {
                   <th className="px-3 py-2 font-semibold">Key</th>
                   <th className="px-3 py-2 font-semibold">Type</th>
                   <th className="px-3 py-2 font-semibold">Member</th>
-                  <th className="px-3 py-2 font-semibold">Adviser</th>
+                  {showAdviser ? <th className="px-3 py-2 font-semibold">Adviser</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {filteredProjects.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                    <td colSpan={showAdviser ? 5 : 4} className="px-3 py-6 text-center text-xs text-slate-500 dark:text-slate-400">
                       No projects found.
                     </td>
                   </tr>
@@ -352,9 +335,7 @@ export default function DashboardProjectsPage() {
                         <td className="px-3 py-2.5">
                           <ProjectPeopleIndicator emptyLabel="Members" people={project.members} userIds={project.memberUserIds} />
                         </td>
-                        <td className="px-3 py-2.5">
-                          <ProjectAdviserAvatar project={project} />
-                        </td>
+                        {showAdviser ? <td className="px-3 py-2.5"><ProjectAdviserAvatar project={project} /></td> : null}
                       </tr>
                     )
                   })

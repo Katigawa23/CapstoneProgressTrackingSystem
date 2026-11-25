@@ -1,3 +1,4 @@
+import { canAccessTask } from "@/lib/server-project-access"
 import { NextResponse } from "next/server"
 
 import { getBacklogSubmissionAsset } from "@backend/repositories/attachments-repository"
@@ -28,6 +29,9 @@ export async function GET(
     }
 
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
     const url = new URL(request.url)
     const submissionId = url.searchParams.get("submissionId")?.trim()
     const shouldDownload = url.searchParams.get("download") === "1"

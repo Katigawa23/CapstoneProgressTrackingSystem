@@ -1,3 +1,4 @@
+import { canAccessProject } from "@/lib/server-project-access"
 import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
 import { canAssignStudentsToProgram } from "@/lib/server-student-program-access"
 import { getDb } from "@/lib/server-db"
@@ -36,6 +37,10 @@ export async function GET(
 
     if (!projectId) {
       return NextResponse.json({ error: "Project id is required" }, { status: 400 })
+    }
+
+    if (!(await canAccessProject(projectId, user.id))) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
     const members = await listProjectMembers(projectId, user.id, user.role)
@@ -90,6 +95,10 @@ export async function PATCH(
         { error: "Project id and member id are required" },
         { status: 400 }
       )
+    }
+
+    if (!(await canAccessProject(projectId, user.id))) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
     const member = await updateProjectMemberAccess(
@@ -149,6 +158,10 @@ export async function POST(
         { error: "Project id and member id are required" },
         { status: 400 }
       )
+    }
+
+    if (!(await canAccessProject(projectId, user.id))) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
     const project = await getDb().query<{ program: string }>("select program from projects where id=$1", [projectId])
@@ -213,6 +226,10 @@ export async function DELETE(
         { error: "Project id and member id are required" },
         { status: 400 }
       )
+    }
+
+    if (!(await canAccessProject(projectId, user.id))) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
     const removed = await removeProjectStudentMember(

@@ -1181,18 +1181,18 @@ async function writeFileRecords(records: BacklogRecord[]) {
 export async function getBacklogCompletionLock(id: string) {
   return withBacklogStore(
     async () => {
-      const result = await getDb().query<{ id: string; parent_id: string | null; status: string; assignee_id: string | null; updated_at: string | Date }>(
+      const result = await getDb().query<{ id: string; project_id: string; parent_id: string | null; status: string; assignee_id: string | null; updated_at: string | Date }>(
         `with recursive task_ancestors as (
-          select id, parent_id, status, assignee_id, updated_at from backlog where id = $1
+          select id, project_id, parent_id, status, assignee_id, updated_at from backlog where id = $1
           union
-          select parent.id, parent.parent_id, parent.status, parent.assignee_id, parent.updated_at
+          select parent.id, parent.project_id, parent.parent_id, parent.status, parent.assignee_id, parent.updated_at
           from backlog parent inner join task_ancestors child on child.parent_id = parent.id
-        ) select id, parent_id, status, assignee_id, updated_at from task_ancestors`,
+        ) select id, project_id, parent_id, status, assignee_id, updated_at from task_ancestors`,
         [id]
       )
       const task = result.rows.find((row) => row.id === id)
       return task ? {
-        parentId: task.parent_id,
+        projectId: task.project_id, parentId: task.parent_id,
         status: task.status,
         assigneeId: task.assignee_id,
         updatedAt: new Date(task.updated_at).toISOString(),
@@ -1214,7 +1214,7 @@ export async function getBacklogCompletionLock(id: string) {
         ancestorCompleted ||= parent.status === "completed"
         parentId = parent.parent_id
       }
-      return { parentId: task.parent_id, status: task.status, assigneeId: task.assignee_id, updatedAt: task.created_at, completed: task.status === "completed", ancestorCompleted }
+      return { projectId: task.project_id, parentId: task.parent_id, status: task.status, assigneeId: task.assignee_id, updatedAt: task.created_at, completed: task.status === "completed", ancestorCompleted }
     }
   )
 }
@@ -1754,7 +1754,8 @@ export async function updateBacklogItem(
   id: string,
   ownerUserId: string,
   input: UpdateBacklogItemInput,
-  ownerUserRole: "student" | "faculty" | "admin" = "student"
+  ownerUserRole: "student" | "faculty" | "admin" = "student",
+  expectedStatus?: string
 ) {
   if ("priority" in input) {
     throw new BacklogPriorityLockedError()
@@ -1892,6 +1893,7 @@ export async function updateBacklogItem(
         from projects
         where backlog.id = $${values.length}
           and projects.id = backlog.project_id
+          and ($${values.length + 2}::text is null or backlog.status = $${values.length + 2})
           and (
             projects.owner_user_id = $${values.length + 1}
             or $${values.length + 1} = any(projects.member_user_ids)
@@ -1924,7 +1926,7 @@ export async function updateBacklogItem(
           backlog.assignee_id,
           backlog.priority,
           backlog.created_at`,
-        [...values, ownerUserId]
+        [...values, ownerUserId, expectedStatus ?? null]
       )
 
       if (result.rows[0]) {
@@ -1946,6 +1948,7 @@ export async function updateBacklogItem(
       }
 
       const current = mapRecord(records[index])
+      if (expectedStatus !== undefined && current.status !== expectedStatus) return null
       if (
         typeof input.description === "string" &&
         current.description.trim() &&

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { ArrowUpRight, Check, CircleUserRound, Loader2, Search, UserRound, X } from "lucide-react"
+import { hasInvalidTaskTitleCharacters, TASK_TITLE_CHARACTERS_ERROR } from "@/lib/text-validation"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -242,6 +243,8 @@ export function CreateProjectDialog({
   const [memberPickerWidth, setMemberPickerWidth] = React.useState(0)
   const memberPickerRef = React.useRef<HTMLDivElement | null>(null)
   const [configurationOptions, setConfigurationOptions] = React.useState<ConfigurationOptions>(defaultConfigurationOptions)
+  const hasInvalidTitle = hasInvalidTaskTitleCharacters(projectTitle)
+  const displayedTitleError = hasInvalidTitle ? TASK_TITLE_CHARACTERS_ERROR : titleError
   const isProgramComplete = projectProgram.trim().length > 0
   const isYearLevelComplete = projectYearLevel.trim().length > 0
   const isSyTermComplete =
@@ -315,7 +318,7 @@ export function CreateProjectDialog({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (isSubmitting) {
+    if (isSubmitting || hasInvalidTitle) {
       return
     }
     await onCreateProject()
@@ -363,14 +366,16 @@ export function CreateProjectDialog({
               </label>
               <Input
                 id="project-title"
+                aria-invalid={Boolean(displayedTitleError)}
+                aria-describedby={displayedTitleError ? "project-title-error" : undefined}
                 value={projectTitle}
                 onChange={(event) => onProjectTitleChange(event.target.value)}
                 maxLength={PROJECT_TITLE_MAX_LENGTH}
                 placeholder="Capstone Progress Tracker"
                 className="h-8 rounded-[2px] border-border/70 bg-white text-sm dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-slate-100 dark:placeholder:text-slate-500"
               />
-              {titleError ? (
-                <p className="text-xs text-red-500">{titleError}</p>
+              {displayedTitleError ? (
+                <p id="project-title-error" className="text-xs text-red-500">{displayedTitleError}</p>
               ) : null}
               <p className="text-xs text-muted-foreground mt-0.5">
                 {projectTitle.length}/{PROJECT_TITLE_MAX_LENGTH}
@@ -676,6 +681,7 @@ export function CreateProjectDialog({
               disabled={
                 isSubmitting ||
                 !projectTitle.trim() ||
+                hasInvalidTitle ||
                 !isProgramComplete ||
                 !isYearLevelComplete ||
                 !isSyTermComplete ||

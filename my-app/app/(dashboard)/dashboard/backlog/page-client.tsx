@@ -3,6 +3,7 @@
 import { isOverdueWorkItem } from "./types"
 import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 
+import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
@@ -439,7 +440,7 @@ export function BacklogPageClient({
     if (!canChangeTaskState) return
     const currentItem = items.find((item) => item.id === id)
     if (!currentItem || hasCompletedTaskParent(currentItem, items) ||
-      (currentItem.status === "completed" && (!canEditTaskFields || nextStatus !== "revision"))) return
+      !canTransitionTaskStatus(currentItem.status, nextStatus, currentUser?.role ?? "admin")) return
 
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: nextStatus, checked: nextStatus === "completed" } : item))
@@ -451,7 +452,7 @@ export function BacklogPageClient({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: nextStatus, checked: nextStatus === "completed" }),
+        body: JSON.stringify({ status: nextStatus, checked: nextStatus === "completed", expectedStatus: currentItem.status }),
       })
 
       if (!response.ok) {
@@ -872,11 +873,12 @@ export function BacklogPageClient({
   const todayStart = new Date().setHours(0, 0, 0, 0)
   const boardItems = React.useMemo(
     () => filterSectionItems(
-      orderedItems.filter((item) => isOverdueWorkItem(item, todayStart)),
+      orderedItems.filter((item) => isOverdueWorkItem(item, todayStart) &&
+        (currentUser?.role !== "student" || !item.parentId || items.some((parent) => parent.id === item.parentId && parent.status === "revision"))),
       boardSearchValue,
       boardFilterValue
     ),
-    [boardFilterValue, boardSearchValue, filterSectionItems, orderedItems, todayStart]
+    [boardFilterValue, boardSearchValue, currentUser?.role, filterSectionItems, items, orderedItems, todayStart]
   )
 
   const visibleRootItems = React.useMemo(
@@ -1070,6 +1072,7 @@ export function BacklogPageClient({
         currentUserId={currentUser?.id ?? null}
         canChangeTaskState={canChangeTaskState}
         canEditAssignee={canEditTaskFields}
+        canCreateSubtasks={canEditTaskFields}
         canManageOtherProjectResources={canManageProjectResources}
         onStatusChange={(todoId, nextStatus) => updateItemStatus(todoId, nextStatus)}
         onMoveTodo={async (todoId, _targetTodoId, nextStatus) => {

@@ -1,3 +1,5 @@
+import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
+import { canAccessTask } from "@/lib/server-project-access"
 import { listBacklogSubmissions, listBacklogWebLinks } from "@backend/repositories/attachments-repository"
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
@@ -32,6 +34,9 @@ export async function PATCH(
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
     const body = (await request.json()) as {
       parentId?: string | null
       title?: string
@@ -43,22 +48,14 @@ export async function PATCH(
       assigneeId?: string | null
       priority?: "Low" | "Medium" | "High"
       orderIndex?: number
+      expectedStatus?: string
     }
 
     const completionLock = await getBacklogCompletionLock(id)
     if (completionLock?.completed || completionLock?.ancestorCompleted) {
-      const canReopen = !completionLock.ancestorCompleted && completionLock.completed &&
-        body.status === "revision" && (body.checked === undefined || body.checked === false) &&
-        Object.keys(body).every((key) => ["status", "checked", "parentId"].includes(key)) &&
-        (!("parentId" in body) || (body.parentId ?? null) === completionLock.parentId) &&
-        user.role === "faculty" &&
-        user.id !== "tester-coordinator" && !(await isAssignedCoordinator(user.id)) &&
-        await isBacklogItemAssignedToAdviser(id, user.id, user.name)
-      if (!canReopen) {
-        return NextResponse.json({ error: "Completed tasks are locked. Only the assigned adviser can reopen them for revision." }, { status: 409 })
-      }
-      body.checked = false
+      return NextResponse.json({ error: "Completed tasks are locked." }, { status: 409 })
     }
+
     if (typeof body.parentId === "string") {
       const parentLock = await getBacklogCompletionLock(body.parentId)
       if (parentLock?.completed || parentLock?.ancestorCompleted) {
@@ -107,6 +104,22 @@ export async function PATCH(
       )
     }
 
+    if (completionLock && editsCoordinatorReadOnlyFields) {
+      const currentStatus = completionLock.status
+      if (body.expectedStatus !== undefined && body.expectedStatus !== currentStatus) {
+        return NextResponse.json({ error: "Someone already moved this task. The latest status will be loaded." }, { status: 409 })
+      }
+
+      if (
+        (body.status !== undefined && (body.status !== currentStatus || user.role === "student") &&
+          !canTransitionTaskStatus(currentStatus, body.status, user.role)) ||
+        (user.role === "student" && ("orderIndex" in body || "parentId" in body || ("checked" in body && body.status !== "inprogress"))) ||
+        (user.role === "faculty" && !(await isBacklogItemAssignedToAdviser(id, user.id, user.name)))
+      ) {
+        return NextResponse.json({ error: "This status change is not allowed." }, { status: 403 })
+      }
+    }
+
     const updates = {
       ...("parentId" in body
         ? {
@@ -147,12 +160,12 @@ export async function PATCH(
       }
     }
 
-    const item = await updateBacklogItem(id, user.id, updates, user.role)
+    const item = await updateBacklogItem(id, user.id, updates, user.role, completionLock?.status)
 
     if (!item) {
       return NextResponse.json(
-        { error: "Backlog item not found or unchanged" },
-        { status: 404 }
+        { error: "The task could not be updated. It may have changed." },
+        { status: 409 }
       )
     }
 

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 
+import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
@@ -394,16 +395,19 @@ export function DashboardBoardPageClient({
     async (todoId: string, nextStatus: TodoItem["status"]) => {
       if (!canChangeTaskState || statusSaveInFlightRef.current || isMovingTodoRef.current) return
       const currentTodo = todos.find((todo) => todo.id === todoId)
+      const activeProjectId = selectedProjectId
       const nextChecked = nextStatus === "completed"
 
       if (!currentTodo || currentTodo.status === nextStatus) {
         return
       }
-      if (hasCompletedTaskParent(currentTodo, todos) ||
-        (currentTodo.status === "completed" && (!canEditTaskAssignee || nextStatus !== "revision"))) return
-
-      if (currentTodo.status === "todo" && nextStatus === "inprogress" && !currentTodo.hasSubmission) {
-        setStatusChangeError("Upload a file or submit a web link before moving this task to In Progress.")
+      if (hasCompletedTaskParent(currentTodo, todos)) return
+      if (!canTransitionTaskStatus(currentTodo.status, nextStatus, currentUser?.role ?? "admin")) {
+        if (currentUser?.role === "faculty") {
+          setStatusChangeError(currentTodo.status === "revision"
+            ? "A task in Revision can only move to Completed."
+            : "A task in In Progress cannot move back to To-do.")
+        }
         return
       }
 
@@ -430,21 +434,24 @@ export function DashboardBoardPageClient({
         )
       })
       try {
-        broadcastDashboardActivitySync({
-          itemId: todoId,
-          status: nextStatus,
-          checked: nextChecked,
-        })
         const response = await fetch(`/api/backlog-items/${todoId}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ status: nextStatus, checked: nextChecked }),
+          body: JSON.stringify({ status: nextStatus, checked: nextChecked, expectedStatus: currentTodo.status }),
         })
 
         if (!response.ok) {
           const data = (await response.json().catch(() => null)) as { error?: string } | null
+          if (response.status === 409 && activeProjectId) {
+            const latestTodos = await fetchTodosForProject(activeProjectId).catch(() => null)
+            if (latestTodos && getSelectedDashboardProjectId() === activeProjectId) {
+              setTodos(latestTodos)
+              setStatusChangeError(data?.error || "This task changed. The board has been refreshed.")
+              return
+            }
+          }
           throw new Error(data?.error || "Failed to update task status. Please try again.")
         }
 
@@ -464,11 +471,6 @@ export function DashboardBoardPageClient({
         broadcastDashboardActivitySync({ itemId: todoId, status: savedStatus, checked: savedChecked })
       } catch (error) {
         setStatusChangeError(error instanceof Error ? error.message : "Failed to update task status. Please try again.")
-        broadcastDashboardActivitySync({
-          itemId: todoId,
-          status: currentTodo.status,
-          checked: currentTodo.checked ?? false,
-        })
         setTodos((currentTodos) => {
           const revertedTodos = currentTodos.map((todo) =>
             todo.id === todoId
@@ -496,7 +498,7 @@ export function DashboardBoardPageClient({
         releaseBoardSyncGuardAfterSettle()
       }
     },
-    [buildChecklist, canChangeTaskState, canEditTaskAssignee, guardBoardSyncDuringLocalMutation, releaseBoardSyncGuardAfterSettle, todos]
+    [buildChecklist, canChangeTaskState, currentUser?.role, fetchTodosForProject, guardBoardSyncDuringLocalMutation, releaseBoardSyncGuardAfterSettle, selectedProjectId, todos]
   )
 
   const handleMoveTodo = React.useCallback(
@@ -512,7 +514,7 @@ export function DashboardBoardPageClient({
       const previousTodos = todos
       const currentTodo = previousTodos.find((todo) => todo.id === todoId)
 
-      if (!currentTodo || isTaskCompletionLocked(currentTodo, todos) || isMovingTodoRef.current) {
+      if (!currentTodo || currentTodo.status !== nextStatus || isTaskCompletionLocked(currentTodo, todos) || isMovingTodoRef.current) {
         return
       }
 
@@ -542,11 +544,7 @@ export function DashboardBoardPageClient({
               destinationColumnTodos.findIndex((todo) => todo.id === targetTodoId),
               0
             )
-      const movedTodo: TodoItem = {
-        ...currentTodo,
-        status: nextStatus,
-        checked: nextStatus === "completed",
-      }
+      const movedTodo = currentTodo
       const reorderedDestinationTodos = [...destinationColumnTodos]
 
       reorderedDestinationTodos.splice(destinationIndex, 0, movedTodo)
@@ -607,8 +605,7 @@ export function DashboardBoardPageClient({
             },
             body: JSON.stringify({
               parentId: todo.parentId ?? null,
-              status: todo.status,
-              checked: todo.checked ?? false,
+              expectedStatus: todo.status,
               orderIndex: todo.orderIndex,
             }),
           })
@@ -1268,7 +1265,7 @@ export function DashboardBoardPageClient({
             canManageOtherProjectResources={canManageProjectResources}
             canSubmitTaskResources={currentUser?.role === "student"}
             canCreateSubtasks={
-              canChangeTaskState && !isCoordinatorBoard && currentUser?.role !== "admin"
+              canEditTaskAssignee && !isCoordinatorBoard
             }
             isDragDisabled={
               !canChangeTaskState ||

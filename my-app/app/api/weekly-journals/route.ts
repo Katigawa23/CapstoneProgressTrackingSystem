@@ -1,8 +1,8 @@
+import { canAccessProject } from "@/lib/server-project-access"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
-  canAccessJournal,
   listWeeklyJournalAutoSummaries,
   listWeeklyJournals,
   reviewWeeklyJournal,
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const user = await requireAuthenticatedUser()
     const projectId = new URL(request.url).searchParams.get("projectId")?.trim()
     if (!projectId) return NextResponse.json({ error: "projectId is required" }, { status: 400 })
-    if (!(await canAccessJournal(projectId, user.id, user.role))) {
+    if (!(await canAccessProject(projectId, user.id))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
     const [entries, autoSummaries] = await Promise.all([
@@ -73,7 +73,7 @@ export async function PUT(request: Request) {
     if (!projectId || !Number.isInteger(weekNumber) || weekNumber < 1) {
       return NextResponse.json({ error: "Invalid project or week" }, { status: 400 })
     }
-    if (!(await canAccessJournal(projectId, user.id, user.role))) {
+    if (!(await canAccessProject(projectId, user.id))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

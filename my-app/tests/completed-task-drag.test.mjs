@@ -12,36 +12,65 @@ function visit(node) {
 }
 visit(ast)
 assert.ok(callback)
-function drag({ adviser = true, canChange = true, target = 'revision', parentCompleted = false } = {}) {
-  const statuses = [], moves = []
-  const task = { id: 'task', status: 'completed', parentId: parentCompleted ? 'parent' : null }
+const transitionSource = fs.readFileSync(new URL('../lib/task-status-transitions.ts', import.meta.url), 'utf8')
+const transitions = { exports: {} }
+vm.runInNewContext(ts.transpileModule(transitionSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS },
+}).outputText, transitions)
+
+function drag({ student = false, canChange = true, source = 'completed', target = 'revision', parentCompleted = false } = {}) {
+  const statuses = [], moves = [], rejected = []
+  const task = { id: 'task', status: source, parentId: parentCompleted ? 'parent' : null }
   const context = {
-    canChangeTaskState: canChange, canEditAssignee: adviser, isSavingTaskStatus: false, isDragDisabled: false,
-    todos: [task], isTaskCompletionLocked: () => true, hasCompletedTaskParent: () => parentCompleted,
-    onStatusChange: (...args) => statuses.push(args), onMoveTodo: (...args) => moves.push(args),
+    canChangeTaskState: canChange, isStudent: student, isSavingTaskStatus: false, isDragDisabled: false,
+    todos: [task], isTaskCompletionLocked: () => source === 'completed' || parentCompleted,
+    setDragSource: () => {},
+    canTransitionTaskStatus: transitions.exports.canTransitionTaskStatus,
+    onStatusChange: (id, target) => {
+      const allowed = transitions.exports.canTransitionTaskStatus(source, target, student ? 'student' : 'faculty')
+      const results = allowed ? statuses : rejected
+      results.push([id, target])
+    },
+    onMoveTodo: (...args) => moves.push(args),
   }
   const code = ts.transpileModule(`const handler = ${callback}; handler(result);`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
-  vm.runInNewContext(code, { ...context, result: { draggableId: 'task', source: { droppableId: 'completed', index: 0 }, destination: { droppableId: target, index: 0 } } })
-  return { statuses, moves }
+  vm.runInNewContext(code, { ...context, result: { draggableId: 'task', source: { droppableId: source, index: 0 }, destination: { droppableId: target, index: 0 } } })
+  return { statuses, moves, rejected }
 }
-test('assigned adviser reopens Completed to Revision with status-only action', () => {
-  const result = drag()
-  assert.equal(result.statuses.length, 1)
-  assert.equal(result.statuses[0][0], 'task')
-  assert.equal(result.statuses[0][1], 'revision')
-  assert.equal(result.moves.length, 0)
-})
-test('other users cannot reopen completed tasks', () => {
-  assert.equal(drag({ adviser: false }).statuses.length, 0)
-  assert.equal(drag({ canChange: false }).statuses.length, 0)
-})
-test('completed tasks cannot move to Todo, In Progress, or reorder in Completed', () => {
-  for (const target of ['todo', 'inprogress', 'completed']) {
-    const result = drag({ target })
-    assert.equal(result.statuses.length, 0)
-    assert.equal(result.moves.length, 0)
+
+test('completed tasks cannot leave or reorder in Completed', () => {
+  for (const target of ['todo', 'inprogress', 'revision', 'completed']) {
+    assert.deepEqual(drag({ target }), { statuses: [], moves: [], rejected: [] })
   }
 })
-test('completed ancestors keep subtasks locked', () => {
-  assert.equal(drag({ parentCompleted: true }).statuses.length, 0)
+
+test('adviser can advance In Progress to Revision or Completed', () => {
+  assert.deepEqual(drag({ source: 'inprogress', target: 'todo' }).statuses, [])
+  assert.deepEqual(drag({ source: 'inprogress', target: 'todo' }).rejected, [['task', 'todo']])
+  for (const target of ['revision', 'completed']) {
+    assert.deepEqual(drag({ source: 'inprogress', target }).statuses, [['task', target]])
+  }
+})
+
+test('adviser can only move Revision to Completed', () => {
+  for (const target of ['todo', 'inprogress', 'revision']) {
+    assert.deepEqual(drag({ source: 'revision', target }), {
+      statuses: [], moves: [], rejected: target === 'revision' ? [] : [['task', target]],
+    })
+  }
+  assert.deepEqual(drag({ source: 'revision', target: 'completed' }).statuses, [['task', 'completed']])
+})
+
+test('student can only move To-do to In Progress', () => {
+  assert.deepEqual(drag({ student: true, source: 'todo', target: 'inprogress' }).statuses, [['task', 'inprogress']])
+  for (const source of ['inprogress', 'revision', 'completed']) {
+    for (const target of ['todo', 'inprogress', 'revision', 'completed']) {
+      assert.deepEqual(drag({ student: true, source, target }), { statuses: [], moves: [], rejected: [] })
+    }
+  }
+})
+
+test('completed ancestors and read-only users cannot move tasks', () => {
+  assert.deepEqual(drag({ source: 'revision', target: 'completed', parentCompleted: true }).statuses, [])
+  assert.deepEqual(drag({ source: 'revision', target: 'completed', canChange: false }).statuses, [])
 })

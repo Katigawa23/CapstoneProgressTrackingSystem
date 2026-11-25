@@ -2,9 +2,7 @@
 
 import * as React from "react"
 import {
-  Check,
   Loader2,
-  Pencil,
   Plus,
   Search,
   Trash2,
@@ -65,8 +63,6 @@ export default function MembersPage() {
   const [isLoadingMemberOptions, setIsLoadingMemberOptions] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(true)
   const [savingMemberIds, setSavingMemberIds] = React.useState<string[]>([])
-  const [roleDrafts, setRoleDrafts] = React.useState<Record<string, string>>({})
-  const [editingRoleMemberId, setEditingRoleMemberId] = React.useState<string | null>(null)
   const [pendingRemoveMember, setPendingRemoveMember] =
     React.useState<ProjectMember | null>(null)
   const [pendingAddMember, setPendingAddMember] = React.useState<{
@@ -133,11 +129,6 @@ export default function MembersPage() {
 
       const data = (await response.json()) as { members: ProjectMember[] }
       setMembers(data.members)
-      setRoleDrafts(
-        Object.fromEntries(
-          data.members.map((member) => [member.userId, member.projectRole])
-        )
-      )
     } catch (error) {
       console.error(error)
       setMembers([])
@@ -226,71 +217,6 @@ export default function MembersPage() {
     }
   }, [addSearchValue, canManageMembers, isMemberOptionsOpen])
 
-  const updateMember = React.useCallback(
-    async (
-      member: ProjectMember,
-      updates: Partial<Pick<ProjectMember, "projectRole">>
-    ) => {
-      if (
-        !projectId ||
-        member.isOwner ||
-        !currentUserId
-      ) {
-        return
-      }
-
-      const nextProjectRole = updates.projectRole ?? member.projectRole
-
-      setSavingMemberIds((current) => [...new Set([...current, member.userId])])
-      setActionError(null)
-
-      try {
-        const response = await fetch(`/api/projects/${projectId}/members`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: member.userId,
-            projectRole: nextProjectRole,
-            canCreateSprint: false,
-          }),
-        })
-
-        if (!response.ok) {
-          const data = (await response.json().catch(() => null)) as
-            | { error?: string }
-            | null
-          throw new Error(data?.error || "Failed to update member")
-        }
-
-        const data = (await response.json()) as { member: ProjectMember }
-        setMembers((current) =>
-          current.map((currentMember) =>
-            currentMember.userId === data.member.userId
-              ? data.member
-              : currentMember
-          )
-        )
-        setRoleDrafts((current) => ({
-          ...current,
-          [data.member.userId]: data.member.projectRole,
-        }))
-        await refreshDashboardProjects().catch(() => undefined)
-      } catch (error) {
-        console.error(error)
-        setActionError(
-          error instanceof Error ? error.message : "Failed to update member."
-        )
-      } finally {
-        setSavingMemberIds((current) =>
-          current.filter((memberId) => memberId !== member.userId)
-        )
-      }
-    },
-    [canManageMembers, currentUserId, projectId]
-  )
-
   const addMember = React.useCallback(
     async (member: RegisteredUserOption, transferApproved = false) => {
       if (!projectId || !canManageMembers || memberAddsInFlight.current.has(member.id)) {
@@ -328,10 +254,6 @@ export default function MembersPage() {
             ? current
             : [...current, data.member]
         )
-        setRoleDrafts((current) => ({
-          ...current,
-          [data.member.userId]: data.member.projectRole,
-        }))
         setAddSearchValue("")
         setIsMemberOptionsOpen(false)
         await refreshDashboardProjects().catch(() => undefined)
@@ -374,11 +296,6 @@ export default function MembersPage() {
         setMembers((current) =>
           current.filter((currentMember) => currentMember.userId !== member.userId)
         )
-        setRoleDrafts((current) => {
-          const next = { ...current }
-          delete next[member.userId]
-          return next
-        })
         await refreshDashboardProjects().catch(() => undefined)
       } catch (error) {
         console.error(error)
@@ -525,9 +442,6 @@ export default function MembersPage() {
                 visibleMembers.map((member) => {
                   const isSaving = savingMemberIds.includes(member.userId)
                   const canEditMember = canManageMembers && !member.isOwner && !isSaving
-                  const canEditRole = !member.isOwner && !isSaving
-                  const roleDraft = roleDrafts[member.userId] ?? member.projectRole
-                  const isEditingRole = editingRoleMemberId === member.userId
                   const displayedProjectRole = member.projectRole.trim() || "No role set"
 
                   return (
@@ -560,89 +474,7 @@ export default function MembersPage() {
                         </div>
                       </td>
                       <td className="px-3 py-2">
-                        {isEditingRole ? (
-                          <div className="flex max-w-48 items-center gap-1.5">
-                            <Input
-                              value={roleDraft}
-                              disabled={!canEditRole}
-                              maxLength={40}
-                              placeholder="e.g. Developer"
-                              autoFocus
-                              className="h-6.5 rounded-[5px] border-slate-200 bg-white text-[11px] shadow-none disabled:opacity-70 dark:border-[#3a3d48] dark:bg-[#181922]"
-                              onChange={(event) =>
-                                setRoleDrafts((current) => ({
-                                  ...current,
-                                  [member.userId]: event.target.value,
-                                }))
-                              }
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter") {
-                                  const nextRole = roleDraft.trim()
-
-                                  if (nextRole !== member.projectRole) {
-                                    void updateMember(member, { projectRole: nextRole })
-                                  }
-                                  setEditingRoleMemberId(null)
-                                }
-
-                                if (event.key === "Escape") {
-                                  setRoleDrafts((current) => ({
-                                    ...current,
-                                    [member.userId]: member.projectRole,
-                                  }))
-                                  setEditingRoleMemberId(null)
-                                }
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="inline-flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-[5px] border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a3d48] dark:text-slate-300 dark:hover:bg-[var(--card)] dark:hover:text-white"
-                              disabled={!canEditRole}
-                              aria-label={`Save role for ${member.name}`}
-                              title="Save role"
-                              onClick={() => {
-                                const nextRole = roleDraft.trim()
-
-                                if (nextRole !== member.projectRole) {
-                                  void updateMember(member, { projectRole: nextRole })
-                                }
-                                setEditingRoleMemberId(null)
-                              }}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="grid max-w-48 grid-cols-[minmax(0,1fr)_22px] items-center gap-1.5">
-                            <span
-                              className={`truncate text-xs ${
-                                member.projectRole.trim()
-                                  ? "text-slate-700 dark:text-slate-200"
-                                  : "text-slate-400 dark:text-slate-500"
-                              }`}
-                              title={displayedProjectRole}
-                            >
-                              {displayedProjectRole}
-                            </span>
-                            {canEditRole ? (
-                              <button
-                                type="button"
-                                className="inline-flex h-5.5 w-5.5 items-center justify-center rounded-[5px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-[#30323d] dark:hover:text-white"
-                                aria-label={`Edit role for ${member.name}`}
-                                title="Edit role"
-                                onClick={() => {
-                                  setRoleDrafts((current) => ({
-                                    ...current,
-                                    [member.userId]: member.projectRole,
-                                  }))
-                                  setEditingRoleMemberId(member.userId)
-                                }}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                            ) : null}
-                          </div>
-                        )}
+                        <span className="text-xs text-slate-600 dark:text-slate-300">{displayedProjectRole}</span>
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-end gap-1.5">

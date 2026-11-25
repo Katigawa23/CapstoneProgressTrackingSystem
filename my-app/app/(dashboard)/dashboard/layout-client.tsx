@@ -291,6 +291,7 @@ export function DashboardLayoutClient({
   return (
     <RoleProvider
       role={role}
+      coordinatorMode={coordinatorMode}
       taskReadOnly={!session?.user.id || coordinatorMode || isSuperAdminViewer(session.user.id)}
     >
       <SidebarProvider>

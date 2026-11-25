@@ -22,6 +22,7 @@ type ProjectRecord = {
   owner_user_id: string
   owner_name?: string | null
   owner_email?: string | null
+  assigned_adviser?: DashboardProject["assignedAdviser"]
   member_user_ids: string[]
   sprint_creator_user_ids: string[]
   project_name: string
@@ -654,6 +655,7 @@ function mapRecord(record: ProjectRecord): DashboardProject {
     ownerEmail: record.owner_email ?? undefined,
     members: record.project_member,
     advisers: record.project_adviser,
+    assignedAdviser: record.assigned_adviser,
     sprintCreatorUserIds: record.sprint_creator_user_ids,
     starred: record.is_starred,
     memberUserIds: record.member_user_ids,
@@ -763,6 +765,9 @@ export async function listProjects(ownerUserId: string) {
            projects.owner_user_id,
            owner_login.name as owner_name,
            owner_login.email as owner_email,
+           case when assigned_adviser.microsoft_user_id is not null then json_build_object(
+             'id', assigned_adviser.microsoft_user_id, 'name', assigned_adviser.name, 'email', assigned_adviser.email
+           ) end as assigned_adviser,
            coalesce(member_logins.member_user_ids, projects.member_user_ids) as member_user_ids,
            projects.sprint_creator_user_ids,
            projects.project_name,
@@ -777,6 +782,15 @@ export async function listProjects(ownerUserId: string) {
          from projects
          left join latest_logins owner_login
            on owner_login.microsoft_user_id = projects.owner_user_id
+         left join lateral (
+           select adviser_user_id
+           from groups
+           where groups.project_id = projects.id
+           order by updated_at desc, id
+           limit 1
+         ) project_group on true
+         left join latest_logins assigned_adviser
+           on assigned_adviser.microsoft_user_id = project_group.adviser_user_id
          left join lateral (
            select
              array_agg(login.microsoft_user_id order by login.name asc, login.email asc) as member_user_ids,

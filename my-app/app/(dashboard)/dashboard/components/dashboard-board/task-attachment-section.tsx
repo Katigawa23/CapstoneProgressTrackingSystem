@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import {
-  Archive,
+  Trash2,
   ChevronDown,
   Download,
   Ellipsis,
@@ -48,7 +48,7 @@ type TaskSubmissionsSectionProps = {
   onSubmissionActionsOpenChange: (nextOpen: boolean) => void
   onSubmissionAttach: (todoId: string, files: FileList | null) => void
   onSubmissionUpload: (todoId: string) => void | Promise<void>
-  onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
+  onSubmissionDelete: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
 }
 
 function formatAttachmentDate(uploadedAt: string) {
@@ -104,14 +104,14 @@ function AttachmentList({
   currentUserId,
   canManageOtherProjectResources,
   readOnly = false,
-  onSubmissionArchive,
+  onSubmissionDelete,
 }: {
   submissions: DashboardSubmission[]
   backlogItemId: string
   currentUserId?: string | null
   canManageOtherProjectResources?: boolean
   readOnly?: boolean
-  onSubmissionArchive: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
+  onSubmissionDelete: (todoId: string, submission: DashboardSubmission) => void | Promise<void>
 }) {
   return (
     <div className="overflow-hidden rounded-[2px] border border-slate-200 bg-white shadow-sm dark:border-[var(--border)] dark:bg-[var(--card)]">
@@ -126,7 +126,7 @@ function AttachmentList({
 
           <div className="divide-y divide-slate-200 dark:divide-[var(--border)]">
             {submissions.map((submission) => {
-              const canArchiveSubmission =
+              const canDeleteSubmission =
                 !readOnly &&
                 Boolean(currentUserId?.trim()) &&
                 (
@@ -192,11 +192,11 @@ function AttachmentList({
                         </a>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        disabled={!canArchiveSubmission}
-                        onSelect={() => void onSubmissionArchive(backlogItemId, submission)}
+                        disabled={!canDeleteSubmission}
+                        onSelect={() => void onSubmissionDelete(backlogItemId, submission)}
                       >
-                        <Archive className="h-4 w-4" />
-                        Archive
+                        <Trash2 className="h-4 w-4" />
+                        Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -259,7 +259,7 @@ export function TaskSubmissionsSection({
   isUploadingSubmission,
   submissionInputRef,
   onSubmissionAttach,
-  onSubmissionArchive,
+  onSubmissionDelete,
 }: TaskSubmissionsSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(true)
   const resourcesLocked = readOnly || selectedTodo.status === "completed"
@@ -393,7 +393,7 @@ export function TaskSubmissionsSection({
             currentUserId={currentUserId}
             canManageOtherProjectResources={canManageOtherProjectResources}
             readOnly={resourcesLocked}
-            onSubmissionArchive={onSubmissionArchive}
+            onSubmissionDelete={onSubmissionDelete}
           />
         ) : null}
       </CollapsibleContent>

@@ -1,3 +1,5 @@
+import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
+import { canAccessProject, canAccessTask } from "@/lib/server-project-access"
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
@@ -12,6 +14,7 @@ import {
 import {
   BacklogItemNameConflictError,
   createBacklogItem,
+  isBacklogItemAssignedToAdviser,
   listBacklogItems,
   updateBacklogItem,
 } from "@backend/repositories/tasks-repository"
@@ -69,6 +72,10 @@ export async function GET(request: Request) {
 
     if (!projectId) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
+    }
+
+    if (!(await canAccessProject(projectId, user.id))) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
     const items = await listBacklogItems(projectId, user.id, {
@@ -131,6 +138,14 @@ export async function POST(request: Request) {
         ? body.status
         : "todo"
     if (requestedParentId) {
+      if (!(await canAccessTask(requestedParentId, user.id))) {
+        return NextResponse.json({ error: "Task not found" }, { status: 404 })
+      }
+      if (user.role !== "faculty" || user.id === "tester-coordinator" ||
+          await isAssignedCoordinator(user.id) ||
+          !(await isBacklogItemAssignedToAdviser(requestedParentId, user.id, user.name))) {
+        return NextResponse.json({ error: "Only the assigned adviser can create subtasks." }, { status: 403 })
+      }
       const completionResponse = await rejectCompletedTaskMutation(requestedParentId)
       if (completionResponse) return completionResponse
     }
@@ -178,6 +193,10 @@ export async function POST(request: Request) {
         { error: "Due date cannot be before the start date" },
         { status: 400 }
       )
+    }
+
+    if (!(await canAccessProject(projectId, user.id))) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
     const item = await createBacklogItem({

@@ -2,11 +2,13 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
 import { requireAuthenticatedUser } from "@/lib/server-auth"
+import { canAccessTask } from "@/lib/server-project-access"
 import { rejectSuperAdminMutation } from "@/lib/server-admin-viewer"
 import { COMMENT_ASSET_ENCODED_LIMIT } from "@/lib/comment-assets"
 import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 import {
   deleteBacklogComment,
+  getCommentTaskId,
   updateBacklogComment,
 } from "@backend/repositories/comments-repository"
 
@@ -19,6 +21,10 @@ export async function PATCH(
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
     const { commentId } = await params
+    const taskId = await getCommentTaskId(commentId)
+    if (!taskId || !(await canAccessTask(taskId, user.id))) {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 })
+    }
     const body = (await request.json()) as {
       body?: string
       attachments?: string[]
@@ -91,6 +97,10 @@ export async function DELETE(
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
     const { commentId } = await params
+    const taskId = await getCommentTaskId(commentId)
+    if (!taskId || !(await canAccessTask(taskId, user.id))) {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 })
+    }
     const deleted = await deleteBacklogComment(commentId, user.id)
 
     if (!deleted) {

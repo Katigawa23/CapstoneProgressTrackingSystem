@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal, Search } from "lucide-react"
+import { Archive, MoreHorizontal, Search } from "lucide-react"
 
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +26,27 @@ export default function CoordinatorPage() {
   const [groups, setGroups] = useState<DashboardProject[]>([])
   const [showAllGroups, setShowAllGroups] = useState(false)
   const [searchValue, setSearchValue] = useState("")
+  const [pendingArchive, setPendingArchive] = useState<DashboardProject | null>(null)
+  const [archiving, setArchiving] = useState(false)
+  const [archiveError, setArchiveError] = useState("")
+
+  async function archiveGroup(group: DashboardProject) {
+    setArchiving(true)
+    setArchiveError("")
+    try {
+      const response = await fetch(`/api/projects/${encodeURIComponent(group.id)}/archive`, { method: "POST" })
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(data?.error || "Could not archive the group.")
+      }
+      setGroups((current) => current.filter(({ id }) => id !== group.id))
+      await refreshDashboardProjects().catch(() => undefined)
+    } catch (error) {
+      setArchiveError(error instanceof Error ? error.message : "Could not archive the group.")
+    } finally {
+      setArchiving(false)
+    }
+  }
 
   useEffect(() => {
     const syncGroups = () => setGroups(getDashboardProjects())
@@ -102,6 +128,7 @@ export default function CoordinatorPage() {
       </div>
 
       <section className="mt-6 space-y-4">
+        {archiveError ? <p role="alert" className="text-sm text-destructive">{archiveError}</p> : null}
         <div className="flex items-center justify-between gap-4">
           <h2 className="font-display text-lg font-semibold tracking-tight">For you</h2>
           {filteredGroups.length > 4 ? (
@@ -131,9 +158,19 @@ export default function CoordinatorPage() {
                 }}
               >
                 <div className="absolute inset-y-0 left-0 w-1.5 bg-[var(--brand-primary-fixed)]" />
-                <button type="button" onClick={(event) => event.stopPropagation()} aria-label={`More options for ${group.name}`} className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-[var(--surface-hover)]">
-                  <MoreHorizontal className="size-4" />
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" onClick={(event) => event.stopPropagation()} aria-label={`More options for ${group.name}`} className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-[var(--surface-hover)]">
+                      <MoreHorizontal className="size-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                    <DropdownMenuItem disabled={archiving} onSelect={() => setPendingArchive(group)}>
+                      <Archive className="size-4" />
+                      Archive group
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <CardHeader className="flex flex-1 flex-col px-5 pb-3 pt-4">
                   <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
                     {getGroupCode(group, groups.indexOf(group))}
@@ -189,6 +226,22 @@ export default function CoordinatorPage() {
           </div>
         )}
       </section>
+      <AlertDialog open={pendingArchive !== null} onOpenChange={(open) => {
+        if (!open) setPendingArchive(null)
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {pendingArchive?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>You can restore this group from the Archive page.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (pendingArchive) void archiveGroup(pendingArchive)
+            }}>Archive group</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

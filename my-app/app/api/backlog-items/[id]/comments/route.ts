@@ -1,3 +1,4 @@
+import { canAccessTask } from "@/lib/server-project-access"
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
@@ -29,6 +30,9 @@ export async function GET(
     }
 
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
     const comments = await listBacklogComments(id, user.id)
     if (getPreferredStorageMode() === "file" || !comments.length) return NextResponse.json({ comments })
 
@@ -67,6 +71,9 @@ export async function POST(
       user.tenantId?.trim() || getMicrosoftTenantId()
     )
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
     const body = (await request.json()) as {
       body?: string
       attachments?: string[]
@@ -163,6 +170,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (readOnlyResponse) return readOnlyResponse
 
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
     const { commentId, liked } = await request.json()
     if (typeof commentId !== "string" || typeof liked !== "boolean") {
       return NextResponse.json({ error: "Invalid comment reaction." }, { status: 400 })

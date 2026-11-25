@@ -41,6 +41,7 @@ export type DashboardProject = {
   ownerUserId?: string
   ownerName?: string
   ownerEmail?: string
+  assignedAdviser?: { id: string; name: string; email?: string } | null
   members: string[]
   advisers: string[]
   sprintCreatorUserIds: string[]
@@ -229,6 +230,8 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
     return null
   }
 
+  const adviser = candidate.assignedAdviser as Partial<NonNullable<DashboardProject["assignedAdviser"]>> | null | undefined
+
   return {
     id: candidate.id,
     name: candidate.name,
@@ -239,6 +242,10 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
     ownerEmail:
       typeof candidate.ownerEmail === "string" ? candidate.ownerEmail : undefined,
     members: candidate.members,
+    assignedAdviser: adviser === null ? null :
+      typeof adviser?.id === "string" && typeof adviser.name === "string"
+        ? { id: adviser.id, name: adviser.name, email: typeof adviser.email === "string" ? adviser.email : undefined }
+        : undefined,
     advisers: isStringArray(candidate.advisers) ? candidate.advisers : [],
     sprintCreatorUserIds: isStringArray(candidate.sprintCreatorUserIds)
       ? candidate.sprintCreatorUserIds

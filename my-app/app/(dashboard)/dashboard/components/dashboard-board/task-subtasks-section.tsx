@@ -723,7 +723,6 @@ export function TaskSubtasksSection({
                       {canChangeTaskState ? (
                       <StatusCombobox
                         value={subtask.status}
-                        canReopenCompleted={canEditAssignee}
                         disabled={!canChangeTaskState}
                         onChange={(nextStatus) =>
                           onSubtaskStatusChange(

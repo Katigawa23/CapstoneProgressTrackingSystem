@@ -32,6 +32,7 @@ export async function ensureNotificationSchema() {
       read_at timestamptz,
       created_at timestamptz not null default now()
     );
+    alter table notifications add column if not exists dismissed_at timestamptz;
     create index if not exists notifications_recipient_created_idx
       on notifications(recipient_user_id, created_at desc);
     ${notificationEmailSchema}
@@ -166,7 +167,7 @@ export async function listNotifications(userId: string) {
        n.is_read, n.created_at
      from notifications n
      left join users actor on actor.microsoft_user_id = n.actor_user_id
-     where n.recipient_user_id = $1
+     where n.recipient_user_id = $1 and n.dismissed_at is null
      order by n.created_at desc limit 50`,
     [userId]
   )
@@ -186,5 +187,13 @@ export async function markNotificationRead(userId: string, id?: string) {
       ? `update notifications set is_read = true, read_at = now() where id = $1 and recipient_user_id = $2`
       : `update notifications set is_read = true, read_at = now() where recipient_user_id = $1 and is_read = false`,
     id ? [id, userId] : [userId]
+  )
+}
+
+export async function deleteNotifications(userId: string, ids: string[]) {
+  await ensureSchema()
+  await getDb().query(
+    `update notifications set dismissed_at = now() where recipient_user_id = $1 and id::text = any($2::text[]) and dismissed_at is null`,
+    [userId, ids]
   )
 }

@@ -7,11 +7,10 @@ import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
-  stripEmojiFromProjectTitle,
 } from "@/lib/projects"
 import { canCreateProject, isUserRole } from "@/lib/rbac"
 import { isAssignedCoordinator, listAssignedCoordinatorProgramLabels } from "@/lib/server-coordinator-assignments"
-import { validateDisplayName } from "@/lib/text-validation"
+import { hasInvalidTaskTitleCharacters, TASK_TITLE_CHARACTERS_ERROR, validateDisplayName } from "@/lib/text-validation"
 import { notifyProjectEmailEvent } from "@/lib/server-project-email-events"
 import {
   createProject,
@@ -84,8 +83,11 @@ export async function POST(request: Request) {
       projectType?: string
     }
 
-    const rawName = body.name?.trim()
-    const name = rawName ? stripEmojiFromProjectTitle(rawName).trim() : rawName
+    const rawName = typeof body.name === "string" ? body.name : ""
+    if (hasInvalidTaskTitleCharacters(rawName)) {
+      return NextResponse.json({ error: TASK_TITLE_CHARACTERS_ERROR }, { status: 400 })
+    }
+    const name = rawName.trim()
     const program = body.program?.trim()
     const yearLevel = body.yearLevel?.trim()
     const syTerm = body.syTerm?.trim()

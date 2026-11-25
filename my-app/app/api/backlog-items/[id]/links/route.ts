@@ -1,3 +1,4 @@
+import { canAccessTask } from "@/lib/server-project-access"
 import { revalidateTag } from "next/cache"
 
 import { NextResponse } from "next/server"
@@ -42,6 +43,9 @@ export async function GET(
     }
 
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
     const links = await listBacklogWebLinks(id, user.id)
 
     return NextResponse.json({ links: links.map(toActiveWebLinkResponse) })
@@ -72,8 +76,6 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
-    const completionResponse = await rejectCompletedTaskMutation((await params).id)
-    if (completionResponse) return completionResponse
     if (user.role !== "student") {
       return NextResponse.json(
         { error: "Only students can add task links." },
@@ -81,6 +83,11 @@ export async function POST(
       )
     }
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
+    const completionResponse = await rejectCompletedTaskMutation(id)
+    if (completionResponse) return completionResponse
     const body = (await request.json()) as {
       url?: string
       label?: string

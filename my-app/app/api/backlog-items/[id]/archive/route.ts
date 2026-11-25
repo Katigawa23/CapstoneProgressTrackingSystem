@@ -1,3 +1,4 @@
+import { canAccessTask } from "@/lib/server-project-access"
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 
@@ -14,9 +15,12 @@ export async function POST(
     const user = await requireAuthenticatedUser()
     const readOnlyResponse = rejectSuperAdminMutation(user.id)
     if (readOnlyResponse) return readOnlyResponse
-    const completionResponse = await rejectCompletedTaskMutation((await params).id)
-    if (completionResponse) return completionResponse
     const { id } = await params
+    if (!(await canAccessTask(id, user.id))) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
+    const completionResponse = await rejectCompletedTaskMutation(id)
+    if (completionResponse) return completionResponse
     const items = await archiveBacklogItem(id, user.id, user.role)
 
     if (items.length === 0) {

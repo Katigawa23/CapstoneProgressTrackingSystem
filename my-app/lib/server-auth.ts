@@ -14,7 +14,7 @@ export const readAuthenticatedUser = cache(async (allowUnverified = false) => {
   if (!await isActiveSession(user.id, user.sessionId)) return null
   if (user.role === "student" && !allowUnverified) {
     const access = await getStudentAccessState(user.id)
-    if (access.required && access.status !== "approved") return null
+    if (access.status === "revoked" || (access.required && access.status !== "approved")) return null
   }
   if (user.role === "faculty" && !allowUnverified && (await getFacultyAccessState(user.id)).status !== "approved") return null
   return user
