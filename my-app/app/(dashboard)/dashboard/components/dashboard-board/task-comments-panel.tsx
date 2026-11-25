@@ -323,7 +323,7 @@ export function TaskCommentsPanel({
 
   return (
     <aside className="order-2 min-w-0 shrink-0 border-t p-4 sm:p-5 lg:min-h-0 lg:border-t-0 lg:p-6">
-      <div className={`flex min-w-0 flex-col pr-2 sm:pr-3 lg:pr-4 ${canAccessComments ? "lg:h-full" : ""}`}>
+      <div className={`flex min-w-0 flex-col [overflow-wrap:anywhere] lg:pr-4 ${canAccessComments ? "lg:h-full" : ""}`}>
         <section className="mb-3 rounded-[2px] border border-slate-200 bg-slate-50/80 p-2.5 dark:border-[var(--border)] dark:bg-[var(--card)]">
           <div className="mb-2">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">

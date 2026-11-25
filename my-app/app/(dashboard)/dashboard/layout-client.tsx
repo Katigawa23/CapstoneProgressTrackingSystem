@@ -328,8 +328,8 @@ export function DashboardLayoutClient({
 
         <SidebarInset className={`bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] pt-16 dark:from-background dark:to-background ${isProfilePage ? "min-h-svh" : "h-svh overflow-hidden"}`}>
           <main
-            className={`flex min-w-0 flex-col p-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10 ${
-              isProfilePage ? "" : pathname === "/dashboard" || pathname === "/coordinator" ? "h-full overflow-y-auto" : "h-full overflow-hidden"
+            className={`flex min-w-0 flex-col px-3 py-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10 ${
+              isProfilePage ? "" : pathname === "/dashboard" || pathname === "/coordinator" ? "h-full overflow-y-auto" : "h-full overflow-y-auto lg:overflow-hidden"
             }`}
           >
             {authLoading
