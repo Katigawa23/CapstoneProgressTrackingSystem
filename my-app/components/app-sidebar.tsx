@@ -204,21 +204,25 @@ export function AppSidebar({
   initialTeam = null,
   coordinatorMode = false,
   currentUserId,
+  createProjectOpen,
+  setCreateProjectOpen,
 }: {
   role: UserRole
   initialProjects?: DashboardProject[]
   initialTeam?: DashboardProject | null
   coordinatorMode?: boolean
   currentUserId?: string | null
+  createProjectOpen: boolean
+  setCreateProjectOpen: (open: boolean) => void
 }) {
   const pathname = usePathname()
   const router = useRouter()
   const {
     adviserOptions,
+    adviserOptionsError,
     adviserOptionsLoading,
     adviserSearch,
     createProject,
-    createProjectOpen,
     createProjectError,
     pendingStudentTransfer,
     confirmStudentTransfer,
@@ -232,6 +236,7 @@ export function AppSidebar({
     isCreatingProject,
     memberSearch,
     memberOptions,
+    memberOptionsError,
     memberOptionsLoading,
     projectProgram,
     projectSyTerm,
@@ -245,7 +250,6 @@ export function AppSidebar({
     selectedMembers,
     selectedAdvisers,
     selectProject,
-    setCreateProjectOpen,
     setAdviserSearch,
     setProjectProgram,
     setProjectSyTerm,
@@ -257,6 +261,8 @@ export function AppSidebar({
   } = useDashboardProjects({
     initialProjects,
     initialTeam,
+    createProjectOpen,
+    setCreateProjectOpen,
   })
   const limitRecentProjects = coordinatorMode || role === "faculty" || role === "admin"
   const projectCollections = getDashboardProjectCollections(projects).map((collection) =>
@@ -287,26 +293,11 @@ export function AppSidebar({
   const canCreateProjectAccess = coordinatorMode
   const isSuperAdmin = currentUserId === "tester-admin"
 
-  React.useEffect(() => {
-    const handleOpenCreateProject = () => {
-      if (!canCreateProjectAccess) {
-        return
-      }
-
-      setCreateProjectOpen(true)
-    }
-
-    window.addEventListener("tracksphere-open-create-project", handleOpenCreateProject)
-
-    return () => {
-      window.removeEventListener("tracksphere-open-create-project", handleOpenCreateProject)
-    }
-  }, [canCreateProjectAccess, setCreateProjectOpen])
-
   return (
     <>
       <CreateProjectDialog
         adviserOptions={adviserOptions}
+        adviserOptionsError={adviserOptionsError}
         adviserOptionsLoading={adviserOptionsLoading}
         adviserSearch={adviserSearch}
         open={createProjectOpen}
@@ -318,6 +309,7 @@ export function AppSidebar({
         }}
         memberSearch={memberSearch}
         memberOptions={memberOptions}
+        memberOptionsError={memberOptionsError}
         memberOptionsLoading={memberOptionsLoading}
         onCreateProject={createProject}
         onAdviserRemove={handleAdviserRemove}
@@ -484,7 +476,7 @@ export function AppSidebar({
           )}
         </SidebarContent>
 
-        <SidebarFooter className="hidden px-2 pb-3 pt-0 md:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5">
+        <SidebarFooter className="hidden px-2 pb-3 pt-0 lg:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1.5">
           <SidebarTrigger className="h-10 w-full justify-start rounded-xl px-3 text-slate-500 hover:bg-white hover:text-[var(--brand-primary-fixed)] dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-[var(--brand-link)] group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0" />
         </SidebarFooter>
 

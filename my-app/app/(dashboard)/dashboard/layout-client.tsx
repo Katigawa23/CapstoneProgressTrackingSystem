@@ -167,6 +167,8 @@ function AccessDenied({ role }: { role: UserRole }) {
   )
 }
 
+export const OpenProjectCreationContext = React.createContext<(() => void) | null>(null)
+
 export function DashboardLayoutClient({
   children,
   initialAuthSession,
@@ -185,6 +187,8 @@ export function DashboardLayoutClient({
   const pathname = usePathname()
   const [session, setSession] = React.useState<AuthSession | null>(initialAuthSession)
   const [authLoading, setAuthLoading] = React.useState(!initialAuthSession)
+  const [createProjectOpen, setCreateProjectOpen] = React.useState(false)
+  const openProjectCreation = React.useCallback(() => setCreateProjectOpen(true), [])
   const activeSessionIdentityRef = React.useRef<string | null>(null)
   const sessionInitializedRef = React.useRef(false)
   React.useEffect(() => {
@@ -295,12 +299,13 @@ export function DashboardLayoutClient({
       taskReadOnly={!session?.user.id || coordinatorMode || isSuperAdminViewer(session.user.id)}
     >
       <SidebarProvider>
-        <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center border-b bg-background/80 px-4 shadow-sm backdrop-blur-md dark:border-[var(--border)] dark:bg-[var(--background)] dark:shadow-none sm:px-6">
-          <div className="flex items-center gap-3">
-            {!isProfilePage && <SidebarTrigger className="md:hidden" />}
+        <OpenProjectCreationContext.Provider value={coordinatorMode ? openProjectCreation : null}>
+        <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center border-b bg-background/80 px-2 shadow-sm backdrop-blur-md dark:border-[var(--border)] dark:bg-[var(--background)] dark:shadow-none sm:px-6">
+          <div className="flex min-w-0 items-center gap-1 sm:gap-3">
+            {!isProfilePage && <SidebarTrigger className="size-10 shrink-0 lg:hidden" />}
             <Link
               href={coordinatorMode ? "/coordinator" : isProfilePage ? "/dashboard" : "/dashboard/board"}
-              className="flex items-center gap-3 font-display text-xl font-extrabold tracking-tight sm:text-2xl"
+              className="flex items-center font-display text-lg font-extrabold tracking-tight sm:text-2xl"
             >
               <span>
                 <span style={{ color: "var(--logo-track)" }}>Track</span>
@@ -309,7 +314,7 @@ export function DashboardLayoutClient({
             </Link>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             <ThemeSwitch iconOnly disabled={authLoading} />
 
             <NotificationMenu disabled={authLoading} />
@@ -324,12 +329,14 @@ export function DashboardLayoutClient({
           initialProjects={initialProjects}
           initialTeam={initialTeam}
           coordinatorMode={coordinatorMode}
+          createProjectOpen={coordinatorMode && createProjectOpen}
+          setCreateProjectOpen={setCreateProjectOpen}
         />}
 
-        <SidebarInset className={`bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] pt-16 dark:from-background dark:to-background ${isProfilePage ? "min-h-svh" : "h-svh overflow-hidden"}`}>
-          <main
+        <SidebarInset className={`min-w-0 bg-gradient-to-br from-slate-50 to-[color:rgba(var(--brand-primary-rgb),0.08)] pt-16 dark:from-background dark:to-background ${isProfilePage ? "min-h-dvh" : "h-dvh overflow-hidden"}`}>
+          <div
             className={`flex min-w-0 flex-col px-3 py-4 sm:p-6 xl:px-8 xl:py-6 2xl:px-10 ${
-              isProfilePage ? "" : pathname === "/dashboard" || pathname === "/coordinator" ? "h-full overflow-y-auto" : "h-full overflow-y-auto lg:overflow-hidden"
+              isProfilePage ? "" : "h-full min-h-0 overflow-y-auto"
             }`}
           >
             {authLoading
@@ -339,8 +346,9 @@ export function DashboardLayoutClient({
               : hasAccess
                 ? children
                 : <AccessDenied role={role} />}
-          </main>
+          </div>
         </SidebarInset>
+        </OpenProjectCreationContext.Provider>
       </SidebarProvider>
     </RoleProvider>
   )

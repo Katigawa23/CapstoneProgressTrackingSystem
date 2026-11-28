@@ -1,4 +1,6 @@
 import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
+import { useContext } from "react"
+import { ProjectWorkflowContext } from "@/lib/project-workflow-client"
 import { useRole } from "@/lib/role-context"
 import type {
   DraggableProvided,
@@ -36,7 +38,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 import { AssigneeCombobox } from "../backlog/components/assignee-combobox"
 import { assigneeOptions } from "../backlog/types"
-import { columns } from "../constants"
+import { getBoardColumns } from "../constants"
 import { PriorityBadge } from "./task-state-badges"
 import type { TodoItem } from "../types"
 import { formatDeadline } from "../utils"
@@ -73,7 +75,9 @@ export function DashboardTaskCard({
   dragSnapshot,
 }: DashboardTaskCardProps) {
   const role = useRole()
-  const availableStatuses = columns.filter((column) => canTransitionTaskStatus(todo.status, column.id, role))
+  const workflow = useContext(ProjectWorkflowContext)
+  const columns = getBoardColumns(workflow?.boardColumns)
+  const availableStatuses = columns.filter((column) => canTransitionTaskStatus(todo.status, column.id, role, workflow?.transitions))
   const [completedSubtasksRaw = "0", totalSubtasksRaw = "0"] = todo.checklist.split("/")
   const completedSubtasks = Number.parseInt(completedSubtasksRaw, 10) || 0
   const subtaskCount = Number.parseInt(totalSubtasksRaw, 10) || 0

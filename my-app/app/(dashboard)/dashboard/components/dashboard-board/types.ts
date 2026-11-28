@@ -1,4 +1,5 @@
 import type { DashboardComment, DashboardSubmission, TodoItem } from "../../types"
+import type { ResearchApproach } from "@/lib/projects"
 
 export type SubmissionDraft = {
   id: string
@@ -18,6 +19,7 @@ export type CreateSubtaskInput = {
 
 export type DashboardBoardProps = {
   todos: TodoItem[]
+  researchApproach?: ResearchApproach
   openTodoId?: string | null
   onTaskDialogClose?: () => void
   renderColumns?: boolean

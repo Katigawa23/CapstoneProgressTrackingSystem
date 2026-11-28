@@ -1,4 +1,5 @@
 import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
+import { getProjectWorkflow } from "@/lib/server-project-workflow"
 import { canAccessTask } from "@/lib/server-project-access"
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
@@ -87,6 +88,10 @@ export async function POST(
 
     if (!projectId) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
+    }
+
+    if (status !== "todo" && (await getProjectWorkflow(projectId)).revision > 0) {
+      return NextResponse.json({ error: "New items in this workflow must start in To-do." }, { status: 400 })
     }
 
     const createdItem = await createBacklogItem(

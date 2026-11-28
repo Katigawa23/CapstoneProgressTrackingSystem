@@ -13,6 +13,7 @@ import {
 } from "@/lib/text-validation"
 import {
   BacklogItemNameConflictError,
+  BacklogResearchStorageError,
   createBacklogItem,
   isBacklogItemAssignedToAdviser,
   listBacklogItems,
@@ -20,6 +21,8 @@ import {
 } from "@backend/repositories/tasks-repository"
 import { createNotification } from "@/lib/server-notification-repository"
 import { saveTaskChapter } from "@/lib/server-task-chapter-repository"
+import { getProjectWorkflow } from "@/lib/server-project-workflow"
+import { listProjects } from "@/lib/server-project-repository"
 
 const allowedStatuses = new Set([
   "todo",
@@ -122,6 +125,7 @@ export async function POST(request: Request) {
       assigneeId?: string | null
       priority?: string
       chapterNumber?: number
+      researchTarget?: unknown
     }
 
     const title = typeof body.title === "string" ? body.title.trim() : ""
@@ -173,10 +177,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
     }
 
-    if (!requestedParentId && (!Number.isInteger(chapterNumber) || chapterNumber < 1 || chapterNumber > 5)) {
-      return NextResponse.json({ error: "Chapter is required" }, { status: 400 })
-    }
-
     const startDate = normalizeOptionalDate(body.startDate)
     const dueDate = normalizeOptionalDate(body.dueDate)
 
@@ -195,8 +195,24 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!(await canAccessProject(projectId, user.id))) {
+    const project = (await listProjects(user.id)).find((candidate) => candidate.id === projectId)
+    if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    const workflow = !requestedParentId || status !== "todo" ? await getProjectWorkflow(projectId) : null
+    const { researchTarget } = body
+    if (researchTarget !== undefined &&
+        (!project.researchApproach || requestedParentId || status === "completed" ||
+          typeof researchTarget !== "number" || !Number.isInteger(researchTarget) || researchTarget < 1 || researchTarget > 1000000)) {
+      return NextResponse.json({ error: "Enter a whole-number research target for an open thesis task." }, { status: 400 })
+    }
+    const hasValidChapter = Number.isInteger(chapterNumber) && chapterNumber >= 1 && chapterNumber <= 5
+    if (!requestedParentId && !hasValidChapter && (workflow?.requiresChapter || body.chapterNumber != null)) {
+      return NextResponse.json({ error: "Choose a chapter from 1 to 5." }, { status: 400 })
+    }
+    if (status !== "todo" && workflow && workflow.revision > 0) {
+      return NextResponse.json({ error: "New items in this workflow must start in To-do." }, { status: 400 })
     }
 
     const item = await createBacklogItem({
@@ -211,6 +227,7 @@ export async function POST(request: Request) {
       assigneeId: body.assigneeId ?? null,
       priority,
       createdByName: user.name,
+      researchTarget: typeof researchTarget === "number" ? researchTarget : undefined,
     }, user.id)
 
     if (!item) {
@@ -228,7 +245,7 @@ export async function POST(request: Request) {
         : item
 
     const createdItem = nextItem ?? item
-    if (!requestedParentId) {
+    if (!requestedParentId && hasValidChapter) {
       await saveTaskChapter(createdItem.id, projectId, chapterNumber)
     }
     if (createdItem.assigneeId) {
@@ -253,7 +270,7 @@ export async function POST(request: Request) {
       { status: 201 }
     )
   } catch (error) {
-    if (error instanceof BacklogItemNameConflictError) {
+    if (error instanceof BacklogItemNameConflictError || error instanceof BacklogResearchStorageError) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
 

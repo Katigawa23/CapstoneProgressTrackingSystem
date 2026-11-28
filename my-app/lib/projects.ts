@@ -1,4 +1,22 @@
 import { hasEmoji, stripEmoji } from "@/lib/text-validation"
+import type { ProjectWorkflowPreset } from "@/lib/project-workflow-presets"
+
+export const researchApproaches = ["Quantitative", "Qualitative", "Mixed Methods"] as const
+export type ResearchApproach = (typeof researchApproaches)[number]
+
+export function isResearchApproach(value: unknown): value is ResearchApproach {
+  return researchApproaches.some((approach) => approach === value)
+}
+
+export function getResearchCountUnit(approach?: ResearchApproach) {
+  if (approach === "Qualitative") return "interviews"
+  if (approach === "Mixed Methods") return "items"
+  return "responses"
+}
+
+export function isThesisGroupType(value: string) {
+  return /\bthesis\b/i.test(value)
+}
 
 export const PROJECT_STORAGE_KEY = "dashboard-project"
 export const PROJECT_COOKIE_KEY = "dashboard-project"
@@ -51,6 +69,7 @@ export type DashboardProject = {
   yearLevel: string
   syTerm: string
   projectType: string
+  researchApproach?: ResearchApproach
   createdAt: string
   archivedAt?: string
   archivedBy?: string
@@ -82,6 +101,8 @@ type CookieStoreLike = {
 }
 
 export type CreateDashboardProjectInput = {
+  workflowPreset?: ProjectWorkflowPreset
+  researchApproach?: ResearchApproach
   name: string
   members: string[]
   advisers?: string[]
@@ -256,6 +277,7 @@ function normalizeStoredProject(project: unknown): DashboardProject | null {
     yearLevel: typeof candidate.yearLevel === "string" ? candidate.yearLevel : "",
     syTerm: typeof candidate.syTerm === "string" ? candidate.syTerm : "",
     projectType: typeof candidate.projectType === "string" ? candidate.projectType : "",
+    researchApproach: isResearchApproach(candidate.researchApproach) ? candidate.researchApproach : undefined,
     createdAt: normalizeProjectCreatedAt(candidate.createdAt),
   }
 }
@@ -612,6 +634,8 @@ export function createDashboardProject({
   yearLevel,
   syTerm,
   projectType,
+  workflowPreset,
+  researchApproach,
 }: CreateDashboardProjectInput): Promise<DashboardProject> {
   return fetch("/api/projects", {
     method: "POST",
@@ -631,11 +655,17 @@ export function createDashboardProject({
       yearLevel: yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       syTerm: syTerm.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
       projectType: projectType.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
+      workflowPreset,
+      researchApproach,
     }),
   }).then(async (response) => {
     if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null
-      throw new Error(data?.error || "Failed to create project")
+      const data = (await response.json().catch(() => null)) as { error?: string; requestId?: string } | null
+      const message = data?.error || "Failed to create project"
+      throw Object.assign(
+        new Error(data?.requestId ? `${message} Reference: ${data.requestId}` : message),
+        { status: response.status, requestId: data?.requestId }
+      )
     }
 
     const data = (await response.json()) as { project: DashboardProject }

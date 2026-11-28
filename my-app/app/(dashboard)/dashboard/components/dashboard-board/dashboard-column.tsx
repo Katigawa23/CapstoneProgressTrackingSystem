@@ -64,7 +64,7 @@ export function DashboardColumn({
                   <span className={`h-2 w-2 rounded-full ${column.color}`} />
                   <span className="truncate">{column.title}</span>
                   <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    ({todos.length})
+                    ({todos.length}{column.wipLimit === undefined ? "" : `/${column.wipLimit}`})
                   </span>
                 </CardTitle>
 

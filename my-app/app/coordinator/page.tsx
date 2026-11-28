@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useContext, useEffect, useState } from "react"
+import { OpenProjectCreationContext } from "@/app/(dashboard)/dashboard/layout-client"
 import { useRouter } from "next/navigation"
 import { Archive, MoreHorizontal, Search } from "lucide-react"
 
@@ -23,6 +24,7 @@ import {
 
 export default function CoordinatorPage() {
   const router = useRouter()
+  const openProjectCreation = useContext(OpenProjectCreationContext)
   const [groups, setGroups] = useState<DashboardProject[]>([])
   const [showAllGroups, setShowAllGroups] = useState(false)
   const [searchValue, setSearchValue] = useState("")
@@ -91,28 +93,26 @@ export default function CoordinatorPage() {
   return (
     <div className="flex min-h-full flex-col">
       <div>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-2xl font-semibold tracking-tight">
               Choose a group
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
+          <div className="flex min-w-0 items-center gap-2">
+            {openProjectCreation ? <Button
               type="button"
-              className="rounded-lg px-5"
+              className="shrink-0 rounded-lg px-4 sm:px-5"
               style={{
                 backgroundColor: "var(--brand-primary-fixed)",
                 color: "var(--brand-primary-fixed-foreground)",
               }}
-              onClick={() => {
-                window.dispatchEvent(new Event("tracksphere-open-create-project"))
-              }}
+              onClick={openProjectCreation}
             >
               Create
-            </Button>
-            <div className="relative w-64">
+            </Button> : null}
+            <div className="relative min-w-0 flex-1 sm:w-64">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchValue}

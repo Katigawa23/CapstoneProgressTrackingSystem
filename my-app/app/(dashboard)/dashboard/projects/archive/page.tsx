@@ -200,8 +200,8 @@ export default function DashboardProjectArchivePage() {
             {errorMessage}
           </div>
         ) : null}
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-fixed border-collapse">
+        <div className="max-w-full overflow-x-auto" role="region" aria-label="Archived projects table" tabIndex={0}>
+          <table className="w-full min-w-[40rem] table-fixed border-collapse">
             <colgroup>
               <col className="w-9" />
               <col className="w-[22%]" />

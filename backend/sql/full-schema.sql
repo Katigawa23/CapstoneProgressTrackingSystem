@@ -29,6 +29,8 @@ create table if not exists projects (
   year_level text not null default '',
   sy_term text not null default '',
   project_type text not null default '',
+  research_approach text constraint projects_research_approach_v2_check
+    check (research_approach in ('Quantitative', 'Qualitative', 'Mixed Methods')),
   created_at timestamptz not null default now()
 );
 

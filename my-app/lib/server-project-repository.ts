@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto"
 import { mkdir, readFile, writeFile } from "fs/promises"
 import path from "path"
+import type { PoolClient } from "pg"
 
 import { getPreferredStorageMode } from "@backend/config/storage-mode"
 import { getDb } from "@/lib/server-db"
@@ -10,11 +11,14 @@ import {
 } from "@backend/db/fallback"
 import { ensureMicrosoftLoginSchema } from "@backend/repositories/users-repository"
 import { ensureCoordinatorAssignmentSchema } from "@/lib/server-coordinator-assignments"
+import { createWorkflowFromPreset, type ProjectWorkflowPreset } from "@/lib/project-workflow-presets"
 import {
   dashboardProjects,
+  isResearchApproach,
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
   type DashboardProject,
+  type ResearchApproach,
 } from "@/lib/projects"
 
 type ProjectRecord = {
@@ -33,6 +37,7 @@ type ProjectRecord = {
   year_level: string
   sy_term: string
   project_type: string
+  research_approach?: ResearchApproach | null
   created_at: string
   is_archived: boolean
   archived_at?: string | null
@@ -67,6 +72,14 @@ type CreateProjectInput = {
   yearLevel: string
   syTerm: string
   projectType: string
+  workflowPreset?: Exclude<ProjectWorkflowPreset, "existing">
+  researchApproach?: ResearchApproach
+}
+
+export class ProjectWorkflowStorageError extends Error {
+  constructor() {
+    super("Workflow presets require PostgreSQL storage. Choose Current workflow to create this project in file mode.")
+  }
 }
 
 export type ProjectMemberAccessView = {
@@ -148,6 +161,7 @@ function normalizeRawProjectRecord(record: RawProjectRecord): ProjectRecord {
     year_level: typeof record.year_level === "string" ? record.year_level : "",
     sy_term: typeof record.sy_term === "string" ? record.sy_term : "",
     project_type: typeof record.project_type === "string" ? record.project_type : "",
+    research_approach: isResearchApproach(record.research_approach) ? record.research_approach : null,
     is_archived: record.is_archived === true,
     archived_at: typeof record.archived_at === "string" ? record.archived_at : null,
     archived_by_user_id:
@@ -251,7 +265,11 @@ export async function ensureProjectsSchema() {
       .then(() =>
         getDb().query(`
           alter table projects
-          add column if not exists owner_user_id text not null default '';
+          add column if not exists owner_user_id text not null default '',
+          add column if not exists workflow_transitions jsonb,
+          add column if not exists workflow_board_columns jsonb,
+          add column if not exists workflow_requires_chapter boolean not null default true,
+          add column if not exists workflow_revision integer not null default 0;
         `)
       )
       .then(() =>
@@ -460,7 +478,19 @@ export async function ensureProjectsSchema() {
       .then(() =>
         getDb().query(`
           alter table projects
-          add column if not exists project_type text not null default '';
+          add column if not exists project_type text not null default '',
+          add column if not exists research_approach text;
+          do $$
+          begin
+            if not exists (
+              select 1 from pg_constraint
+              where conrelid = 'projects'::regclass and conname = 'projects_research_approach_v2_check'
+            ) then
+              alter table projects drop constraint if exists projects_research_approach_check;
+              alter table projects add constraint projects_research_approach_v2_check
+                check (research_approach in ('Quantitative', 'Qualitative', 'Mixed Methods'));
+            end if;
+          end $$;
         `)
       )
       .then(() =>
@@ -536,7 +566,8 @@ async function getStorageMode(): Promise<ProjectStorageMode> {
 
 async function withProjectStore<T>(
   databaseAction: () => Promise<T>,
-  fileAction: () => Promise<T>
+  fileAction: () => Promise<T>,
+  allowDatabaseFallback = true
 ) {
   const storageMode = await getStorageMode()
 
@@ -547,7 +578,7 @@ async function withProjectStore<T>(
   try {
     return await databaseAction()
   } catch (error) {
-    if (!shouldUseFileFallback(error)) {
+    if (!allowDatabaseFallback || !shouldUseFileFallback(error)) {
       throw error
     }
 
@@ -663,6 +694,7 @@ function mapRecord(record: ProjectRecord): DashboardProject {
     yearLevel: typeof record.year_level === "string" ? record.year_level : "",
     syTerm: typeof record.sy_term === "string" ? record.sy_term : "",
     projectType: typeof record.project_type === "string" ? record.project_type : "",
+    researchApproach: isResearchApproach(record.research_approach) ? record.research_approach : undefined,
     createdAt: normalizeProjectCreatedAt(record.created_at),
     archivedAt: record.archived_at ?? undefined,
     archivedBy: record.archived_by_name ?? record.archived_by_user_id ?? undefined,
@@ -683,6 +715,7 @@ function toRecord(project: DashboardProject, ownerUserId: string): ProjectRecord
     year_level: project.yearLevel,
     sy_term: project.syTerm,
     project_type: project.projectType,
+    research_approach: project.researchApproach ?? null,
     created_at: new Date().toISOString(),
     is_archived: false,
     archived_at: null,
@@ -742,6 +775,7 @@ function normalizeProject(input: CreateProjectInput): DashboardProject {
     yearLevel: input.yearLevel.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
     syTerm: input.syTerm.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
     projectType: input.projectType.trim().slice(0, PROJECT_METADATA_MAX_LENGTH),
+    researchApproach: input.researchApproach,
     createdAt: new Date().toISOString(),
   }
 }
@@ -778,6 +812,7 @@ export async function listProjects(ownerUserId: string) {
            projects.year_level,
            projects.sy_term,
            projects.project_type,
+           projects.research_approach,
            projects.created_at
          from projects
          left join latest_logins owner_login
@@ -1027,144 +1062,176 @@ export async function restoreArchivedProject(
   )
 }
 
-export async function createProject(input: CreateProjectInput, ownerUserId: string) {
+export async function createProject(input: CreateProjectInput, ownerUserId: string, requestId?: string) {
+  const workflow = input.workflowPreset ? createWorkflowFromPreset(input.workflowPreset) : null
   return withProjectStore(
     async () => {
-      const project = normalizeProject(input)
-      const normalizedProjectName = normalizeProjectNameForComparison(project.name)
-
-      const existingProjectResult = await getDb().query<{ id: string }>(
-        `select id
-         from projects
-         where regexp_replace(lower(btrim(project_name)), '[^a-z0-9]+', '', 'g') = $1
-         limit 1`,
-        [normalizedProjectName]
-      )
-
-      if ((existingProjectResult.rowCount ?? 0) > 0) {
-        throw new ProjectNameConflictError(project.name)
-      }
-
-      const requestedMemberUserIds = input.memberUserIds.filter(
-        (memberUserId) => memberUserId !== ownerUserId
-      )
-      const requestedStudentUserIds = (input.exclusiveStudentUserIds ?? input.memberUserIds).filter(
-        (memberUserId) => memberUserId !== ownerUserId
-      )
-      const approvedTransferIds = new Set(input.transferMemberUserIds ?? [])
-      const assignedResult = await getDb().query<{ member_user_id: string }>(
-        `select distinct member_user_id
-         from projects
-         cross join unnest(member_user_ids) as assigned(member_user_id)
-         where is_archived = false
-           and assigned.member_user_id = any($1::text[])`,
-        [requestedStudentUserIds]
-      )
-      const assignedIds = assignedResult.rows.map((row) => row.member_user_id)
-
-      if (assignedIds.some((memberUserId) => !approvedTransferIds.has(memberUserId))) {
-        throw new StudentAlreadyAssignedError()
-      }
-
-      const transferIds = assignedIds.filter((memberUserId) =>
-        approvedTransferIds.has(memberUserId)
-      )
-
-      if (transferIds.length > 0) {
-        const transferredFrom = await getDb().query<{ id: string }>(
-          `update projects
-           set member_user_ids = array(
-                 select existing.member_user_id
-                 from unnest(member_user_ids) as existing(member_user_id)
-                 where not (existing.member_user_id = any($1::text[]))
-               ),
-               sprint_creator_user_ids = array(
-                 select existing.member_user_id
-                 from unnest(sprint_creator_user_ids) as existing(member_user_id)
-                 where not (existing.member_user_id = any($1::text[]))
-               ),
-               project_member = array(
-                 select existing.member_name
-                 from unnest(project_member) as existing(member_name)
-                 where existing.member_name not in (
-                   select name from users where microsoft_user_id = any($1::text[])
-                 )
-               )
-           where member_user_ids && $1::text[]
-           returning id`,
-          [transferIds]
-        )
-
-        for (const previousProject of transferredFrom.rows) {
-          await syncProjectGroupFromProject(previousProject.id)
-        }
-      }
-
-      const result = await getDb().query<ProjectRecord>(
-        `insert into projects (
-           id,
-           owner_user_id,
-           member_user_ids,
-           sprint_creator_user_ids,
-           project_name,
-           project_member,
-           project_adviser,
-           is_starred,
-           program,
-           year_level,
-           sy_term,
-           project_type
-         )
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-         returning
-           id,
-           owner_user_id,
-           member_user_ids,
-           sprint_creator_user_ids,
-           project_name,
-           project_member,
-           project_adviser,
-           is_starred,
-           program,
-           year_level,
-           sy_term,
-           project_type,
-           created_at`,
-        [
-          project.id,
-          ownerUserId,
-          requestedMemberUserIds,
-          (input.sprintCreatorUserIds ?? []).filter((memberUserId) => memberUserId !== ownerUserId),
-          project.name,
-          project.members,
-          project.advisers,
-          project.starred,
-          project.program,
-          project.yearLevel,
-          project.syTerm,
-          project.projectType,
-        ]
-      )
-
-      await syncProjectGroupFromProject(project.id)
-
+      const client = await getDb().connect()
+      let stage = "begin"
       try {
-        await insertProjectMemberAccessRecords(
-          project.id,
-          ownerUserId,
-          Array.isArray(input.memberAccess) ? input.memberAccess : []
-        )
-      } catch (error) {
-        console.error("Failed to sync project member access records after project creation", {
-          projectId: project.id,
-          ownerUserId,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
+        await client.query("begin")
+        const project = normalizeProject(input)
+        const normalizedProjectName = normalizeProjectNameForComparison(project.name)
 
-      return mapRecord(result.rows[0])
+        stage = "check-name"
+        await client.query("select pg_advisory_xact_lock(hashtext('tracksphere-group-name'), hashtext($1))", [normalizedProjectName])
+        const existingProjectResult = await client.query<{ id: string }>(
+          `select id
+           from projects
+           where regexp_replace(lower(btrim(project_name)), '[^a-z0-9]+', '', 'g') = $1
+           limit 1`,
+          [normalizedProjectName]
+        )
+
+        if ((existingProjectResult.rowCount ?? 0) > 0) {
+          throw new ProjectNameConflictError(project.name)
+        }
+
+        const requestedMemberUserIds = input.memberUserIds.filter(
+          (memberUserId) => memberUserId !== ownerUserId
+        )
+        const requestedStudentUserIds = (input.exclusiveStudentUserIds ?? input.memberUserIds).filter(
+          (memberUserId) => memberUserId !== ownerUserId
+        )
+        const approvedTransferIds = new Set(input.transferMemberUserIds ?? [])
+        stage = "check-students"
+        if (requestedStudentUserIds.length) {
+          await client.query(
+            `select microsoft_user_id from users
+             where microsoft_user_id = any($1::text[]) order by microsoft_user_id for update`,
+            [requestedStudentUserIds]
+          )
+        }
+        const assignedResult = await client.query<{ member_user_id: string }>(
+          `select distinct member_user_id
+           from projects
+           cross join unnest(member_user_ids) as assigned(member_user_id)
+           where is_archived = false
+             and assigned.member_user_id = any($1::text[])`,
+          [requestedStudentUserIds]
+        )
+        const assignedIds = assignedResult.rows.map((row) => row.member_user_id)
+
+        if (assignedIds.some((memberUserId) => !approvedTransferIds.has(memberUserId))) {
+          throw new StudentAlreadyAssignedError()
+        }
+
+        const transferIds = assignedIds.filter((memberUserId) =>
+          approvedTransferIds.has(memberUserId)
+        )
+
+        if (transferIds.length > 0) {
+          stage = "transfer-students"
+          const transferredFrom = await client.query<{ id: string }>(
+            `update projects
+             set member_user_ids = array(
+                   select existing.member_user_id
+                   from unnest(member_user_ids) as existing(member_user_id)
+                   where not (existing.member_user_id = any($1::text[]))
+                 ),
+                 sprint_creator_user_ids = array(
+                   select existing.member_user_id
+                   from unnest(sprint_creator_user_ids) as existing(member_user_id)
+                   where not (existing.member_user_id = any($1::text[]))
+                 ),
+                 project_member = array(
+                   select existing.member_name
+                   from unnest(project_member) as existing(member_name)
+                   where existing.member_name not in (
+                     select name from users where microsoft_user_id = any($1::text[])
+                   )
+                 )
+             where member_user_ids && $1::text[]
+             returning id`,
+            [transferIds]
+          )
+
+          for (const previousProject of transferredFrom.rows) {
+            await syncProjectGroupFromProject(previousProject.id, client)
+          }
+        }
+
+        stage = "insert-project"
+        const result = await client.query<ProjectRecord>(
+          `insert into projects (
+             id,
+             owner_user_id,
+             member_user_ids,
+             sprint_creator_user_ids,
+             project_name,
+             project_member,
+             project_adviser,
+             is_starred,
+             program,
+             year_level,
+             sy_term,
+             project_type,
+             workflow_transitions,
+             workflow_board_columns,
+             workflow_requires_chapter,
+             research_approach,
+             workflow_revision
+           )
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15, $16, $17)
+           returning
+             id,
+             owner_user_id,
+             member_user_ids,
+             sprint_creator_user_ids,
+             project_name,
+             project_member,
+             project_adviser,
+             is_starred,
+             program,
+             year_level,
+             sy_term,
+             project_type,
+             research_approach,
+             created_at`,
+          [
+            project.id,
+            ownerUserId,
+            requestedMemberUserIds,
+            (input.sprintCreatorUserIds ?? []).filter((memberUserId) => memberUserId !== ownerUserId),
+            project.name,
+            project.members,
+            project.advisers,
+            project.starred,
+            project.program,
+            project.yearLevel,
+            project.syTerm,
+            project.projectType,
+            workflow ? JSON.stringify(workflow.transitions) : null,
+            workflow ? JSON.stringify(workflow.boardColumns) : null,
+            workflow?.requiresChapter ?? true,
+            project.researchApproach ?? null,
+            workflow ? 1 : 0,
+          ]
+        )
+
+        stage = "sync-group"
+        await syncProjectGroupFromProject(project.id, client)
+        stage = "sync-member-access"
+        await insertProjectMemberAccessRecords(project.id, ownerUserId, input.memberAccess ?? [], client)
+        const createdProject = mapRecord(result.rows[0])
+        stage = "commit"
+        await client.query("commit")
+        return createdProject
+      } catch (error) {
+        await client.query("rollback").catch(() => {
+          console.error("Group creation rollback failed", { requestId, stage })
+        })
+        if (!(error instanceof ProjectNameConflictError) && !(error instanceof StudentAlreadyAssignedError)) {
+          const code = typeof error === "object" && error && "code" in error ? error.code : undefined
+          console.error("Group creation database failure", { requestId, stage, code })
+        }
+        throw error
+      } finally {
+        client.release()
+      }
     },
     async () => {
+      if (workflow) throw new ProjectWorkflowStorageError()
       const project = normalizeProject(input)
       const records = await readFileRecords()
       const normalizedProjectName = normalizeProjectNameForComparison(project.name)
@@ -1221,7 +1288,8 @@ export async function createProject(input: CreateProjectInput, ownerUserId: stri
       })
       await writeFileRecords(records)
       return project
-    }
+    },
+    false
   )
 }
 
@@ -1299,6 +1367,7 @@ export async function updateProjectStarred(
            projects.year_level,
            projects.sy_term,
            projects.project_type,
+           projects.research_approach,
            projects.created_at
          from projects
          left join project_starred_preferences
@@ -1357,7 +1426,8 @@ async function insertProjectMemberAccessRecords(
     userId: string
     role: string
     canCreateSprint: boolean
-  }>
+  }>,
+  client: PoolClient
 ) {
   const normalizedAccessByUserId = new Map<
     string,
@@ -1394,7 +1464,7 @@ async function insertProjectMemberAccessRecords(
   const normalizedAccess = [...normalizedAccessByUserId.values()]
 
   if (normalizedAccess.length === 0) {
-    await syncProjectGroupFromProject(projectId)
+    await syncProjectGroupFromProject(projectId, client)
     return
   }
 
@@ -1403,7 +1473,7 @@ async function insertProjectMemberAccessRecords(
     .filter((member) => member.canCreateSprint)
     .map((member) => member.userId)
 
-  await getDb().query(
+  await client.query(
     `update groups
      set created_by_user_id = $2,
          member_user_ids = $3::text[],
@@ -1413,7 +1483,7 @@ async function insertProjectMemberAccessRecords(
     [projectId, ownerUserId, memberUserIds, sprintCreatorUserIds]
   )
 
-  await getDb().query(
+  await client.query(
     `insert into groups (
        project_id,
        group_name,
@@ -1440,8 +1510,8 @@ async function insertProjectMemberAccessRecords(
   )
 }
 
-async function syncProjectGroupFromProject(projectId: string) {
-  await getDb().query(
+async function syncProjectGroupFromProject(projectId: string, database: Pick<PoolClient, "query"> = getDb()) {
+  await database.query(
     `update groups
      set group_name = projects.project_name,
          created_by_user_id = projects.owner_user_id,
@@ -1454,7 +1524,7 @@ async function syncProjectGroupFromProject(projectId: string) {
     [projectId]
   )
 
-  await getDb().query(
+  await database.query(
     `insert into groups (
        project_id,
        group_name,

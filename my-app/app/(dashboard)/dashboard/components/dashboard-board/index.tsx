@@ -1,6 +1,8 @@
 "use client"
 
 import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
+import { ProjectWorkflowContext } from "@/lib/project-workflow-client"
+import { TaskResearchProgress } from "./task-research-progress"
 import * as React from "react"
 import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 import { DragDropContext, type DragStart, type DropResult } from "@hello-pangea/dnd"
@@ -40,7 +42,7 @@ import {
 } from "@/lib/dashboard-activity-sync"
 import { COMMENT_BODY_MAX_LENGTH } from "@/lib/text-validation"
 
-import { columns } from "../../constants"
+import { getBoardColumns } from "../../constants"
 import type {
   DashboardComment,
   DashboardSubmission,
@@ -101,6 +103,7 @@ function formatAttachmentLimit(limit: number) {
 }
 
 export function DashboardBoard({
+  researchApproach,
   todos: incomingTodos,
   openTodoId = null,
   onTaskDialogClose,
@@ -127,6 +130,9 @@ export function DashboardBoard({
 }: DashboardBoardProps) {
   const isMobile = useIsMobile()
   const isStudent = useRole() === "student"
+  const workflow = React.useContext(ProjectWorkflowContext)
+  const projectTransitions = workflow?.transitions
+  const columns = getBoardColumns(workflow?.boardColumns)
   const canAccessComments = Boolean(currentUserId?.trim()) && !isSuperAdminViewer(currentUserId)
   const todos = React.useMemo(
     () => dedupeItemsById(incomingTodos),
@@ -1330,10 +1336,7 @@ export function DashboardBoard({
   const isDropDisabled = (target: TodoItem["status"]) => {
     if (!dragSource) return false
     if (target === dragSource) return isStudent || dragSource === "revision"
-    // Let adviser drops on earlier stages reach the status warning.
-    if (!isStudent && ((dragSource === "revision" && target === "inprogress") ||
-      ((dragSource === "inprogress" || dragSource === "revision") && target === "todo"))) return false
-    return !canTransitionTaskStatus(dragSource, target, isStudent ? "student" : "faculty")
+    return !canTransitionTaskStatus(dragSource, target, isStudent ? "student" : "faculty", projectTransitions)
   }
 
   const handleDragEnd = React.useCallback(
@@ -1356,7 +1359,12 @@ export function DashboardBoard({
       if (!draggedTodo) return
       if (isTaskCompletionLocked(draggedTodo, todos)) return
       if (sourceColumnId !== destinationColumnId) {
-        if (!isStudent || canTransitionTaskStatus(sourceColumnId, destinationColumnId, "student")) {
+        if (canTransitionTaskStatus(
+          sourceColumnId,
+          destinationColumnId,
+          isStudent ? "student" : "faculty",
+          projectTransitions
+        )) {
           void onStatusChange(draggableId, destinationColumnId)
         }
         return
@@ -1385,7 +1393,7 @@ export function DashboardBoard({
 
       void onMoveTodo(draggableId, targetTodo?.id ?? null, destinationColumnId)
     },
-    [canChangeTaskState, getColumnTodos, isDragDisabled, isSavingTaskStatus, isStudent, onMoveTodo, onStatusChange, todos]
+    [canChangeTaskState, getColumnTodos, isDragDisabled, isSavingTaskStatus, isStudent, onMoveTodo, onStatusChange, projectTransitions, todos]
   )
 
   const selectedTodoIdParts = React.useMemo(() => {
@@ -1456,7 +1464,9 @@ export function DashboardBoard({
       ) : null}
 
       {renderColumns && !isMobile ? (
-      <div className="min-h-0 w-full flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 lg:grid-cols-4">
+      <div className={columns.length > 4
+        ? "flex min-h-0 w-full flex-1 gap-3 overflow-x-auto [&>*]:min-w-60 [&>*]:flex-1"
+        : "min-h-0 w-full flex-1 items-stretch gap-3 overflow-hidden md:grid md:grid-cols-2 lg:grid-cols-4"}>
         {columns.map((column) => {
           const columnTodos = getColumnTodos(column.id)
 
@@ -1538,15 +1548,15 @@ export function DashboardBoard({
                 </div>
               </div>
             ) : (
-            <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-y-auto overflow-x-hidden lg:grid lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)] lg:overflow-hidden">
+            <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-y-auto overflow-x-hidden lg:grid lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
               <div
-                className={`min-w-0 shrink-0 p-4 sm:p-5 lg:min-h-0 lg:p-6 ${
+                className={`min-w-0 shrink-0 p-4 sm:p-5 lg:min-h-0 lg:overflow-y-auto lg:overflow-x-hidden lg:overscroll-contain lg:p-6 ${
                   isSubmissionActionsOpen[selectedTodo.id]
                     ? "order-1 border-slate-200 pt-10 dark:border-[var(--border)] sm:pt-12 lg:border-r lg:pt-12"
                     : "order-1 border-slate-200 dark:border-[var(--border)] lg:border-r"
                 }`}
               >
-                <div className="min-w-0 [overflow-wrap:anywhere] sm:pr-3 lg:h-full lg:overflow-y-auto lg:pr-4">
+                <div className="min-w-0 [overflow-wrap:anywhere] sm:pr-3 lg:pr-4">
                   {!isSubmissionActionsOpen[selectedTodo.id] ? (
                     <>
                       <DialogHeader className="mb-5 text-left sm:mb-6">
@@ -1649,6 +1659,13 @@ export function DashboardBoard({
                     onAddLink={(value) => handleAddWebLink(selectedTodo.id, value)}
                     onArchiveLink={(value) => handleArchiveLinkRequest(selectedTodo.id, value)}
                   />
+                  {researchApproach && canAccessComments ? (
+                    <TaskResearchProgress
+                      key={selectedTodo.id}
+                      taskId={selectedTodo.id}
+                      canEdit={isStudent && canChangeTaskState && !selectedTaskLocked}
+                    />
+                  ) : null}
 
                   {selectedTodo.parentId ||
                   (isSubmissionActionsOpen[selectedTodo.id] ?? false) ||

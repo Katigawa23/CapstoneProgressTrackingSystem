@@ -124,17 +124,17 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 shadow-sm backdrop-blur-md dark:border-[var(--border)] dark:bg-[var(--background)] dark:shadow-none">
-      <div className="mx-auto flex h-16 w-full max-w-[92rem] items-center justify-between px-4 sm:px-6 xl:px-8">
-        <div className="flex items-center gap-3">
+      <div className="mx-auto flex h-16 w-full max-w-[92rem] items-center justify-between gap-1 px-2 sm:px-6 xl:px-8">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-3">
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="lg:hidden">
+              <Button variant="outline" size="icon" className="size-10 shrink-0 lg:hidden">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>
 
-              <SheetContent side="left" className="w-[85vw] max-w-sm border-border bg-background p-0">
+              <SheetContent side="left" className="w-[85vw] max-w-sm overflow-y-auto border-border bg-background p-0">
               <SheetHeader className="border-b border-border px-5 py-5 text-left">
                 <SheetTitle className="flex items-center gap-3 font-display text-xl">
                   <span>
@@ -181,7 +181,7 @@ export default function Navbar() {
           <Link
             href="/"
             onClick={handleLogoClick}
-            className="flex items-center gap-3 font-display text-xl font-extrabold tracking-tight sm:text-2xl"
+            className="flex items-center font-display text-lg font-extrabold tracking-tight sm:text-2xl"
           >
             <span>
               <span style={{ color: "var(--logo-track)" }}>Track</span>

@@ -1,6 +1,7 @@
 import type { ColumnId } from "./types"
+import type { ProjectBoardColumn } from "@/lib/task-status-transitions"
 
-export const columns: { id: ColumnId; title: string; color: string }[] = [
+export const columns: { id: ColumnId; title: string; color: string; wipLimit?: number }[] = [
   { id: "todo", title: "To-do", color: "bg-[var(--brand-primary-fixed)]" },
   { id: "inprogress", title: "In Progress", color: "bg-yellow-500" },
   { id: "revision", title: "Revision", color: "bg-orange-500" },
@@ -14,8 +15,16 @@ export const people = [
   { name: "D", src: "" },
 ]
 
+export function getBoardColumns(configuration?: readonly ProjectBoardColumn[]) {
+  if (!configuration) return columns
+  return configuration.map(({ id, label, wipLimit }) => {
+    const column = columns.find((entry) => entry.id === id)
+    return { id, title: label ?? column?.title ?? "Custom status", color: column?.color ?? "bg-sky-500", wipLimit }
+  })
+}
+
 export const cardStatusStyles: Record<
-  ColumnId,
+  Exclude<ColumnId, `custom-${string}`>,
   { label: string; className: string }
 > = {
   todo: {

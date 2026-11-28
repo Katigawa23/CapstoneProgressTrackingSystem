@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { getResearchCountUnit, type ResearchApproach } from "@/lib/projects"
 import { Label } from "@/components/ui/label"
 import {
   Popover,
@@ -45,6 +46,8 @@ type CreateWorkItemDialogProps = {
   assigneeId?: string | null
   priority?: "Low" | "Medium" | "High"
   chapterNumber?: number | null
+  requiresChapter?: boolean
+  researchApproach?: ResearchApproach
   titleError?: string | null
   onTitleChange: (value: string) => void
   onStartDateChange: (value: Date | undefined) => void
@@ -54,7 +57,7 @@ type CreateWorkItemDialogProps = {
   onPriorityChange?: (value: "Low" | "Medium" | "High") => void
   onChapterChange?: (value: number) => void
   isSubmitting?: boolean
-  onAddItem: () => void
+  onAddItem: (researchTarget?: number) => void
   mode?: "task" | "subtask"
 }
 
@@ -68,6 +71,8 @@ export function CreateWorkItemDialog({
   assigneeId = null,
   priority = "Medium",
   chapterNumber = null,
+  requiresChapter = true,
+  researchApproach,
   titleError = null,
   onTitleChange,
   onStartDateChange,
@@ -84,6 +89,20 @@ export function CreateWorkItemDialog({
   const displayedTitleError = hasInvalidTitle ? TASK_TITLE_CHARACTERS_ERROR : titleError
   const [startDateOpen, setStartDateOpen] = React.useState(false)
   const [dueDateOpen, setDueDateOpen] = React.useState(false)
+  const [trackResearch, setTrackResearch] = React.useState(false)
+  const [researchTarget, setResearchTarget] = React.useState("")
+  const showResearchOption = Boolean(researchApproach && mode === "task")
+  const researchUnit = getResearchCountUnit(researchApproach)
+  const startsResearchCounter = showResearchOption && trackResearch
+  const target = Number(researchTarget)
+  const validResearchTarget = Number.isInteger(target) && target >= 1 && target <= 1000000
+
+  React.useEffect(() => {
+    if (!open) {
+      setTrackResearch(false)
+      setResearchTarget("")
+    }
+  }, [open])
 
   const normalizeDate = (date: Date) => {
     const nextDate = new Date(date)
@@ -154,7 +173,7 @@ export function CreateWorkItemDialog({
 
           {isSubtaskMode ? null : (
             <>
-              <div className="min-w-0 space-y-1">
+              {requiresChapter ? <div className="min-w-0 space-y-1">
                 <Label className="text-slate-900 dark:text-slate-100">
                   Chapter <span className="text-red-500">*</span>
                 </Label>
@@ -175,7 +194,7 @@ export function CreateWorkItemDialog({
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
+              </div> : null}
               <div className="min-w-0 space-y-1">
                 <Label className="text-slate-900 dark:text-slate-100">
                   Start date <span className="text-red-500">*</span>
@@ -410,6 +429,36 @@ export function CreateWorkItemDialog({
             />
           </div>
 
+          {showResearchOption ? (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={trackResearch}
+                  disabled={isSubmitting}
+                  onChange={(event) => setTrackResearch(event.target.checked)}
+                />
+                Track research count
+              </label>
+              {trackResearch ? (
+                <div className="space-y-1">
+                  <Label htmlFor="task-research-target">Target {researchUnit}</Label>
+                  <Input
+                    id="task-research-target"
+                    type="number"
+                    className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    min={1}
+                    max={1000000}
+                    step={1}
+                    value={researchTarget}
+                    disabled={isSubmitting}
+                    onChange={(event) => setResearchTarget(event.target.value)}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="flex justify-end gap-2 border-t border-slate-200 pt-2.5 dark:border-[var(--border)]">
             <Button
               type="button"
@@ -429,13 +478,14 @@ export function CreateWorkItemDialog({
               }}
               size="sm"
             className="h-8 min-w-24 rounded-[2px] px-3 text-sm hover:opacity-90"
-            onClick={onAddItem}
+            onClick={() => onAddItem(startsResearchCounter ? target : undefined)}
             disabled={
               isSubmitting ||
               !title.trim() ||
               hasInvalidTitle ||
               (!isSubtaskMode && (!startDate || !dueDate))
-              || (!isSubtaskMode && !chapterNumber)
+              || (!isSubtaskMode && requiresChapter && !chapterNumber)
+              || (startsResearchCounter && !validResearchTarget)
             }
           >
             {isSubmitting
