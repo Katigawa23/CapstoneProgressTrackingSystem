@@ -38,9 +38,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    ".data/survey-browser-dev/types/**/*.ts",
-    ".data/survey-browser-dev/types/**/*.ts"
+    "**/*.mts"
   ],
   "exclude": [
     "node_modules"

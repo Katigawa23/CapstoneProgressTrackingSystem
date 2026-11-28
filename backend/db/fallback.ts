@@ -1,4 +1,4 @@
-insteaexport function canUseLocalFileFallback() {
+export function canUseLocalFileFallback() {
   return process.env.NODE_ENV !== "production"
 }
 
