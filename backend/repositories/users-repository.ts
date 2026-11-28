@@ -224,10 +224,12 @@ export async function searchRegisteredMicrosoftUsers({
   tenantId,
   query,
   limit = 8,
+  role,
 }: {
   tenantId: string
   query?: string
   limit?: number
+  role?: "student" | "faculty" | null
 }): Promise<RegisteredMicrosoftUser[]> {
   await ensureMicrosoftLoginSchema()
 
@@ -253,6 +255,7 @@ export async function searchRegisteredMicrosoftUsers({
        from users
        where tenant_id = $1
          and (role not in ('faculty', 'adviser') or faculty_verification_status='approved')
+         and ($5::text is null or role = $5 or ($5 = 'faculty' and role = 'adviser'))
          and (
            $2 = ''
            or name ilike $3
@@ -270,7 +273,7 @@ export async function searchRegisteredMicrosoftUsers({
      from latest_users
      order by name asc, email asc
      limit $4`,
-    [tenantId, normalizedQuery, searchPattern, Math.max(1, Math.min(limit, 20))]
+    [tenantId, normalizedQuery, searchPattern, Math.max(1, Math.min(limit, 20)), role ?? null]
   )
 
   return result.rows.map((row) => ({

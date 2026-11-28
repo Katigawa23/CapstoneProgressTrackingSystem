@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
+import { ProjectWorkflowSettings } from "@/components/projects/project-workflow-settings"
 import { readClientAuthSession, subscribeToAuthChange } from "@/lib/auth-client"
 import { markDashboardProjectPageSeenInSession } from "@/lib/dashboard-first-open"
 import {
@@ -323,6 +324,9 @@ export default function MembersPage() {
               ? `View members and manage project access for ${selectedProject.name}.`
               : "Select a project to view its members."}
           </p>
+          {selectedProject?.researchApproach ? (
+            <p className="mt-1 text-xs text-muted-foreground">Research approach · {selectedProject.researchApproach}</p>
+          ) : null}
         </div>
         <div className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -334,6 +338,8 @@ export default function MembersPage() {
           />
         </div>
       </div>
+
+      {projectId && selectedProject ? <ProjectWorkflowSettings key={projectId} projectId={projectId} /> : null}
 
       {actionError ? (
         <div className="rounded-[2px] border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">

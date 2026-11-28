@@ -3,6 +3,8 @@
 import * as React from "react"
 
 import { readClientAuthSession, type AuthenticatedUser } from "@/lib/auth-client"
+import type { ProjectWorkflowPreset } from "@/lib/project-workflow-presets"
+import type { ResearchApproach } from "@/lib/projects"
 import {
   cacheDashboardProjects,
   createDashboardProject,
@@ -62,13 +64,16 @@ function canViewMemberOption(
 export function useDashboardProjects({
   initialProjects = [],
   initialTeam = null,
+  createProjectOpen,
+  setCreateProjectOpen,
 }: {
   initialProjects?: DashboardProject[]
   initialTeam?: DashboardProject | null
-} = {}) {
+  createProjectOpen: boolean
+  setCreateProjectOpen: (open: boolean) => void
+}) {
   const [projects, setProjects] = React.useState<DashboardProject[]>(initialProjects)
   const [team, setTeam] = React.useState<DashboardProject | null>(initialTeam)
-  const [createProjectOpen, setCreateProjectOpen] = React.useState(false)
   const [projectTitle, setProjectTitle] = React.useState("")
   const [projectProgram, setProjectProgram] = React.useState("")
   const [projectYearLevel, setProjectYearLevel] = React.useState("")
@@ -79,6 +84,7 @@ export function useDashboardProjects({
   const [memberSearch, setMemberSearch] = React.useState("")
   const [memberOptions, setMemberOptions] = React.useState<ProjectMemberOption[]>([])
   const [memberOptionsLoading, setMemberOptionsLoading] = React.useState(false)
+  const [memberOptionsError, setMemberOptionsError] = React.useState(false)
   const [selectedMembers, setSelectedMembers] = React.useState<ProjectMemberOption[]>([])
   const [transferMemberUserIds, setTransferMemberUserIds] = React.useState<Set<string>>(
     () => new Set()
@@ -90,6 +96,7 @@ export function useDashboardProjects({
   const [adviserSearch, setAdviserSearch] = React.useState("")
   const [adviserOptions, setAdviserOptions] = React.useState<ProjectMemberOption[]>([])
   const [adviserOptionsLoading, setAdviserOptionsLoading] = React.useState(false)
+  const [adviserOptionsError, setAdviserOptionsError] = React.useState(false)
   const [selectedAdvisers, setSelectedAdvisers] = React.useState<ProjectMemberOption[]>([])
   const [isCreatingProject, setIsCreatingProject] = React.useState(false)
   const [createProjectError, setCreateProjectError] = React.useState<string | null>(null)
@@ -135,17 +142,19 @@ export function useDashboardProjects({
     setProjectTypeOther("")
     setMemberSearch("")
     setMemberOptions([])
+    setMemberOptionsError(false)
     setSelectedMembers([])
     setTransferMemberUserIds(new Set())
     setPendingStudentTransfer(null)
     setAdviserSearch("")
     setAdviserOptions([])
+    setAdviserOptionsError(false)
     setSelectedAdvisers([])
     setCreateProjectError(null)
   }, [])
 
   React.useEffect(() => {
-    if (!createProjectOpen) {
+    if (!createProjectOpen || !projectProgram) {
       return
     }
 
@@ -155,9 +164,10 @@ export function useDashboardProjects({
     const timeoutId = window.setTimeout(async () => {
       try {
         setMemberOptionsLoading(true)
+        setMemberOptionsError(false)
 
         const response = await fetch(
-          `/api/registered-users?role=student&q=${encodeURIComponent(memberSearch.trim())}`,
+          `/api/registered-users?role=student&program=${encodeURIComponent(projectProgram)}&q=${encodeURIComponent(memberSearch.trim())}`,
           {
             method: "GET",
             cache: "no-store",
@@ -192,6 +202,7 @@ export function useDashboardProjects({
         console.error("Failed to load registered users", error)
         if (latestMemberRequestId.current === requestId) {
           setMemberOptions([])
+          setMemberOptionsError(true)
         }
       } finally {
         if (latestMemberRequestId.current === requestId) {
@@ -204,7 +215,7 @@ export function useDashboardProjects({
       controller.abort()
       window.clearTimeout(timeoutId)
     }
-  }, [createProjectOpen, memberSearch])
+  }, [createProjectOpen, memberSearch, projectProgram])
 
   React.useEffect(() => {
     if (!createProjectOpen) return
@@ -215,6 +226,7 @@ export function useDashboardProjects({
     const timeoutId = window.setTimeout(async () => {
       try {
         setAdviserOptionsLoading(true)
+        setAdviserOptionsError(false)
         const response = await fetch(
           `/api/registered-users?role=faculty&q=${encodeURIComponent(adviserSearch.trim())}`,
           { method: "GET", cache: "no-store", signal: controller.signal }
@@ -232,7 +244,10 @@ export function useDashboardProjects({
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           console.error("Failed to load advisers", error)
-          if (latestAdviserRequestId.current === requestId) setAdviserOptions([])
+          if (latestAdviserRequestId.current === requestId) {
+            setAdviserOptions([])
+            setAdviserOptionsError(true)
+          }
         }
       } finally {
         if (latestAdviserRequestId.current === requestId) setAdviserOptionsLoading(false)
@@ -333,7 +348,7 @@ export function useDashboardProjects({
     [projects]
   )
 
-  const createProject = React.useCallback(async () => {
+  const createProject = React.useCallback(async (workflowPreset?: ProjectWorkflowPreset, researchApproach?: ResearchApproach) => {
     if (isCreatingProject) {
       return null
     }
@@ -366,6 +381,7 @@ export function useDashboardProjects({
       .filter((member) => member.userId)
 
     if (!title || !program || !yearLevel || !syTerm || !resolvedProjectType || memberNames.length === 0) {
+      setCreateProjectError("Complete the required group fields and select at least one student.")
       return null
     }
 
@@ -392,6 +408,8 @@ export function useDashboardProjects({
         yearLevel,
         syTerm,
         projectType: resolvedProjectType,
+        workflowPreset,
+        researchApproach,
       })
     } catch (error) {
       const message =
@@ -445,11 +463,13 @@ export function useDashboardProjects({
     resetCreateProjectForm,
     selectedAdvisers,
     selectedMembers,
+    setCreateProjectOpen,
     transferMemberUserIds,
   ])
 
   return {
     adviserOptions,
+    adviserOptionsError,
     adviserOptionsLoading,
     adviserSearch,
     createProject,
@@ -467,6 +487,7 @@ export function useDashboardProjects({
     handleProjectTitleChange,
     memberSearch,
     memberOptions,
+    memberOptionsError,
     memberOptionsLoading,
     projectProgram,
     projectSyTerm,
@@ -482,7 +503,17 @@ export function useDashboardProjects({
     selectProject,
     setCreateProjectOpen,
     setAdviserSearch,
-    setProjectProgram,
+    setProjectProgram: (program: string) => {
+      if (program === projectProgram) return
+      latestMemberRequestId.current++
+      setProjectProgram(program)
+      setMemberOptions([])
+      setMemberOptionsError(false)
+      setMemberSearch("")
+      setSelectedMembers([])
+      setTransferMemberUserIds(new Set())
+      setPendingStudentTransfer(null)
+    },
     setProjectSyTerm,
     setProjectSyTermOther,
     setProjectType,

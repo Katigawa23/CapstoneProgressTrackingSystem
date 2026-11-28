@@ -142,13 +142,13 @@ export default async function ProfilePage({ searchParams }: {
           </div>
         </section>
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_1.35fr]">
-          <div className="space-y-5">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 [overflow-wrap:anywhere] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+          <div className="min-w-0 space-y-5">
             <section className="rounded-xl border bg-card p-5 dark:border-[var(--border)] dark:bg-[var(--card)]">
               <h3 className="font-display font-semibold">Account information</h3>
               <div className="mt-4 space-y-4">
                 <div className="flex gap-3"><UserRound className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Full name</p><p className="text-sm font-medium">{user.name}</p></div></div>
-                <div className="flex gap-3"><Mail className="mt-0.5 h-4 w-4 text-muted-foreground" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Microsoft account</p><p className="truncate text-sm font-medium">{user.email}</p></div></div>
+                <div className="flex gap-3"><Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Microsoft account</p><p className="text-sm font-medium">{user.email}</p></div></div>
                 <div className="flex gap-3"><ShieldCheck className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">System role</p><p className="text-sm font-medium">{profileRoleLabel}</p></div></div>
                 {studentProfile ? <>
                   <div><p className="text-xs text-muted-foreground">Course / program</p><p className="text-sm font-medium">{studentProfile.program}</p></div>
@@ -169,7 +169,7 @@ export default async function ProfilePage({ searchParams }: {
             </section> : null}
           </div>
 
-          <div className="space-y-5">
+          <div className="min-w-0 space-y-5">
             <section className="rounded-xl border bg-card p-5 dark:border-[var(--border)] dark:bg-[var(--card)]">
               <div className="flex items-center justify-between gap-3"><div><h3 className="font-display font-semibold">{isCoordinator ? "Journal overview" : isAdviser ? "Review overview" : "Task progress"}</h3><p className="mt-0.5 text-xs text-muted-foreground">{isCoordinator ? "Weekly journals across all monitored groups." : isAdviser ? "Task review workload for the selected group." : "Tasks assigned to you in the current project."}</p></div><Link href={isCoordinator ? "/dashboard/journal" : "/dashboard/board"} className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--brand-primary-fixed)] hover:underline">{isCoordinator ? "View journals" : "View board"} <ArrowRight className="h-3.5 w-3.5" /></Link></div>
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

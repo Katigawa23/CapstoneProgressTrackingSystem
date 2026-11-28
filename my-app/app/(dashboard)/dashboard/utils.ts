@@ -1,4 +1,5 @@
 import type { BacklogApiItem, ColumnId, TodoItem } from "./types"
+import { isCustomTaskStatus } from "@/lib/task-status-transitions"
 import { getAssigneeOption } from "./backlog/types"
 import { formatTrustedDate } from "@/lib/trusted-time"
 
@@ -44,7 +45,8 @@ export function isDashboardColumn(status: string): status is ColumnId {
     status === "todo" ||
     status === "inprogress" ||
     status === "revision" ||
-    status === "completed"
+    status === "completed" ||
+    isCustomTaskStatus(status)
   )
 }
 

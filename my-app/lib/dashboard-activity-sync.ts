@@ -1,5 +1,7 @@
 "use client"
 
+import { isCustomTaskStatus, type BoardStatus } from "@/lib/task-status-transitions"
+
 export const DASHBOARD_ACTIVITY_SYNC_EVENT = "tracksphere-dashboard-activity-sync"
 const DASHBOARD_ACTIVITY_SYNC_STORAGE_KEY = "tracksphere-dashboard-activity-sync"
 
@@ -9,7 +11,7 @@ export type DashboardActivitySyncPayload = {
   checked?: boolean
   detailsChanged?: boolean
   orderIndex?: number
-  status?: "todo" | "inprogress" | "revision" | "completed"
+  status?: BoardStatus
 }
 
 function isBrowser() {
@@ -47,7 +49,8 @@ function isPayload(value: unknown): value is DashboardActivitySyncPayload {
       candidate.status === "todo" ||
       candidate.status === "inprogress" ||
       candidate.status === "revision" ||
-      candidate.status === "completed"
+      candidate.status === "completed" ||
+      isCustomTaskStatus(candidate.status)
     )
   )
 }

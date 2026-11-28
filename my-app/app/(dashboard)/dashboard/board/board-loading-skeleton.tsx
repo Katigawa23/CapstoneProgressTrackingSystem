@@ -8,10 +8,10 @@ import {
   MoreHorizontal,
   UserRound,
 } from "lucide-react"
-import { columns, people } from "../constants"
+import { people } from "../constants"
 import type { DashboardBoardState } from "@/lib/dashboard-board-state"
 
-function BoardCardSkeleton({ color }: { color: string }) {
+function BoardCardSkeleton() {
   return (
     <div className="relative pt-1">
       <div className="w-full border border-[var(--board-task-border)] bg-[var(--board-task-bg)] p-2 text-left shadow-[var(--board-task-shadow)]">
@@ -19,7 +19,7 @@ function BoardCardSkeleton({ color }: { color: string }) {
           <span className="flex items-center gap-1.5">
             <span
               aria-hidden="true"
-              className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`}
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted"
             />
             <Skeleton className="h-3 w-10" />
           </span>
@@ -74,13 +74,9 @@ function BoardCardSkeleton({ color }: { color: string }) {
 }
 
 function BoardColumnSkeleton({
-  title,
-  color,
   previewCards,
   className = "",
 }: {
-  title: string
-  color: string
   previewCards: number
   className?: string
 }) {
@@ -90,7 +86,7 @@ function BoardColumnSkeleton({
         <div className="px-3 pb-1.5">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-1.5 text-xs font-semibold dark:text-slate-100">
-              <span className={`h-2 w-2 rounded-full ${color}`} />
+              <Skeleton className="h-2 w-2 rounded-full" />
               <Skeleton className="h-3 w-16 rounded-sm" />
               <span className="inline-flex items-center">
                 <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -105,7 +101,7 @@ function BoardColumnSkeleton({
 
             <button
               type="button"
-              aria-label={`${title} actions`}
+              aria-label="Column actions"
               disabled
               className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 dark:text-slate-400"
             >
@@ -121,7 +117,7 @@ function BoardColumnSkeleton({
         <div className="board-column-scroll h-[240px] w-full overflow-y-auto pt-0 pr-2 pb-2 sm:h-[280px] lg:h-[340px] xl:h-[420px]">
           <div className={`space-y-0.5 ${previewCards === 0 ? "h-full" : ""}`}>
             {Array.from({ length: previewCards }).map((_, index) => (
-              <BoardCardSkeleton key={index} color={color} />
+              <BoardCardSkeleton key={index} />
             ))}
           </div>
         </div>
@@ -189,12 +185,10 @@ export function BoardLoadingSkeleton({
 
       <div className="md:hidden min-h-0 flex-1 overflow-x-auto px-2 sm:px-4">
         <div className="flex min-h-0 w-max items-stretch gap-3">
-          {columns.map((column, index) => (
+          {visibleCardCounts.map((previewCards, index) => (
             <BoardColumnSkeleton
-              key={column.id}
-              title={column.title}
-              color={column.color}
-              previewCards={visibleCardCounts[index] ?? 0}
+              key={index}
+              previewCards={previewCards}
               className="min-w-[280px]"
             />
           ))}
@@ -202,12 +196,10 @@ export function BoardLoadingSkeleton({
       </div>
 
       <div className="hidden min-h-0 w-full flex-1 items-stretch gap-3 md:grid md:grid-cols-2 lg:grid-cols-4">
-        {columns.map((column, index) => (
+        {visibleCardCounts.map((previewCards, index) => (
           <BoardColumnSkeleton
-            key={column.id}
-            title={column.title}
-            color={column.color}
-            previewCards={visibleCardCounts[index] ?? 0}
+            key={index}
+            previewCards={previewCards}
           />
         ))}
       </div>

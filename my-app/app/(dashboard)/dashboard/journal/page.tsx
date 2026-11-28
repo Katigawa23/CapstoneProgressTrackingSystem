@@ -31,6 +31,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
     <WeeklyJournalView
       groupCreatedAt={selectedProject.createdAt}
       projectName={selectedProject.name}
+      researchApproach={selectedProject.researchApproach}
       initialNow={new Date().toISOString()}
       canApprove={user.id === "tester-coordinator"}
       isPrivacyRestricted={user.id === "tester-admin"}

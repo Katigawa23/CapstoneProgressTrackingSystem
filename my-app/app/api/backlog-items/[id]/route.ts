@@ -1,4 +1,5 @@
 import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
+import { canPersistProjectWorkflow, getProjectWorkflow } from "@/lib/server-project-workflow"
 import { canAccessTask } from "@/lib/server-project-access"
 import { listBacklogSubmissions, listBacklogWebLinks } from "@backend/repositories/attachments-repository"
 import { revalidateTag } from "next/cache"
@@ -10,6 +11,7 @@ import { isAssignedCoordinator } from "@/lib/server-coordinator-assignments"
 import {
   BacklogDescriptionLockedError,
   BacklogItemNameConflictError,
+  BacklogWorkflowConflictError,
   getBacklogCompletionLock,
   isBacklogItemAssignedToAdviser,
   updateBacklogItem,
@@ -104,6 +106,9 @@ export async function PATCH(
       )
     }
 
+    const workflow = completionLock && typeof body.status === "string" && body.status !== completionLock.status
+      ? await getProjectWorkflow(completionLock.projectId)
+      : undefined
     if (completionLock && editsCoordinatorReadOnlyFields) {
       const currentStatus = completionLock.status
       if (body.expectedStatus !== undefined && body.expectedStatus !== currentStatus) {
@@ -112,7 +117,7 @@ export async function PATCH(
 
       if (
         (body.status !== undefined && (body.status !== currentStatus || user.role === "student") &&
-          !canTransitionTaskStatus(currentStatus, body.status, user.role)) ||
+          !canTransitionTaskStatus(currentStatus, body.status, user.role, workflow?.transitions)) ||
         (user.role === "student" && ("orderIndex" in body || "parentId" in body || ("checked" in body && body.status !== "inprogress"))) ||
         (user.role === "faculty" && !(await isBacklogItemAssignedToAdviser(id, user.id, user.name)))
       ) {
@@ -160,7 +165,14 @@ export async function PATCH(
       }
     }
 
-    const item = await updateBacklogItem(id, user.id, updates, user.role, completionLock?.status)
+    const workflowGuard = workflow && completionLock && canPersistProjectWorkflow()
+      ? {
+          projectId: completionLock.projectId,
+          revision: workflow.revision,
+          wipLimit: workflow.boardColumns.find((column) => column.id === updates.status)?.wipLimit,
+        }
+      : undefined
+    const item = await updateBacklogItem(id, user.id, updates, user.role, completionLock?.status, workflowGuard)
 
     if (!item) {
       return NextResponse.json(
@@ -230,7 +242,7 @@ export async function PATCH(
     if (error instanceof BacklogDescriptionLockedError) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
-    if (error instanceof BacklogItemNameConflictError) {
+    if (error instanceof BacklogItemNameConflictError || error instanceof BacklogWorkflowConflictError) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
 

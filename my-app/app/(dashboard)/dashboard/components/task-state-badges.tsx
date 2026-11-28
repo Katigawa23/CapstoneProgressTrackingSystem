@@ -1,3 +1,7 @@
+"use client"
+
+import { useContext } from "react"
+import { ProjectWorkflowContext } from "@/lib/project-workflow-client"
 import { cn } from "@/lib/utils"
 
 import { getStatusOption } from "../backlog/types"
@@ -44,7 +48,8 @@ export function TaskStatusBadge({
   status: string
   className?: string
 }) {
-  const option = getStatusOption(status)
+  const workflow = useContext(ProjectWorkflowContext)
+  const option = getStatusOption(status, workflow?.boardColumns)
 
   return (
     <span className={cn(

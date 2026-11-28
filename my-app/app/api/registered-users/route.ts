@@ -19,7 +19,7 @@ function matchesRole(role: string, filter: UserRoleFilter | null) {
     : normalizedRole === "student"
 }
 
-async function searchSupabaseUsers(tenantId: string, query: string) {
+async function searchSupabaseUsers(tenantId: string, query: string, role: UserRoleFilter | null) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "")
   const supabaseKey =
     process.env.SUPABASE_SECRET_KEY?.trim() ||
@@ -31,6 +31,7 @@ async function searchSupabaseUsers(tenantId: string, query: string) {
   const url = new URL(`${supabaseUrl}/rest/v1/users`)
   url.searchParams.set("select", "microsoft_user_id,email,name,role,tenant_id,login_at")
   url.searchParams.set("tenant_id", `eq.${tenantId}`)
+  if (role) url.searchParams.set("role", role === "faculty" ? "in.(faculty,adviser)" : "eq.student")
   url.searchParams.set("or", "(role.not.in.(faculty,adviser),faculty_verification_status.eq.approved)")
   url.searchParams.set("order", "name.asc")
   url.searchParams.set("limit", "20")
@@ -76,19 +77,19 @@ export async function GET(request: Request) {
 
     const coordinator = user.role === "faculty" && (user.id === "tester-coordinator" || await isAssignedCoordinator(user.id))
     if (coordinator && roleFilter !== "faculty") {
-      const students = await searchCoordinatorStudents(user.id, user.tenantId, query)
+      const students = await searchCoordinatorStudents(user.id, user.tenantId, query, searchParams.get("program")?.trim())
       return NextResponse.json({ users: students.filter((student) => student.id !== user.id) }, { headers: { "Cache-Control": "no-store" } })
     }
 
     let users
     try {
-      users = await searchRegisteredMicrosoftUsers({ tenantId: user.tenantId, query })
+      users = await searchRegisteredMicrosoftUsers({ tenantId: user.tenantId, query, role: roleFilter })
     } catch (databaseError) {
       console.warn(
         "PostgreSQL user lookup unavailable; using Supabase REST:",
         databaseError instanceof Error ? databaseError.message : databaseError
       )
-      users = await searchSupabaseUsers(user.tenantId, query)
+      users = await searchSupabaseUsers(user.tenantId, query, roleFilter)
     }
     const currentUserId = user.id.trim().toLowerCase()
     const currentUserEmail = user.email.trim().toLowerCase()

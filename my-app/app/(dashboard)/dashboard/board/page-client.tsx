@@ -12,6 +12,8 @@ import {
 import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 
 import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
+import { ProjectWorkflowContext, useProjectWorkflow } from "@/lib/project-workflow-client"
+import { Button } from "@/components/ui/button"
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
@@ -147,6 +149,8 @@ export function DashboardBoardPageClient({
   const [isSavingTaskStatus, setIsSavingTaskStatus] = React.useState(false)
   const [statusChangeError, setStatusChangeError] = React.useState<string | null>(null)
   const canChangeTaskState = Boolean(currentUser) && !taskReadOnly
+  const { workflow, isLoading: isWorkflowLoading, failed: workflowFailed, retry: retryWorkflow } = useProjectWorkflow(selectedProjectId)
+  const projectTransitions = workflow?.transitions
   const [searchValue, setSearchValue] = React.useState("")
   const [filterValue, setFilterValue] =
     React.useState<DashboardBoardFilter>("none")
@@ -318,7 +322,7 @@ export function DashboardBoardPageClient({
 
     const statusCounts = todos.reduce(
       (counts, todo) => {
-        counts[todo.status] += 1
+        if (todo.status in counts) counts[todo.status as keyof typeof counts] += 1
         return counts
       },
       {
@@ -402,12 +406,8 @@ export function DashboardBoardPageClient({
         return
       }
       if (hasCompletedTaskParent(currentTodo, todos)) return
-      if (!canTransitionTaskStatus(currentTodo.status, nextStatus, currentUser?.role ?? "admin")) {
-        if (currentUser?.role === "faculty") {
-          setStatusChangeError(currentTodo.status === "revision"
-            ? "A task in Revision can only move to Completed."
-            : "A task in In Progress cannot move back to To-do.")
-        }
+      if (!canTransitionTaskStatus(currentTodo.status, nextStatus, currentUser?.role ?? "admin", projectTransitions)) {
+        setStatusChangeError("This status move is unavailable in the project workflow.")
         return
       }
 
@@ -498,7 +498,7 @@ export function DashboardBoardPageClient({
         releaseBoardSyncGuardAfterSettle()
       }
     },
-    [buildChecklist, canChangeTaskState, currentUser?.role, fetchTodosForProject, guardBoardSyncDuringLocalMutation, releaseBoardSyncGuardAfterSettle, selectedProjectId, todos]
+    [buildChecklist, canChangeTaskState, currentUser?.role, fetchTodosForProject, guardBoardSyncDuringLocalMutation, projectTransitions, releaseBoardSyncGuardAfterSettle, selectedProjectId, todos]
   )
 
   const handleMoveTodo = React.useCallback(
@@ -855,11 +855,11 @@ export function DashboardBoardPageClient({
     setCreateChapterNumber(null)
   }
 
-  const handleCreateItem = async () => {
+  const handleCreateItem = async (researchTarget?: number) => {
     if (isCreatingTask) return
 
-    if (!createTitle.trim() || !createStartDate || !createDueDate || !createChapterNumber) {
-      setCreateTaskError("Title, chapter, start date, and due date are required")
+    if (!createTitle.trim() || !createStartDate || !createDueDate || (workflow?.requiresChapter !== false && !createChapterNumber)) {
+      setCreateTaskError("Complete the required task fields.")
       return
     }
 
@@ -896,7 +896,8 @@ export function DashboardBoardPageClient({
           status: "todo",
           assigneeId: createAssigneeId,
           priority: createPriority,
-          chapterNumber: createChapterNumber,
+          chapterNumber: workflow?.requiresChapter === false ? undefined : createChapterNumber,
+          researchTarget,
         }),
       })
 
@@ -1131,7 +1132,7 @@ export function DashboardBoardPageClient({
             assigneeId: data.item.assigneeId ?? null,
             startDate: data.item.startDate ?? "",
             deadline: data.item.dueDate ?? "",
-            status: data.item.status === "inprogress" || data.item.status === "revision" || data.item.status === "completed"
+            status: isDashboardColumn(data.item.status)
               ? data.item.status
               : "todo",
             checked: data.item.checked,
@@ -1193,11 +1194,19 @@ export function DashboardBoardPageClient({
     })
   }, [currentUserAssigneeIds, filterValue, searchValue, todos])
 
-  if (!hasLoadedBoardData) {
+  if (workflowFailed) {
+    return <div role="alert" className="flex items-center gap-3 text-sm">
+      <span>Could not load this group’s workflow.</span>
+      <Button type="button" variant="outline" size="sm" onClick={retryWorkflow}>Retry</Button>
+    </div>
+  }
+
+  if (!hasLoadedBoardData || isWorkflowLoading) {
     return <BoardLoadingState />
   }
 
   return (
+    <ProjectWorkflowContext.Provider value={workflow}>
     <div className="flex w-full min-w-0 shrink-0 flex-col gap-4 md:h-full md:min-h-0 md:shrink md:overflow-hidden">
       <DashboardHeader
         breadcrumbSectionLabel={breadcrumbSectionLabel}
@@ -1249,6 +1258,7 @@ export function DashboardBoardPageClient({
         </AlertDialog>
         <div className="min-h-0 w-full min-w-0 md:max-w-[calc(100vw-var(--sidebar-width)-3rem)] xl:max-w-[calc(100vw-var(--sidebar-width)-4rem)] 2xl:max-w-[calc(100vw-var(--sidebar-width)-5rem)]">
           <DashboardBoard
+            researchApproach={selectedProject?.researchApproach}
             todos={filteredTodos}
             openTodoId={openTaskId}
             onTaskDialogClose={() => {
@@ -1303,6 +1313,8 @@ export function DashboardBoardPageClient({
         assigneeId={createAssigneeId}
         priority={createPriority}
         chapterNumber={createChapterNumber}
+        requiresChapter={workflow?.requiresChapter}
+        researchApproach={selectedProject?.researchApproach}
         onTitleChange={(value) => {
           setCreateTaskError(null)
           setCreateTitle(value)
@@ -1318,5 +1330,6 @@ export function DashboardBoardPageClient({
       />
 
     </div>
+    </ProjectWorkflowContext.Provider>
   )
 }

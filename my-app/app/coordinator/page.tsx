@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useContext, useEffect, useState } from "react"
+import { OpenProjectCreationContext } from "@/app/(dashboard)/dashboard/layout-client"
 import { useRouter } from "next/navigation"
 import { Archive, MoreHorizontal, Search } from "lucide-react"
 
@@ -23,6 +24,7 @@ import {
 
 export default function CoordinatorPage() {
   const router = useRouter()
+  const openProjectCreation = useContext(OpenProjectCreationContext)
   const [groups, setGroups] = useState<DashboardProject[]>([])
   const [showAllGroups, setShowAllGroups] = useState(false)
   const [searchValue, setSearchValue] = useState("")
@@ -99,19 +101,17 @@ export default function CoordinatorPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
+            {openProjectCreation ? <Button
               type="button"
               className="rounded-lg px-5"
               style={{
                 backgroundColor: "var(--brand-primary-fixed)",
                 color: "var(--brand-primary-fixed-foreground)",
               }}
-              onClick={() => {
-                window.dispatchEvent(new Event("tracksphere-open-create-project"))
-              }}
+              onClick={openProjectCreation}
             >
               Create
-            </Button>
+            </Button> : null}
             <div className="relative w-64">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input

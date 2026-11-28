@@ -1,4 +1,6 @@
 import { getDb } from "@/lib/server-db"
+import { ensureBacklogSchema } from "@backend/repositories/tasks-repository"
+import { ensureProjectsSchema } from "@/lib/server-project-repository"
 import { emailNotificationTypes, getEmailDeliveryEnvironment, getTaskEmailConfiguration, notificationEmailSchema, processPendingTaskEmails } from "@/lib/server-notification-email"
 
 export type AppNotification = {
@@ -16,7 +18,7 @@ export type AppNotification = {
 let schemaReady: Promise<unknown> | null = null
 
 export async function ensureNotificationSchema() {
-  schemaReady ??= getDb().query(`
+  schemaReady ??= ensureProjectsSchema().then(ensureBacklogSchema).then(() => getDb().query(`
     create table if not exists notifications (
       id uuid primary key default gen_random_uuid(),
       recipient_user_id text not null references users(microsoft_user_id) on delete cascade,
@@ -36,7 +38,7 @@ export async function ensureNotificationSchema() {
     create index if not exists notifications_recipient_created_idx
       on notifications(recipient_user_id, created_at desc);
     ${notificationEmailSchema}
-  `).catch((error) => { schemaReady = null; throw error })
+  `)).catch((error) => { schemaReady = null; throw error })
   await schemaReady
 }
 

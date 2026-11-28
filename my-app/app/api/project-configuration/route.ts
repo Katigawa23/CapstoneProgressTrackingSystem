@@ -33,7 +33,7 @@ export async function GET() {
     const assignedPrograms = user.id === "tester-admin"
       ? []
       : await listAssignedCoordinatorProgramLabels(user.id)
-    if (assignedPrograms.length > 0) {
+    if (assignedPrograms.length > 0 || user.id === "tester-coordinator") {
       const allowed = new Set(assignedPrograms.map((label) => label.toLowerCase()))
       return NextResponse.json({ options: options.filter((option) => option.category !== "program" || allowed.has(option.label.toLowerCase())) })
     }

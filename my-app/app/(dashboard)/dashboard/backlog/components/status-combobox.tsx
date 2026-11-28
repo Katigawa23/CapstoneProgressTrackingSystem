@@ -1,6 +1,7 @@
 "use client"
 
 import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
+import { ProjectWorkflowContext } from "@/lib/project-workflow-client"
 import { useRole } from "@/lib/role-context"
 import * as React from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
@@ -19,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-import { getStatusOption, statusOptions } from "../types"
+import { getProjectStatusOptions, getStatusOption } from "../types"
 
 type StatusComboboxProps = {
   value: string
@@ -38,10 +39,11 @@ export function StatusCombobox({
 }: StatusComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const listId = React.useId()
-  const selectedOption = getStatusOption(value)
-
   const role = useRole()
-  const options = statusOptions.filter((option) => canTransitionTaskStatus(value, option.value, role))
+  const workflow = React.useContext(ProjectWorkflowContext)
+  const projectOptions = getProjectStatusOptions(workflow?.boardColumns)
+  const selectedOption = projectOptions.find((option) => option.value === value) ?? getStatusOption(value)
+  const options = projectOptions.filter((option) => canTransitionTaskStatus(value, option.value, role, workflow?.transitions))
   if (disabled || options.length === 0) {
     return <span className={cn("inline-flex h-6 items-center rounded border px-1.5 text-[11px] font-medium", selectedOption.color, className)}>{selectedOption.label}</span>
   }

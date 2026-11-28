@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { canAssignStudentsToProgram } from "@/lib/server-student-program-access"
 import { getDb } from "@/lib/server-db"
 import { revalidateTag } from "next/cache"
@@ -7,14 +8,18 @@ import { requireAuthenticatedUser } from "@/lib/server-auth"
 import {
   PROJECT_METADATA_MAX_LENGTH,
   PROJECT_TITLE_MAX_LENGTH,
+  isResearchApproach,
+  isThesisGroupType,
 } from "@/lib/projects"
 import { canCreateProject, isUserRole } from "@/lib/rbac"
 import { isAssignedCoordinator, listAssignedCoordinatorProgramLabels } from "@/lib/server-coordinator-assignments"
 import { hasInvalidTaskTitleCharacters, TASK_TITLE_CHARACTERS_ERROR, validateDisplayName } from "@/lib/text-validation"
 import { notifyProjectEmailEvent } from "@/lib/server-project-email-events"
+import { isProjectWorkflowPreset } from "@/lib/project-workflow-presets"
 import {
   createProject,
   ProjectNameConflictError,
+  ProjectWorkflowStorageError,
   StudentAlreadyAssignedError,
   listProjects,
   updateProjectStarred,
@@ -53,6 +58,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const requestId = randomUUID()
+  let stage = "authentication"
   try {
     const user = await requireAuthenticatedUser()
 
@@ -64,7 +71,12 @@ export async function POST(request: Request) {
       )
     }
 
-    const body = (await request.json()) as {
+    stage = "validation"
+    const input: unknown = await request.json().catch(() => null)
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      return NextResponse.json({ error: "Invalid group form data." }, { status: 400 })
+    }
+    const body = input as {
       name?: string
       members?: string[]
       advisers?: string[]
@@ -81,6 +93,12 @@ export async function POST(request: Request) {
       yearLevel?: string
       syTerm?: string
       projectType?: string
+      workflowPreset?: unknown
+      researchApproach?: unknown
+    }
+    const workflowPreset = body.workflowPreset ?? "existing"
+    if (!isProjectWorkflowPreset(workflowPreset)) {
+      return NextResponse.json({ error: "Invalid workflow preset" }, { status: 400 })
     }
 
     const rawName = typeof body.name === "string" ? body.name : ""
@@ -88,12 +106,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: TASK_TITLE_CHARACTERS_ERROR }, { status: 400 })
     }
     const name = rawName.trim()
-    const program = body.program?.trim()
-    const yearLevel = body.yearLevel?.trim()
-    const syTerm = body.syTerm?.trim()
-    const projectType = body.projectType?.trim()
-    if (coordinatorAssigned && program) {
+    const program = typeof body.program === "string" ? body.program.trim() : ""
+    const yearLevel = typeof body.yearLevel === "string" ? body.yearLevel.trim() : ""
+    const syTerm = typeof body.syTerm === "string" ? body.syTerm.trim() : ""
+    const projectType = typeof body.projectType === "string" ? body.projectType.trim() : ""
+    if (user.role === "faculty" && program) {
       const assignedPrograms = await listAssignedCoordinatorProgramLabels(user.id)
+      if (!assignedPrograms.length) {
+        return NextResponse.json({ error: "This coordinator has no assigned program. Ask the administrator to assign one before creating a group." }, { status: 403 })
+      }
       if (!assignedPrograms.some((assignedProgram) => assignedProgram.toLowerCase() === program.toLowerCase())) {
         return NextResponse.json({ error: "You can only create groups for your assigned program." }, { status: 403 })
       }
@@ -114,6 +135,7 @@ export async function POST(request: Request) {
       : []
     const memberAccess = Array.isArray(body.memberAccess)
       ? body.memberAccess
+          .filter((member) => member && typeof member === "object")
           .map((member) => ({
             userId: typeof member.userId === "string" ? member.userId.trim() : "",
             role: typeof member.role === "string" ? member.role.trim().toLowerCase() : "",
@@ -171,6 +193,11 @@ export async function POST(request: Request) {
     if (!projectType) {
       return NextResponse.json({ error: "Project type is required" }, { status: 400 })
     }
+    const isThesis = isThesisGroupType(projectType)
+    const researchApproach = isResearchApproach(body.researchApproach) ? body.researchApproach : undefined
+    if (isThesis && !researchApproach) {
+      return NextResponse.json({ error: "Choose a research approach for the thesis group." }, { status: 400 })
+    }
 
     if (!syTerm) {
       return NextResponse.json({ error: "SY term is required" }, { status: 400 })
@@ -188,6 +215,7 @@ export async function POST(request: Request) {
       }
     }
 
+    stage = "save-group"
     const project = await createProject({
       name: name.slice(0, PROJECT_TITLE_MAX_LENGTH),
       members,
@@ -202,7 +230,9 @@ export async function POST(request: Request) {
       yearLevel: yearLevel.slice(0, PROJECT_METADATA_MAX_LENGTH),
       syTerm: syTerm.slice(0, PROJECT_METADATA_MAX_LENGTH),
       projectType: projectType.slice(0, PROJECT_METADATA_MAX_LENGTH),
-    }, user.id)
+      workflowPreset: workflowPreset === "existing" ? undefined : workflowPreset,
+      researchApproach: isThesis ? researchApproach : undefined,
+    }, user.id, requestId)
 
     revalidateProjectData()
 
@@ -210,7 +240,10 @@ export async function POST(request: Request) {
       actorName: user.name, type: "adviser_assigned", eventId: project.id })
     return NextResponse.json({ project }, { status: 201 })
   } catch (error) {
-    if (error instanceof ProjectNameConflictError) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Your session expired. Sign in again to create a group." }, { status: 401 })
+    }
+    if (error instanceof ProjectNameConflictError || error instanceof ProjectWorkflowStorageError) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
 
@@ -218,8 +251,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
 
-    console.error("Failed to create project", error)
-    return NextResponse.json({ error: "Failed to create project" }, { status: 500 })
+    const code = typeof error === "object" && error && "code" in error ? error.code : undefined
+    console.error("Failed to create group", { requestId, stage, code })
+    return NextResponse.json({ error: "Could not save the group.", requestId }, {
+      status: 500,
+      headers: { "X-Request-ID": requestId },
+    })
   }
 }
 

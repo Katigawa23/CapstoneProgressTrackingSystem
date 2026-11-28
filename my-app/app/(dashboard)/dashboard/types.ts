@@ -1,4 +1,6 @@
-export type ColumnId = "todo" | "inprogress" | "revision" | "completed"
+import type { BoardStatus } from "@/lib/task-status-transitions"
+
+export type ColumnId = BoardStatus
 
 export type TodoItem = {
   id: string

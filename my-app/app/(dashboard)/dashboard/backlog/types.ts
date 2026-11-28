@@ -1,3 +1,5 @@
+import { isCustomTaskStatus, type ProjectBoardColumn } from "@/lib/task-status-transitions"
+
 export type StatusOption = {
   value: string
   label: string
@@ -179,8 +181,23 @@ export function setAssigneeOptions(options: AssigneeOption[]) {
   assigneeOptions = options.length > 0 ? options : []
 }
 
-export function getStatusOption(value: string) {
-  return statusOptions.find((option) => option.value === value) ?? statusOptions[0]
+export function getProjectStatusOptions(columns?: readonly ProjectBoardColumn[]) {
+  if (!columns) return statusOptions
+  return columns.map(({ id, label }) => {
+    const standard = statusOptions.find((option) => option.value === id)
+    return {
+      value: id,
+      label: label ?? standard?.label ?? "Custom status",
+      color: standard?.color ?? "border-sky-200 bg-sky-100 text-sky-800",
+    }
+  })
+}
+
+export function getStatusOption(value: string, columns?: readonly ProjectBoardColumn[]) {
+  return getProjectStatusOptions(columns).find((option) => option.value === value) ??
+    (isCustomTaskStatus(value)
+      ? { value, label: "Custom status", color: "border-sky-200 bg-sky-100 text-sky-800" }
+      : statusOptions[0])
 }
 
 export function getAssigneeOption(value?: string | null) {

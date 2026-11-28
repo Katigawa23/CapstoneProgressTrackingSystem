@@ -3,6 +3,7 @@
 import * as React from "react"
 import { ArrowUpRight, Check, CircleUserRound, Loader2, Search, UserRound, X } from "lucide-react"
 import { hasInvalidTaskTitleCharacters, TASK_TITLE_CHARACTERS_ERROR } from "@/lib/text-validation"
+import { isProjectWorkflowPreset, projectWorkflowPresets, type ProjectWorkflowPreset } from "@/lib/project-workflow-presets"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandItem,
   CommandList,
@@ -44,23 +44,29 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  isResearchApproach,
+  isThesisGroupType,
   OTHER_PROJECT_OPTION,
   PROJECT_PROGRAM_OPTIONS,
   PROJECT_SY_TERM_OPTIONS,
   PROJECT_TYPE_OPTIONS,
   PROJECT_TITLE_MAX_LENGTH,
   PROJECT_YEAR_LEVEL_OPTIONS,
+  researchApproaches,
+  type ResearchApproach,
 } from "@/lib/projects"
 import type { ProjectMemberOption } from "@/hooks/use-dashboard-projects"
 
 type CreateProjectDialogProps = {
   adviserOptions: ProjectMemberOption[]
+  adviserOptionsError: boolean
   adviserOptionsLoading: boolean
   adviserSearch: string
   memberSearch: string
   memberOptions: ProjectMemberOption[]
+  memberOptionsError: boolean
   memberOptionsLoading: boolean
-  onCreateProject: () => Promise<unknown>
+  onCreateProject: (workflowPreset: ProjectWorkflowPreset, researchApproach?: ResearchApproach) => Promise<unknown>
   onAdviserRemove: (adviserId: string) => void
   onAdviserSearchChange: (value: string) => void
   onAdviserSelect: (adviser: ProjectMemberOption) => void
@@ -199,10 +205,12 @@ function SelectWithCustomInput({
 
 export function CreateProjectDialog({
   adviserOptions,
+  adviserOptionsError,
   adviserOptionsLoading,
   adviserSearch,
   memberSearch,
   memberOptions,
+  memberOptionsError,
   memberOptionsLoading,
   onCreateProject,
   onAdviserRemove,
@@ -238,21 +246,40 @@ export function CreateProjectDialog({
   onCancelStudentTransfer,
 }: CreateProjectDialogProps) {
   const [memberPickerOpen, setMemberPickerOpen] = React.useState(false)
+  const [workflowPreset, setWorkflowPreset] = React.useState<ProjectWorkflowPreset>("existing")
+  const [researchApproach, setResearchApproach] = React.useState<ResearchApproach>()
   const [adviserPickerOpen, setAdviserPickerOpen] = React.useState(false)
   const [discardWarningOpen, setDiscardWarningOpen] = React.useState(false)
   const [memberPickerWidth, setMemberPickerWidth] = React.useState(0)
   const memberPickerRef = React.useRef<HTMLDivElement | null>(null)
   const [configurationOptions, setConfigurationOptions] = React.useState<ConfigurationOptions>(defaultConfigurationOptions)
+  const [configurationStatus, setConfigurationStatus] = React.useState<"loading" | "ready" | "error">("loading")
+  const [configurationAttempt, setConfigurationAttempt] = React.useState(0)
   const hasInvalidTitle = hasInvalidTaskTitleCharacters(projectTitle)
-  const displayedTitleError = hasInvalidTitle ? TASK_TITLE_CHARACTERS_ERROR : titleError
+  const displayedTitleError = hasInvalidTitle ? TASK_TITLE_CHARACTERS_ERROR : null
   const isProgramComplete = projectProgram.trim().length > 0
   const isYearLevelComplete = projectYearLevel.trim().length > 0
   const isSyTermComplete =
-    projectSyTerm.trim().length > 0
+    projectSyTerm.trim().length > 0 &&
+    (projectSyTerm !== OTHER_PROJECT_OPTION || projectSyTermOther.trim().length > 0)
   const isProjectTypeComplete =
     projectType.trim().length > 0 &&
     (projectType !== OTHER_PROJECT_OPTION || projectTypeOther.trim().length > 0)
+  const isThesis = isThesisGroupType(projectType === OTHER_PROJECT_OPTION ? projectTypeOther : projectType)
+  const missingFields = [
+    ...(!projectTitle.trim() ? [{ id: "project-title", label: "title" }] : []),
+    ...(!isProgramComplete ? [{ id: "project-program", label: "program" }] : []),
+    ...(!isYearLevelComplete ? [{ id: "project-year-level", label: "year level" }] : []),
+    ...(!isSyTermComplete ? [{ id: "project-sy-term", label: "school year and term" }] : []),
+    ...(!isProjectTypeComplete ? [{ id: "project-type", label: "project type" }] : []),
+    ...(isThesis && !researchApproach ? [{ id: "project-research-approach", label: "research approach" }] : []),
+    ...(showAdviserField && !selectedAdvisers.length ? [{ id: "project-adviser", label: "an adviser" }] : []),
+    ...(!selectedMembers.some((member) => member.role === "student" && member.name.trim())
+      ? [{ id: "project-member", label: "at least one student" }] : []),
+  ]
+  const [submitAttempted, setSubmitAttempted] = React.useState(false)
   const hasUnsavedChanges = Boolean(
+    workflowPreset !== "existing" ||
     projectTitle.trim() ||
     projectProgram.trim() ||
     projectType.trim() ||
@@ -266,6 +293,9 @@ export function CreateProjectDialog({
 
   React.useEffect(() => {
     if (!open) {
+      setSubmitAttempted(false)
+      setWorkflowPreset("existing")
+      setResearchApproach(undefined)
       setMemberPickerOpen(false)
       setAdviserPickerOpen(false)
     }
@@ -273,6 +303,7 @@ export function CreateProjectDialog({
 
   React.useEffect(() => {
     if (!open) return
+    setConfigurationStatus("loading")
     const controller = new AbortController()
     void fetch("/api/project-configuration", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
@@ -280,6 +311,7 @@ export function CreateProjectDialog({
         return response.json() as Promise<ConfigurationResponse>
       })
       .then((payload) => {
+        if (controller.signal.aborted) return
         const next: ConfigurationOptions = { programs: [], yearLevels: [], groupTypes: [], terms: [] }
         for (const option of payload.options ?? []) {
           if (option.category === "program") next.programs.push(option.label)
@@ -288,14 +320,17 @@ export function CreateProjectDialog({
           if (option.category === "sy_term") next.terms.push(option.label)
         }
         setConfigurationOptions(next)
+        setConfigurationStatus("ready")
       })
       .catch((error: unknown) => {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
-          setConfigurationOptions(defaultConfigurationOptions())
+          if (controller.signal.aborted) return
+          setConfigurationStatus("error")
+          setConfigurationOptions({ ...defaultConfigurationOptions(), programs: [] })
         }
       })
     return () => controller.abort()
-  }, [open])
+  }, [open, configurationAttempt])
 
   React.useLayoutEffect(() => {
     if (!memberPickerOpen) {
@@ -318,10 +353,15 @@ export function CreateProjectDialog({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (isSubmitting || hasInvalidTitle) {
+    if (isSubmitting) return
+    setSubmitAttempted(true)
+    if (configurationStatus !== "ready") return
+    const fieldId = hasInvalidTitle ? "project-title" : missingFields[0]?.id
+    if (fieldId) {
+      document.getElementById(fieldId)?.focus()
       return
     }
-    await onCreateProject()
+    await onCreateProject(workflowPreset, isThesis ? researchApproach : undefined)
   }
 
   function requestClose() {
@@ -349,7 +389,7 @@ export function CreateProjectDialog({
       if (nextOpen) onOpenChange(true)
       else requestClose()
     }}>
-      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-[2px] border-border/70 bg-white px-5 py-4 dark:border-[var(--border)] dark:bg-[var(--background)] sm:max-w-xl">
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] flex-col overflow-hidden rounded-[2px] border-border/70 bg-white px-4 py-4 sm:px-5 dark:border-[var(--border)] dark:bg-[var(--background)] sm:max-w-xl">
         <div className="border-b border-border/70 pb-2 dark:border-[var(--border)]">
           <DialogHeader className="gap-2 text-left">
             <DialogTitle className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
@@ -360,6 +400,23 @@ export function CreateProjectDialog({
 
         <form className="flex min-h-0 flex-1 flex-col gap-3 py-1" onSubmit={handleSubmit}>
           <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2">
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <label htmlFor="project-workflow-preset" className="text-sm font-medium">Workflow preset</label>
+              <select
+                id="project-workflow-preset"
+                className="h-8 rounded border bg-background px-2 text-sm"
+                value={workflowPreset}
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  if (isProjectWorkflowPreset(event.target.value)) setWorkflowPreset(event.target.value)
+                }}
+              >
+                {Object.entries(projectWorkflowPresets).map(([id, preset]) =>
+                  <option key={id} value={id}>{preset.label}</option>
+                )}
+              </select>
+              <p className="text-xs text-muted-foreground">{projectWorkflowPresets[workflowPreset].description}</p>
+            </div>
             <div className="flex flex-col gap-2">
               <label htmlFor="project-title" className="text-sm font-medium text-slate-900 dark:text-slate-100">
                 {useGroupTerminology ? "Group" : "Project"} title <span className="text-red-500">*</span>
@@ -387,7 +444,7 @@ export function CreateProjectDialog({
               label="Program"
               value={projectProgram}
               onValueChange={onProjectProgramChange}
-              options={configurationOptions.programs}
+              options={configurationStatus === "ready" ? configurationOptions.programs : []}
               placeholder="Select a program"
               customValue=""
               onCustomValueChange={() => undefined}
@@ -405,6 +462,24 @@ export function CreateProjectDialog({
               onCustomValueChange={onProjectTypeOtherChange}
               customInputPlaceholder="Enter project type"
             />
+
+            {isThesis ? (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="project-research-approach" className="text-sm font-medium">
+                  Research approach <span className="text-red-500">*</span>
+                </label>
+                <Select value={researchApproach ?? ""} onValueChange={(value) => {
+                  if (isResearchApproach(value)) setResearchApproach(value)
+                }}>
+                  <SelectTrigger id="project-research-approach" className="h-8 w-full">
+                    <SelectValue placeholder="Select a research approach" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {researchApproaches.map((approach) => <SelectItem key={approach} value={approach}>{approach}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
 
             <SelectWithCustomInput
               id="project-year-level"
@@ -454,7 +529,7 @@ export function CreateProjectDialog({
                       />
                     </div>
                   </PopoverAnchor>
-                  <PopoverContent align="start" sideOffset={6} className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 dark:border-[var(--border)] dark:bg-[var(--background)]">
+                  <PopoverContent align="start" sideOffset={6} onOpenAutoFocus={(event) => event.preventDefault()} className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-[2px] border border-slate-200 bg-white p-1 dark:border-[var(--border)] dark:bg-[var(--background)]">
                     {adviserOptionsLoading ? (
                       <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" /> Loading advisers...
@@ -488,7 +563,9 @@ export function CreateProjectDialog({
                         </CommandList>
                       </Command>
                     ) : (
-                      <div className="px-3 py-6 text-center text-sm text-muted-foreground">No advisers found.</div>
+                      <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        {adviserOptionsError ? "Could not load advisers. Change your search to try again." : "No verified advisers match your search."}
+                      </div>
                     )}
                   </PopoverContent>
                 </Popover>
@@ -607,11 +684,11 @@ export function CreateProjectDialog({
                         </CommandList>
                       </Command>
                     ) : (
-                      <Command className="rounded-lg bg-transparent">
-                        <CommandEmpty className="flex py-6 text-center text-sm text-slate-500 dark:text-slate-400">
-                          No registered users found.
-                        </CommandEmpty>
-                      </Command>
+                      <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        {!projectProgram ? "Choose a program first."
+                          : memberOptionsError ? "Could not load students. Change your search to try again."
+                            : "No eligible students match this program and search."}
+                      </p>
                     )}
                 </PopoverContent>
               </Popover>
@@ -659,6 +736,24 @@ export function CreateProjectDialog({
             ) : null}
           </div>
 
+          {configurationStatus === "loading" ? (
+            <p role="status" className="text-sm text-muted-foreground">Loading group setup…</p>
+          ) : configurationStatus === "error" ? (
+            <div className="flex items-center gap-2">
+              <p role="alert" className="text-sm text-destructive">Could not load group setup options.</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => setConfigurationAttempt((attempt) => attempt + 1)}>Retry</Button>
+            </div>
+          ) : configurationStatus === "ready" && !configurationOptions.programs.length ? (
+            <p role="alert" className="text-sm text-destructive">No program is assigned to this coordinator. Ask the administrator to assign a program first.</p>
+          ) : null}
+          {submitAttempted && configurationStatus === "ready" && configurationOptions.programs.length > 0 &&
+            (missingFields.length > 0 || displayedTitleError || titleError) ? (
+            <p role="alert" className="text-sm text-destructive">
+              {missingFields.length > 0
+                ? `Complete these fields: ${missingFields.map(({ label }) => label).join(", ")}.`
+                : displayedTitleError || titleError}
+            </p>
+          ) : null}
           <DialogFooter className="justify-end gap-2 border-t border-border/70 pt-2.5 dark:border-[var(--border)]">
             <Button
               type="button"
@@ -678,17 +773,7 @@ export function CreateProjectDialog({
                 color: "var(--brand-primary-fixed-foreground)",
               }}
               className="h-8 min-w-24 rounded-[2px] gap-2 hover:opacity-90"
-              disabled={
-                isSubmitting ||
-                !projectTitle.trim() ||
-                hasInvalidTitle ||
-                !isProgramComplete ||
-                !isYearLevelComplete ||
-                !isSyTermComplete ||
-                !isProjectTypeComplete ||
-                (showAdviserField && selectedAdvisers.length === 0) ||
-                selectedMembers.length === 0
-              }
+              disabled={isSubmitting || configurationStatus === "loading"}
             >
               {isSubmitting
                 ? "Creating..."

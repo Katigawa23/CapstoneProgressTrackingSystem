@@ -4,6 +4,7 @@ import * as React from "react"
 import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, CheckCircle2, Clock3, Download, ListChecks, Loader2, RefreshCw, Save, ShieldCheck, Sparkles, Target, TriangleAlert, Trophy, Upload, UserRoundCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { ResearchApproach } from "@/lib/projects"
 
 type StoredStatus = "approved" | "submitted" | "draft"
 type Fields = {
@@ -119,9 +120,15 @@ function ActivityList({ content }: { content: string }) {
   </div>
 }
 
-type Props = { groupCreatedAt: string; projectName: string; projectId: string; initialNow: string; initialWeek?: number; canApprove: boolean; isPrivacyRestricted: boolean; userRole: string; members: string[]; advisers: string[] }
+type Props = { groupCreatedAt: string; projectName: string; projectId: string; initialNow: string; initialWeek?: number; canApprove: boolean; isPrivacyRestricted: boolean; userRole: string; members: string[]; advisers: string[]; researchApproach?: ResearchApproach }
 
-export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, initialNow, initialWeek, canApprove, isPrivacyRestricted, userRole, members = [], advisers = [] }: Props) {
+const researchProgressGuide: Record<ResearchApproach, string> = {
+  Quantitative: "How many valid responses or measurements did the group collect? What numerical data did you check or analyze this week?",
+  Qualitative: "What interviews or observations did the group complete? What themes or patterns did you notice this week?",
+  "Mixed Methods": "What numerical data and interview or observation findings did the group gather this week? Where did the findings agree or differ?",
+}
+
+export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, initialNow, initialWeek, canApprove, isPrivacyRestricted, userRole, members = [], advisers = [], researchApproach }: Props) {
   const [now, setNow] = React.useState(() => new Date(initialNow).getTime())
   const [selected, setSelected] = React.useState<Week | null>(() =>
     makeWeeks(groupCreatedAt, new Date(initialNow).getTime()).find((week) => week.week === initialWeek) ?? null)
@@ -301,7 +308,12 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
       <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color:rgba(var(--brand-primary-rgb),0.12)] text-[var(--brand-primary-fixed)] dark:text-cyan-300">
         <BookOpen className="size-5" aria-hidden="true" />
       </span>
-      <h1 className="font-display text-2xl font-semibold tracking-tight">Weekly Journal</h1>
+      <div>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Weekly Journal</h1>
+        {researchApproach && !isPrivacyRestricted ? (
+          <p className="mt-1 text-xs text-muted-foreground">Research approach · {researchApproach}</p>
+        ) : null}
+      </div>
     </header>
     {loadError ? <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-foreground">{loadError}</p> : null}
     {!selected ? <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -337,7 +349,10 @@ export function WeeklyJournalView({ groupCreatedAt, projectName, projectId, init
               ))}
             </TabsList>
           </div>
-          {FIELD_DEFINITIONS.map(({ key, title, description, icon: Icon, accent, iconBackground }) => {
+          {FIELD_DEFINITIONS.map(({ key, title, description: defaultDescription, icon: Icon, accent, iconBackground }) => {
+          const description = key === "workCompleted" && researchApproach
+            ? researchProgressGuide[researchApproach]
+            : defaultDescription
           const automaticValue = autoSummary?.[key as keyof Omit<AutoSummary, "weekNumber">] ?? ""
           const automatic = typeof automaticValue === "string" ? automaticValue : ""
           return <TabsContent key={key} value={key} className="min-w-0"><div className="flex min-h-80 flex-col rounded-lg border bg-background p-4 sm:p-5"><div className="flex shrink-0 items-start gap-3"><div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", iconBackground, accent)}><Icon className="h-4 w-4" /></div><div><h3 className="text-xs font-semibold">{title}</h3><p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">{description}</p></div></div>{automatic ? <ActivityList content={automatic} /> : <div className="mt-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-md border border-dashed bg-muted/20 px-3 text-center"><Icon className={cn("h-5 w-5 opacity-60", accent)} /><p className="mt-1.5 text-[11px] font-medium">Nothing recorded yet</p><p className="mt-0.5 text-[10px] text-muted-foreground">Updates will appear automatically from group activity.</p></div>}{form[key] ? <div className="mt-4 border-t pt-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Student notes</p><p className="mt-1 whitespace-pre-line text-xs leading-5">{form[key]}</p></div> : null}</div></TabsContent>

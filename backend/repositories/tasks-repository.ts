@@ -4,6 +4,7 @@ import path from "path"
 
 import { getPreferredStorageMode } from "@backend/config/storage-mode"
 import { getDb } from "@backend/db/connection"
+import { ensureResearchProgressSchema } from "../../my-app/lib/server-research-progress"
 import {
   canUseLocalFileFallback,
   shouldFallbackToLocalStore,
@@ -61,6 +62,7 @@ type CreateBacklogItemInput = {
   assigneeId: string | null
   priority?: "Low" | "Medium" | "High"
   createdByName?: string | null
+  researchTarget?: number
 }
 
 type UpdateBacklogItemInput = {
@@ -141,6 +143,14 @@ export class BacklogPriorityLockedError extends Error {
   constructor() {
     super("Task priority is set when the task is created and can no longer be changed.")
     this.name = "BacklogPriorityLockedError"
+  }
+}
+
+export class BacklogWorkflowConflictError extends Error {}
+
+export class BacklogResearchStorageError extends Error {
+  constructor() {
+    super("Research count tracking requires PostgreSQL storage.")
   }
 }
 
@@ -577,7 +587,7 @@ function showFallbackWarning(error: unknown) {
   )
 }
 
-async function ensureBacklogSchema() {
+export async function ensureBacklogSchema() {
   if (!schemaReady) {
     schemaReady = ensureMicrosoftLoginSchema()
       .then(() =>
@@ -1496,6 +1506,7 @@ export async function createBacklogItem(
         throw new BacklogItemNameConflictError(normalizedTitle, duplicateType)
       }
 
+      if (input.researchTarget !== undefined) await ensureResearchProgressSchema()
       const result = await getDb().query<BacklogRecord>(
         `with next_sequence as (
           select coalesce(max(sequence_number), 0) + 1 as value
@@ -1505,7 +1516,7 @@ export async function createBacklogItem(
           select coalesce(max(order_index), 0) + 1 as value
           from backlog
           where project_id = $2
-        )
+        ), created as (
         insert into backlog (
           id,
           project_id,
@@ -1558,7 +1569,13 @@ export async function createBacklogItem(
           checked,
           assignee_id,
           priority,
-          created_at`,
+          created_at
+        )
+        ${input.researchTarget === undefined ? "" : `, initialized_progress as (
+          insert into task_research_progress (task_id, target, completed, recorded_by)
+          select id, $14, 0, $4 from created
+        )`}
+        select * from created`,
         [
           randomUUID(),
           input.projectId,
@@ -1573,6 +1590,7 @@ export async function createBacklogItem(
           input.assigneeId,
           input.priority ?? "Medium",
           ownerUserId,
+          ...(input.researchTarget === undefined ? [] : [input.researchTarget]),
         ]
       )
 
@@ -1624,6 +1642,7 @@ export async function createBacklogItem(
       return createdRecord
     },
     async () => {
+      if (input.researchTarget !== undefined) throw new BacklogResearchStorageError()
       const records = await readFileRecords()
       const normalizedTitle = uppercaseFirstCharacter(input.title)
       const normalizedComparableTitle = normalizeItemNameForComparison(normalizedTitle)
@@ -1755,7 +1774,8 @@ export async function updateBacklogItem(
   ownerUserId: string,
   input: UpdateBacklogItemInput,
   ownerUserRole: "student" | "faculty" | "admin" = "student",
-  expectedStatus?: string
+  expectedStatus?: string,
+  workflowGuard?: { projectId: string; revision: number; wipLimit?: number }
 ) {
   if ("priority" in input) {
     throw new BacklogPriorityLockedError()
@@ -1887,8 +1907,7 @@ export async function updateBacklogItem(
       fields.push(`updated_at = now()`)
       values.push(id)
 
-      const result = await getDb().query<BacklogRecord>(
-        `update backlog
+      const statement = `update backlog
         set ${fields.join(", ")}
         from projects
         where backlog.id = $${values.length}
@@ -1925,17 +1944,59 @@ export async function updateBacklogItem(
           backlog.checked,
           backlog.assignee_id,
           backlog.priority,
-          backlog.created_at`,
-        [...values, ownerUserId, expectedStatus ?? null]
-      )
+          backlog.created_at`
+      const parameters = [...values, ownerUserId, expectedStatus ?? null]
+      let updatedRecord: BacklogRecord | undefined
 
-      if (result.rows[0]) {
-        await syncBacklogMirrorItems([result.rows[0].id])
+      if (workflowGuard) {
+        const client = await getDb().connect()
+        try {
+          await client.query("begin")
+          const project = await client.query(
+            "select id from projects where id = $1 and workflow_revision = $2 and not is_archived for update",
+            [workflowGuard.projectId, workflowGuard.revision]
+          )
+          if (!project.rowCount) throw new BacklogWorkflowConflictError("The project workflow changed. Refresh and try again.")
+
+          if (workflowGuard.wipLimit !== undefined) {
+            const { rows: [capacity] } = await client.query<{ available: boolean }>(
+              `select
+                 exists (
+                   select 1 from backlog where id = $1 and project_id = $2
+                     and case when $5::boolean then $6::uuid is not null else parent_id is not null end
+                 ) or (
+                   select count(*) from backlog where project_id = $2 and status = $3
+                     and parent_id is null and not is_archived and not is_deleted and id <> $1
+                 ) < $4::integer as available`,
+              [id, workflowGuard.projectId, input.status, workflowGuard.wipLimit, "parentId" in input, input.parentId ?? null]
+            )
+            if (!capacity.available) throw new BacklogWorkflowConflictError(
+              `This column limits work in progress to ${workflowGuard.wipLimit} cards and is full.`
+            )
+          }
+
+          const result = await client.query<BacklogRecord>(statement, parameters)
+          updatedRecord = result.rows[0]
+          await client.query("commit")
+        } catch (error) {
+          await client.query("rollback")
+          throw error
+        } finally {
+          client.release()
+        }
+      } else {
+        const result = await getDb().query<BacklogRecord>(statement, parameters)
+        updatedRecord = result.rows[0]
       }
 
-      return result.rows[0] ? mapRecord(result.rows[0]) : null
+      if (updatedRecord) {
+        await syncBacklogMirrorItems([updatedRecord.id])
+      }
+
+      return updatedRecord ? mapRecord(updatedRecord) : null
     },
     async () => {
+      if (workflowGuard) throw new BacklogWorkflowConflictError("The project workflow requires database storage.")
       const records = await readFileRecords()
       const index = records.findIndex((record) => record.id === id)
 

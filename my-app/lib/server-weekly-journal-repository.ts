@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/server-db"
+import { listResearchProgressEvents } from "@/lib/server-research-progress"
 
 export type WeeklyJournalStatus = "draft" | "submitted" | "approved"
 
@@ -165,7 +166,7 @@ export async function listWeeklyJournalAutoSummaries(projectId: string) {
     ? Math.max(1, Math.floor((new Date(value).getTime() + manilaOffsetMs - startMs) / weekMs) + 1)
     : 1
   await ensureSchema()
-  const [tasksResult, commentsResult, attachmentsResult, linksResult, eventsResult] = await Promise.all([
+  const [tasksResult, commentsResult, attachmentsResult, linksResult, eventsResult, researchEvents] = await Promise.all([
     getDb().query(`select b.*, coalesce(u.name, b.assignee_id, 'Unassigned') as assignee_name
       from backlog b left join users u on u.microsoft_user_id = b.assignee_id
       where b.project_id = $1 and b.is_deleted = false`, [projectId]),
@@ -186,16 +187,18 @@ export async function listWeeklyJournalAutoSummaries(projectId: string) {
       from task_activity_events e join backlog b on b.id = e.backlog_item_id
       left join users u on u.microsoft_user_id = b.assignee_id
       where e.project_id = $1 order by e.occurred_at`, [projectId]),
+    listResearchProgressEvents(projectId),
   ])
   type SummaryTextKey = "weeklyObjectives" | "workCompleted" | "memberContributions" |
     "challenges" | "actionsTaken" | "nextWeekPlan" | "completedTasks"
   const summaries = new Map<number, Record<SummaryTextKey, string[]> & {
     revisionTasks: Map<string, { title: string; when?: string }>
+    researchUpdates: Map<string, { title: string; target: number; completed: number; difference: number }>
   }>()
   const getWeek = (week: number) => {
     if (!summaries.has(week)) summaries.set(week, {
       weeklyObjectives: [], workCompleted: [], memberContributions: [], challenges: [],
-      actionsTaken: [], nextWeekPlan: [], completedTasks: [], revisionTasks: new Map(),
+      actionsTaken: [], nextWeekPlan: [], completedTasks: [], revisionTasks: new Map(), researchUpdates: new Map(),
     })
     return summaries.get(week)!
   }
@@ -256,11 +259,26 @@ export async function listWeeklyJournalAutoSummaries(projectId: string) {
     const week = weekOf(row.uploaded_at)
     getWeek(week).actionsTaken.push(`${row.actor} added ${row.label} to ${row.title}`)
   }
+  for (const row of researchEvents) {
+    const updates = getWeek(weekOf(row.recorded_at)).researchUpdates
+    const previous = updates.get(row.task_id)
+    if (row.difference || previous) {
+      updates.set(row.task_id, {
+        title: row.title, target: row.target, completed: row.completed,
+        difference: (previous?.difference ?? 0) + row.difference,
+      })
+    }
+  }
   const uniqueLines = (lines: string[]) => [...new Set(lines)].map((line) => `• ${line}`).join("\n")
   return [...summaries.entries()].map(([weekNumber, values]) => ({
     weekNumber,
     weeklyObjectives: uniqueLines(values.weeklyObjectives),
-    workCompleted: uniqueLines(values.workCompleted),
+    workCompleted: uniqueLines([
+      ...values.workCompleted,
+      ...Array.from(values.researchUpdates.values(), ({ title, target, completed, difference }) =>
+        `${title} — ${difference < 0 ? `count corrected by ${difference}` : `${difference} added`} this week · ${completed}/${target} total`
+      ),
+    ]),
     memberContributions: uniqueLines(values.memberContributions),
     challenges: uniqueLines(values.challenges),
     actionsTaken: uniqueLines(values.actionsTaken),

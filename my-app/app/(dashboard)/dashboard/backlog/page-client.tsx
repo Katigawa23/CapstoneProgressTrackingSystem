@@ -4,6 +4,8 @@ import { isOverdueWorkItem } from "./types"
 import { hasCompletedTaskParent, isTaskCompletionLocked } from "@/lib/task-completion"
 
 import { canTransitionTaskStatus } from "@/lib/task-status-transitions"
+import { ProjectWorkflowContext, useProjectWorkflow } from "@/lib/project-workflow-client"
+import { Button } from "@/components/ui/button"
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
@@ -21,13 +23,14 @@ import { EditWorkItemDialog } from "./components/edit-work-item-dialog"
 import {
   createAssigneeOptionsFromProject,
   setAssigneeOptions,
-  statusOptions,
+  getProjectStatusOptions,
   type WorkItem,
 } from "./types"
 import {
   buildSubtaskDisplayId,
   buildTaskDisplayId,
   compareTasksByPriority,
+  isDashboardColumn,
   normalizeTaskDescription,
 } from "../utils"
 import {
@@ -157,6 +160,7 @@ export function BacklogPageClient({
   const [open, setOpen] = React.useState(false)
   const [title, setTitle] = React.useState("")
   const [createTaskError, setCreateTaskError] = React.useState<string | null>(null)
+  const [statusError, setStatusError] = React.useState<{ projectId: string | null; message: string } | null>(null)
   const [startDate, setStartDate] = React.useState<Date | undefined>()
   const [dueDate, setDueDate] = React.useState<Date | undefined>()
   const [description, setDescription] = React.useState("")
@@ -181,6 +185,8 @@ export function BacklogPageClient({
   const [activeProjectId, setActiveProjectId] = React.useState<string | null>(
     initialSelectedProjectId
   )
+  const { workflow, isLoading: isWorkflowLoading, failed: workflowFailed, retry: retryWorkflow } = useProjectWorkflow(activeProjectId)
+  const projectTransitions = workflow?.transitions
   const [isDragDropReady, setIsDragDropReady] = React.useState(false)
 
   const activeProject = React.useMemo(
@@ -371,11 +377,11 @@ export function BacklogPageClient({
     setChapterNumber(null)
   }
 
-  const handleAddItem = async () => {
+  const handleAddItem = async (researchTarget?: number) => {
     if (!canChangeTaskState || isCreatingTask) return
 
-    if (!title.trim() || !startDate || !dueDate || !chapterNumber) {
-      setCreateTaskError("Title, chapter, start date, and due date are required")
+    if (!title.trim() || !startDate || !dueDate || (workflow?.requiresChapter !== false && !chapterNumber)) {
+      setCreateTaskError("Complete the required task fields.")
       return
     }
 
@@ -412,7 +418,8 @@ export function BacklogPageClient({
           dueDate: dueDate ? getLocalDateString(dueDate) : null,
           assigneeId,
           priority,
-          chapterNumber,
+          chapterNumber: workflow?.requiresChapter === false ? undefined : chapterNumber,
+          researchTarget,
         }),
       })
 
@@ -440,7 +447,8 @@ export function BacklogPageClient({
     if (!canChangeTaskState) return
     const currentItem = items.find((item) => item.id === id)
     if (!currentItem || hasCompletedTaskParent(currentItem, items) ||
-      !canTransitionTaskStatus(currentItem.status, nextStatus, currentUser?.role ?? "admin")) return
+      !canTransitionTaskStatus(currentItem.status, nextStatus, currentUser?.role ?? "admin", projectTransitions)) return
+    setStatusError(null)
 
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: nextStatus, checked: nextStatus === "completed" } : item))
@@ -456,11 +464,15 @@ export function BacklogPageClient({
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update backlog item status")
+        const result = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(result?.error || "Failed to update backlog item status")
       }
     } catch (error) {
-      console.error(error)
       setItems((prev) => prev.map((item) => item.id === id ? currentItem : item))
+      setStatusError({
+        projectId: activeProjectId,
+        message: error instanceof Error ? error.message : "Failed to update backlog item status",
+      })
     }
   }
 
@@ -641,9 +653,7 @@ export function BacklogPageClient({
         startDate: formatTaskDate(item.startDate),
         deadline: formatTaskDate(item.dueDate),
         status:
-          item.status === "inprogress" ||
-          item.status === "revision" ||
-          item.status === "completed"
+          isDashboardColumn(item.status)
             ? item.status
             : "todo",
         checked: item.checked,
@@ -896,12 +906,12 @@ export function BacklogPageClient({
         {}
       )
 
-      return statusOptions.filter((status) => status.value !== "completed").map((status) => ({
+      return getProjectStatusOptions(workflow?.boardColumns).filter((status) => status.value !== "completed").map((status) => ({
         ...status,
         count: countsByStatus[status.value] ?? 0,
       }))
     },
-    []
+    [workflow?.boardColumns]
   )
 
   const moveRootItem = React.useCallback(
@@ -1022,7 +1032,17 @@ export function BacklogPageClient({
     [canChangeTaskState, moveRootItem]
   )
 
+  if (workflowFailed) {
+    return <div role="alert" className="flex items-center gap-3 text-sm">
+      <span>Could not load this group’s workflow.</span>
+      <Button type="button" variant="outline" size="sm" onClick={retryWorkflow}>Retry</Button>
+    </div>
+  }
+
+  if (isWorkflowLoading) return <BacklogLoadingSkeleton />
+
   return (
+    <ProjectWorkflowContext.Provider value={workflow}>
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto pr-2">
         {!isDragDropReady ? (
@@ -1040,6 +1060,9 @@ export function BacklogPageClient({
             showCreateTaskButton={canChangeTaskState && currentUser?.role !== "admin"}
             onCreateTask={() => setOpen(true)}
           />
+          {statusError && statusError.projectId === activeProjectId ? (
+            <p role="alert" className="rounded border border-destructive/30 p-2 text-sm text-destructive">{statusError.message}</p>
+          ) : null}
 
           <div className="w-full">
             <BacklogBoard
@@ -1065,6 +1088,7 @@ export function BacklogPageClient({
       </div>
 
       <DashboardBoard
+        researchApproach={activeProject?.researchApproach}
         todos={detailTodos}
         openTodoId={selectedTaskDetailsId}
         onTaskDialogClose={() => setSelectedTaskDetailsId(null)}
@@ -1099,6 +1123,8 @@ export function BacklogPageClient({
         assigneeId={assigneeId}
         priority={priority}
         chapterNumber={chapterNumber}
+        requiresChapter={workflow?.requiresChapter}
+        researchApproach={activeProject?.researchApproach}
         onTitleChange={(value) => {
           setCreateTaskError(null)
           setTitle(value)
@@ -1130,5 +1156,6 @@ export function BacklogPageClient({
       ) : null}
 
     </div>
+    </ProjectWorkflowContext.Provider>
   )
 }
